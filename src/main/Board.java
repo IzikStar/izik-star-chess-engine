@@ -15,6 +15,7 @@ public class Board extends JPanel {
 
     public Piece selectedPiece;
     Input input = new Input(this);
+    CheckScanner checkScanner = new CheckScanner(this);
 
     public int enPassantTile = -1;
 
@@ -38,6 +39,15 @@ public class Board extends JPanel {
         }
 
 
+        return null;
+    }
+
+    Piece findKing(boolean isWhite) {
+        for (Piece piece : pieceList) {
+            if (piece.isWhite == isWhite && piece.name.equals("King")) {
+                return piece;
+            }
+        }
         return null;
     }
 
@@ -128,6 +138,9 @@ public class Board extends JPanel {
             return false;
         }
         if (move.piece.moveCollidesWithPiece(move.newCol, move.newRow)) {
+            return false;
+        }
+        if (checkScanner.isKingChecked(move)) {
             return false;
         }
 
