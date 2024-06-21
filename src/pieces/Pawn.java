@@ -13,7 +13,7 @@ public class Pawn extends Piece{
         this.yPos = row * board.tileSize;
 
         this.isWhite = isWhite;
-        this.name = "pawn";
+        this.name = "Pawn";
 
         this.sprite = sheet.getSubimage(5 * sheetScale, isWhite ? 0 : sheetScale, sheetScale, sheetScale).getScaledInstance(board.tileSize, board.tileSize, BufferedImage.SCALE_SMOOTH);
     }
@@ -34,7 +34,10 @@ public class Pawn extends Piece{
         if (Math.abs(this.col - col) == 1 && this.row  == row + colorIndex && board.getPiece(col, row) != null)
             return true;
 
-
+        // en passant:
+        if (board.getTileNum(col, row) == board.enPassantTile && Math.abs(col - this.col) == 1 && row == this.row - colorIndex && board.getPiece(col, row + colorIndex) != null) {
+            return true;
+        }
 
 
         return false;

@@ -16,6 +16,8 @@ public class Board extends JPanel {
     public Piece selectedPiece;
     Input input = new Input(this);
 
+    public int enPassantTile = -1;
+
     public Board() {
         this.setPreferredSize(new Dimension(cols * tileSize, rows * tileSize));
 
@@ -98,18 +100,23 @@ public class Board extends JPanel {
 
     public void makeMove(Move move) {
 
-        move.piece.col = move.newCol;
-        move.piece.row = move.newRow;
-        move.piece.xPos = move.newCol * tileSize;
-        move.piece.yPos = move.newRow * tileSize;
+        if (move.piece.name.equals("Pawn")) {
+            movePawn(move);
+        }
+        else {
+            move.piece.col = move.newCol;
+            move.piece.row = move.newRow;
+            move.piece.xPos = move.newCol * tileSize;
+            move.piece.yPos = move.newRow * tileSize;
 
-        move.piece.isFirstMove = false;
-        capture(move);
+            move.piece.isFirstMove = false;
+            capture(move.captured);
+        }
 
     }
 
-    public void capture(Move move) {
-        pieceList.remove(move.captured);
+    public void capture(Piece piece) {
+        pieceList.remove(piece);
     }
 
     public boolean isValidMove (Move move) {
@@ -132,6 +139,47 @@ public class Board extends JPanel {
             return false;
         }
         return p1.isWhite == p2.isWhite;
+    }
+
+    public int getTileNum(int col, int row) {
+        return rows * row + col;
+    }
+
+    public void movePawn(Move move) {
+
+        // en passant:
+        int colorIndex = move.piece.isWhite ? 1 : -1;
+
+        if (getTileNum(move.newCol, move.newRow) == enPassantTile) {
+            move.captured = getPiece(move.newCol, move.newRow + colorIndex);
+        }
+        if (Math.abs(move.piece.row - move.newRow) == 2) {
+            enPassantTile = getTileNum(move.newCol, move.newRow + colorIndex);
+        } else {
+            enPassantTile = -1;
+        }
+
+        // promotions:
+        colorIndex = move.piece.isWhite ? 0 : 7;
+        if (move.newRow == colorIndex) {
+            promotePawn(move);
+            capture(move.piece);
+        }
+
+
+
+        move.piece.col = move.newCol;
+        move.piece.row = move.newRow;
+        move.piece.xPos = move.newCol * tileSize;
+        move.piece.yPos = move.newRow * tileSize;
+
+        move.piece.isFirstMove = false;
+        capture(move.captured);
+    }
+
+    private void promotePawn(Move move) {
+        pieceList.add(new Queen(this, move.newCol, move.newRow, move.piece.isWhite));
+        capture(move.piece);
     }
 
 

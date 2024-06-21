@@ -13,7 +13,7 @@ public class Bishop extends Piece{
         this.yPos = row * board.tileSize;
 
         this.isWhite = isWhite;
-        this.name = "bishop";
+        this.name = "Bishop";
 
         this.sprite = sheet.getSubimage(2 * sheetScale, isWhite ? 0 : sheetScale, sheetScale, sheetScale).getScaledInstance(board.tileSize, board.tileSize, BufferedImage.SCALE_SMOOTH);
     }
