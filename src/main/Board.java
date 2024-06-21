@@ -15,7 +15,7 @@ public class Board extends JPanel {
 
     public Piece selectedPiece;
     Input input = new Input(this);
-    CheckScanner checkScanner = new CheckScanner(this);
+    public CheckScanner checkScanner = new CheckScanner(this);
 
     public int enPassantTile = -1;
 
@@ -112,16 +112,17 @@ public class Board extends JPanel {
 
         if (move.piece.name.equals("Pawn")) {
             movePawn(move);
+        } else if (move.piece.name.equals("King")) {
+            moveKing(move);
         }
-        else {
-            move.piece.col = move.newCol;
-            move.piece.row = move.newRow;
-            move.piece.xPos = move.newCol * tileSize;
-            move.piece.yPos = move.newRow * tileSize;
 
-            move.piece.isFirstMove = false;
-            capture(move.captured);
-        }
+        move.piece.col = move.newCol;
+        move.piece.row = move.newRow;
+        move.piece.xPos = move.newCol * tileSize;
+        move.piece.yPos = move.newRow * tileSize;
+        move.piece.isFirstMove = false;
+        capture(move.captured);
+
 
     }
 
@@ -158,6 +159,20 @@ public class Board extends JPanel {
         return rows * row + col;
     }
 
+    public void moveKing(Move move) {
+        if (Math.abs(move.piece.col - move.newCol) == 2) {
+            Piece rook;
+            if (move.piece.col < move.newCol) {
+                rook = getPiece(7, move.piece.row);
+                rook.col = 5;
+            } else  {
+                rook = getPiece(0, move.piece.row);
+                rook.col = 3;
+            }
+            rook.xPos = rook.col * tileSize;
+        }
+    }
+
     public void movePawn(Move move) {
 
         // en passant:
@@ -178,16 +193,6 @@ public class Board extends JPanel {
             promotePawn(move);
             capture(move.piece);
         }
-
-
-
-        move.piece.col = move.newCol;
-        move.piece.row = move.newRow;
-        move.piece.xPos = move.newCol * tileSize;
-        move.piece.yPos = move.newRow * tileSize;
-
-        move.piece.isFirstMove = false;
-        capture(move.captured);
     }
 
     private void promotePawn(Move move) {
