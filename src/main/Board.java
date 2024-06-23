@@ -250,5 +250,8 @@ public class Board extends JPanel {
         return names.size() < 3;
     }
 
+    public boolean getIsWhiteToMove() {
+        return this.isWhiteToMove;
+    }
 }
 

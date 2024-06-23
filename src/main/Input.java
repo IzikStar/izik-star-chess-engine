@@ -25,11 +25,11 @@ public class Input extends MouseAdapter {
         if (selectedX == -1 && selectedY == -1) {
             int col = e.getX() / board.tileSize;
             int row = e.getY() / board.tileSize;
-            selectedX = col;
-            selectedY = row;
             Piece pieceXY = board.getPiece(col, row);
-            if (pieceXY != null) {
+            if (pieceXY != null && pieceXY.isWhite == board.getIsWhiteToMove()) {
                 board.selectedPiece = pieceXY;
+                selectedX = e.getX() - board.tileSize / 2;
+                selectedY = e.getY() - board.tileSize / 2;
                 // System.out.println("נבחר כלי");
             }
             else {
@@ -49,14 +49,13 @@ public class Input extends MouseAdapter {
                     // System.out.println("מזיז את הכלי לנקודה שנבחרה");
                     selectedX = -1;
                     selectedY = -1;
+                    board.selectedPiece = null;
+                    board.repaint();
                 }
                 else {
                     board.selectedPiece.xPos = board.selectedPiece.col * board.tileSize;
                     board.selectedPiece.yPos = board.selectedPiece.row * board.tileSize;
                 }
-
-                board.selectedPiece = null;
-                board.repaint();
             }
         }
     }
@@ -67,7 +66,7 @@ public class Input extends MouseAdapter {
             // System.out.println("גרירת עכבר.");
             board.selectedPiece.xPos = e.getX() - board.tileSize / 2;
             board.selectedPiece.yPos = e.getY() - board.tileSize / 2;
-
+//
             board.repaint();
             isDragged = true;
         }
@@ -77,25 +76,29 @@ public class Input extends MouseAdapter {
     public void mouseReleased(MouseEvent e) {
         if (isDragged) {
             // System.out.println("מניח את הכלי בנקודה אליה הוא נגרר.");
-            int col = e.getX() / board.tileSize;
-            int row = e.getY() / board.tileSize;
-            if (board.selectedPiece != null) {
+            if (Math.abs(selectedX - board.selectedPiece.xPos) > board.tileSize || Math.abs(selectedY - board.selectedPiece.yPos) > board.tileSize) {
+                int col = e.getX() / board.tileSize;
+                int row = e.getY() / board.tileSize;
                 Move move = new Move(board, board.selectedPiece, col, row);
 
                 if (board.isValidMove(move)) {
                     board.makeMove(move);
-                }
-                else {
+                } else {
                     board.selectedPiece.xPos = board.selectedPiece.col * board.tileSize;
                     board.selectedPiece.yPos = board.selectedPiece.row * board.tileSize;
                 }
                 board.selectedPiece = null;
                 board.repaint();
+                selectedX = -1;
+                selectedY = -1;
             }
-            selectedX = -1;
-            selectedY = -1;
-            isDragged = false;
+            else {
+                board.selectedPiece.xPos = board.selectedPiece.col * board.tileSize;
+                board.selectedPiece.yPos = board.selectedPiece.row * board.tileSize;
+                board.repaint();
+            }
         }
+            isDragged = false;
 //        else {
 //            System.out.println("לא עושה כלום. לא היתה גרירת עכבר.");
 //        }
