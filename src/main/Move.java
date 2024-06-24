@@ -21,4 +21,17 @@ public class Move {
         this.piece = piece;
         this.captured = board.getPiece(newCol, newRow);
     }
+
+    public Piece getPiece() {
+        return piece;
+    }
+
+//    public int getRow() {
+//        return row;
+//    }
+//
+//    public int getCol() {
+//        return col;
+//    }
+
 }

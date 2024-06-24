@@ -5,7 +5,10 @@ import main.Board;
 import java.awt.image.BufferedImage;
 
 public class Pawn extends Piece{
-    public Pawn(Board board, int col, int row, boolean isWhite) {
+
+    public int id;
+
+    public Pawn(Board board, int col, int row, boolean isWhite, int id) {
         super(board);
         this.col = col;
         this.row = row;
@@ -14,10 +17,10 @@ public class Pawn extends Piece{
 
         this.isWhite = isWhite;
         this.name = "Pawn";
-
+        this.type = isWhite ? 'P' : 'p';
+        this.id = id;
         this.sprite = sheet.getSubimage(5 * sheetScale, isWhite ? 0 : sheetScale, sheetScale, sheetScale).getScaledInstance(board.tileSize, board.tileSize, BufferedImage.SCALE_SMOOTH);
     }
-
 
     public boolean isValidMovement(int col, int row) {
         int colorIndex = isWhite ? 1 : -1;

@@ -14,6 +14,7 @@ public class Bishop extends Piece{
 
         this.isWhite = isWhite;
         this.name = "Bishop";
+        this.type = isWhite ? 'B' : 'b';
 
         this.sprite = sheet.getSubimage(2 * sheetScale, isWhite ? 0 : sheetScale, sheetScale, sheetScale).getScaledInstance(board.tileSize, board.tileSize, BufferedImage.SCALE_SMOOTH);
     }

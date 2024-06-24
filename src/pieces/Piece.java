@@ -1,11 +1,13 @@
 package pieces;
 
 import main.Board;
+import main.Move;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.util.ArrayList;
 
 public class Piece {
 
@@ -14,6 +16,7 @@ public class Piece {
 
     public boolean isWhite;
     public String name;
+    public char type;
     public int value;
     public boolean isFirstMove = true;
 
@@ -40,7 +43,32 @@ public class Piece {
     }
 
     public boolean isValidMovement(int col, int row) {return true;}
+
     public boolean moveCollidesWithPiece(int col, int row) {return false;}
 
+    public ArrayList<Move> getValidMoves(Board board) {
+        ArrayList<Move> validMoves = new ArrayList<>();
+        for (int c = 0; c < 8; c++) {
+            for (int r = 0; r < 8; r++) {
+                if (board.isValidMove(new Move(board, this, c, r ))) {
+                    if (board.getPiece(c, r) == null) {
+                        validMoves.add(new Move(board, this ,c ,r ));
+                    }
+                }
+            }
+        }
+        return validMoves;
+    }
 
+    public char getRepresentation() {
+        return isWhite ? Character.toUpperCase(type) : Character.toLowerCase(type);
+    }
+
+    public int getRow() {
+        return row;
+    }
+
+    public int getCol() {
+        return col;
+    }
 }

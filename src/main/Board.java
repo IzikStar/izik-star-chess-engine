@@ -7,10 +7,13 @@ import java.awt.*;
 import java.util.ArrayList;
 import java.util.Scanner;
 import java.util.stream.Collectors;
+import ai.*;
 
 public class Board extends JPanel {
 
-    public int tileSize = 85;
+    public static int tileSize = 85;
+
+    private JFrame parentFrame;
 
     int cols = 8;
     int rows = 8;
@@ -22,7 +25,8 @@ public class Board extends JPanel {
     public int enPassantTile = -1;
 
     private boolean isWhiteToMove = true;
-    private boolean isGameOver = false;
+    public boolean isGameOver = false;
+    public static boolean isStatusChanged = false, isCheckMate = false, isStaleMate = false, isWhiteTurn;
 
     public Board() {
         this.setPreferredSize(new Dimension(cols * tileSize, rows * tileSize));
@@ -57,15 +61,15 @@ public class Board extends JPanel {
     }
 
     public void addPieces() {
-        pieceList.add(new Knight(this, 1, 0, false));
-        pieceList.add(new Knight(this, 6, 0, false));
-        pieceList.add(new Knight(this, 1, 7, true));
-        pieceList.add(new Knight(this, 6, 7, true));
-
         pieceList.add(new Rook(this, 0, 0, false));
         pieceList.add(new Rook(this, 7, 0, false));
         pieceList.add(new Rook(this, 0, 7, true));
         pieceList.add(new Rook(this, 7, 7, true));
+
+        pieceList.add(new Knight(this, 1, 0, false));
+        pieceList.add(new Knight(this, 6, 0, false));
+        pieceList.add(new Knight(this, 1, 7, true));
+        pieceList.add(new Knight(this, 6, 7, true));
 
         pieceList.add(new Bishop(this, 2, 0, false));
         pieceList.add(new Bishop(this, 5, 0, false));
@@ -79,8 +83,8 @@ public class Board extends JPanel {
         pieceList.add(new Queen(this, 3, 7, true));
 
         for (int i = 0; i < 8; i++) {
-            pieceList.add(new Pawn(this, i, 1, false));
-            pieceList.add(new Pawn(this, i, 6, true));
+            pieceList.add(new Pawn(this, i, 1, false, 1));
+            pieceList.add(new Pawn(this, i, 6, true, 1));
         }
     }
 
@@ -125,22 +129,26 @@ public class Board extends JPanel {
 
     public void makeMove(Move move) {
 
+        boolean pawnMoveSuccess = true;
         if (move.piece.name.equals("Pawn")) {
-            movePawn(move);
+            pawnMoveSuccess = movePawn(move);
         } else if (move.piece.name.equals("King")) {
             moveKing(move);
         }
 
-        move.piece.col = move.newCol;
-        move.piece.row = move.newRow;
-        move.piece.xPos = move.newCol * tileSize;
-        move.piece.yPos = move.newRow * tileSize;
-        move.piece.isFirstMove = false;
-        capture(move.captured);
+        if (pawnMoveSuccess) {
 
-        isWhiteToMove = !isWhiteToMove;
+            move.piece.col = move.newCol;
+            move.piece.row = move.newRow;
+            move.piece.xPos = move.newCol * tileSize;
+            move.piece.yPos = move.newRow * tileSize;
+            move.piece.isFirstMove = false;
+            capture(move.captured);
 
-        updateGameState();
+            isWhiteToMove = !isWhiteToMove;
+
+            updateGameState(true);
+        }
     }
 
     public void capture(Piece piece) {
@@ -196,7 +204,7 @@ public class Board extends JPanel {
         }
     }
 
-    public void movePawn(Move move) {
+    public boolean movePawn(Move move) {
 
         // en passant:
         int colorIndex = move.piece.isWhite ? 1 : -1;
@@ -213,28 +221,82 @@ public class Board extends JPanel {
         // promotions:
         colorIndex = move.piece.isWhite ? 0 : 7;
         if (move.newRow == colorIndex) {
-            promotePawn(move);
+            return promotePawn(move);
+        }
+        return true;
+    }
+
+    private boolean promotePawn(Move move) {
+        PromotionDialog promotionDialog = new PromotionDialog(parentFrame, move.piece.isWhite);
+        String choice = promotionDialog.getSelection();
+        if (choice != null) {
+            promotePawnTo(move, choice);
             capture(move.piece);
+        } else {
+            System.out.println("No selection made");
+            // promotePawn(move);
+            selectedPiece.xPos = selectedPiece.col * tileSize;
+            selectedPiece.yPos = selectedPiece.row * tileSize;
+            selectedPiece = null;
+            repaint();
+            input.selectedX = -1;
+            input.selectedY = -1;
+            return false;
+        }
+        return true;
+    }
+
+    private void promotePawnTo(Move move, String choice) {
+        switch (choice) {
+            case "Queen":
+                pieceList.add(new Queen(this, move.newCol, move.newRow, move.piece.isWhite));
+                repaint();
+                break;
+            case "Rook":
+                pieceList.add(new Rook(this, move.newCol, move.newRow, move.piece.isWhite));
+                repaint();
+                break;
+            case "Bishop":
+                pieceList.add(new Bishop(this, move.newCol, move.newRow, move.piece.isWhite));
+                repaint();
+                break;
+            case "Knight":
+                pieceList.add(new Knight(this, move.newCol, move.newRow, move.piece.isWhite));
+                repaint();
+                break;
         }
     }
 
-    private void promotePawn(Move move) {
-        pieceList.add(new Queen(this, move.newCol, move.newRow, move.piece.isWhite));
-        capture(move.piece);
-    }
-
-    private void updateGameState() {
+    public void updateGameState(boolean isRealBoard) {
         Piece king = findKing(isWhiteToMove);
         if (checkScanner.isGameOver(king)) {
             if (checkScanner.isKingChecked(new Move(this, king, king.col, king.row))) {
                 System.out.println(isWhiteToMove ? "black wins!" : "white wins!");
+                if (isRealBoard){
+                    input.isStatusChanged = true;
+                    input.isCheckMate = true;
+                    input.isStaleMate = false;
+                    input.isWhiteTurn = isWhiteToMove;
+                }
             } else {
                 System.out.println("stale mate! draw!");
+                if (isRealBoard){
+                    input.isStatusChanged = true;
+                    input.isCheckMate = false;
+                    input.isStaleMate = true;
+                    input.isWhiteTurn = isWhiteToMove;
+                }
             }
-            isGameOver = true;
+//            isGameOver = true;
         } else if (insufficientMaterial(true) && insufficientMaterial(false)) {
             System.out.println("insufficientMaterial! draw!");
-            isGameOver = true;
+//            isGameOver = true;
+            if (isRealBoard){
+                input.isStatusChanged = true;
+                input.isCheckMate = false;
+                input.isStaleMate = false;
+                input.isWhiteTurn = isWhiteToMove;
+            }
         }
 
     }
@@ -253,5 +315,43 @@ public class Board extends JPanel {
     public boolean getIsWhiteToMove() {
         return this.isWhiteToMove;
     }
+
+    public double getNumOfPieces() {
+        return pieceList.size();
+    }
+
+    public Piece getPieceByNumber(int randomNum) {
+        return pieceList.get(randomNum);
+    }
+
+    public String convertPiecesToFEN() {
+        StringBuilder fen = new StringBuilder();
+        for (int row = 0; row < 8; row++) {
+            int emptySquares = 0;
+            for (int col = 0; col < 8; col++) {
+                Piece piece = getPiece(row, col);
+                if (piece == null) {
+                    emptySquares++;
+                } else {
+                    if (emptySquares > 0) {
+                        fen.append(emptySquares);
+                        emptySquares = 0;
+                    }
+                    fen.append(piece.getRepresentation());
+                }
+            }
+            if (emptySquares > 0) {
+                fen.append(emptySquares);
+            }
+            if (row < 7) {
+                fen.append('/');
+            }
+        }
+        fen.append(isWhiteTurn ? " w " : " b "); // תור השחקן הבא
+        fen.append("KQkq - 0 1"); // מצב העתקה (castling), עובר דרך, חצאים, שלמים
+        return fen.toString();
+    }
+
+
 }
 
