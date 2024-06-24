@@ -24,7 +24,11 @@ public class CheckScanner {
             kingRow = move.newRow;
         }
 
-        return  hitByRook  (move.newCol, move.newRow, king, kingCol, kingRow, 0,1) || // up
+        return  hitByKnight(move.newCol, move.newRow, king, kingCol, kingRow) ||
+                hitByPawn  (move.newCol, move.newRow, king, kingCol, kingRow) ||
+                hitByKing  (king, kingCol, kingRow) ||
+
+                hitByRook  (move.newCol, move.newRow, king, kingCol, kingRow, 0,1) || // up
                 hitByRook  (move.newCol, move.newRow, king, kingCol, kingRow, 1,0) || // right
                 hitByRook  (move.newCol, move.newRow, king, kingCol, kingRow, 0, -1) || // down
                 hitByRook  (move.newCol, move.newRow, king, kingCol, kingRow, -1, 0) || // left
@@ -32,12 +36,7 @@ public class CheckScanner {
                 hitByBishop(move.newCol, move.newRow, king, kingCol, kingRow, -1,-1) || // up left
                 hitByBishop(move.newCol, move.newRow, king, kingCol, kingRow,1,-1) || // up right
                 hitByBishop(move.newCol, move.newRow, king, kingCol, kingRow,1,1) || // down right
-                hitByBishop(move.newCol, move.newRow, king, kingCol, kingRow,-1,1) || // down left
-
-                hitByKnight(move.newCol, move.newRow, king, kingCol, kingRow) ||
-                hitByPawn(move.newCol, move.newRow, king, kingCol, kingRow) ||
-                hitByKing(king, kingCol, kingRow);
-
+                hitByBishop(move.newCol, move.newRow, king, kingCol, kingRow,-1,1); // down left
     }
 
     private boolean hitByRook(int col, int row, Piece king, int kingCol, int kingRow, int colVal, int rowVal) {
@@ -47,7 +46,7 @@ public class CheckScanner {
             }
             Piece piece = board.getPiece(kingCol + (i * colVal), kingRow + (i *rowVal));
             if (piece != null && piece != board.selectedPiece) {
-                if (!(board.sameTeam(piece, king)) && (piece.name.equals("Rook") || piece.name.equals("Queen"))) {
+                if ((!board.sameTeam(piece, king)) && ((piece.name.equals("Rook") || piece.name.equals("Queen")))) {
                     return true;
                 }
                 break;
@@ -63,7 +62,7 @@ public class CheckScanner {
             }
             Piece piece = board.getPiece(kingCol - (i * colVal), kingRow - (i *rowVal));
             if (piece != null && piece != board.selectedPiece) {
-                if (!(board.sameTeam(piece, king)) && (piece.name.equals("Bishop") || piece.name.equals("Queen"))) {
+                if ((piece.name.equals("Bishop") || piece.name.equals("Queen")) && !(board.sameTeam(piece, king))) {
                     return true;
                 }
                 break;
@@ -118,7 +117,7 @@ public class CheckScanner {
                 for (int row = 0; row < board.rows; row++) {
                     for (int col = 0; col < board.cols; col++) {
                         Move move = new Move(board, piece, col, row);
-                        if (board.isValidMove(move)) {
+                        if (board.isValidMove(move, false)) {
                             return false;
                         }
                     }

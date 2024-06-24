@@ -50,7 +50,7 @@ public class Piece {
         ArrayList<Move> validMoves = new ArrayList<>();
         for (int c = 0; c < 8; c++) {
             for (int r = 0; r < 8; r++) {
-                if (board.isValidMove(new Move(board, this, c, r ))) {
+                if (board.isValidMove(new Move(board, this, c, r ), false)) {
                     if (board.getPiece(c, r) == null) {
                         validMoves.add(new Move(board, this ,c ,r ));
                     }

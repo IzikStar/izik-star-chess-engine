@@ -1,5 +1,7 @@
 package main;
 
+import GUI.AudioPlayer;
+import GUI.SoundPlayer;
 import pieces.Piece;
 import javax.swing.*;
 import java.awt.*;
@@ -14,6 +16,9 @@ public class Input extends MouseAdapter {
     public int selectedX = -1, selectedY = -1;
     public boolean isStatusChanged = false, isCheckMate = false, isStaleMate = false, isWhiteTurn;
     public int col, row;
+    AudioPlayer audioPlayer = new AudioPlayer();
+
+    // SoundPlayer soundPlayer = new SoundPlayer();
 
     // הפעלת Stockfish והפעלת המשחק
     String pathToStockfish = "src/res/stockfish/stockfish-windows-x86-64.exe";
@@ -54,6 +59,7 @@ public class Input extends MouseAdapter {
             row = e.getY() / Board.tileSize;
             Piece pieceXY = board.getPiece(col, row);
             if (pieceXY != null && pieceXY.isWhite == board.getIsWhiteToMove()) {
+                audioPlayer.playSelectPieceSound();
                 board.selectedPiece = pieceXY;
                 selectedX = e.getX() - Board.tileSize / 2;
                 selectedY = e.getY() - Board.tileSize / 2;
@@ -67,7 +73,7 @@ public class Input extends MouseAdapter {
             int row = e.getY() / Board.tileSize;
             if (board.selectedPiece != null) {
                 Move move = new Move(board, board.selectedPiece, col, row);
-                if (board.isValidMove(move)) {
+                if (board.isValidMove(move, true)) {
                     board.makeMove(move);
                     selectedX = -1;
                     selectedY = -1;
@@ -90,10 +96,12 @@ public class Input extends MouseAdapter {
                     row = e.getY() / Board.tileSize;
                     Piece pieceXY = board.getPiece(col, row);
                     if (pieceXY != null && pieceXY.isWhite == board.getIsWhiteToMove()) {
+                        audioPlayer.playSelectPieceSound();
                         board.selectedPiece = pieceXY;
                         selectedX = e.getX() - Board.tileSize / 2;
                         selectedY = e.getY() - Board.tileSize / 2;
                     } else {
+                        audioPlayer.playInvalidMoveSound();
                         selectedX = -1;
                         selectedY = -1;
                         board.selectedPiece = null;
@@ -122,7 +130,7 @@ public class Input extends MouseAdapter {
                 int col = e.getX() / Board.tileSize;
                 int row = e.getY() / Board.tileSize;
                 Move move = new Move(board, board.selectedPiece, col, row);
-                if (board.isValidMove(move)) {
+                if (board.isValidMove(move, true)) {
                     board.makeMove(move);
                     if (isStatusChanged) {
                         SwingUtilities.invokeLater(() -> {

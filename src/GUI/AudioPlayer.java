@@ -57,6 +57,13 @@ public class AudioPlayer {
 
     public void playCheckSound() {
         String checkSound = "src/res/sounds/checkSound1.wav";
+        String checkSound2 = "src/res/sounds/checkSound4.wav";
+        playAudio(checkSound);
+        playAudio(checkSound2);
+    }
+
+    public void playCaptureSound() {
+        String checkSound = "src/res/sounds/captureSound1.wav";
         playAudio(checkSound);
     }
 
@@ -66,7 +73,7 @@ public class AudioPlayer {
     }
 
     public void playInvalidMoveBecauseOfCheckSound() {
-        String invalidMoveBecauseOfCheckSound = "src/res/sounds/invalidMove2.wav";
+        String invalidMoveBecauseOfCheckSound = "src/res/sounds/invalidMoveSound2.wav";
         playAudio(invalidMoveBecauseOfCheckSound);
     }
 

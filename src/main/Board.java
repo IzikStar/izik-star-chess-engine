@@ -1,5 +1,6 @@
 package main;
 
+import GUI.AudioPlayer;
 import pieces.*;
 
 import javax.swing.*;
@@ -21,6 +22,7 @@ public class Board extends JPanel {
     public Piece selectedPiece;
     Input input = new Input(this);
     public CheckScanner checkScanner = new CheckScanner(this);
+    AudioPlayer audioPlayer = new AudioPlayer();
 
     public int enPassantTile = -1;
 
@@ -107,7 +109,7 @@ public class Board extends JPanel {
             }
             for (int c = 0; c < cols; c++) {
                 for (int r = 0; r < rows; r++) {
-                    if (isValidMove(new Move(this, selectedPiece, c, r))) {
+                    if (isValidMove(new Move(this, selectedPiece, c, r), false)) {
                         if (this.getPiece(c, r) == null) {
                             g2d.setColor(new Color(64, 227, 64, 215));
                             g2d.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
@@ -136,7 +138,6 @@ public class Board extends JPanel {
         }
 
         if (pawnMoveSuccess) {
-
             if (!move.piece.name.equals("Pawn") || !(Math.abs(move.piece.row - move.newRow) == 2)) {
                 enPassantTile = -1;
             }
@@ -145,11 +146,12 @@ public class Board extends JPanel {
             move.piece.xPos = move.newCol * tileSize;
             move.piece.yPos = move.newRow * tileSize;
             move.piece.isFirstMove = false;
+            audioPlayer.playMovingPieceSound();
+            if (move.captured != null) {
+                audioPlayer.playCaptureSound();
+            }
             capture(move.captured);
-
-
             isWhiteToMove = !isWhiteToMove;
-
             updateGameState(true);
         }
     }
@@ -158,7 +160,7 @@ public class Board extends JPanel {
         pieceList.remove(piece);
     }
 
-    public boolean isValidMove(Move move) {
+    public boolean isValidMove(Move move, boolean isExecuting) {
 
         if (isGameOver) {
             return false;
@@ -176,6 +178,9 @@ public class Board extends JPanel {
             return false;
         }
         if (checkScanner.isKingChecked(move)) {
+            if (isExecuting) {
+                audioPlayer.playInvalidMoveBecauseOfCheckSound();
+            }
             return false;
         }
 
@@ -272,6 +277,9 @@ public class Board extends JPanel {
 
     public void updateGameState(boolean isRealBoard) {
         Piece king = findKing(isWhiteToMove);
+        if (checkScanner.isKingChecked(new Move(this, king, king.col, king.row))) {
+            audioPlayer.playCheckSound();
+        }
         if (checkScanner.isGameOver(king)) {
             if (checkScanner.isKingChecked(new Move(this, king, king.col, king.row))) {
                 System.out.println(isWhiteToMove ? "black wins!" : "white wins!");
