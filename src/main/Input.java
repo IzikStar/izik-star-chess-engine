@@ -16,8 +16,8 @@ public class Input extends MouseAdapter {
     public int col, row;
 
     // הפעלת Stockfish והפעלת המשחק
-//    String pathToStockfish = "src/res/stockfish/stockfish-windows-x86-64.exe";
-//    StockfishEngine engine;
+    String pathToStockfish = "src/res/stockfish/stockfish-windows-x86-64.exe";
+    StockfishEngine engine;
 
     public Input(Board board) {
         this.board = board;
@@ -29,42 +29,42 @@ public class Input extends MouseAdapter {
 //        }
     }
 
-//    private void makeEngineMove() {
-//        // שימוש במתודה להמרת רשימת הכלים ל-FEN
-//        String fen = board.convertPiecesToFEN();
-//        System.out.println("Current FEN: " + fen);
-//        String bestMove = engine.getBestMove(fen);
-//        System.out.println("Best move: " + bestMove);
-//        if (!bestMove.equals("unknown")) {
-//            // Translate the best move to board coordinates and make the move
-//            int fromCol = bestMove.charAt(0) - 'a';
-//            int fromRow = 8 - (bestMove.charAt(1) - '0');
-//            int toCol = bestMove.charAt(2) - 'a';
-//            int toRow = 8 - (bestMove.charAt(3) - '0');
-//            Move move = new Move(board, board.getPiece(fromCol, fromRow), toCol, toRow);
-//            board.makeMove(move);
-//            board.repaint();
-//        }
-//    }
+    private void makeEngineMove() {
+        // שימוש במתודה להמרת רשימת הכלים ל-FEN
+        String fen = board.convertPiecesToFEN();
+        System.out.println("Current FEN: " + fen);
+        String bestMove = engine.getBestMove(fen);
+        System.out.println("Best move: " + bestMove);
+        if (!bestMove.equals("unknown")) {
+            // Translate the best move to board coordinates and make the move
+            int fromCol = bestMove.charAt(0) - 'a';
+            int fromRow = 8 - (bestMove.charAt(1) - '0');
+            int toCol = bestMove.charAt(2) - 'a';
+            int toRow = 8 - (bestMove.charAt(3) - '0');
+            Move move = new Move(board, board.getPiece(fromCol, fromRow), toCol, toRow);
+            board.makeMove(move);
+            board.repaint();
+        }
+    }
 
     @Override
     public void mousePressed(MouseEvent e) {
         if (selectedX == -1 && selectedY == -1) {
-            col = e.getX() / board.tileSize;
-            row = e.getY() / board.tileSize;
+            col = e.getX() / Board.tileSize;
+            row = e.getY() / Board.tileSize;
             Piece pieceXY = board.getPiece(col, row);
             if (pieceXY != null && pieceXY.isWhite == board.getIsWhiteToMove()) {
                 board.selectedPiece = pieceXY;
-                selectedX = e.getX() - board.tileSize / 2;
-                selectedY = e.getY() - board.tileSize / 2;
+                selectedX = e.getX() - Board.tileSize / 2;
+                selectedY = e.getY() - Board.tileSize / 2;
             } else {
                 selectedX = -1;
                 selectedY = -1;
             }
             board.repaint();
         } else {
-            int col = e.getX() / board.tileSize;
-            int row = e.getY() / board.tileSize;
+            int col = e.getX() / Board.tileSize;
+            int row = e.getY() / Board.tileSize;
             if (board.selectedPiece != null) {
                 Move move = new Move(board, board.selectedPiece, col, row);
                 if (board.isValidMove(move)) {
@@ -84,15 +84,15 @@ public class Input extends MouseAdapter {
 //                        // makeEngineMove();
                     }
                 } else {
-                    board.selectedPiece.xPos = board.selectedPiece.col * board.tileSize;
-                    board.selectedPiece.yPos = board.selectedPiece.row * board.tileSize;
-                    col = e.getX() / board.tileSize;
-                    row = e.getY() / board.tileSize;
+                    board.selectedPiece.xPos = board.selectedPiece.col * Board.tileSize;
+                    board.selectedPiece.yPos = board.selectedPiece.row * Board.tileSize;
+                    col = e.getX() / Board.tileSize;
+                    row = e.getY() / Board.tileSize;
                     Piece pieceXY = board.getPiece(col, row);
                     if (pieceXY != null && pieceXY.isWhite == board.getIsWhiteToMove()) {
                         board.selectedPiece = pieceXY;
-                        selectedX = e.getX() - board.tileSize / 2;
-                        selectedY = e.getY() - board.tileSize / 2;
+                        selectedX = e.getX() - Board.tileSize / 2;
+                        selectedY = e.getY() - Board.tileSize / 2;
                     } else {
                         selectedX = -1;
                         selectedY = -1;
@@ -108,8 +108,8 @@ public class Input extends MouseAdapter {
     @Override
     public void mouseDragged(MouseEvent e) {
         if (board.selectedPiece != null) {
-            board.selectedPiece.xPos = e.getX() - board.tileSize / 2;
-            board.selectedPiece.yPos = e.getY() - board.tileSize / 2;
+            board.selectedPiece.xPos = e.getX() - Board.tileSize / 2;
+            board.selectedPiece.yPos = e.getY() - Board.tileSize / 2;
             board.repaint();
             isDragged = true;
         }
@@ -118,9 +118,9 @@ public class Input extends MouseAdapter {
     @Override
     public void mouseReleased(MouseEvent e) {
         if (isDragged) {
-            if (Math.abs(selectedX - board.selectedPiece.xPos) > board.tileSize / 2 || Math.abs(selectedY - board.selectedPiece.yPos) > board.tileSize / 2) {
-                int col = e.getX() / board.tileSize;
-                int row = e.getY() / board.tileSize;
+            if (Math.abs(selectedX - board.selectedPiece.xPos) > Board.tileSize / 2 || Math.abs(selectedY - board.selectedPiece.yPos) > Board.tileSize / 2) {
+                int col = e.getX() / Board.tileSize;
+                int row = e.getY() / Board.tileSize;
                 Move move = new Move(board, board.selectedPiece, col, row);
                 if (board.isValidMove(move)) {
                     board.makeMove(move);
@@ -135,8 +135,8 @@ public class Input extends MouseAdapter {
 //                        // makeEngineMove();
                     }
                 } else {
-                    board.selectedPiece.xPos = board.selectedPiece.col * board.tileSize;
-                    board.selectedPiece.yPos = board.selectedPiece.row * board.tileSize;
+                    board.selectedPiece.xPos = board.selectedPiece.col * Board.tileSize;
+                    board.selectedPiece.yPos = board.selectedPiece.row * Board.tileSize;
                 }
                 board.selectedPiece = null;
                 board.repaint();
@@ -144,8 +144,9 @@ public class Input extends MouseAdapter {
                 selectedY = -1;
             }
             else {
-                board.selectedPiece.xPos = board.selectedPiece.col * board.tileSize;
-                board.selectedPiece.yPos = board.selectedPiece.row * board.tileSize;
+                board.selectedPiece.xPos = board.selectedPiece.col * Board.tileSize;
+                board.selectedPiece.yPos = board.selectedPiece.row * Board.tileSize;
+                board.repaint();
             }
         }
         isDragged = false;

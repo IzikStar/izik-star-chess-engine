@@ -128,7 +128,6 @@ public class Board extends JPanel {
     }
 
     public void makeMove(Move move) {
-
         boolean pawnMoveSuccess = true;
         if (move.piece.name.equals("Pawn")) {
             pawnMoveSuccess = movePawn(move);
@@ -138,12 +137,16 @@ public class Board extends JPanel {
 
         if (pawnMoveSuccess) {
 
+            if (!move.piece.name.equals("Pawn") || !(Math.abs(move.piece.row - move.newRow) == 2)) {
+                enPassantTile = -1;
+            }
             move.piece.col = move.newCol;
             move.piece.row = move.newRow;
             move.piece.xPos = move.newCol * tileSize;
             move.piece.yPos = move.newRow * tileSize;
             move.piece.isFirstMove = false;
             capture(move.captured);
+
 
             isWhiteToMove = !isWhiteToMove;
 
