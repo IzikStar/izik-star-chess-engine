@@ -1,6 +1,5 @@
 package main;
 
-import pieces.Pawn;
 import pieces.Piece;
 
 public class CheckScanner {
@@ -11,15 +10,15 @@ public class CheckScanner {
         this.board = board;
     }
 
-    public boolean isKingChecked(Move move) {
+    public boolean isMoveCausesCheck(Move move) {
 
-        Piece king = board.findKing(move.piece.isWhite);
+        Piece king = board.findKing(board.getIsWhiteToMove());
         assert king != null;
 
         int kingCol = king.col;
         int kingRow = king.row;
 
-        if (board.selectedPiece != null && board.selectedPiece.name.equals("King")) {
+        if (move.piece.name.equals("King")) {
             kingCol = move.newCol;
             kingRow = move.newRow;
         }
@@ -69,6 +68,15 @@ public class CheckScanner {
             }
         }
         return false;
+//        for (int i = 0; i < 8; i++) {
+//            for (int j = 0; j < 8; j++) {
+//                Piece piece = board.getPiece(i, j);
+//                if (piece != null && (piece.name.equals("Bishop") || piece.name.equals("Queen")) && board.isValidMove(new Move(board, piece, kingCol, kingRow), false) && (!board.sameTeam(piece, king))) {
+//                    return true;
+//                }
+//            }
+//        }
+//        return false;
     }
 
     private boolean hitByKnight(int col, int row, Piece king, int kingCol, int kingRow) {
@@ -127,5 +135,27 @@ public class CheckScanner {
         return true;
     }
 
+    public boolean isChecking(Board board) {
+        Piece king = board.findKing(board.getIsWhiteToMove());
+        int kingCol = king.col;
+        int kingRow = king.row;
+        for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 8; j++) {
+                if (board.getPiece(i, j) != null) {
+                    Piece piece = board.getPiece(i, j);
+                    if (piece.isWhite != board.getIsWhiteToMove()) {
+                        if (!board.sameTeam(piece, king)) {
+                            if (piece.isValidMovement(kingCol, kingRow)) {
+                                if (!piece.moveCollidesWithPiece(kingCol, kingRow)) {
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
 
 }

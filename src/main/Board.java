@@ -6,9 +6,7 @@ import pieces.*;
 import javax.swing.*;
 import java.awt.*;
 import java.util.ArrayList;
-import java.util.Scanner;
 import java.util.stream.Collectors;
-import ai.*;
 
 public class Board extends JPanel {
 
@@ -177,7 +175,7 @@ public class Board extends JPanel {
         if (move.piece.moveCollidesWithPiece(move.newCol, move.newRow)) {
             return false;
         }
-        if (checkScanner.isKingChecked(move)) {
+        if (checkScanner.isMoveCausesCheck(move)) {
             if (isExecuting) {
                 audioPlayer.playInvalidMoveBecauseOfCheckSound();
             }
@@ -277,11 +275,11 @@ public class Board extends JPanel {
 
     public void updateGameState(boolean isRealBoard) {
         Piece king = findKing(isWhiteToMove);
-        if (checkScanner.isKingChecked(new Move(this, king, king.col, king.row))) {
+        if (checkScanner.isChecking(this)) {
             audioPlayer.playCheckSound();
         }
         if (checkScanner.isGameOver(king)) {
-            if (checkScanner.isKingChecked(new Move(this, king, king.col, king.row))) {
+            if (checkScanner.isChecking(this)) {
                 System.out.println(isWhiteToMove ? "black wins!" : "white wins!");
                 if (isRealBoard){
                     input.isStatusChanged = true;
