@@ -80,6 +80,8 @@ public class Input extends MouseAdapter {
                     board.selectedPiece = null;
                     board.repaint();
                     if (isStatusChanged) {
+                        board.selectedPiece = null;
+                        board.repaint();
                         SwingUtilities.invokeLater(() -> {
                             JFrame frame = new JFrame("Game Over");
                             board.updateGameState(true);
@@ -133,6 +135,8 @@ public class Input extends MouseAdapter {
                 if (board.isValidMove(move, true)) {
                     board.makeMove(move);
                     if (isStatusChanged) {
+                        board.selectedPiece = null;
+                        board.repaint();
                         SwingUtilities.invokeLater(() -> {
                             JFrame frame = new JFrame("Game Over");
                             board.updateGameState(true);

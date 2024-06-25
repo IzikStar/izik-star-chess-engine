@@ -286,6 +286,7 @@ public class Board extends JPanel {
                     input.isCheckMate = true;
                     input.isStaleMate = false;
                     input.isWhiteTurn = isWhiteToMove;
+                    audioPlayer.playCheckMateSound();
                 }
             } else {
                 System.out.println("stale mate! draw!");
@@ -294,6 +295,7 @@ public class Board extends JPanel {
                     input.isCheckMate = false;
                     input.isStaleMate = true;
                     input.isWhiteTurn = isWhiteToMove;
+                    audioPlayer.playDrawSound();
                 }
             }
 //            isGameOver = true;
@@ -305,6 +307,7 @@ public class Board extends JPanel {
                 input.isCheckMate = false;
                 input.isStaleMate = false;
                 input.isWhiteTurn = isWhiteToMove;
+                audioPlayer.playDrawSound();
             }
         }
 
