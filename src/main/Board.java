@@ -22,8 +22,9 @@ public class Board extends JPanel {
     public CheckScanner checkScanner = new CheckScanner(this);
     AudioPlayer audioPlayer = new AudioPlayer();
 
+    int fromC = -1, fromR = -1, toC = -1, toR = -1;
     public int enPassantTile = -1;
-
+    // public Move lastMove;
     private boolean isWhiteToMove = true;
     public boolean isGameOver = false;
     public static boolean isStatusChanged = false, isCheckMate = false, isStaleMate = false, isWhiteTurn;
@@ -90,7 +91,6 @@ public class Board extends JPanel {
 
     public void paintComponent(Graphics g) {
         Graphics2D g2d = (Graphics2D) g;
-
         // paint board
         for (int r = 0; r < rows; r++) {
             for (int c = 0; c < cols; c++) {
@@ -99,21 +99,50 @@ public class Board extends JPanel {
             }
         }
 
+        // paint last move
+        g.setColor(new Color(72, 255, 0, 158));
+        g.fillRect(fromC * tileSize, fromR * tileSize, tileSize, tileSize);
+        g.setColor(new Color(55, 255, 0, 186));
+        g.fillRect(toC * tileSize, toR * tileSize, tileSize, tileSize);
+
+        if (checkScanner.isChecking(this)) {
+            Piece king = findKing(isWhiteToMove);
+            //g2d.setColor(new Color(255, 0, 0, 237)); // אדום חצי שקוף
+            //g2d.fillRect(king.col * tileSize, king.row * tileSize, tileSize, tileSize);
+            drawSquareWithCircle(g ,king.col, king.row);
+        }
+
         // paint highLights
         if (selectedPiece != null) {
             if (selectedPiece.isWhite == isWhiteToMove) {
                 g2d.setColor(new Color(0, 0, 255, 128)); // כחול חצי שקוף
                 g2d.fillRect(selectedPiece.col * tileSize, selectedPiece.row * tileSize, tileSize, tileSize);
+                if (checkScanner.isChecking(this)) {
+                    Piece king = findKing(isWhiteToMove);
+                    //g2d.setColor(new Color(255, 0, 0, 237)); // אדום חצי שקוף
+                    //g2d.fillRect(king.col * tileSize, king.row * tileSize, tileSize, tileSize);
+                    drawSquareWithCircle(g ,king.col, king.row);
+                }
             }
             for (int c = 0; c < cols; c++) {
                 for (int r = 0; r < rows; r++) {
                     if (isValidMove(new Move(this, selectedPiece, c, r), false)) {
                         if (this.getPiece(c, r) == null) {
-                            g2d.setColor(new Color(64, 227, 64, 215));
-                            g2d.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
+                            // ציור עיגול במרכז הריבוע
+                            g.setColor(new Color(72, 255, 0, 158));
+                            int diameter = tileSize / 3;
+                            int circleX = c * tileSize + (tileSize - diameter) / 2;
+                            int circleY = r * tileSize + (tileSize - diameter) / 2;
+                            g.fillOval(circleX, circleY, diameter, diameter);
                         } else {
-                            g2d.setColor(new Color(238, 7, 7, 111)); // אדום חצי שקוף
-                            g2d.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
+                            drawSquareWithCircle(g, c, r);
+//                            g.setColor(new Color(255, 0, 0, 90));
+//                            int diameter = tileSize / 3;
+//                            int circleX = c * tileSize + (tileSize - diameter) / 2;
+//                            int circleY = r * tileSize + (tileSize - diameter) / 2;
+//                            g.fillOval(circleX, circleY, diameter, diameter);
+//                            g2d.setColor(new Color(255, 0, 0, 90)); // אדום חצי שקוף
+//                            g2d.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
                         }
                     }
                 }
@@ -125,6 +154,19 @@ public class Board extends JPanel {
             piece.paint(g2d);
         }
 
+    }
+
+    private void drawSquareWithCircle(Graphics g, int col, int row) {
+        int x = col * tileSize;
+        int y = row * tileSize;
+        int borderThickness = 5; // עובי המסגרת
+
+        // צביעת מסגרת הריבוע
+        g.setColor(Color.RED);
+        g.fillRect(x, y, tileSize, borderThickness); // עליון
+        g.fillRect(x, y, borderThickness, tileSize); // שמאל
+        g.fillRect(x + tileSize - borderThickness, y, borderThickness, tileSize); // ימין
+        g.fillRect(x, y + tileSize - borderThickness, tileSize, borderThickness); // תחתון
     }
 
     public void makeMove(Move move) {
@@ -139,6 +181,7 @@ public class Board extends JPanel {
             if (!move.piece.name.equals("Pawn") || !(Math.abs(move.piece.row - move.newRow) == 2)) {
                 enPassantTile = -1;
             }
+            setLastMove(move.piece.col, move.piece.row, move.newCol, move.newRow);
             move.piece.col = move.newCol;
             move.piece.row = move.newRow;
             move.piece.xPos = move.newCol * tileSize;
@@ -154,6 +197,14 @@ public class Board extends JPanel {
             isWhiteToMove = !isWhiteToMove;
             updateGameState(true);
         }
+    }
+
+    public void setLastMove(int fromC, int fromR, int toC, int toR) {
+        this.fromC = fromC;
+        this.fromR = fromR;
+        this.toC = toC;
+        this.toR = toR;
+        repaint();
     }
 
     public void capture(Piece piece) {
@@ -280,7 +331,7 @@ public class Board extends JPanel {
         Piece king = findKing(isWhiteToMove);
         if (checkScanner.isGameOver(king)) {
             if (checkScanner.isChecking(this)) {
-                System.out.println(isWhiteToMove ? "black wins!" : "white wins!");
+                // System.out.println(isWhiteToMove ? "black wins!" : "white wins!");
                 if (isRealBoard){
                     input.isStatusChanged = true;
                     input.isCheckMate = true;
@@ -289,7 +340,7 @@ public class Board extends JPanel {
                     audioPlayer.playCheckMateSound();
                 }
             } else {
-                System.out.println("stale mate! draw!");
+                // System.out.println("stale mate! draw!");
                 if (isRealBoard){
                     input.isStatusChanged = true;
                     input.isCheckMate = false;
@@ -300,7 +351,7 @@ public class Board extends JPanel {
             }
 //            isGameOver = true;
         } else if (insufficientMaterial(true) && insufficientMaterial(false)) {
-            System.out.println("insufficientMaterial! draw!");
+            // System.out.println("insufficientMaterial! draw!");
 //            isGameOver = true;
             if (isRealBoard){
                 input.isStatusChanged = true;
@@ -312,6 +363,7 @@ public class Board extends JPanel {
         }
         else if (checkScanner.isChecking(this)) {
             audioPlayer.playCheckSound();
+            repaint();
         }
     }
 

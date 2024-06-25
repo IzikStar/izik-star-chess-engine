@@ -149,6 +149,7 @@ public class Input extends MouseAdapter {
                 } else {
                     board.selectedPiece.xPos = board.selectedPiece.col * Board.tileSize;
                     board.selectedPiece.yPos = board.selectedPiece.row * Board.tileSize;
+                    audioPlayer.playInvalidMoveSound();
                 }
                 board.selectedPiece = null;
                 board.repaint();
