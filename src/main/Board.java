@@ -144,9 +144,11 @@ public class Board extends JPanel {
             move.piece.xPos = move.newCol * tileSize;
             move.piece.yPos = move.newRow * tileSize;
             move.piece.isFirstMove = false;
-            audioPlayer.playMovingPieceSound();
             if (move.captured != null) {
                 audioPlayer.playCaptureSound();
+            }
+            else {
+                audioPlayer.playMovingPieceSound();
             }
             capture(move.captured);
             isWhiteToMove = !isWhiteToMove;
@@ -207,6 +209,7 @@ public class Board extends JPanel {
                 rook.col = 3;
             }
             rook.xPos = rook.col * tileSize;
+            audioPlayer.playCastlingSound();
         }
     }
 
