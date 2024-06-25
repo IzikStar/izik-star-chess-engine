@@ -278,9 +278,6 @@ public class Board extends JPanel {
 
     public void updateGameState(boolean isRealBoard) {
         Piece king = findKing(isWhiteToMove);
-        if (checkScanner.isChecking(this)) {
-            audioPlayer.playCheckSound();
-        }
         if (checkScanner.isGameOver(king)) {
             if (checkScanner.isChecking(this)) {
                 System.out.println(isWhiteToMove ? "black wins!" : "white wins!");
@@ -313,7 +310,9 @@ public class Board extends JPanel {
                 audioPlayer.playDrawSound();
             }
         }
-
+        else if (checkScanner.isChecking(this)) {
+            audioPlayer.playCheckSound();
+        }
     }
 
     private boolean insufficientMaterial(boolean isWhite) {
