@@ -5,22 +5,24 @@ import javax.swing.JPanel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.function.Consumer;
 
 public class CustomButtonPanel extends JPanel {
 
-    public int counter;
-    public CustomButtonPanel(int counter) {
-        this.counter = counter;
+    public int id;
+
+    public CustomButtonPanel(int id, String text, Consumer<Integer> action) {
+        this.id = id;
         // הגדרת FlowLayout
-        this.setLayout(new FlowLayout(FlowLayout.LEFT, 4, 4)); // מיקום לשמאל עם מרווחים של 20 פיקסלים
+        this.setLayout(new FlowLayout(FlowLayout.LEFT, 4, 4)); // מיקום לשמאל עם מרווחים של 4 פיקסלים
 
         // יצירת כפתור
-        JButton button = new JButton("Click Me!" + counter);
+        JButton button = new JButton(text);
         // הוספת מאזין לכפתור
         button.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                System.out.println("Button clicked!" + counter);
+                action.accept(id);
             }
         });
 
@@ -28,4 +30,3 @@ public class CustomButtonPanel extends JPanel {
         this.add(button);
     }
 }
-

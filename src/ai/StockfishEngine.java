@@ -6,16 +6,19 @@ public class StockfishEngine {
     private Process engineProcess;
     private BufferedReader reader;
     private BufferedWriter writer;
+    private boolean isEngineRunning;
 
     public boolean startEngine(String path) {
         try {
             engineProcess = new ProcessBuilder(path).start();
             reader = new BufferedReader(new InputStreamReader(engineProcess.getInputStream()));
             writer = new BufferedWriter(new OutputStreamWriter(engineProcess.getOutputStream()));
+            isEngineRunning = true;
             // System.out.println("Stockfish engine started successfully.");
             return true;
         } catch (IOException e) {
             e.printStackTrace();
+            isEngineRunning = false;
             return false;
         }
     }
@@ -26,6 +29,7 @@ public class StockfishEngine {
             reader.close();
             writer.close();
             engineProcess.destroy();
+            isEngineRunning = false;
             // System.out.println("Stockfish engine stopped successfully.");
         } catch (IOException e) {
             e.printStackTrace();
@@ -34,6 +38,10 @@ public class StockfishEngine {
 
     public void sendCommand(String command) {
         try {
+            if (!isEngineRunning) {
+                System.out.println("Engine is not running. Restarting engine...");
+                startEngine("D:\\Desktop\\סיכומים קורס תכנות\\אורט סינגאלובסקי\\java-projects\\chessGame_3\\src\\res\\stockfish\\stockfish-windows-x86-64.exe");
+            }
             writer.write(command + "\n");
             writer.flush();
             // System.out.println("Sent command: " + command);
@@ -68,13 +76,13 @@ public class StockfishEngine {
         waitForOutput("readyok", 2000);
 
         sendCommand("ucinewgame");
-        getOutput(100);
+        waitForOutput("readyok", 2000); // Added wait for readyok
 
         sendCommand("position fen " + fen);
-        getOutput(100);
+        waitForOutput("readyok", 2000); // Added wait for readyok
 
-        sendCommand("go movetime 7000"); // העליתי את זמן החיפוש ל-20 שניות
-        String output = getOutput(7000); // מחכה 20 שניות
+        sendCommand("go movetime 7000"); // העליתי את זמן החיפוש ל-7 שניות
+        String output = getOutput(7000); // מחכה 7 שניות
 
         // System.out.println("Engine output:\n" + output);
 
@@ -106,7 +114,7 @@ public class StockfishEngine {
             System.out.println("Best move: " + bestMove);
             engine.stopEngine();
         } else {
-            // System.out.println("Failed to start the engine.");
+            System.out.println("Failed to start the engine.");
         }
     }
 }

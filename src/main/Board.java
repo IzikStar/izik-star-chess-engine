@@ -6,12 +6,15 @@ import pieces.*;
 import javax.swing.*;
 import java.awt.*;
 import java.util.ArrayList;
+import java.util.Stack;
 import java.util.stream.Collectors;
 
 public class Board extends JPanel {
 
     public static int tileSize = 85;
-    public String fenStartingPosition = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    public static String fenStartingPosition = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    public String fenCurrentPosition = fenStartingPosition;
+    public Stack<String> savedStates = new Stack<>();
 
     private JFrame parentFrame;
 
@@ -32,49 +35,20 @@ public class Board extends JPanel {
     public int numOfTurns = 0;
     public int numOfTurnWithoutCaptureOrPawnMove = 0;
     public boolean isGameOver = false;
-    public static boolean isStatusChanged = false, isCheckMate = false, isStaleMate = false, isWhiteTurn;
+    // public static boolean isStatusChanged = false, isCheckMate = false, isStaleMate = false, isWhiteTurn;
 
     public Board() {
         this.setPreferredSize(new Dimension(cols * tileSize /* + tileSize / 2 */, rows * tileSize));
 
         this.addMouseListener(input);
         this.addMouseMotionListener(input);
+        this.savedStates.push(fenCurrentPosition);
 
         // addPieces();
-        loadPiecesFromFen();
-
-//        // יצירת מופע של CustomButtonPanel והוספתו לחלון
-//        CustomButtonPanel customButtonPanel = new CustomButtonPanel(1);
-//        this.add(customButtonPanel);
-//
-//        // הגדרת GridBagConstraints עבור הכפתור
-//        GridBagConstraints buttonConstraints = new GridBagConstraints();
-//        buttonConstraints.gridx = 1;  // עמודה שנייה (צד ימין)
-//        buttonConstraints.gridy = 0;  // שורה ראשונה (למעלה)
-//        buttonConstraints.anchor = GridBagConstraints.NORTHEAST;  // עיגון בצד ימין למעלה
-//        buttonConstraints.insets = new Insets(10, 10, 10, 10);  // רווחים מסביב לכפתור
-//
-//        // יצירת מופע של CustomButtonPanel והוספתו לחלון
-//        CustomButtonPanel customButtonPanel2 = new CustomButtonPanel(2);
-//        this.add(customButtonPanel2);
-//
-//        // הגדרת GridBagConstraints עבור הכפתור
-//        GridBagConstraints buttonConstraints2 = new GridBagConstraints();
-//        buttonConstraints2.gridx = 3;  // עמודה שנייה (צד ימין)
-//        buttonConstraints2.gridy = 0;  // שורה ראשונה (למעלה)
-//        buttonConstraints2.anchor = GridBagConstraints.NORTHEAST;  // עיגון בצד ימין למעלה
-//        buttonConstraints2.insets = new Insets(10, 10, 10, 10);  // רווחים מסביב לכפתור
-//
-//        // הוספת הכפתורים לחלון
-//        this.add(customButtonPanel, buttonConstraints);
-//        this.add(customButtonPanel2, buttonConstraints2);
+        loadPiecesFromFen(fenCurrentPosition);
     }
 
     ArrayList<Piece> pieceList = new ArrayList<>();
-
-//    public static Board getLastState() {
-//
-//    }
 
     public Piece getPiece(int col, int row) {
 
@@ -97,8 +71,8 @@ public class Board extends JPanel {
         return null;
     }
 
-    public void loadPiecesFromFen() {
-        String[] parts = fenStartingPosition.split(" ");
+    public void loadPiecesFromFen(String fenCurrentPosition) {
+        String[] parts = fenCurrentPosition.split(" ");
 
         pieceList.clear();
 
@@ -157,6 +131,7 @@ public class Board extends JPanel {
         else {
             enPassantTile = (7 - (parts[3].charAt(1) - '1')) * 8 + (parts[3].charAt(0) - 'a');
         }
+        repaint();
     }
 
     public void addPieces() {
@@ -295,6 +270,10 @@ public class Board extends JPanel {
             else {
                 audioPlayer.playMovingPieceSound();
             }
+            if (isWhiteToMove) {
+                savedStates.push(fenCurrentPosition);
+                fenCurrentPosition = convertPiecesToFEN();
+            }
             isWhiteToMove = !isWhiteToMove;
             if (isWhiteToMove) {
                 ++numOfTurns;
@@ -302,7 +281,6 @@ public class Board extends JPanel {
             ++numOfTurnWithoutCaptureOrPawnMove;
             updateGameState(true);
             showScore.calculateScore();
-            // convertPiecesToFEN();
         }
     }
 
@@ -526,25 +504,26 @@ public class Board extends JPanel {
         fen.append(isWhiteToMove ? " w " : " b "); // תור השחקן הבא
 
         // castling
-        boolean wCastles = true;
-        boolean bCastles = true;
+        Piece wKing = getPiece(4, 7);
+        Piece bKing = getPiece(4, 0);
+
         Piece bqr = getPiece(0, 0);
-        if (bqr instanceof Rook && bqr.isFirstMove) {
+        if (bqr instanceof Rook && bqr.isFirstMove && bKing instanceof King && bKing.isFirstMove) {
              fen.append("q");
         }
         Piece bkr = getPiece(7, 0);
-        if (bkr instanceof Rook && bkr.isFirstMove) {
+        if (bkr instanceof Rook && bkr.isFirstMove && bKing instanceof King && bKing.isFirstMove) {
              fen.append("k");
         }
         Piece wqr = getPiece(0, 7);
-        if (wqr instanceof Rook && wqr.isFirstMove) {
+        if (wqr instanceof Rook && wqr.isFirstMove && wKing instanceof King && wKing.isFirstMove) {
              fen.append("Q");
         }
         Piece wkr = getPiece(7, 7);
-        if (wkr instanceof Rook && wkr.isFirstMove) {
+        if (wkr instanceof Rook && wkr.isFirstMove && wKing instanceof King && wKing.isFirstMove) {
              fen.append("K");
         }
-        if ((!(bqr instanceof Rook && bqr.isFirstMove) && !(bkr instanceof Rook && bkr.isFirstMove)) || !((wqr instanceof Rook && wqr.isFirstMove) || !(wkr instanceof Rook && wkr.isFirstMove))){
+        if ((!(bqr instanceof Rook && bqr.isFirstMove && bKing instanceof King && bKing.isFirstMove) && !(bkr instanceof Rook && bkr.isFirstMove && bKing instanceof King && bKing.isFirstMove)) || !((wqr instanceof Rook && wqr.isFirstMove && wKing instanceof King && wKing.isFirstMove) || !(wkr instanceof Rook && wkr.isFirstMove && wKing instanceof King && wKing.isFirstMove))){
             fen.append('-');
         }
         fen.append(" ");
@@ -583,6 +562,17 @@ public class Board extends JPanel {
         return squareName.toString();
     }
 
+    public void goBack() {
+        fenCurrentPosition = savedStates.pop();
+        input.engine.stopEngine();
+        fromC = -1;
+        fromR = -1;
+        toC = -1;
+        toR = -1;
+        lastToMove = null;
+        selectedPiece = null;
+        loadPiecesFromFen(fenCurrentPosition);
+    }
 
 }
 
