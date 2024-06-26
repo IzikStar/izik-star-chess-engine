@@ -1,12 +1,12 @@
 package main;
 
 import GUI.AudioPlayer;
-import GUI.SoundPlayer;
 import pieces.Piece;
+
 import javax.swing.*;
-import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+
 import ai.StockfishEngine;
 
 public class Input extends MouseAdapter {
@@ -18,38 +18,58 @@ public class Input extends MouseAdapter {
     public int col, row;
     AudioPlayer audioPlayer = new AudioPlayer();
 
-    // SoundPlayer soundPlayer = new SoundPlayer();
-
-    // הפעלת Stockfish והפעלת המשחק
     String pathToStockfish = "src/res/stockfish/stockfish-windows-x86-64.exe";
     StockfishEngine engine;
 
     public Input(Board board) {
         this.board = board;
-//        engine = new StockfishEngine();
-//        if (engine.startEngine(pathToStockfish)) {
-//            System.out.println("Stockfish engine started.");
-//        } else {
-//            System.out.println("Failed to start Stockfish engine.");
-//        }
+        engine = new StockfishEngine();
+        if (engine.startEngine(pathToStockfish)) {
+            // System.out.println("Stockfish engine started.");
+        } else {
+            System.out.println("Failed to start Stockfish engine.");
+        }
     }
 
     private void makeEngineMove() {
-        // שימוש במתודה להמרת רשימת הכלים ל-FEN
-        String fen = board.convertPiecesToFEN();
-        System.out.println("Current FEN: " + fen);
-        String bestMove = engine.getBestMove(fen);
-        System.out.println("Best move: " + bestMove);
-        if (!bestMove.equals("unknown")) {
-            // Translate the best move to board coordinates and make the move
-            int fromCol = bestMove.charAt(0) - 'a';
-            int fromRow = 8 - (bestMove.charAt(1) - '0');
-            int toCol = bestMove.charAt(2) - 'a';
-            int toRow = 8 - (bestMove.charAt(3) - '0');
-            Move move = new Move(board, board.getPiece(fromCol, fromRow), toCol, toRow);
-            board.makeMove(move);
-            board.repaint();
-        }
+        new Thread(() -> {
+            boolean moveFound = false;
+            while (!moveFound) {
+                String fen = board.convertPiecesToFEN();
+                System.out.println("Current FEN: " + fen);
+                String bestMove = engine.getBestMove(fen);
+                System.out.println("Best move: " + bestMove);
+
+                if (bestMove != null && !bestMove.equals("unknown")) {
+                    int fromCol = bestMove.charAt(0) - 'a';
+                    int fromRow = 8 - (bestMove.charAt(1) - '0');
+                    int toCol = bestMove.charAt(2) - 'a';
+                    int toRow = 8 - (bestMove.charAt(3) - '0');
+                    System.out.println("From: " + fromCol + "," + fromRow + " To: " + toCol + "," + toRow);
+
+                    Move move = new Move(board, board.getPiece(fromCol, fromRow), toCol, toRow);
+
+                    if (board.isValidMove(move, true)) {
+                        board.makeMove(move);
+                        moveFound = true; // מהלך חוקי נמצא, לצאת מהלולאה
+                        System.out.println("Move found and made: " + bestMove);
+                    } else {
+                        System.out.println("Move is invalid, retrying...");
+                    }
+                } else {
+                    System.out.println("No valid move found, retrying...");
+                }
+            }
+            SwingUtilities.invokeLater(() -> {
+                board.repaint();
+                if (isStatusChanged) {
+                    board.selectedPiece = null;
+                    JFrame frame = new JFrame("Game Over");
+                    board.updateGameState(true);
+                    Main.showEndGameMessage(frame, (isCheckMate ? (isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח") : "תיקו"));
+                }
+            });
+        }).start();
     }
 
     @Override
@@ -58,7 +78,7 @@ public class Input extends MouseAdapter {
             col = e.getX() / Board.tileSize;
             row = e.getY() / Board.tileSize;
             Piece pieceXY = board.getPiece(col, row);
-            if (pieceXY != null && pieceXY.isWhite == board.getIsWhiteToMove()) {
+            if (pieceXY != null && pieceXY.isWhite == board.getIsWhiteToMove() && pieceXY.isWhite) { // כרגע אי אפשר לשחק עבור השחור
                 audioPlayer.playSelectPieceSound();
                 board.selectedPiece = pieceXY;
                 selectedX = e.getX() - Board.tileSize / 2;
@@ -87,9 +107,10 @@ public class Input extends MouseAdapter {
                             board.updateGameState(true);
                             Main.showEndGameMessage(frame, (isCheckMate ? (isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח!") : (isStaleMate ? "פת. ליריב אין מהלכים חוקיים. המשחק נגמר בתיקו" : "אין חומר מספיק. המשחק נגמר בתיקו.")));
                         });
-//                    } else {
-//                        // Make the engine move
-//                        // makeEngineMove();
+                    } else {
+                        if (!board.getIsWhiteToMove()) {
+                            makeEngineMove();
+                        }
                     }
                 } else {
                     board.selectedPiece.xPos = board.selectedPiece.col * Board.tileSize;
@@ -142,9 +163,11 @@ public class Input extends MouseAdapter {
                             board.updateGameState(true);
                             Main.showEndGameMessage(frame, (isCheckMate ? (isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח!") : (isStaleMate ? "פת. ליריב אין מהלכים חוקיים. המשחק נגמר בתיקו" : "אין חומר מספיק. המשחק נגמר בתיקו.")));
                         });
-//                    } else {
-//                        // Make the engine move
-//                        // makeEngineMove();
+                    } else {
+                        board.repaint();
+                        if (!board.getIsWhiteToMove()) {
+                            makeEngineMove();
+                        }
                     }
                 } else {
                     board.selectedPiece.xPos = board.selectedPiece.col * Board.tileSize;
@@ -155,8 +178,7 @@ public class Input extends MouseAdapter {
                 board.repaint();
                 selectedX = -1;
                 selectedY = -1;
-            }
-            else {
+            } else {
                 board.selectedPiece.xPos = board.selectedPiece.col * Board.tileSize;
                 board.selectedPiece.yPos = board.selectedPiece.row * Board.tileSize;
                 board.repaint();
@@ -164,5 +186,4 @@ public class Input extends MouseAdapter {
         }
         isDragged = false;
     }
-
 }

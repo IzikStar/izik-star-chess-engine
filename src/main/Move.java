@@ -26,6 +26,7 @@ public class Move {
         return piece;
     }
 
+
 //    public int getRow() {
 //        return row;
 //    }

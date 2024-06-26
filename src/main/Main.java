@@ -45,18 +45,6 @@ public class Main {
 
         frame.add(tabbedPane, tabConstraints);
         frame.setVisible(true);
-
-        // הפעלת Stockfish והפעלת המשחק
-//        String pathToStockfish = "D:\\Desktop\\סיכומים קורס תכנות\\אורט סינגאלובסקי\\java-projects\\chessGame_3\\src\\res\\stockfish\\stockfish-windows-x86-64.exe";
-//        StockfishEngine engine = new StockfishEngine();
-//        if (engine.startEngine(pathToStockfish)) {
-//            String fen = "startpos"; // מצב הלוח ההתחלתי (או מצב אחר לפי הצורך)
-//            String bestMove = engine.getBestMove(fen);
-//            System.out.println("Best move: " + bestMove);
-//            engine.stopEngine();
-//        } else {
-//            System.out.println("Failed to start Stockfish engine.");
-//        }
     }
 
     public static void showEndGameMessage(JFrame frame, String message) {

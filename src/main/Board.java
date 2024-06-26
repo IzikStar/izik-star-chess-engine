@@ -192,7 +192,7 @@ public class Board extends JPanel {
         // paint board
         for (int r = 0; r < rows; r++) {
             for (int c = 0; c < cols; c++) {
-                g2d.setColor((c + r) % 2 == 0 ? new Color(152, 97, 42) : new Color(208, 182, 164));
+                g2d.setColor((c + r) % 2 != 0 ? new Color(152, 97, 42) : new Color(208, 182, 164));
                 g2d.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
             }
         }
@@ -302,7 +302,7 @@ public class Board extends JPanel {
             ++numOfTurnWithoutCaptureOrPawnMove;
             updateGameState(true);
             showScore.calculateScore();
-            convertPiecesToFEN();
+            // convertPiecesToFEN();
         }
     }
 
@@ -569,7 +569,7 @@ public class Board extends JPanel {
         fen.append(" ");
         fen.append(numOfTurns);
 
-        System.out.println(fen);
+        // System.out.println(fen);
         return fen.toString();
     }
 
