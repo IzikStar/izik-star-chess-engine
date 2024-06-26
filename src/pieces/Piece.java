@@ -17,7 +17,7 @@ public class Piece {
     public boolean isWhite;
     public String name;
     public char type;
-    public double value;
+    public  double value;
     public boolean isFirstMove = true;
 
     BufferedImage sheet;

@@ -1,6 +1,7 @@
 package main;
 
 import GUI.AudioPlayer;
+import GUI.CustomButtonPanel;
 import pieces.*;
 
 import javax.swing.*;
@@ -21,6 +22,7 @@ public class Board extends JPanel {
     Input input = new Input(this);
     public CheckScanner checkScanner = new CheckScanner(this);
     AudioPlayer audioPlayer = new AudioPlayer();
+    ShowScore showScore = new ShowScore(this);
 
     int fromC = -1, fromR = -1, toC = -1, toR = -1;
     public int enPassantTile = -1;
@@ -30,15 +32,45 @@ public class Board extends JPanel {
     public static boolean isStatusChanged = false, isCheckMate = false, isStaleMate = false, isWhiteTurn;
 
     public Board() {
-        this.setPreferredSize(new Dimension(cols * tileSize, rows * tileSize));
+        this.setPreferredSize(new Dimension(cols * tileSize /* + tileSize / 2 */, rows * tileSize));
 
         this.addMouseListener(input);
         this.addMouseMotionListener(input);
 
         addPieces();
+
+//        // יצירת מופע של CustomButtonPanel והוספתו לחלון
+//        CustomButtonPanel customButtonPanel = new CustomButtonPanel(1);
+//        this.add(customButtonPanel);
+//
+//        // הגדרת GridBagConstraints עבור הכפתור
+//        GridBagConstraints buttonConstraints = new GridBagConstraints();
+//        buttonConstraints.gridx = 1;  // עמודה שנייה (צד ימין)
+//        buttonConstraints.gridy = 0;  // שורה ראשונה (למעלה)
+//        buttonConstraints.anchor = GridBagConstraints.NORTHEAST;  // עיגון בצד ימין למעלה
+//        buttonConstraints.insets = new Insets(10, 10, 10, 10);  // רווחים מסביב לכפתור
+//
+//        // יצירת מופע של CustomButtonPanel והוספתו לחלון
+//        CustomButtonPanel customButtonPanel2 = new CustomButtonPanel(2);
+//        this.add(customButtonPanel2);
+//
+//        // הגדרת GridBagConstraints עבור הכפתור
+//        GridBagConstraints buttonConstraints2 = new GridBagConstraints();
+//        buttonConstraints2.gridx = 3;  // עמודה שנייה (צד ימין)
+//        buttonConstraints2.gridy = 0;  // שורה ראשונה (למעלה)
+//        buttonConstraints2.anchor = GridBagConstraints.NORTHEAST;  // עיגון בצד ימין למעלה
+//        buttonConstraints2.insets = new Insets(10, 10, 10, 10);  // רווחים מסביב לכפתור
+//
+//        // הוספת הכפתורים לחלון
+//        this.add(customButtonPanel, buttonConstraints);
+//        this.add(customButtonPanel2, buttonConstraints2);
     }
 
     ArrayList<Piece> pieceList = new ArrayList<>();
+
+//    public static Board getLastState() {
+//
+//    }
 
     public Piece getPiece(int col, int row) {
 
@@ -98,6 +130,8 @@ public class Board extends JPanel {
                 g2d.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
             }
         }
+
+
 
         // paint last move
         g.setColor(new Color(72, 255, 0, 158));
@@ -196,6 +230,8 @@ public class Board extends JPanel {
             capture(move.captured);
             isWhiteToMove = !isWhiteToMove;
             updateGameState(true);
+            showScore.calculateScore();
+
         }
     }
 
