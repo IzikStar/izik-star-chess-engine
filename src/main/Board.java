@@ -375,7 +375,7 @@ public class Board extends JPanel {
         // promotions:
         colorIndex = move.piece.isWhite ? 0 : 7;
         if (move.newRow == colorIndex) {
-            if (isWhiteToMove) {
+            if (isWhiteToMove || true) { // כאן אמור להיות אם זה שני שחקנים
                 if(!promotePawn(move)) {
                     return false;
                 }
