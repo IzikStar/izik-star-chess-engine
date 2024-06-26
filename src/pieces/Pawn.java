@@ -31,7 +31,7 @@ public class Pawn extends Piece{
             return true;
 
         // push pawn 2:
-        if (this.col == col && this.row == row + 2 * colorIndex && this.isFirstMove && board.getPiece(col, row) == null && board.getPiece(col, row + colorIndex) == null)
+        if (this.col == col && this.row == row + 2 * colorIndex && this.row == (isWhite ? 6 : 1) && board.getPiece(col, row) == null && board.getPiece(col, row + colorIndex) == null)
             return true;
 
         // capture:

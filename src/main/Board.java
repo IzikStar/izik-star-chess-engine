@@ -1,7 +1,6 @@
 package main;
 
 import GUI.AudioPlayer;
-import GUI.CustomButtonPanel;
 import pieces.*;
 
 import javax.swing.*;
@@ -12,6 +11,7 @@ import java.util.stream.Collectors;
 public class Board extends JPanel {
 
     public static int tileSize = 85;
+    public String fenStartingPosition = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
     private JFrame parentFrame;
 
@@ -25,9 +25,12 @@ public class Board extends JPanel {
     ShowScore showScore = new ShowScore(this);
 
     int fromC = -1, fromR = -1, toC = -1, toR = -1;
+    public Piece lastToMove;
     public int enPassantTile = -1;
     // public Move lastMove;
     private boolean isWhiteToMove = true;
+    public int numOfTurns = 0;
+    public int numOfTurnWithoutCaptureOrPawnMove = 0;
     public boolean isGameOver = false;
     public static boolean isStatusChanged = false, isCheckMate = false, isStaleMate = false, isWhiteTurn;
 
@@ -37,7 +40,8 @@ public class Board extends JPanel {
         this.addMouseListener(input);
         this.addMouseMotionListener(input);
 
-        addPieces();
+        // addPieces();
+        loadPiecesFromFen();
 
 //        // יצירת מופע של CustomButtonPanel והוספתו לחלון
 //        CustomButtonPanel customButtonPanel = new CustomButtonPanel(1);
@@ -93,6 +97,68 @@ public class Board extends JPanel {
         return null;
     }
 
+    public void loadPiecesFromFen() {
+        String[] parts = fenStartingPosition.split(" ");
+
+        pieceList.clear();
+
+        // position
+        String position = parts[0];
+        int row = 0;
+        int col = 0;
+        for (int i = 0; i < position.length(); i++) {
+            char ch = position.charAt(i);
+            if (ch == '/') {
+                row++;
+                col = 0;
+            } else if (Character.isDigit(ch)) {
+                col += Character.getNumericValue(ch);
+            }
+            else {
+                boolean isWhite = Character.isUpperCase(ch);
+                ch = Character.toLowerCase(ch);
+                switch (ch) {
+                    case 'r' : pieceList.add(new Rook(this, col, row, isWhite)); break;
+                    case 'n' : pieceList.add(new Knight(this, col, row, isWhite)); break;
+                    case 'b' : pieceList.add(new Bishop(this, col, row, isWhite)); break;
+                    case 'q' : pieceList.add(new Queen(this, col, row, isWhite)); break;
+                    case 'k' : pieceList.add(new King(this, col, row, isWhite)); break;
+                    case 'p' : pieceList.add(new Pawn(this, col, row, isWhite, col)); break;
+                }
+                col++;
+            }
+        }
+
+        // turn
+        isWhiteToMove = parts[1].equals("w");
+
+        // castling
+        Piece bqr = getPiece(0, 0);
+        if (bqr instanceof Rook) {
+            bqr.isFirstMove = parts[2].contains("q");
+        }
+        Piece bkr = getPiece(7, 0);
+        if (bkr instanceof Rook) {
+            bkr.isFirstMove = parts[2].contains("k");
+        }
+        Piece wqr = getPiece(0, 7);
+        if (wqr instanceof Rook) {
+            wqr.isFirstMove = parts[2].contains("Q");
+        }
+        Piece wkr = getPiece(7, 7);
+        if (wkr instanceof Rook) {
+            wkr.isFirstMove = parts[2].contains("K");
+        }
+
+        // en passant
+        if (parts[3].equals("-")) {
+            enPassantTile = -1;
+        }
+        else {
+            enPassantTile = (7 - (parts[3].charAt(1) - '1')) * 8 + (parts[3].charAt(0) - 'a');
+        }
+    }
+
     public void addPieces() {
         pieceList.add(new Rook(this, 0, 0, false));
         pieceList.add(new Rook(this, 7, 0, false));
@@ -139,6 +205,7 @@ public class Board extends JPanel {
         g.setColor(new Color(55, 255, 0, 186));
         g.fillRect(toC * tileSize, toR * tileSize, tileSize, tileSize);
 
+        // paint the border of the king red if it's under attack
         if (checkScanner.isChecking(this)) {
             Piece king = findKing(isWhiteToMove);
             //g2d.setColor(new Color(255, 0, 0, 237)); // אדום חצי שקוף
@@ -215,36 +282,42 @@ public class Board extends JPanel {
             if (!move.piece.name.equals("Pawn") || !(Math.abs(move.piece.row - move.newRow) == 2)) {
                 enPassantTile = -1;
             }
-            setLastMove(move.piece.col, move.piece.row, move.newCol, move.newRow);
+            setLastMove(move.piece.col, move.piece.row, move.newCol, move.newRow, move.piece);
             move.piece.col = move.newCol;
             move.piece.row = move.newRow;
             move.piece.xPos = move.newCol * tileSize;
             move.piece.yPos = move.newRow * tileSize;
             move.piece.isFirstMove = false;
             if (move.captured != null) {
+                capture(move.captured);
                 audioPlayer.playCaptureSound();
             }
             else {
                 audioPlayer.playMovingPieceSound();
             }
-            capture(move.captured);
             isWhiteToMove = !isWhiteToMove;
+            if (isWhiteToMove) {
+                ++numOfTurns;
+            }
+            ++numOfTurnWithoutCaptureOrPawnMove;
             updateGameState(true);
             showScore.calculateScore();
-
+            convertPiecesToFEN();
         }
     }
 
-    public void setLastMove(int fromC, int fromR, int toC, int toR) {
+    public void setLastMove(int fromC, int fromR, int toC, int toR, Piece lastToMove) {
         this.fromC = fromC;
         this.fromR = fromR;
         this.toC = toC;
         this.toR = toR;
+        this.lastToMove = lastToMove;
         repaint();
     }
 
     public void capture(Piece piece) {
         pieceList.remove(piece);
+        numOfTurnWithoutCaptureOrPawnMove = 0;
     }
 
     public boolean isValidMove(Move move, boolean isExecuting) {
@@ -319,6 +392,7 @@ public class Board extends JPanel {
         if (move.newRow == colorIndex) {
             return promotePawn(move);
         }
+        numOfTurnWithoutCaptureOrPawnMove = -1;
         return true;
     }
 
@@ -431,7 +505,7 @@ public class Board extends JPanel {
         for (int row = 0; row < 8; row++) {
             int emptySquares = 0;
             for (int col = 0; col < 8; col++) {
-                Piece piece = getPiece(row, col);
+                Piece piece = getPiece(col, row);
                 if (piece == null) {
                     emptySquares++;
                 } else {
@@ -449,9 +523,64 @@ public class Board extends JPanel {
                 fen.append('/');
             }
         }
-        fen.append(isWhiteTurn ? " w " : " b "); // תור השחקן הבא
-        fen.append("KQkq - 0 1"); // מצב העתקה (castling), עובר דרך, חצאים, שלמים
+        fen.append(isWhiteToMove ? " w " : " b "); // תור השחקן הבא
+
+        // castling
+        boolean wCastles = true;
+        boolean bCastles = true;
+        Piece bqr = getPiece(0, 0);
+        if (bqr instanceof Rook && bqr.isFirstMove) {
+             fen.append("q");
+        }
+        Piece bkr = getPiece(7, 0);
+        if (bkr instanceof Rook && bkr.isFirstMove) {
+             fen.append("k");
+        }
+        Piece wqr = getPiece(0, 7);
+        if (wqr instanceof Rook && wqr.isFirstMove) {
+             fen.append("Q");
+        }
+        Piece wkr = getPiece(7, 7);
+        if (wkr instanceof Rook && wkr.isFirstMove) {
+             fen.append("K");
+        }
+        if ((!(bqr instanceof Rook && bqr.isFirstMove) && !(bkr instanceof Rook && bkr.isFirstMove)) || !((wqr instanceof Rook && wqr.isFirstMove) || !(wkr instanceof Rook && wkr.isFirstMove))){
+            fen.append('-');
+        }
+        fen.append(" ");
+
+        // en passant
+        int colorIndex = isWhiteToMove ? 1 : -1;
+        // System.out.println(lastToMove + " " + );
+        if (lastToMove instanceof Pawn && Math.abs(toR - fromR) == 2) {
+            int col = fromC;
+            int row = fromR + colorIndex;
+            fen.append(squareToLetters(col, row));
+        }
+        else {
+            fen.append('-');
+        }
+
+        // מספר החצאים
+        fen.append(" ");
+        fen.append(numOfTurnWithoutCaptureOrPawnMove);
+
+        // מספר התורות
+        fen.append(" ");
+        fen.append(numOfTurns);
+
+        System.out.println(fen);
         return fen.toString();
+    }
+
+    public String squareToLetters(int col, int row) {
+        String namesOfRows = "87654321";
+        String namesOfCols = "abcdefgh";
+        StringBuilder squareName = new StringBuilder();
+        squareName.append (namesOfCols.charAt(col));
+        squareName.append (namesOfRows.charAt(row));
+        // System.out.println(col + " " + row + " " + squareName);
+        return squareName.toString();
     }
 
 

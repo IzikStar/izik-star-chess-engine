@@ -61,7 +61,7 @@ public class Piece {
     }
 
     public char getRepresentation() {
-        return isWhite ? Character.toUpperCase(type) : Character.toLowerCase(type);
+        return type;
     }
 
     public int getRow() {
