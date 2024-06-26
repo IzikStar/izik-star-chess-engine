@@ -7,6 +7,7 @@ public class StockfishEngine {
     private BufferedReader reader;
     private BufferedWriter writer;
     private boolean isEngineRunning;
+    public String promotionChoice = null;
 
     public boolean startEngine(String path) {
         try {
@@ -39,7 +40,7 @@ public class StockfishEngine {
     public void sendCommand(String command) {
         try {
             if (!isEngineRunning) {
-                System.out.println("Engine is not running. Restarting engine...");
+                // System.out.println("Engine is not running. Restarting engine...");
                 startEngine("D:\\Desktop\\סיכומים קורס תכנות\\אורט סינגאלובסקי\\java-projects\\chessGame_3\\src\\res\\stockfish\\stockfish-windows-x86-64.exe");
             }
             writer.write(command + "\n");
@@ -59,7 +60,7 @@ public class StockfishEngine {
                 String line = reader.readLine();
                 if (line != null) {
                     output.append(line).append("\n");
-                    System.out.println("Received line: " + line);
+                    // System.out.println("Received line: " + line);
                 }
             }
         } catch (IOException | InterruptedException e) {
@@ -70,21 +71,19 @@ public class StockfishEngine {
 
     public String getBestMove(String fen) {
         sendCommand("uci");
-        waitForOutput("uciok", 2000);
+        waitForOutput("uciok", 500);
 
         sendCommand("isready");
-        waitForOutput("readyok", 2000);
+        waitForOutput("readyok", 500);
 
         sendCommand("ucinewgame");
-        waitForOutput("readyok", 2000); // Added wait for readyok
+        waitForOutput("readyok", 500);
 
         sendCommand("position fen " + fen);
-        waitForOutput("readyok", 2000); // Added wait for readyok
+        waitForOutput("readyok", 500);
 
-        sendCommand("go movetime 7000"); // העליתי את זמן החיפוש ל-7 שניות
-        String output = getOutput(7000); // מחכה 7 שניות
-
-        // System.out.println("Engine output:\n" + output);
+        sendCommand("go movetime 1000");
+        String output = getOutput(1150);
 
         String[] lines = output.split("\n");
         for (String line : lines) {
@@ -109,7 +108,7 @@ public class StockfishEngine {
     public static void main(String[] args) {
         StockfishEngine engine = new StockfishEngine();
         if (engine.startEngine("D:\\Desktop\\סיכומים קורס תכנות\\אורט סינגאלובסקי\\java-projects\\chessGame_3\\src\\res\\stockfish\\stockfish-windows-x86-64.exe")) {
-            String fen = "your_fen_here";
+            String fen = "rnbqkbnr/ppppppPp/8/8/8/8/PPPPPP1P/RNBQKBNR w KQkq - 0 1";
             String bestMove = engine.getBestMove(fen);
             System.out.println("Best move: " + bestMove);
             engine.stopEngine();

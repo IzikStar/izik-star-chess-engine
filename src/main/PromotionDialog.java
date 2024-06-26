@@ -28,7 +28,7 @@ public class PromotionDialog extends JDialog {
         JPanel buttonPanel = new JPanel();
         buttonPanel.setLayout(new GridLayout(1, 4));
 
-        String[] pieces = {"Queen", "Rook", "Bishop", "Knight"};
+        String[] pieces = {"q", "r", "b", "n"};
         Icon[] icons;
 
 

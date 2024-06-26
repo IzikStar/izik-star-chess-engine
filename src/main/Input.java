@@ -27,37 +27,40 @@ public class Input extends MouseAdapter {
         if (engine.startEngine(pathToStockfish)) {
             // System.out.println("Stockfish engine started.");
         } else {
-            System.out.println("Failed to start Stockfish engine.");
+           // System.out.println("Failed to start Stockfish engine.");
         }
     }
 
     private void makeEngineMove() {
         new Thread(() -> {
             boolean moveFound = false;
-            while (!moveFound) {
+            while (!(moveFound) && !(board.getIsWhiteToMove()) ) {
                 String fen = board.convertPiecesToFEN();
-                System.out.println("Current FEN: " + fen);
+                // System.out.println("Current FEN: " + fen);
                 String bestMove = engine.getBestMove(fen);
-                System.out.println("Best move: " + bestMove);
+                // System.out.println("Best move: " + bestMove);
 
                 if (bestMove != null && !bestMove.equals("unknown")) {
                     int fromCol = bestMove.charAt(0) - 'a';
                     int fromRow = 8 - (bestMove.charAt(1) - '0');
                     int toCol = bestMove.charAt(2) - 'a';
                     int toRow = 8 - (bestMove.charAt(3) - '0');
-                    System.out.println("From: " + fromCol + "," + fromRow + " To: " + toCol + "," + toRow);
+                    if (bestMove.length() > 4) {
+                        engine.promotionChoice = String.valueOf(bestMove.charAt(4));
+                    }
+                    // System.out.println("From: " + fromCol + "," + fromRow + " To: " + toCol + "," + toRow);
 
                     Move move = new Move(board, board.getPiece(fromCol, fromRow), toCol, toRow);
 
                     if (board.isValidMove(move, true)) {
                         board.makeMove(move);
                         moveFound = true; // מהלך חוקי נמצא, לצאת מהלולאה
-                        System.out.println("Move found and made: " + bestMove);
+                        // System.out.println("Move found and made: " + bestMove);
                     } else {
-                        System.out.println("Move is invalid, retrying...");
+                        // System.out.println("Move is invalid, retrying...");
                     }
                 } else {
-                    System.out.println("No valid move found, retrying...");
+                    // System.out.println("No valid move found, retrying...");
                 }
             }
             SwingUtilities.invokeLater(() -> {

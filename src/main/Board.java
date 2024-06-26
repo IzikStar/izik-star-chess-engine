@@ -131,6 +131,13 @@ public class Board extends JPanel {
         else {
             enPassantTile = (7 - (parts[3].charAt(1) - '1')) * 8 + (parts[3].charAt(0) - 'a');
         }
+
+        // num Of Turn Without Capture Or Pawn Move
+        numOfTurnWithoutCaptureOrPawnMove = Character.getNumericValue(parts[4].charAt(0));
+
+        // num of turns
+        numOfTurns = Character.getNumericValue(parts[5].charAt(0));
+
         repaint();
     }
 
@@ -270,17 +277,17 @@ public class Board extends JPanel {
             else {
                 audioPlayer.playMovingPieceSound();
             }
-            if (isWhiteToMove) {
-                savedStates.push(fenCurrentPosition);
-                fenCurrentPosition = convertPiecesToFEN();
-            }
             isWhiteToMove = !isWhiteToMove;
             if (isWhiteToMove) {
                 ++numOfTurns;
             }
             ++numOfTurnWithoutCaptureOrPawnMove;
             updateGameState(true);
-            showScore.calculateScore();
+            if (isWhiteToMove) {
+                savedStates.push(fenCurrentPosition);
+                fenCurrentPosition = convertPiecesToFEN();
+            }
+            // showScore.calculateScore();
         }
     }
 
@@ -368,7 +375,15 @@ public class Board extends JPanel {
         // promotions:
         colorIndex = move.piece.isWhite ? 0 : 7;
         if (move.newRow == colorIndex) {
-            return promotePawn(move);
+            if (isWhiteToMove) {
+                if(!promotePawn(move)) {
+                    return false;
+                }
+            }
+            else {
+                promotePawnTo(move, input.engine.promotionChoice);
+                capture(move.piece);
+            }
         }
         numOfTurnWithoutCaptureOrPawnMove = -1;
         return true;
@@ -396,19 +411,19 @@ public class Board extends JPanel {
 
     private void promotePawnTo(Move move, String choice) {
         switch (choice) {
-            case "Queen":
+            case "q":
                 pieceList.add(new Queen(this, move.newCol, move.newRow, move.piece.isWhite));
                 repaint();
                 break;
-            case "Rook":
+            case "r":
                 pieceList.add(new Rook(this, move.newCol, move.newRow, move.piece.isWhite));
                 repaint();
                 break;
-            case "Bishop":
+            case "b":
                 pieceList.add(new Bishop(this, move.newCol, move.newRow, move.piece.isWhite));
                 repaint();
                 break;
-            case "Knight":
+            case "n":
                 pieceList.add(new Knight(this, move.newCol, move.newRow, move.piece.isWhite));
                 repaint();
                 break;

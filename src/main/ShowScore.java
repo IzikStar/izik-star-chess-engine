@@ -24,12 +24,12 @@ public class ShowScore {
                 }
             }
         }
-//        if (blackScore > whiteScore) {
-//             System.out.println("black is better.");
-//        } else if (whiteScore > blackScore) {
-//             System.out.println("white is better.");
-//        }
-        // System.out.println(Math.abs(blackScore - whiteScore));
+        if (blackScore > whiteScore) {
+             System.out.println("black is better.");
+        } else if (whiteScore > blackScore) {
+             System.out.println("white is better.");
+        }
+        System.out.println(Math.abs(blackScore - whiteScore));
         return Math.abs(blackScore - whiteScore);
     }
 }
