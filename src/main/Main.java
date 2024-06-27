@@ -8,6 +8,9 @@ import ai.*;
 import main.setting.SettingPanel;
 
 public class Main {
+    private static JLabel player1ScoreLabel;
+    private static JLabel player2ScoreLabel;
+
     public static void main(String[] args) {
         JFrame frame = new JFrame();
         frame.setMinimumSize(new Dimension(1000, 1000));
@@ -72,9 +75,12 @@ public class Main {
         JPanel scorePanel = new JPanel();
         scorePanel.setBackground(Color.lightGray);
         scorePanel.setLayout(new BoxLayout(scorePanel, BoxLayout.Y_AXIS)); // הגדרת סידור אנכי
-        scorePanel.add(new JLabel("Score Panel"));
-        scorePanel.add(new JLabel("Player 1: 0")); // טקסט לדוגמה
-        scorePanel.add(new JLabel("Player 2: 0")); // טקסט לדוגמה
+
+        player1ScoreLabel = new JLabel("Player 1: 0");
+        scorePanel.add(player1ScoreLabel);
+
+        player2ScoreLabel = new JLabel("Player 2: 0");
+        scorePanel.add(player2ScoreLabel);
 
         GridBagConstraints scorePanelConstraints = new GridBagConstraints();
         scorePanelConstraints.gridx = 2; // עמודה שלישית (ליד הלוח)
@@ -90,5 +96,10 @@ public class Main {
 
     public static void showEndGameMessage(JFrame frame, String message) {
         JOptionPane.showMessageDialog(frame, message, "סיום המשחק", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    public static void updateScores(int player1Score, int player2Score) {
+        player1ScoreLabel.setText("White: " + player1Score);
+        player2ScoreLabel.setText("Black: " + player2Score);
     }
 }
