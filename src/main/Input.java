@@ -32,10 +32,10 @@ public class Input extends MouseAdapter {
         }
     }
 
-    private void makeEngineMove() {
+    public void makeEngineMove() {
         new Thread(() -> {
             boolean moveFound = false;
-            while (!(moveFound) && !(board.getIsWhiteToMove()) ) {
+            while (!(moveFound) /*&& !(board.getIsWhiteToMove())*/ ) {
                 String fen = board.convertPiecesToFEN();
                 // System.out.println("Current FEN: " + fen);
                 String bestMove = engine.getBestMove(fen);
@@ -76,13 +76,73 @@ public class Input extends MouseAdapter {
         }).start();
     }
 
+    public void takeEngineHint() {
+        new Thread(() -> {
+            boolean moveFound = false;
+            while (!(moveFound) /*&& !(board.getIsWhiteToMove())*/ ) {
+                String fen = board.convertPiecesToFEN();
+                // System.out.println("Current FEN: " + fen);
+                String bestMove = engine.getBestMove(fen);
+                // System.out.println("Best move: " + bestMove);
+
+                if (bestMove != null && !bestMove.equals("unknown")) {
+                    int fromCol = bestMove.charAt(0) - 'a';
+                    int fromRow = 8 - (bestMove.charAt(1) - '0');
+                    int toCol = bestMove.charAt(2) - 'a';
+                    int toRow = 8 - (bestMove.charAt(3) - '0');
+                    if (bestMove.length() > 4) {
+                        engine.promotionChoice = String.valueOf(bestMove.charAt(4));
+                    }
+                    // System.out.println("From: " + fromCol + "," + fromRow + " To: " + toCol + "," + toRow);
+
+                    Move move = new Move(board, board.getPiece(fromCol, fromRow), toCol, toRow);
+
+                    if (board.isValidMove(move, true)) {
+                        board.hintFromC = fromCol;
+                        board.hintFromR = fromRow;
+                        board.hintToC = toCol;
+                        board.hintToR = toRow;
+                        board.repaint();
+                        moveFound = true; // מהלך חוקי נמצא, לצאת מהלולאה
+                        // System.out.println("Move found and made: " + bestMove);
+                    } else {
+                        // System.out.println("Move is invalid, retrying...");
+                    }
+                } else {
+                    // System.out.println("No valid move found, retrying...");
+                }
+            }
+            SwingUtilities.invokeLater(() -> {
+                board.repaint();
+                if (isStatusChanged) {
+                    board.selectedPiece = null;
+                    JFrame frame = new JFrame("Game Over");
+                    board.updateGameState(true);
+                    Main.showEndGameMessage(frame, (isCheckMate ? (isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח") : "תיקו"));
+                }
+            });
+        }).start();
+    }
+
     @Override
     public void mousePressed(MouseEvent e) {
+        // deleting the hint mark
+        board.hintFromC = -1;
+        board.hintFromR = -1;
+        board.hintToC = -1;
+        board.hintToR = -1;
         if (selectedX == -1 && selectedY == -1) {
-            col = e.getX() / Board.tileSize;
-            row = e.getY() / Board.tileSize;
+            // בחירת כלי
+            if (ChoosePlayFormat.isPlayingWhite) {
+                col = e.getX() / Board.tileSize;
+                row = e.getY() / Board.tileSize;
+            } else {
+                col = (board.cols - 1) - (e.getX() / Board.tileSize);
+                row = (board.rows - 1) - (e.getY() / Board.tileSize);
+            }
+
             Piece pieceXY = board.getPiece(col, row);
-            if (pieceXY != null && pieceXY.isWhite == board.getIsWhiteToMove() /**/ && (!ChoosePlayFormat.isOnePlayer || ChoosePlayFormat.isPlayingWhite == board.getIsWhiteToMove()) /**/) { // ככה אי אפשר לשחק עבור השחור. נועד למשחק נגד המחשב
+            if (pieceXY != null && pieceXY.isWhite == board.getIsWhiteToMove() && (!ChoosePlayFormat.isOnePlayer || ChoosePlayFormat.isPlayingWhite == board.getIsWhiteToMove())) {
                 audioPlayer.playSelectPieceSound();
                 board.selectedPiece = pieceXY;
                 selectedX = e.getX() - Board.tileSize / 2;
@@ -93,8 +153,15 @@ public class Input extends MouseAdapter {
             }
             board.repaint();
         } else {
-            int col = e.getX() / Board.tileSize;
-            int row = e.getY() / Board.tileSize;
+            // הזזת כלי
+            if (ChoosePlayFormat.isPlayingWhite) {
+                col = e.getX() / Board.tileSize;
+                row = e.getY() / Board.tileSize;
+            } else {
+                col = (board.cols - 1) - (e.getX() / Board.tileSize);
+                row = (board.rows - 1) - (e.getY() / Board.tileSize);
+            }
+
             if (board.selectedPiece != null) {
                 Move move = new Move(board, board.selectedPiece, col, row);
                 if (board.isValidMove(move, true)) {
@@ -117,10 +184,21 @@ public class Input extends MouseAdapter {
                         }
                     }
                 } else {
-                    board.selectedPiece.xPos = board.selectedPiece.col * Board.tileSize;
-                    board.selectedPiece.yPos = board.selectedPiece.row * Board.tileSize;
+                    if (ChoosePlayFormat.isPlayingWhite) {
+                        board.selectedPiece.xPos = board.selectedPiece.col * Board.tileSize;
+                        board.selectedPiece.yPos = board.selectedPiece.row * Board.tileSize;
+                    } else {
+                        board.selectedPiece.xPos = (board.cols - 1 - board.selectedPiece.col) * Board.tileSize;
+                        board.selectedPiece.yPos = (board.rows - 1 - board.selectedPiece.row) * Board.tileSize;
+                    }
+
                     col = e.getX() / Board.tileSize;
                     row = e.getY() / Board.tileSize;
+                    if (!ChoosePlayFormat.isPlayingWhite) {
+                        col = (board.cols - 1) - col;
+                        row = (board.rows - 1) - row;
+                    }
+
                     Piece pieceXY = board.getPiece(col, row);
                     if (pieceXY != null && pieceXY.isWhite == board.getIsWhiteToMove()) {
                         audioPlayer.playSelectPieceSound();

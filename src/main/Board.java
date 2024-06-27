@@ -29,6 +29,7 @@ public class Board extends JPanel {
     ShowScore showScore = new ShowScore(this);
 
     int fromC = -1, fromR = -1, toC = -1, toR = -1;
+    int hintFromC = -1, hintFromR = -1, hintToC = -1, hintToR = -1;
     public Piece lastToMove;
     public int enPassantTile = -1;
     // public Move lastMove;
@@ -79,31 +80,80 @@ public class Board extends JPanel {
 
         // position
         String position = parts[0];
-        int row = 0;
-        int col = 0;
-        for (int i = 0; i < position.length(); i++) {
-            char ch = position.charAt(i);
-            if (ch == '/') {
-                row++;
-                col = 0;
-            } else if (Character.isDigit(ch)) {
-                col += Character.getNumericValue(ch);
-            }
-            else {
-                boolean isWhite = Character.isUpperCase(ch);
-                ch = Character.toLowerCase(ch);
-                switch (ch) {
-                    case 'r' : pieceList.add(new Rook(this, col, row, isWhite)); break;
-                    case 'n' : pieceList.add(new Knight(this, col, row, isWhite)); break;
-                    case 'b' : pieceList.add(new Bishop(this, col, row, isWhite)); break;
-                    case 'q' : pieceList.add(new Queen(this, col, row, isWhite)); break;
-                    case 'k' : pieceList.add(new King(this, col, row, isWhite)); break;
-                    case 'p' : pieceList.add(new Pawn(this, col, row, isWhite, col)); break;
+        if (ChoosePlayFormat.isPlayingWhite) {
+            int row = 0;
+            int col = 0;
+            for (int i = 0; i < position.length(); i++) {
+                char ch = position.charAt(i);
+                if (ch == '/') {
+                    row++;
+                    col = 0;
+                } else if (Character.isDigit(ch)) {
+                    col += Character.getNumericValue(ch);
+                } else {
+                    boolean isWhite = Character.isUpperCase(ch);
+                    ch = Character.toLowerCase(ch);
+                    switch (ch) {
+                        case 'r':
+                            pieceList.add(new Rook(this, col, row, isWhite));
+                            break;
+                        case 'n':
+                            pieceList.add(new Knight(this, col, row, isWhite));
+                            break;
+                        case 'b':
+                            pieceList.add(new Bishop(this, col, row, isWhite));
+                            break;
+                        case 'q':
+                            pieceList.add(new Queen(this, col, row, isWhite));
+                            break;
+                        case 'k':
+                            pieceList.add(new King(this, col, row, isWhite));
+                            break;
+                        case 'p':
+                            pieceList.add(new Pawn(this, col, row, isWhite, col));
+                            break;
+                    }
+                    col++;
                 }
-                col++;
             }
         }
-
+        else {
+            int row = 0;
+            int col = 0;
+            for (int i = 0; i < position.length(); i++) {
+                char ch = position.charAt(i);
+                if (ch == '/') {
+                    row++;
+                    col = 0;
+                } else if (Character.isDigit(ch)) {
+                    col += Character.getNumericValue(ch);
+                } else {
+                    boolean isWhite = Character.isUpperCase(ch);
+                    ch = Character.toLowerCase(ch);
+                    switch (ch) {
+                        case 'r':
+                            pieceList.add(new Rook(this, col, row, isWhite));
+                            break;
+                        case 'n':
+                            pieceList.add(new Knight(this, col, row, isWhite));
+                            break;
+                        case 'b':
+                            pieceList.add(new Bishop(this, col, row, isWhite));
+                            break;
+                        case 'q':
+                            pieceList.add(new Queen(this, col, row, isWhite));
+                            break;
+                        case 'k':
+                            pieceList.add(new King(this, col, row, isWhite));
+                            break;
+                        case 'p':
+                            pieceList.add(new Pawn(this, col, row, isWhite, col));
+                            break;
+                    }
+                    col++;
+                }
+            }
+        }
         // turn
         isWhiteToMove = parts[1].equals("w");
 
@@ -173,20 +223,35 @@ public class Board extends JPanel {
     public void paintComponent(Graphics g) {
         Graphics2D g2d = (Graphics2D) g;
         // paint board
-        for (int r = 0; r < rows; r++) {
-            for (int c = 0; c < cols; c++) {
-                g2d.setColor((c + r) % 2 != 0 ? new Color(152, 97, 42) : new Color(208, 182, 164));
-                g2d.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
+        if (true /* ChoosePlayFormat.isPlayingWhite */) {
+            for (int r = 0; r < rows; r++) {
+                for (int c = 0; c < cols; c++) {
+                    g2d.setColor((c + r) % 2 != 0 ? new Color(152, 97, 42) : new Color(208, 182, 164));
+                    g2d.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
+                }
             }
         }
+//        else {
+//            for (int r = rows - 1; r > -1; r--) {
+//                for (int c = cols - 1; c > -1 ; c--) {
+//                    g2d.setColor((c + r) % 2 != 0 ? new Color(152, 97, 42) : new Color(208, 182, 164));
+//                    g2d.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
+//                }
+//            }
+//        }
 
-
-
+        // paint last move
         // paint last move
         g.setColor(new Color(72, 255, 0, 158));
         g.fillRect(fromC * tileSize, fromR * tileSize, tileSize, tileSize);
         g.setColor(new Color(55, 255, 0, 186));
         g.fillRect(toC * tileSize, toR * tileSize, tileSize, tileSize);
+
+        // paint engine hint
+        g.setColor(new Color(0, 255, 215, 158));
+        g.fillRect(hintFromC * tileSize, hintFromR * tileSize, tileSize, tileSize);
+        g.setColor(new Color(47, 255, 224, 186));
+        g.fillRect(hintToC * tileSize, hintToR * tileSize, tileSize, tileSize);
 
         // paint the border of the king red if it's under attack
         if (checkScanner.isChecking(this)) {
@@ -208,18 +273,19 @@ public class Board extends JPanel {
                     drawSquareWithCircle(g ,king.col, king.row);
                 }
             }
-            for (int c = 0; c < cols; c++) {
-                for (int r = 0; r < rows; r++) {
-                    if (isValidMove(new Move(this, selectedPiece, c, r), false)) {
-                        if (this.getPiece(c, r) == null) {
-                            // ציור עיגול במרכז הריבוע
-                            g.setColor(new Color(72, 255, 0, 158));
-                            int diameter = tileSize / 3;
-                            int circleX = c * tileSize + (tileSize - diameter) / 2;
-                            int circleY = r * tileSize + (tileSize - diameter) / 2;
-                            g.fillOval(circleX, circleY, diameter, diameter);
-                        } else {
-                            drawSquareWithCircle(g, c, r);
+            if (ChoosePlayFormat.isPlayingWhite) {
+                for (int c = 0; c < cols; c++) {
+                    for (int r = 0; r < rows; r++) {
+                        if (isValidMove(new Move(this, selectedPiece, c, r), false)) {
+                            if (this.getPiece(c, r) == null) {
+                                // ציור עיגול במרכז הריבוע
+                                g.setColor(new Color(72, 255, 0, 158));
+                                int diameter = tileSize / 3;
+                                int circleX = c * tileSize + (tileSize - diameter) / 2;
+                                int circleY = r * tileSize + (tileSize - diameter) / 2;
+                                g.fillOval(circleX, circleY, diameter, diameter);
+                            } else {
+                                drawSquareWithCircle(g, c, r);
 //                            g.setColor(new Color(255, 0, 0, 90));
 //                            int diameter = tileSize / 3;
 //                            int circleX = c * tileSize + (tileSize - diameter) / 2;
@@ -227,6 +293,32 @@ public class Board extends JPanel {
 //                            g.fillOval(circleX, circleY, diameter, diameter);
 //                            g2d.setColor(new Color(255, 0, 0, 90)); // אדום חצי שקוף
 //                            g2d.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
+                            }
+                        }
+                    }
+                }
+            }
+            else {
+                for (int c = cols - 1; c > -1; c--) {
+                    for (int r = rows - 1; r > -1; r--) {
+                        if (isValidMove(new Move(this, selectedPiece, c, r), false)) {
+                            if (this.getPiece(c, r) == null) {
+                                // ציור עיגול במרכז הריבוע
+                                g.setColor(new Color(72, 255, 0, 158));
+                                int diameter = tileSize / 3;
+                                int circleX = c * tileSize + (tileSize - diameter) / 2;
+                                int circleY = r * tileSize + (tileSize - diameter) / 2;
+                                g.fillOval(circleX, circleY, diameter, diameter);
+                            } else {
+                                drawSquareWithCircle(g, c, r);
+//                            g.setColor(new Color(255, 0, 0, 90));
+//                            int diameter = tileSize / 3;
+//                            int circleX = c * tileSize + (tileSize - diameter) / 2;
+//                            int circleY = r * tileSize + (tileSize - diameter) / 2;
+//                            g.fillOval(circleX, circleY, diameter, diameter);
+//                            g2d.setColor(new Color(255, 0, 0, 90)); // אדום חצי שקוף
+//                            g2d.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
+                            }
                         }
                     }
                 }
@@ -237,6 +329,7 @@ public class Board extends JPanel {
         for (Piece piece : pieceList) {
             piece.paint(g2d);
         }
+
 
     }
 
@@ -597,7 +690,9 @@ public class Board extends JPanel {
         }
     }
 
+    public void paintMove(Move move) {
 
+    }
 
 }
 

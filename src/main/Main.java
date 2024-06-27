@@ -59,6 +59,7 @@ public class Main {
         // יצירת מופע של CustomButtonPanel והוספתו לחלון
         CustomButtonPanel customButtonPanel2 = new CustomButtonPanel(2,"Take a hint", (Integer id) -> {
             System.out.println("Button with id " + id + " clicked!");
+            board.input.takeEngineHint();
         });
         frame.add(customButtonPanel2);
 
