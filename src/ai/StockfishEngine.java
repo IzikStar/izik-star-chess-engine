@@ -1,5 +1,7 @@
 package ai;
 
+import main.setting.SettingPanel;
+
 import java.io.*;
 
 public class StockfishEngine {
@@ -9,7 +11,7 @@ public class StockfishEngine {
     private boolean isEngineRunning;
     public String promotionChoice = null;
 
-    private int skillLevel = 10;
+    private int skillLevel = SettingPanel.skillLevel;
 
     public boolean startEngine(String path) {
         try {
@@ -68,27 +70,27 @@ public class StockfishEngine {
     public void setSkillLevel(int skillLevel) {
         this.skillLevel = skillLevel;
         sendCommand("setoption name Skill Level value " + skillLevel);
-        waitForOutput("readyok", 50);
+        waitForOutput("readyok", 10);
     }
 
     public String getBestMove(String fen) {
         sendCommand("uci");
-        waitForOutput("uciok", 50);
+        waitForOutput("uciok", 10);
 
         sendCommand("isready");
-        waitForOutput("readyok", 50);
+        waitForOutput("readyok", 10);
 
         sendCommand("ucinewgame");
-        waitForOutput("readyok", 50);
+        waitForOutput("readyok", 10);
 
         setSkillLevel(skillLevel);
 
         sendCommand("position fen " + fen);
-        waitForOutput("readyok", 50);
+        waitForOutput("readyok", 10);
 
         long startTime = System.currentTimeMillis();
-        sendCommand("go movetime 200 nodes 1000000"); // הגבלת זמן ומספר הצמתים
-        String output = getOutput(500);
+        sendCommand("go movetime 20 nodes 10000000"); // הגבלת זמן ומספר הצמתים
+        String output = getOutput(25);
         long endTime = System.currentTimeMillis();
         System.out.println("Calculation time: " + (endTime - startTime) + " ms");
 

@@ -76,10 +76,10 @@ public class Main {
         scorePanel.setBackground(Color.lightGray);
         scorePanel.setLayout(new BoxLayout(scorePanel, BoxLayout.Y_AXIS)); // הגדרת סידור אנכי
 
-        player1ScoreLabel = new JLabel("Player 1: 0");
+        player1ScoreLabel = new JLabel("White:    \n\t0\t");
         scorePanel.add(player1ScoreLabel);
 
-        player2ScoreLabel = new JLabel("Player 2: 0");
+        player2ScoreLabel = new JLabel("Black:    \n\t0\t");
         scorePanel.add(player2ScoreLabel);
 
         GridBagConstraints scorePanelConstraints = new GridBagConstraints();
@@ -99,7 +99,7 @@ public class Main {
     }
 
     public static void updateScores(int player1Score, int player2Score) {
-        player1ScoreLabel.setText("White: " + player1Score);
-        player2ScoreLabel.setText("Black: " + player2Score);
+        player1ScoreLabel.setText("White:    \n\t" + player1Score + "\t");
+        player2ScoreLabel.setText("Black:    \n\t" + player2Score + "\t");
     }
 }

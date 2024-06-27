@@ -2,6 +2,7 @@ package main;
 
 import GUI.AudioPlayer;
 import main.setting.ChoosePlayFormat;
+import main.setting.SettingPanel;
 import pieces.Piece;
 
 import javax.swing.*;
@@ -34,6 +35,7 @@ public class Input extends MouseAdapter {
 
     public void makeEngineMove() {
         new Thread(() -> {
+            engine.setSkillLevel(SettingPanel.skillLevel);
             boolean moveFound = false;
             while (!(moveFound) /*&& !(board.getIsWhiteToMove())*/ ) {
                 engine.setSkillLevel(ChoosePlayFormat.setSkillLevel);
@@ -106,6 +108,7 @@ public class Input extends MouseAdapter {
                         board.hintToR = toRow;
                         audioPlayer.playHintSound();
                         board.repaint();
+                        engine.setSkillLevel(SettingPanel.skillLevel);
                         moveFound = true; // מהלך חוקי נמצא, לצאת מהלולאה
                         // System.out.println("Move found and made: " + bestMove);
                     } else {

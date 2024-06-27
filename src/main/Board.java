@@ -533,7 +533,12 @@ public class Board extends JPanel {
                     input.isCheckMate = true;
                     input.isStaleMate = false;
                     input.isWhiteTurn = isWhiteToMove;
-                    audioPlayer.playCheckMateSound();
+                    if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite == !isWhiteToMove) {
+                        audioPlayer.playLosingSound();
+                    }
+                    else {
+                        audioPlayer.playCheckMateSound();
+                    }
                 }
             } else {
                 // System.out.println("stale mate! draw!");
@@ -683,6 +688,7 @@ public class Board extends JPanel {
             lastToMove = null;
             input.selectedX = input.selectedY = -1;
             selectedPiece = null;
+            audioPlayer.playGoBackSound();
             loadPiecesFromFen(fenCurrentPosition);
         }
         else {
@@ -690,9 +696,9 @@ public class Board extends JPanel {
         }
     }
 
-    public void paintMove(Move move) {
-
-    }
+//    public void paintMove(Move move) {
+//
+//    }
 
 }
 

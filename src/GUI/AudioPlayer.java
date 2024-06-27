@@ -87,6 +87,11 @@ public class AudioPlayer {
         playAudio(drawSound);
     }
 
+    public void playLosingSound() {
+        String losingSound = "src/res/sounds/losingSound1.wav";
+        playAudio(losingSound);
+    }
+
     public void playCastlingSound() {
         String castlingSound = "src/res/sounds/castlingSound1.wav";
         playAudio(castlingSound);
@@ -95,6 +100,11 @@ public class AudioPlayer {
     public void playHintSound() {
         String hintSound = "src/res/sounds/hintSound1.wav";
         playAudio(hintSound);
+    }
+
+    public void playGoBackSound() {
+        String goBackSound = "src/res/sounds/goBackSound1.wav";
+        playAudio(goBackSound);
     }
 
 
