@@ -104,6 +104,7 @@ public class Input extends MouseAdapter {
                         board.hintFromR = fromRow;
                         board.hintToC = toCol;
                         board.hintToR = toRow;
+                        audioPlayer.playHintSound();
                         board.repaint();
                         moveFound = true; // מהלך חוקי נמצא, לצאת מהלולאה
                         // System.out.println("Move found and made: " + bestMove);

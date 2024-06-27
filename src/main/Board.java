@@ -48,7 +48,6 @@ public class Board extends JPanel {
 
         // addPieces();
         loadPiecesFromFen(fenCurrentPosition);
-        //showScore.calculateScore();
     }
 
     ArrayList<Piece> pieceList = new ArrayList<>();

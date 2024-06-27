@@ -92,6 +92,11 @@ public class AudioPlayer {
         playAudio(castlingSound);
     }
 
+    public void playHintSound() {
+        String hintSound = "src/res/sounds/hintSound1.wav";
+        playAudio(hintSound);
+    }
+
 
 }
 
