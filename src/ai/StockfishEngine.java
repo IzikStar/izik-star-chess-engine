@@ -9,7 +9,6 @@ public class StockfishEngine {
     private boolean isEngineRunning;
     public String promotionChoice = null;
 
-    // רמות קושי (0-20)
     private int skillLevel = 10;
 
     public boolean startEngine(String path) {
@@ -18,7 +17,6 @@ public class StockfishEngine {
             reader = new BufferedReader(new InputStreamReader(engineProcess.getInputStream()));
             writer = new BufferedWriter(new OutputStreamWriter(engineProcess.getOutputStream()));
             isEngineRunning = true;
-            // System.out.println("Stockfish engine started successfully.");
             return true;
         } catch (IOException e) {
             e.printStackTrace();
@@ -34,7 +32,6 @@ public class StockfishEngine {
             writer.close();
             engineProcess.destroy();
             isEngineRunning = false;
-            // System.out.println("Stockfish engine stopped successfully.");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -43,14 +40,11 @@ public class StockfishEngine {
     public void sendCommand(String command) {
         try {
             if (!isEngineRunning) {
-                // System.out.println("Engine is not running. Restarting engine...");
                 startEngine("D:\\Desktop\\סיכומים קורס תכנות\\אורט סינגאלובסקי\\java-projects\\chessGame_3\\src\\res\\stockfish\\stockfish-windows-x86-64.exe");
             }
             writer.write(command + "\n");
             writer.flush();
-            // System.out.println("Sent command: " + command);
         } catch (IOException e) {
-            // System.out.println("Failed to send command: " + command);
             e.printStackTrace();
         }
     }
@@ -63,7 +57,6 @@ public class StockfishEngine {
                 String line = reader.readLine();
                 if (line != null) {
                     output.append(line).append("\n");
-                    // System.out.println("Received line: " + line);
                 }
             }
         } catch (IOException | InterruptedException e) {
@@ -88,14 +81,17 @@ public class StockfishEngine {
         sendCommand("ucinewgame");
         waitForOutput("readyok", 50);
 
-        // הגדרת רמת הקושי
         setSkillLevel(skillLevel);
 
         sendCommand("position fen " + fen);
         waitForOutput("readyok", 50);
 
-        sendCommand("go movetime 100");
-        String output = getOutput(100);
+        long startTime = System.currentTimeMillis();
+        sendCommand("go movetime 200 nodes 1000000"); // הגבלת זמן ומספר הצמתים
+        String output = getOutput(500);
+        long endTime = System.currentTimeMillis();
+        System.out.println("Calculation time: " + (endTime - startTime) + " ms");
+
 
         String[] lines = output.split("\n");
         for (String line : lines) {
@@ -120,12 +116,17 @@ public class StockfishEngine {
     public static void main(String[] args) {
         StockfishEngine engine = new StockfishEngine();
         if (engine.startEngine("D:\\Desktop\\סיכומים קורס תכנות\\אורט סינגאלובסקי\\java-projects\\chessGame_3\\src\\res\\stockfish\\stockfish-windows-x86-64.exe")) {
-            // הגדרת רמת הקושי הרצויה
             engine.setSkillLevel(5); // רמה 5 לדוגמה
 
             String fen = "rnbqkbnr/ppppppPp/8/8/8/8/PPPPPP1P/RNBQKBNR w KQkq - 0 1";
             String bestMove = engine.getBestMove(fen);
             System.out.println("Best move: " + bestMove);
+
+            String output = engine.getOutput(500);
+            if (output.contains("mate")) {
+                System.out.println("Mate in sight!");
+            }
+
             engine.stopEngine();
         } else {
             System.out.println("Failed to start the engine.");
