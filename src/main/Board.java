@@ -250,7 +250,7 @@ public class Board extends JPanel {
         // paint engine hint
         g.setColor(new Color(0, 255, 215, 158));
         g.fillRect(hintFromC * tileSize, hintFromR * tileSize, tileSize, tileSize);
-        g.setColor(new Color(47, 255, 224, 186));
+        g.setColor(new Color(47, 206, 255, 237));
         g.fillRect(hintToC * tileSize, hintToR * tileSize, tileSize, tileSize);
 
         // paint the border of the king red if it's under attack

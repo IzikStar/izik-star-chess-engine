@@ -9,6 +9,9 @@ public class StockfishEngine {
     private boolean isEngineRunning;
     public String promotionChoice = null;
 
+    // רמות קושי (0-20)
+    private int skillLevel = 10;
+
     public boolean startEngine(String path) {
         try {
             engineProcess = new ProcessBuilder(path).start();
@@ -69,6 +72,12 @@ public class StockfishEngine {
         return output.toString();
     }
 
+    public void setSkillLevel(int skillLevel) {
+        this.skillLevel = skillLevel;
+        sendCommand("setoption name Skill Level value " + skillLevel);
+        waitForOutput("readyok", 50);
+    }
+
     public String getBestMove(String fen) {
         sendCommand("uci");
         waitForOutput("uciok", 50);
@@ -78,6 +87,9 @@ public class StockfishEngine {
 
         sendCommand("ucinewgame");
         waitForOutput("readyok", 50);
+
+        // הגדרת רמת הקושי
+        setSkillLevel(skillLevel);
 
         sendCommand("position fen " + fen);
         waitForOutput("readyok", 50);
@@ -108,6 +120,9 @@ public class StockfishEngine {
     public static void main(String[] args) {
         StockfishEngine engine = new StockfishEngine();
         if (engine.startEngine("D:\\Desktop\\סיכומים קורס תכנות\\אורט סינגאלובסקי\\java-projects\\chessGame_3\\src\\res\\stockfish\\stockfish-windows-x86-64.exe")) {
+            // הגדרת רמת הקושי הרצויה
+            engine.setSkillLevel(5); // רמה 5 לדוגמה
+
             String fen = "rnbqkbnr/ppppppPp/8/8/8/8/PPPPPP1P/RNBQKBNR w KQkq - 0 1";
             String bestMove = engine.getBestMove(fen);
             System.out.println("Best move: " + bestMove);

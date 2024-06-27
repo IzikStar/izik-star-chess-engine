@@ -36,6 +36,7 @@ public class Input extends MouseAdapter {
         new Thread(() -> {
             boolean moveFound = false;
             while (!(moveFound) /*&& !(board.getIsWhiteToMove())*/ ) {
+                engine.setSkillLevel(ChoosePlayFormat.setSkillLevel);
                 String fen = board.convertPiecesToFEN();
                 // System.out.println("Current FEN: " + fen);
                 String bestMove = engine.getBestMove(fen);
@@ -80,6 +81,7 @@ public class Input extends MouseAdapter {
         new Thread(() -> {
             boolean moveFound = false;
             while (!(moveFound) /*&& !(board.getIsWhiteToMove())*/ ) {
+                engine.setSkillLevel(20);
                 String fen = board.convertPiecesToFEN();
                 // System.out.println("Current FEN: " + fen);
                 String bestMove = engine.getBestMove(fen);
