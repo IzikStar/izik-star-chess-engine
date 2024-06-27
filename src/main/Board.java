@@ -1,6 +1,7 @@
 package main;
 
 import GUI.AudioPlayer;
+import main.setting.ChoosePlayFormat;
 import pieces.*;
 
 import javax.swing.*;
@@ -359,7 +360,6 @@ public class Board extends JPanel {
     }
 
     public boolean movePawn(Move move) {
-
         // en passant:
         int colorIndex = move.piece.isWhite ? 1 : -1;
 
@@ -375,7 +375,7 @@ public class Board extends JPanel {
         // promotions:
         colorIndex = move.piece.isWhite ? 0 : 7;
         if (move.newRow == colorIndex) {
-            if (isWhiteToMove || true) { // כאן אמור להיות אם זה שני שחקנים
+            if (!ChoosePlayFormat.isOnePlayer || ChoosePlayFormat.isPlayingWhite == isWhiteToMove) { // כאן אמור להיות אם זה שני שחקנים
                 if(!promotePawn(move)) {
                     return false;
                 }
@@ -578,16 +578,26 @@ public class Board extends JPanel {
     }
 
     public void goBack() {
-        fenCurrentPosition = savedStates.pop();
-        input.engine.stopEngine();
-        fromC = -1;
-        fromR = -1;
-        toC = -1;
-        toR = -1;
-        lastToMove = null;
-        selectedPiece = null;
-        loadPiecesFromFen(fenCurrentPosition);
+        if(!ChoosePlayFormat.isOnePlayer || ChoosePlayFormat.isPlayingWhite == isWhiteToMove) {
+            System.out.println("current position: " + fenCurrentPosition);
+            fenCurrentPosition = savedStates.pop();
+            System.out.println("changing position to: " + fenCurrentPosition);
+            input.engine.stopEngine();
+            fromC = -1;
+            fromR = -1;
+            toC = -1;
+            toR = -1;
+            lastToMove = null;
+            input.selectedX = input.selectedY = -1;
+            selectedPiece = null;
+            loadPiecesFromFen(fenCurrentPosition);
+        }
+        else {
+            System.out.println("doing nothing");
+        }
     }
+
+
 
 }
 

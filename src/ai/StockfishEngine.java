@@ -71,19 +71,19 @@ public class StockfishEngine {
 
     public String getBestMove(String fen) {
         sendCommand("uci");
-        waitForOutput("uciok", 500);
+        waitForOutput("uciok", 50);
 
         sendCommand("isready");
-        waitForOutput("readyok", 500);
+        waitForOutput("readyok", 50);
 
         sendCommand("ucinewgame");
-        waitForOutput("readyok", 500);
+        waitForOutput("readyok", 50);
 
         sendCommand("position fen " + fen);
-        waitForOutput("readyok", 500);
+        waitForOutput("readyok", 50);
 
-        sendCommand("go movetime 1000");
-        String output = getOutput(1150);
+        sendCommand("go movetime 100");
+        String output = getOutput(100);
 
         String[] lines = output.split("\n");
         for (String line : lines) {

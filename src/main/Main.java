@@ -5,6 +5,7 @@ import java.awt.*;
 
 import GUI.CustomButtonPanel;
 import ai.*;
+import main.setting.SettingPanel;
 
 public class Main {
     public static void main(String[] args) {
@@ -30,8 +31,8 @@ public class Main {
         Board board = new Board();
         tabbedPane.addTab("Game", board);
 
-        JPanel settingsPanel = new JPanel();
-        settingsPanel.setBackground(Color.white);
+        SettingPanel settingsPanel = new SettingPanel();
+        settingsPanel.setBackground(Color.gray);
         settingsPanel.add(new JLabel("Settings Panel"));
         tabbedPane.addTab("Settings", settingsPanel);
 

@@ -1,6 +1,7 @@
 package main;
 
 import GUI.AudioPlayer;
+import main.setting.ChoosePlayFormat;
 import pieces.Piece;
 
 import javax.swing.*;
@@ -81,7 +82,7 @@ public class Input extends MouseAdapter {
             col = e.getX() / Board.tileSize;
             row = e.getY() / Board.tileSize;
             Piece pieceXY = board.getPiece(col, row);
-            if (pieceXY != null && pieceXY.isWhite == board.getIsWhiteToMove() /* && pieceXY.isWhite */) { // ככה אי אפשר לשחק עבור השחור. נועד למשחק נגד המחשב
+            if (pieceXY != null && pieceXY.isWhite == board.getIsWhiteToMove() /**/ && (!ChoosePlayFormat.isOnePlayer || ChoosePlayFormat.isPlayingWhite == board.getIsWhiteToMove()) /**/) { // ככה אי אפשר לשחק עבור השחור. נועד למשחק נגד המחשב
                 audioPlayer.playSelectPieceSound();
                 board.selectedPiece = pieceXY;
                 selectedX = e.getX() - Board.tileSize / 2;
@@ -111,9 +112,9 @@ public class Input extends MouseAdapter {
                             Main.showEndGameMessage(frame, (isCheckMate ? (isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח!") : (isStaleMate ? "פת. ליריב אין מהלכים חוקיים. המשחק נגמר בתיקו" : "אין חומר מספיק. המשחק נגמר בתיקו.")));
                         });
                     } else {
-//                        if (!board.getIsWhiteToMove()) {
-//                            makeEngineMove();
-//                        }
+                        if ((ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != board.getIsWhiteToMove())) {
+                            makeEngineMove();
+                        }
                     }
                 } else {
                     board.selectedPiece.xPos = board.selectedPiece.col * Board.tileSize;
@@ -168,9 +169,9 @@ public class Input extends MouseAdapter {
                         });
                     } else {
                         board.repaint();
-//                        if (!board.getIsWhiteToMove()) {
-//                            makeEngineMove();
-//                        }
+                        if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != board.getIsWhiteToMove()) {
+                            makeEngineMove();
+                        }
                     }
                 } else {
                     board.selectedPiece.xPos = board.selectedPiece.col * Board.tileSize;
