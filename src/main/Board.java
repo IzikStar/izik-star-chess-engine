@@ -711,6 +711,9 @@ public class Board extends JPanel {
             selectedPiece = null;
             audioPlayer.playGoBackSound();
             loadPiecesFromFen(fenCurrentPosition);
+            if (ChoosePlayFormat.isOnePlayer) {
+                input.makeEngineMove();
+            }
         }
         else {
             System.out.println("doing nothing");
@@ -733,6 +736,22 @@ public class Board extends JPanel {
             return (rows - 1 - row) * tileSize;
         }
     }
+    public int getColFromX(int x){
+        if (ChoosePlayFormat.isPlayingWhite) {
+            return x / tileSize;
+        }
+        else {
+            return (cols - 1) - x / tileSize;
+        }
+    }
+    public int getRowFromY(int y){
+        if (ChoosePlayFormat.isPlayingWhite) {
+            return y / tileSize;
+        }
+        else {
+            return (rows - 1) - y / tileSize;
+        }
+    }
 
     public void restart() {
         loadPiecesFromFen(fenStartingPosition);
@@ -744,6 +763,8 @@ public class Board extends JPanel {
             input.makeEngineMove();
         }
     }
+
+
 
 }
 
