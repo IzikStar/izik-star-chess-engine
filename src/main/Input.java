@@ -40,7 +40,7 @@ public class Input extends MouseAdapter {
             engine.setSkillLevel(SettingPanel.skillLevel);
             boolean moveFound = false;
             long endTime = System.currentTimeMillis();
-            while (!(moveFound) && endTime - startTime < 75) {
+            while (!(moveFound) && endTime - startTime < 1500) {
                 engine.setSkillLevel(ChoosePlayFormat.setSkillLevel);
                 String fen = board.convertPiecesToFEN();
                 // System.out.println("Current FEN: " + fen);
@@ -71,8 +71,12 @@ public class Input extends MouseAdapter {
                 }
                 endTime = System.currentTimeMillis();
             }
+            // System.out.println(endTime - startTime);
             if (!moveFound) {
+                System.out.println("taking to long, making a random move");
+                RandomMoveEngine.waitTime = 0;
                 randomMoveEngine.makeMove(board);
+                RandomMoveEngine.waitTime = 1000;
             }
             SwingUtilities.invokeLater(() -> {
                 board.repaint();
@@ -88,8 +92,10 @@ public class Input extends MouseAdapter {
 
     public void takeEngineHint() {
         new Thread(() -> {
+            long startTime = System.currentTimeMillis();
             boolean moveFound = false;
-            while (!(moveFound) /*&& !(board.getIsWhiteToMove())*/ ) {
+            long endTime = System.currentTimeMillis();
+            while (!(moveFound && endTime - startTime < 1500) /*&& !(board.getIsWhiteToMove())*/ ) {
                 engine.setSkillLevel(20);
                 String fen = board.convertPiecesToFEN();
                 // System.out.println("Current FEN: " + fen);
@@ -123,6 +129,11 @@ public class Input extends MouseAdapter {
                     }
                 } else {
                     // System.out.println("No valid move found, retrying...");
+                    endTime = System.currentTimeMillis();
+                }
+                // System.out.println(endTime - startTime);
+                if (!moveFound) {
+                    System.out.println("taking to long, doing nothing");
                 }
             }
             SwingUtilities.invokeLater(() -> {
@@ -198,8 +209,11 @@ public class Input extends MouseAdapter {
                         });
                     } else {
                         if ((ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != board.getIsWhiteToMove())) {
-                            //makeEngineMove();
-                            randomMoveEngine.makeMove(board);
+                            if (SettingPanel.skillLevel > 0) {
+                                makeEngineMove();
+                            } else {
+                                randomMoveEngine.makeMove(board);
+                            }
                         }
                     }
                 } else {
@@ -272,8 +286,11 @@ public class Input extends MouseAdapter {
                     } else {
                         board.repaint();
                         if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != board.getIsWhiteToMove()) {
-                            // makeEngineMove();
-                            randomMoveEngine.makeMove(board);
+                            if (SettingPanel.skillLevel > 0) {
+                                makeEngineMove();
+                            } else {
+                                randomMoveEngine.makeMove(board);
+                            }
                         }
                     }
                 } else {

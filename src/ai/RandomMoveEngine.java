@@ -17,6 +17,7 @@ public class RandomMoveEngine {
     public Piece chocenPiece;
     private ArrayList<Move> randomMovesList;
     private ArrayList<Piece> alreadyChecked = new ArrayList<>();
+    public static int waitTime = 1000;
 
     public RandomMoveEngine(Board board) {
         this.board = board;
@@ -25,7 +26,7 @@ public class RandomMoveEngine {
     public void makeMove(Board board) {
         new Thread(() -> {
             try {
-                Thread.sleep(1000); // המתנה של 5000 מילישניות (5 שניות)
+                Thread.sleep(waitTime);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -35,9 +36,9 @@ public class RandomMoveEngine {
             else {
                 // System.out.println("check");
                 for (int i = 0; i < board.getNumOfPieces(); i++) {
-                    Piece chosenPiece = board.getPieceByNumber(i);
+                    this.chocenPiece = board.getPieceByNumber(i);
                     // System.out.println(chosenPiece + " col: " + chosenPiece.col + " row: " + chosenPiece.row);
-                    this.randomMovesList = chocenPiece.getValidMoves(board, chosenPiece);
+                    this.randomMovesList = chocenPiece.getValidMoves(board);
                     if (!randomMovesList.isEmpty()) {
                         break;
                     }
@@ -61,7 +62,7 @@ public class RandomMoveEngine {
         this.chocenPiece = board.getPieceByNumber(randomNumOfPiece);
         //System.out.println(chocenPiece);
         if (chocenPiece != null && !alreadyChecked.contains(chocenPiece)) {
-            this.randomMovesList = chocenPiece.getValidMoves(board, chocenPiece);
+            this.randomMovesList = chocenPiece.getValidMoves(board);
             if (randomMovesList.isEmpty()) {
                 alreadyChecked.add(chocenPiece);
                 chosePiece();
