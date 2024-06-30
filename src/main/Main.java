@@ -10,6 +10,7 @@ import main.setting.SettingPanel;
 public class Main {
     private static JLabel player1ScoreLabel;
     private static JLabel player2ScoreLabel;
+    public static Board board;
 
     public static void main(String[] args) {
         JFrame frame = new JFrame();
@@ -27,7 +28,7 @@ public class Main {
         tabConstraints.gridwidth = 2;
         frame.add(tabbedPane, tabConstraints);
 
-        Board board = new Board();
+        board = new Board();
         tabbedPane.addTab("Game", board);
 
         SettingPanel settingsPanel = new SettingPanel();
@@ -102,4 +103,7 @@ public class Main {
         player1ScoreLabel.setText("White:    \n\t" + player1Score + "\t");
         player2ScoreLabel.setText("Black:    \n\t" + player2Score + "\t");
     }
+
+
+
 }

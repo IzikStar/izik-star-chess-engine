@@ -1,6 +1,7 @@
 package pieces;
 
 import main.Board;
+import main.setting.ChoosePlayFormat;
 
 import java.awt.image.BufferedImage;
 
@@ -9,8 +10,14 @@ public class Bishop extends Piece{
         super(board);
         this.col = col;
         this.row = row;
-        this.xPos = col * board.tileSize;
-        this.yPos = row * board.tileSize;
+        if (ChoosePlayFormat.isPlayingWhite) {
+            this.xPos = col * board.tileSize;
+            this.yPos = row * board.tileSize;
+        }
+        else {
+            this.xPos = (7 - col) * board.tileSize;
+            this.yPos = (7 - row) * board.tileSize;
+        }
 
         this.isWhite = isWhite;
         this.name = "Bishop";

@@ -222,95 +222,110 @@ public class Board extends JPanel {
 
     public void paintComponent(Graphics g) {
         Graphics2D g2d = (Graphics2D) g;
+
         // paint board
-        if (true /* ChoosePlayFormat.isPlayingWhite */) {
-            for (int r = 0; r < rows; r++) {
-                for (int c = 0; c < cols; c++) {
-                    g2d.setColor((c + r) % 2 != 0 ? new Color(152, 97, 42) : new Color(208, 182, 164));
-                    g2d.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
-                }
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                g2d.setColor((c + r) % 2 != 0 ? new Color(152, 97, 42) : new Color(208, 182, 164));
+                g2d.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
             }
         }
-//        else {
-//            for (int r = rows - 1; r > -1; r--) {
-//                for (int c = cols - 1; c > -1 ; c--) {
-//                    g2d.setColor((c + r) % 2 != 0 ? new Color(152, 97, 42) : new Color(208, 182, 164));
-//                    g2d.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
-//                }
-//            }
-//        }
+
 
         // paint last move
-        // paint last move
         g.setColor(new Color(72, 255, 0, 158));
-        g.fillRect(fromC * tileSize, fromR * tileSize, tileSize, tileSize);
+        if (ChoosePlayFormat.isPlayingWhite) {
+            g.fillRect(fromC * tileSize, fromR * tileSize, tileSize, tileSize);
+        }
+        else {
+            g.fillRect((cols - 1 - fromC) * tileSize, (rows - 1 - fromR) * tileSize, tileSize, tileSize);
+        }
         g.setColor(new Color(55, 255, 0, 186));
-        g.fillRect(toC * tileSize, toR * tileSize, tileSize, tileSize);
+        if (ChoosePlayFormat.isPlayingWhite) {
+            g.fillRect(toC * tileSize, toR * tileSize, tileSize, tileSize);
+        }
+        else {
+            g.fillRect((cols - 1 - toC) * tileSize, (rows - 1 - toR) * tileSize, tileSize, tileSize);
+        }
+
 
         // paint engine hint
         g.setColor(new Color(0, 255, 215, 158));
-        g.fillRect(hintFromC * tileSize, hintFromR * tileSize, tileSize, tileSize);
+        if (ChoosePlayFormat.isPlayingWhite) {
+            g.fillRect(hintFromC * tileSize, hintFromR * tileSize, tileSize, tileSize);
+        }
+        else {
+            g.fillRect((cols - 1 - hintFromC) * tileSize, (rows - 1 - hintFromR) * tileSize, tileSize, tileSize);
+        }
         g.setColor(new Color(47, 206, 255, 237));
-        g.fillRect(hintToC * tileSize, hintToR * tileSize, tileSize, tileSize);
+        if (ChoosePlayFormat.isPlayingWhite) {
+            g.fillRect(hintToC * tileSize, hintToR * tileSize, tileSize, tileSize);
+        }
+        else {
+            g.fillRect((cols - 1 - hintToC) * tileSize, (rows - 1 - hintToR) * tileSize, tileSize, tileSize);
+        }
 
         // paint the border of the king red if it's under attack
         if (checkScanner.isChecking(this)) {
             Piece king = findKing(isWhiteToMove);
             //g2d.setColor(new Color(255, 0, 0, 237)); // אדום חצי שקוף
             //g2d.fillRect(king.col * tileSize, king.row * tileSize, tileSize, tileSize);
-            drawSquareWithCircle(g ,king.col, king.row);
+            if (ChoosePlayFormat.isPlayingWhite) {
+                drawSquareWithCircle(g ,king.col, king.row);
+            }
+            else {
+                drawSquareWithCircle(g ,cols - 1 - king.col, rows - 1 - king.row);
+            }
         }
 
         // paint highLights
         if (selectedPiece != null) {
             if (selectedPiece.isWhite == isWhiteToMove) {
                 g2d.setColor(new Color(0, 0, 255, 128)); // כחול חצי שקוף
-                g2d.fillRect(selectedPiece.col * tileSize, selectedPiece.row * tileSize, tileSize, tileSize);
+                if (ChoosePlayFormat.isPlayingWhite) {
+                    g2d.fillRect(selectedPiece.col * tileSize, selectedPiece.row * tileSize, tileSize, tileSize);
+                }
+                else {
+                    g2d.fillRect((cols - 1 - selectedPiece.col) * tileSize, (rows - 1 - selectedPiece.row) * tileSize, tileSize, tileSize);
+                }
                 if (checkScanner.isChecking(this)) {
                     Piece king = findKing(isWhiteToMove);
                     //g2d.setColor(new Color(255, 0, 0, 237)); // אדום חצי שקוף
                     //g2d.fillRect(king.col * tileSize, king.row * tileSize, tileSize, tileSize);
-                    drawSquareWithCircle(g ,king.col, king.row);
-                }
-            }
-            if (ChoosePlayFormat.isPlayingWhite) {
-                for (int c = 0; c < cols; c++) {
-                    for (int r = 0; r < rows; r++) {
-                        if (isValidMove(new Move(this, selectedPiece, c, r), false)) {
-                            if (this.getPiece(c, r) == null) {
-                                // ציור עיגול במרכז הריבוע
-                                g.setColor(new Color(72, 255, 0, 158));
-                                int diameter = tileSize / 3;
-                                int circleX = c * tileSize + (tileSize - diameter) / 2;
-                                int circleY = r * tileSize + (tileSize - diameter) / 2;
-                                g.fillOval(circleX, circleY, diameter, diameter);
-                            } else {
-                                drawSquareWithCircle(g, c, r);
-//                            g.setColor(new Color(255, 0, 0, 90));
-//                            int diameter = tileSize / 3;
-//                            int circleX = c * tileSize + (tileSize - diameter) / 2;
-//                            int circleY = r * tileSize + (tileSize - diameter) / 2;
-//                            g.fillOval(circleX, circleY, diameter, diameter);
-//                            g2d.setColor(new Color(255, 0, 0, 90)); // אדום חצי שקוף
-//                            g2d.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
-                            }
-                        }
+                    if (ChoosePlayFormat.isPlayingWhite) {
+                        drawSquareWithCircle(g ,king.col, king.row);
+                    }
+                    else {
+                        drawSquareWithCircle(g ,cols - 1 - king.col, rows - 1 - king.row);
                     }
                 }
             }
-            else {
-                for (int c = cols - 1; c > -1; c--) {
-                    for (int r = rows - 1; r > -1; r--) {
-                        if (isValidMove(new Move(this, selectedPiece, c, r), false)) {
-                            if (this.getPiece(c, r) == null) {
-                                // ציור עיגול במרכז הריבוע
-                                g.setColor(new Color(72, 255, 0, 158));
-                                int diameter = tileSize / 3;
-                                int circleX = c * tileSize + (tileSize - diameter) / 2;
-                                int circleY = r * tileSize + (tileSize - diameter) / 2;
-                                g.fillOval(circleX, circleY, diameter, diameter);
-                            } else {
+
+            for (int c = 0; c < cols; c++) {
+                for (int r = 0; r < rows; r++) {
+                    if (isValidMove(new Move(this, selectedPiece, c, r), false)) {
+                        if (getPiece(c, r) == null) {
+                            // ציור עיגול במרכז הריבוע
+                            g.setColor(new Color(72, 255, 0, 158));
+                            int diameter = tileSize / 3;
+                            int circleX;
+                            int circleY;
+                            if (ChoosePlayFormat.isPlayingWhite) {
+                                circleX = c * tileSize + (tileSize - diameter) / 2;
+                                circleY = r * tileSize + (tileSize - diameter) / 2;
+                            }
+                            else {
+                                circleX = (cols - 1 - c) * tileSize + (tileSize - diameter) / 2;
+                                circleY = (rows - 1 - r) * tileSize + (tileSize - diameter) / 2;
+                            }
+                            g.fillOval(circleX, circleY, diameter, diameter);
+                        } else {
+                            if (ChoosePlayFormat.isPlayingWhite) {
                                 drawSquareWithCircle(g, c, r);
+                            }
+                            else {
+                                drawSquareWithCircle(g, (cols - 1 - c), (rows - 1 - r));
+                            }
 //                            g.setColor(new Color(255, 0, 0, 90));
 //                            int diameter = tileSize / 3;
 //                            int circleX = c * tileSize + (tileSize - diameter) / 2;
@@ -318,12 +333,12 @@ public class Board extends JPanel {
 //                            g.fillOval(circleX, circleY, diameter, diameter);
 //                            g2d.setColor(new Color(255, 0, 0, 90)); // אדום חצי שקוף
 //                            g2d.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
-                            }
                         }
                     }
                 }
             }
         }
+
 
         // paint pieces
         for (Piece piece : pieceList) {
@@ -361,8 +376,14 @@ public class Board extends JPanel {
             setLastMove(move.piece.col, move.piece.row, move.newCol, move.newRow, move.piece);
             move.piece.col = move.newCol;
             move.piece.row = move.newRow;
-            move.piece.xPos = move.newCol * tileSize;
-            move.piece.yPos = move.newRow * tileSize;
+            if (ChoosePlayFormat.isPlayingWhite) {
+                move.piece.xPos = move.newCol * tileSize;
+                move.piece.yPos = move.newRow * tileSize;
+            }
+            else {
+                move.piece.xPos = (cols - 1 - move.newCol) * tileSize;
+                move.piece.yPos = (rows - 1 - move.newRow) * tileSize;
+            }
             move.piece.isFirstMove = false;
             if (move.captured != null) {
                 capture(move.captured);
@@ -533,7 +554,7 @@ public class Board extends JPanel {
                     input.isCheckMate = true;
                     input.isStaleMate = false;
                     input.isWhiteTurn = isWhiteToMove;
-                    if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite == !isWhiteToMove) {
+                    if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite == isWhiteToMove) {
                         audioPlayer.playLosingSound();
                     }
                     else {
@@ -696,9 +717,33 @@ public class Board extends JPanel {
         }
     }
 
-//    public void paintMove(Move move) {
-//
-//    }
+    public int getXFromCol(int col){
+        if (ChoosePlayFormat.isPlayingWhite) {
+            return col * tileSize;
+        }
+        else {
+            return (cols - 1 - col) * tileSize;
+        }
+    }
+    public int getYFromRow(int row){
+        if (ChoosePlayFormat.isPlayingWhite) {
+            return row * tileSize;
+        }
+        else {
+            return (rows - 1 - row) * tileSize;
+        }
+    }
+
+    public void restart() {
+        loadPiecesFromFen(fenStartingPosition);
+    }
+
+    public void refresh() {
+        loadPiecesFromFen(fenCurrentPosition);
+        if (ChoosePlayFormat.isOnePlayer) {
+            input.makeEngineMove();
+        }
+    }
 
 }
 

@@ -26,10 +26,13 @@ public class Input extends MouseAdapter {
     public Input(Board board) {
         this.board = board;
         engine = new StockfishEngine();
-        if (engine.startEngine(pathToStockfish)) {
-            // System.out.println("Stockfish engine started.");
-        } else {
-           // System.out.println("Failed to start Stockfish engine.");
+//        if (engine.startEngine(pathToStockfish)) {
+//            System.out.println("Stockfish engine started.");
+//        } else {
+//            System.out.println("Failed to start Stockfish engine.");
+//        }
+        if (!ChoosePlayFormat.isPlayingWhite) {
+            makeEngineMove();
         }
     }
 
@@ -151,8 +154,13 @@ public class Input extends MouseAdapter {
             if (pieceXY != null && pieceXY.isWhite == board.getIsWhiteToMove() && (!ChoosePlayFormat.isOnePlayer || ChoosePlayFormat.isPlayingWhite == board.getIsWhiteToMove())) {
                 audioPlayer.playSelectPieceSound();
                 board.selectedPiece = pieceXY;
-                selectedX = e.getX() - Board.tileSize / 2;
-                selectedY = e.getY() - Board.tileSize / 2;
+                if (ChoosePlayFormat.isPlayingWhite) {
+                    selectedX = e.getX() - Board.tileSize / 2;
+                    selectedY = e.getY() - Board.tileSize / 2;
+                } else {
+                    selectedX = (board.cols - 1) - (e.getX() - Board.tileSize) / 2;
+                    selectedY = (board.rows - 1) - (e.getY() - Board.tileSize) / 2;
+                }
             } else {
                 selectedX = -1;
                 selectedY = -1;
@@ -197,7 +205,6 @@ public class Input extends MouseAdapter {
                         board.selectedPiece.xPos = (board.cols - 1 - board.selectedPiece.col) * Board.tileSize;
                         board.selectedPiece.yPos = (board.rows - 1 - board.selectedPiece.row) * Board.tileSize;
                     }
-
                     col = e.getX() / Board.tileSize;
                     row = e.getY() / Board.tileSize;
                     if (!ChoosePlayFormat.isPlayingWhite) {
