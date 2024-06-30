@@ -1,6 +1,7 @@
 package main;
 
 import GUI.AudioPlayer;
+import ai.Level2Engine;
 import ai.RandomMoveEngine;
 import main.setting.ChoosePlayFormat;
 import main.setting.SettingPanel;
@@ -24,11 +25,13 @@ public class Input extends MouseAdapter {
     String pathToStockfish = "src/res/stockfish/stockfish-windows-x86-64.exe";
     StockfishEngine engine;
     RandomMoveEngine randomMoveEngine;
+    Level2Engine level2Engine;
 
     public Input(Board board) {
         this.board = board;
         engine = new StockfishEngine();
         randomMoveEngine = new RandomMoveEngine(board);
+        level2Engine = new Level2Engine(board);
         if (!ChoosePlayFormat.isPlayingWhite) {
             makeEngineMove();
         }
@@ -37,7 +40,7 @@ public class Input extends MouseAdapter {
     public void makeEngineMove() {
         new Thread(() -> {
             long startTime = System.currentTimeMillis();
-            engine.setSkillLevel(SettingPanel.skillLevel);
+            engine.setSkillLevel(SettingPanel.skillLevel - 1);
             boolean moveFound = false;
             long endTime = System.currentTimeMillis();
             while (!(moveFound) && endTime - startTime < 1500) {
@@ -95,7 +98,7 @@ public class Input extends MouseAdapter {
             long startTime = System.currentTimeMillis();
             boolean moveFound = false;
             long endTime = System.currentTimeMillis();
-            while (!(moveFound && endTime - startTime < 1500) /*&& !(board.getIsWhiteToMove())*/ ) {
+            while ((!moveFound) && endTime - startTime < 1500) {
                 engine.setSkillLevel(20);
                 String fen = board.convertPiecesToFEN();
                 // System.out.println("Current FEN: " + fen);
@@ -131,11 +134,11 @@ public class Input extends MouseAdapter {
                     // System.out.println("No valid move found, retrying...");
                     endTime = System.currentTimeMillis();
                 }
+            }
                 // System.out.println(endTime - startTime);
                 if (!moveFound) {
                     System.out.println("taking to long, doing nothing");
                 }
-            }
             SwingUtilities.invokeLater(() -> {
                 board.repaint();
                 if (isStatusChanged) {
@@ -209,9 +212,11 @@ public class Input extends MouseAdapter {
                         });
                     } else {
                         if ((ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != board.getIsWhiteToMove())) {
-                            if (SettingPanel.skillLevel > 0) {
+                            if (SettingPanel.skillLevel > 1) {
                                 makeEngineMove();
-                            } else {
+                            } /*else if (SettingPanel.skillLevel > 0){
+                                level2Engine.makeMove(board);
+                            }*/ else {
                                 randomMoveEngine.makeMove(board);
                             }
                         }
@@ -286,9 +291,11 @@ public class Input extends MouseAdapter {
                     } else {
                         board.repaint();
                         if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != board.getIsWhiteToMove()) {
-                            if (SettingPanel.skillLevel > 0) {
+                            if (SettingPanel.skillLevel > 1) {
                                 makeEngineMove();
-                            } else {
+                            } /*else if (SettingPanel.skillLevel > 0){
+                                level2Engine.makeMove(board);
+                            } */else {
                                 randomMoveEngine.makeMove(board);
                             }
                         }

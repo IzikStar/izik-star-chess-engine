@@ -774,7 +774,8 @@ public class Board extends JPanel {
         }
     }
 
-
-
+    public Piece[] getAllPieces() {
+        return pieceList.toArray(new Piece[0]);
+    }
 }
 
