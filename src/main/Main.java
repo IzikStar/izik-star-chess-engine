@@ -14,13 +14,18 @@ public class Main {
 
     public static void main(String[] args) {
         JFrame frame = new JFrame();
-        frame.setMinimumSize(new Dimension(1000, 1000));
+        frame.setMinimumSize(new Dimension(900, 900));
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new GridBagLayout());
         frame.getContentPane().setBackground(Color.gray);
         frame.setLocationRelativeTo(null);
 
         JTabbedPane tabbedPane = new JTabbedPane();
+
+        SettingPanel settingsPanel = new SettingPanel();
+        settingsPanel.setBackground(Color.gray);
+        settingsPanel.add(new JLabel("Settings Panel"));
+        tabbedPane.addTab("Settings", settingsPanel);
 
         GridBagConstraints tabConstraints = new GridBagConstraints();
         tabConstraints.gridx = 0;
@@ -30,11 +35,6 @@ public class Main {
 
         board = new Board();
         tabbedPane.addTab("Game", board);
-
-        SettingPanel settingsPanel = new SettingPanel();
-        settingsPanel.setBackground(Color.gray);
-        settingsPanel.add(new JLabel("Settings Panel"));
-        tabbedPane.addTab("Settings", settingsPanel);
 
         JPanel savedGamesPanel = new JPanel();
         savedGamesPanel.setBackground(Color.white);
@@ -77,10 +77,10 @@ public class Main {
         scorePanel.setBackground(Color.lightGray);
         scorePanel.setLayout(new BoxLayout(scorePanel, BoxLayout.Y_AXIS)); // הגדרת סידור אנכי
 
-        player1ScoreLabel = new JLabel("White:    \n\t0\t");
+        player1ScoreLabel = new JLabel("    White:    \n\t0\t    ");
         scorePanel.add(player1ScoreLabel);
 
-        player2ScoreLabel = new JLabel("Black:    \n\t0\t");
+        player2ScoreLabel = new JLabel("    Black:    \n\t0\t    ");
         scorePanel.add(player2ScoreLabel);
 
         GridBagConstraints scorePanelConstraints = new GridBagConstraints();
@@ -100,8 +100,8 @@ public class Main {
     }
 
     public static void updateScores(int player1Score, int player2Score) {
-        player1ScoreLabel.setText("White:    \n\t" + player1Score + "\t");
-        player2ScoreLabel.setText("Black:    \n\t" + player2Score + "\t");
+        player1ScoreLabel.setText("    White:    \n\t" + player1Score + "\t    ");
+        player2ScoreLabel.setText("    Black:    \n\t" + player2Score + "\t    ");
     }
 
 

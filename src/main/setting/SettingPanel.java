@@ -25,6 +25,7 @@ public class SettingPanel extends JPanel {
             ChoosePlayFormat.isOnePlayer = !ChoosePlayFormat.isOnePlayer;
             String newText = ChoosePlayFormat.isOnePlayer ?  "Two players": "Play with computer";
             changeButtonText(chooseIsOnePlayer, newText);
+            Main.board.refresh();
         });
         this.add(chooseIsOnePlayer);
 
@@ -38,9 +39,10 @@ public class SettingPanel extends JPanel {
         });
         this.add(chooseIsPlayingWhite);
 
-        chooseLevel = new CustomButtonPanel(1, "Next level (" + SettingPanel.skillLevel + ")", (Integer id) -> {
+        chooseLevel = new CustomButtonPanel(1, "Next level (" + (SettingPanel.skillLevel + 1) + ")", (Integer id) -> {
             skillLevel++;
-            System.out.println("New level: " + skillLevel);
+            String newText = "Next level (" + (SettingPanel.skillLevel + 1) + ")";
+            changeButtonText(chooseLevel, newText);
         });
         this.add(chooseLevel);
     }
@@ -48,4 +50,5 @@ public class SettingPanel extends JPanel {
     public void changeButtonText(CustomButtonPanel button, String newText) {
         button.changeText(newText);
     }
+
 }

@@ -468,7 +468,7 @@ public class Board extends JPanel {
                 rook = getPiece(0, move.piece.row);
                 rook.col = 3;
             }
-            rook.xPos = rook.col * tileSize;
+            rook.xPos = getXFromCol(rook.col);
             audioPlayer.playCastlingSound();
         }
     }
@@ -512,8 +512,8 @@ public class Board extends JPanel {
         } else {
             System.out.println("No selection made");
             // promotePawn(move);
-            selectedPiece.xPos = selectedPiece.col * tileSize;
-            selectedPiece.yPos = selectedPiece.row * tileSize;
+            selectedPiece.xPos = getXFromCol(selectedPiece.col);
+            selectedPiece.yPos = getYFromRow(selectedPiece.row);
             selectedPiece = null;
             repaint();
             input.selectedX = -1;
