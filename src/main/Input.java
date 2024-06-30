@@ -1,6 +1,7 @@
 package main;
 
 import GUI.AudioPlayer;
+import ai.RandomMoveEngine;
 import main.setting.ChoosePlayFormat;
 import main.setting.SettingPanel;
 import pieces.Piece;
@@ -22,15 +23,12 @@ public class Input extends MouseAdapter {
 
     String pathToStockfish = "src/res/stockfish/stockfish-windows-x86-64.exe";
     StockfishEngine engine;
+    RandomMoveEngine randomMoveEngine;
 
     public Input(Board board) {
         this.board = board;
         engine = new StockfishEngine();
-//        if (engine.startEngine(pathToStockfish)) {
-//            System.out.println("Stockfish engine started.");
-//        } else {
-//            System.out.println("Failed to start Stockfish engine.");
-//        }
+        randomMoveEngine = new RandomMoveEngine(board);
         if (!ChoosePlayFormat.isPlayingWhite) {
             makeEngineMove();
         }
@@ -38,9 +36,11 @@ public class Input extends MouseAdapter {
 
     public void makeEngineMove() {
         new Thread(() -> {
+            long startTime = System.currentTimeMillis();
             engine.setSkillLevel(SettingPanel.skillLevel);
             boolean moveFound = false;
-            while (!(moveFound) /*&& !(board.getIsWhiteToMove())*/ ) {
+            long endTime = System.currentTimeMillis();
+            while (!(moveFound) && endTime - startTime < 75) {
                 engine.setSkillLevel(ChoosePlayFormat.setSkillLevel);
                 String fen = board.convertPiecesToFEN();
                 // System.out.println("Current FEN: " + fen);
@@ -69,6 +69,10 @@ public class Input extends MouseAdapter {
                 } else {
                     // System.out.println("No valid move found, retrying...");
                 }
+                endTime = System.currentTimeMillis();
+            }
+            if (!moveFound) {
+                randomMoveEngine.makeMove(board);
             }
             SwingUtilities.invokeLater(() -> {
                 board.repaint();
@@ -194,7 +198,8 @@ public class Input extends MouseAdapter {
                         });
                     } else {
                         if ((ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != board.getIsWhiteToMove())) {
-                            makeEngineMove();
+                            //makeEngineMove();
+                            randomMoveEngine.makeMove(board);
                         }
                     }
                 } else {
@@ -267,7 +272,8 @@ public class Input extends MouseAdapter {
                     } else {
                         board.repaint();
                         if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != board.getIsWhiteToMove()) {
-                            makeEngineMove();
+                            // makeEngineMove();
+                            randomMoveEngine.makeMove(board);
                         }
                     }
                 } else {

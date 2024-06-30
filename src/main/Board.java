@@ -421,26 +421,31 @@ public class Board extends JPanel {
     }
 
     public boolean isValidMove(Move move, boolean isExecuting) {
-
         if (isGameOver) {
+            //if (isExecuting) System.out.println(1);
             return false;
         }
         if (move.piece.isWhite != isWhiteToMove) {
+            //if (isExecuting) System.out.println(2);
             return false;
         }
         if (sameTeam(move.piece, move.captured)) {
+            //if (isExecuting) System.out.println(3);
             return false;
         }
         if (!move.piece.isValidMovement(move.newCol, move.newRow)) {
+            //if (isExecuting) System.out.println(4);
             return false;
         }
         if (move.piece.moveCollidesWithPiece(move.newCol, move.newRow)) {
+            //if (isExecuting) System.out.println(5);
             return false;
         }
         if (checkScanner.isMoveCausesCheck(move)) {
             if (isExecuting) {
                 audioPlayer.playInvalidMoveBecauseOfCheckSound();
             }
+            //if (isExecuting) System.out.println(6);
             return false;
         }
 
@@ -755,11 +760,16 @@ public class Board extends JPanel {
 
     public void restart() {
         loadPiecesFromFen(fenStartingPosition);
+        if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != isWhiteToMove) {
+            input.makeEngineMove();
+        }
     }
 
     public void refresh() {
+        savedStates.push(fenCurrentPosition);
+        fenCurrentPosition = convertPiecesToFEN();
         loadPiecesFromFen(fenCurrentPosition);
-        if (ChoosePlayFormat.isOnePlayer) {
+        if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != isWhiteToMove) {
             input.makeEngineMove();
         }
     }
