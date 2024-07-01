@@ -18,18 +18,21 @@ public class RandomMoveEngine {
     private ArrayList<Move> randomMovesList;
     private ArrayList<Piece> alreadyChecked = new ArrayList<>();
     public static int waitTime = 1000;
+    private String fen;
 
     public RandomMoveEngine(Board board) {
         this.board = board;
     }
 
-    public void makeMove(Board board) {
+    public void makeMove(String fen) {
         new Thread(() -> {
             try {
                 Thread.sleep(waitTime);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
+            this.fen = fen;
+            board.loadPiecesFromFen(fen);
             if (!board.checkScanner.isChecking(board)) {
                 chosePiece();
             }

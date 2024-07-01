@@ -15,6 +15,7 @@ public class SettingPanel extends JPanel {
     private CustomButtonPanel chooseIsOnePlayer = null;
     private CustomButtonPanel chooseIsPlayingWhite = null;
     private CustomButtonPanel chooseLevel = null;
+    private CustomButtonPanel restartGame = null;
     public static int skillLevel = 0;
 
     public SettingPanel() {
@@ -45,6 +46,11 @@ public class SettingPanel extends JPanel {
             changeButtonText(chooseLevel, newText);
         });
         this.add(chooseLevel);
+
+        restartGame = new CustomButtonPanel(1, "New Game", (Integer id) -> {
+            Main.restartGame();
+        });
+        this.add(restartGame);
     }
 
     public void changeButtonText(CustomButtonPanel button, String newText) {

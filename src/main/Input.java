@@ -78,7 +78,7 @@ public class Input extends MouseAdapter {
             if (!moveFound) {
                 System.out.println("taking to long, making a random move");
                 RandomMoveEngine.waitTime = 0;
-                randomMoveEngine.makeMove(board);
+                randomMoveEngine.makeMove(board.convertPiecesToFEN());
                 RandomMoveEngine.waitTime = 1000;
             }
             SwingUtilities.invokeLater(() -> {
@@ -217,7 +217,7 @@ public class Input extends MouseAdapter {
                             } /*else if (SettingPanel.skillLevel > 0){
                                 level2Engine.makeMove(board);
                             }*/ else {
-                                randomMoveEngine.makeMove(board);
+                                randomMoveEngine.makeMove(board.convertPiecesToFEN());
                             }
                         }
                     }
@@ -296,7 +296,7 @@ public class Input extends MouseAdapter {
                             } /*else if (SettingPanel.skillLevel > 0){
                                 level2Engine.makeMove(board);
                             } */else {
-                                randomMoveEngine.makeMove(board);
+                                randomMoveEngine.makeMove(board.convertPiecesToFEN());
                             }
                         }
                     }

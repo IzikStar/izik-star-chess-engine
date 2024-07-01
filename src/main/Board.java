@@ -759,6 +759,10 @@ public class Board extends JPanel {
     }
 
     public void restart() {
+        isGameOver = false;
+        input.isStatusChanged = false;
+        fromC = -1; fromR = -1; toC = -1; toR = -1;
+        hintFromC = -1; hintFromR = -1; hintToC = -1; hintToR = -1;
         loadPiecesFromFen(fenStartingPosition);
         if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != isWhiteToMove) {
             input.makeEngineMove();

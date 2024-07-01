@@ -104,6 +104,9 @@ public class Main {
         player2ScoreLabel.setText("    Black:    \n\t" + player2Score + "\t    ");
     }
 
+    public static void restartGame() {
+        board.restart();
+    }
 
 
 }
