@@ -1,6 +1,7 @@
 package ai;
 
 import main.Board;
+import main.CheckScanner;
 import main.Move;
 import main.setting.ChoosePlayFormat;
 import pieces.Piece;
@@ -11,19 +12,22 @@ public class BoardClone extends Board {
 
 
     private boolean isWhiteToMove;
+    public CheckScanner checkScanner;
 
     public BoardClone(String fen) {
         // קונסטרקטור שמקבל תיאור FEN ויוצר לוח חדש על פיו
         // מימוש בהתאם ל-FEN המתקבל
-        loadPiecesFromFen(fen);
+        loadPiecesFromFen(fen, false);
+        checkScanner = new CheckScanner(this);
 
     }
 
     @Override
     public void paintComponent(Graphics g) {
+        return;
     }
 
-    public void makeMoveOnCloneBoard(Move move) {
+    public boolean makeMoveOnClone(Move move) {
         boolean pawnMoveSuccess = true;
         if (move.piece.name.equals("Pawn")) {
             pawnMoveSuccess = movePawn(move);
@@ -55,12 +59,16 @@ public class BoardClone extends Board {
                 ++numOfTurns;
             }
             ++numOfTurnWithoutCaptureOrPawnMove;
-            updateGameState(true);
-            if (isWhiteToMove) {
-                savedStates.push(fenCurrentPosition);
-                fenCurrentPosition = convertPiecesToFEN();
+            //updateGameState(false);
+            if (checkScanner.isCheckingForClone(this)) {
+                System.out.println(111111);
+                return false;
+            }
+            else {
+                return true;
             }
         }
+        return false;
     }
 
 }

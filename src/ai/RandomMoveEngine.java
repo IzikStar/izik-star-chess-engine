@@ -19,6 +19,7 @@ public class RandomMoveEngine {
     private ArrayList<Piece> alreadyChecked = new ArrayList<>();
     public static int waitTime = 1000;
     private String fen;
+    public String promotionChoice;
 
     public RandomMoveEngine(Board board) {
         this.board = board;
@@ -32,17 +33,19 @@ public class RandomMoveEngine {
                 e.printStackTrace();
             }
             this.fen = fen;
-            board.loadPiecesFromFen(fen);
+            board.loadPiecesFromFen(fen, false);
             if (!board.checkScanner.isChecking(board)) {
                 chosePiece();
             }
             else {
                 // System.out.println("check");
-                for (int i = 0; i < board.getNumOfPieces(); i++) {
-                    this.chocenPiece = board.getPieceByNumber(i);
+                for (int i = 0; i < board.getNumOfPieces(board.getIsWhiteToMove()); i++) {
+                    this.chocenPiece = board.getPieceByNumber(i, board.getIsWhiteToMove());
                     if (chocenPiece.isWhite == board.getIsWhiteToMove()) {
                         // System.out.println(chosenPiece + " col: " + chosenPiece.col + " row: " + chosenPiece.row);
                         this.randomMovesList = chocenPiece.getValidMoves(board);
+                        // נוודא שהמהלכים לא מכניסים את המלך לשח
+                        //randomMovesList.removeIf(move -> board.checkScanner.isMoveCausesCheck(new Move(board, chocenPiece, move.newCol, move.newRow)));
                         if ((!randomMovesList.isEmpty()) /*&& chocenPiece.name.equals("King")*/) {
                             break;
                         }
@@ -56,18 +59,48 @@ public class RandomMoveEngine {
             }
             this.randomNumOfMove = (int) (Math.random() * randomMovesList.size());
             Move randomMove = randomMovesList.get(randomNumOfMove);
-            board.makeMove(randomMove);
-            alreadyChecked.clear();
+            if (randomMove.piece.name.equals("Pawn") && board.getIsWhiteToMove() ? randomMove.newRow == 0 : randomMove.newRow == 7) {
+                setPromotionChoice();
+            }
+            Move tempMove = randomMove;
+            //System.out.println(fen);
+            if (board.makeMoveToCheckIt(tempMove)) {
+                board.makeMove(randomMove);
+                board.input.selectedX = -1;
+                board.input.selectedY = -1;
+                board.selectedPiece = null;
+                board.repaint();
+                alreadyChecked.clear();
+            }
+            else {
+                makeMove(fen);
+            }
         }).start();
     }
 
+    private void setPromotionChoice() {
+        int randomPromotionChoiceNum = (int) (Math.random() * 4);
+        switch (randomPromotionChoiceNum) {
+            case 1: promotionChoice = "r";
+            break;
+            case 2: promotionChoice = "b";
+            break;
+            case 3: promotionChoice = "n";
+            break;
+            default: promotionChoice = "q";
+            break;
+        }
+    }
+
     private void chosePiece() {
-        this.randomNumOfPiece = (int) (Math.random() * board.getNumOfPieces());
+        this.randomNumOfPiece = (int) (Math.random() * board.getNumOfPieces(board.getIsWhiteToMove()));
         //System.out.println(randomNumOfPiece);
-        this.chocenPiece = board.getPieceByNumber(randomNumOfPiece);
+        this.chocenPiece = board.getPieceByNumber(randomNumOfPiece, board.getIsWhiteToMove());
         //System.out.println(chocenPiece);
-        if (chocenPiece != null && !alreadyChecked.contains(chocenPiece)) {
+        if (chocenPiece != null && !alreadyChecked.contains(chocenPiece) /*&& chocenPiece.name.equals("Pawn")*/) { //נועד לבדיקת הכתרות
             this.randomMovesList = chocenPiece.getValidMoves(board);
+            // נוודא שהמהלכים לא מכניסים את המלך לשח
+            //randomMovesList.removeIf(move -> board.checkScanner.isMoveCausesCheck(new Move(board, chocenPiece, move.newCol, move.newRow)));
             if (randomMovesList.isEmpty()) {
                 alreadyChecked.add(chocenPiece);
                 chosePiece();

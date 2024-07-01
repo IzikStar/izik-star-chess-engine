@@ -1,5 +1,6 @@
 package main;
 
+import ai.BoardClone;
 import pieces.Piece;
 
 public class CheckScanner {
@@ -39,7 +40,7 @@ public class CheckScanner {
     }
 
     private boolean hitByRook(int col, int row, Piece king, int kingCol, int kingRow, int colVal, int rowVal) {
-        for (int i = 1; i < 8; i++) {
+        for (int i = 1; i <= 8; i++) {
             if (kingCol + (i * colVal) == col && kingRow + (i * rowVal) == row) {
                 break;
             }
@@ -55,7 +56,7 @@ public class CheckScanner {
     }
 
     private boolean hitByBishop(int col, int row, Piece king, int kingCol, int kingRow, int colVal, int rowVal) {
-        for (int i = 1; i < 8; i++) {
+        for (int i = 1; i <= 8; i++) {
             if (kingCol - (i * colVal) == col && kingRow - (i *rowVal) == row) {
                 break;
             }
@@ -68,15 +69,6 @@ public class CheckScanner {
             }
         }
         return false;
-//        for (int i = 0; i < 8; i++) {
-//            for (int j = 0; j < 8; j++) {
-//                Piece piece = board.getPiece(i, j);
-//                if (piece != null && (piece.name.equals("Bishop") || piece.name.equals("Queen")) && board.isValidMove(new Move(board, piece, kingCol, kingRow), false) && (!board.sameTeam(piece, king))) {
-//                    return true;
-//                }
-//            }
-//        }
-//        return false;
     }
 
     private boolean hitByKnight(int col, int row, Piece king, int kingCol, int kingRow) {
@@ -157,5 +149,30 @@ public class CheckScanner {
         }
         return false;
     }
+
+    public boolean isCheckingForClone(Board board) {
+        Piece king = board.findKing(!board.getIsWhiteToMove());
+        int kingCol = king.col;
+        int kingRow = king.row;
+        //System.out.println(king + " " + kingCol + ", " + kingRow);
+        for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 8; j++) {
+                if (board.getPiece(i, j) != null) {
+                    Piece piece = board.getPiece(i, j);
+                    if (piece.isWhite == board.getIsWhiteToMove()) {
+                        if (!board.sameTeam(piece, king)) {
+                            if (piece.isValidMovement(kingCol, kingRow)) {
+                                if (!piece.moveCollidesWithPiece(kingCol, kingRow)) {
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
 
 }
