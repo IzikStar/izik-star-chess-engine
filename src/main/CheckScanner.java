@@ -45,7 +45,7 @@ public class CheckScanner {
             }
             Piece piece = board.getPiece(kingCol + (i * colVal), kingRow + (i *rowVal));
             if (piece != null && piece != board.selectedPiece) {
-                if ((!board.sameTeam(piece, king)) && ((piece.name.equals("Rook") || piece.name.equals("Queen")))) {
+                if ((!board.sameTeam(piece, king)) && (piece.name.equals("Rook") || piece.name.equals("Queen"))) {
                     return true;
                 }
                 break;

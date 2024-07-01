@@ -40,10 +40,12 @@ public class RandomMoveEngine {
                 // System.out.println("check");
                 for (int i = 0; i < board.getNumOfPieces(); i++) {
                     this.chocenPiece = board.getPieceByNumber(i);
-                    // System.out.println(chosenPiece + " col: " + chosenPiece.col + " row: " + chosenPiece.row);
-                    this.randomMovesList = chocenPiece.getValidMoves(board);
-                    if (!randomMovesList.isEmpty()) {
-                        break;
+                    if (chocenPiece.isWhite == board.getIsWhiteToMove()) {
+                        // System.out.println(chosenPiece + " col: " + chosenPiece.col + " row: " + chosenPiece.row);
+                        this.randomMovesList = chocenPiece.getValidMoves(board);
+                        if ((!randomMovesList.isEmpty()) /*&& chocenPiece.name.equals("King")*/) {
+                            break;
+                        }
                     }
                 }
             }
