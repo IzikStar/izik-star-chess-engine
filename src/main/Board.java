@@ -832,9 +832,9 @@ public class Board extends JPanel {
 
     public void goBack() {
         if(!ChoosePlayFormat.isOnePlayer || ChoosePlayFormat.isPlayingWhite == isWhiteToMove) {
-            System.out.println("current position: " + fenCurrentPosition);
+            //System.out.println("current position: " + fenCurrentPosition);
             fenCurrentPosition = savedStates.pop();
-            System.out.println("changing position to: " + fenCurrentPosition);
+            //System.out.println("changing position to: " + fenCurrentPosition);
             input.engine.stopEngine();
             fromC = -1;
             fromR = -1;
@@ -845,7 +845,7 @@ public class Board extends JPanel {
             selectedPiece = null;
             audioPlayer.playGoBackSound();
             loadPiecesFromFen(fenCurrentPosition, true);
-            if (ChoosePlayFormat.isOnePlayer) {
+            if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != isWhiteToMove) {
                 input.makeEngineMove();
             }
         }
@@ -893,6 +893,8 @@ public class Board extends JPanel {
         fromC = -1; fromR = -1; toC = -1; toR = -1;
         hintFromC = -1; hintFromR = -1; hintToC = -1; hintToR = -1;
         loadPiecesFromFen(fenStartingPosition, true);
+        Main.updateScores(0, 0);
+        audioPlayer.playHintSound();
         if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != isWhiteToMove) {
             input.makeEngineMove();
         }

@@ -100,8 +100,12 @@ public class Main {
     }
 
     public static void updateScores(int player1Score, int player2Score) {
-        player1ScoreLabel.setText("    White:    \n\t" + player1Score + "\t    ");
-        player2ScoreLabel.setText("    Black:    \n\t" + player2Score + "\t    ");
+        if (player1Score >= 0) {player1ScoreLabel.setText("    White:    \n\t" + player1Score + "\t    ");}
+        else {player1ScoreLabel.setText("                ");}
+        if (player2Score >= 0) {player2ScoreLabel.setText("    Black:    \n\t" + player2Score + "\t    ");}
+        else {player2ScoreLabel.setText("                ");}
+
+
     }
 
     public static void restartGame() {
