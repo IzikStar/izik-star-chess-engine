@@ -43,4 +43,6 @@ public class ChessAnimation {
     public boolean isFinished() {
         return finished;
     }
+
+
 }

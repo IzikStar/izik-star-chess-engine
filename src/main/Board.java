@@ -11,6 +11,7 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.Stack;
 import java.util.stream.Collectors;
 
@@ -21,6 +22,7 @@ public class Board extends JPanel {
     public String fenCurrentPosition = fenStartingPosition;
     public Stack<String> savedStates = new Stack<>();
     private ChessAnimation animation;
+    private java.util.List<ChessAnimation> animations = new ArrayList<>();
     private Timer animationTimer;
     JFrame parentFrame;
 
@@ -351,9 +353,14 @@ public class Board extends JPanel {
             }
         }
 
-        // Paint animations
-        if (animation != null) {
-            animation.paint(g2d);
+        Iterator<ChessAnimation> it = animations.iterator();
+        while (it.hasNext()) {
+            ChessAnimation animation = it.next();
+            if (!animation.isFinished()) {
+                animation.paint(g2d);
+            } else {
+                it.remove();
+            }
         }
 
         // paint pieces
@@ -398,13 +405,15 @@ public class Board extends JPanel {
             setLastMove(piece.col, piece.row, move.newCol, move.newRow, move.piece);
 
             if (toAnimate) {
+                ChessAnimation moveAnimation;
                 if (ChoosePlayFormat.isPlayingWhite) {
-                    animation = new ChessAnimation(piece, piece.col * tileSize, piece.row * tileSize,
+                    moveAnimation = new ChessAnimation(piece, piece.col * tileSize, piece.row * tileSize,
                             move.newCol * tileSize, move.newRow * tileSize, 500);
                 } else {
-                    animation = new ChessAnimation(piece, (cols - 1 - piece.col) * tileSize, (rows - 1 - piece.row) * tileSize,
+                    moveAnimation = new ChessAnimation(piece, (cols - 1 - piece.col) * tileSize, (rows - 1 - piece.row) * tileSize,
                             (cols - 1 - move.newCol) * tileSize, (rows - 1 - move.newRow) * tileSize, 500);
                 }
+                animations.add(moveAnimation);
             }
 
             piece.col = move.newCol;
@@ -423,7 +432,7 @@ public class Board extends JPanel {
             }
             ++numOfTurnWithoutCaptureOrPawnMove;
             updateGameState(true);
-            if (isWhiteToMove) {
+            if (ChoosePlayFormat.isPlayingWhite == isWhiteToMove || !ChoosePlayFormat.isOnePlayer) {
                 savedStates.push(fenCurrentPosition);
                 fenCurrentPosition = convertPiecesToFEN();
             }
@@ -563,14 +572,39 @@ public class Board extends JPanel {
     public void moveKing(Move move) {
         if (Math.abs(move.piece.col - move.newCol) == 2) {
             Piece rook;
+            int rookEndCol;
             if (move.piece.col < move.newCol) {
                 rook = getPiece(7, move.piece.row);
-                rook.col = 5;
+                rookEndCol = 5;
             } else {
                 rook = getPiece(0, move.piece.row);
-                rook.col = 3;
+                rookEndCol = 3;
             }
-            rook.xPos = getXFromCol(rook.col);
+
+            // הוספת אנימציה להצרחה גם למלך וגם לצריח
+            int kingStartX = move.piece.xPos;
+            int kingStartY = move.piece.yPos;
+            int kingEndX = getXFromCol(move.newCol);
+            int kingEndY = getYFromRow(move.newRow);
+
+            int rookStartX = rook.xPos;
+            int rookStartY = rook.yPos;
+            int rookEndX = getXFromCol(rookEndCol);
+            int rookEndY = getYFromRow(move.newRow);
+
+            animations.add(new ChessAnimation(move.piece, kingStartX, kingStartY, kingEndX, kingEndY, 500));
+            animations.add(new ChessAnimation(rook, rookStartX, rookStartY, rookEndX, rookEndY, 500));
+
+            move.piece.col = move.newCol;
+            move.piece.row = move.newRow;
+            rook.col = rookEndCol;
+            rook.row = move.newRow;
+
+            move.piece.xPos = kingEndX;
+            move.piece.yPos = kingEndY;
+            rook.xPos = rookEndX;
+            rook.yPos = rookEndY;
+
             audioPlayer.playCastlingSound();
         }
     }
@@ -629,9 +663,11 @@ public class Board extends JPanel {
         if (choice != null) {
             promotePawnTo(move, choice);
             capture(move.piece);
+
+            // הוספת אנימציה להכתרת רגלי
+            animation = new ChessAnimation(move.piece, move.piece.xPos, move.piece.yPos, move.piece.xPos, move.piece.yPos, 500);
         } else {
             System.out.println("No selection made");
-            // promotePawn(move);
             selectedPiece.xPos = getXFromCol(selectedPiece.col);
             selectedPiece.yPos = getYFromRow(selectedPiece.row);
             selectedPiece = null;
@@ -700,6 +736,7 @@ public class Board extends JPanel {
                     else {
                         audioPlayer.playCheckMateSound();
                     }
+                    animation = new ChessAnimation(king, king.xPos, king.yPos, king.xPos, king.yPos, 500);
                 }
             } else {
                 // System.out.println("stale mate! draw!");
@@ -910,11 +947,15 @@ public class Board extends JPanel {
         input.isStatusChanged = false;
         fromC = -1; fromR = -1; toC = -1; toR = -1;
         hintFromC = -1; hintFromR = -1; hintToC = -1; hintToR = -1;
-        loadPiecesFromFen(fenStartingPosition, true);
         Main.updateScores(0, 0);
         audioPlayer.playHintSound();
         if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != isWhiteToMove) {
+            loadPiecesFromFen(fenStartingPosition, true);
             input.makeEngineMove();
+        }
+        else {
+            ChoosePlayFormat.isPlayingWhite = true;
+            loadPiecesFromFen(fenStartingPosition, true);
         }
     }
 

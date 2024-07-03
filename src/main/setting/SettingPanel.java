@@ -33,10 +33,12 @@ public class SettingPanel extends JPanel {
 
         // כפתור לשינוי צבע השחקן
         chooseIsPlayingWhite = new CustomButtonPanel(2, "Play as black", (Integer id) -> {
-            ChoosePlayFormat.isPlayingWhite = !ChoosePlayFormat.isPlayingWhite;
-            String newText = ChoosePlayFormat.isPlayingWhite ? "Play as black" : "Play as white";
-            changeButtonText(chooseIsPlayingWhite, newText);
-            Main.board.refresh();
+            if (ChoosePlayFormat.isOnePlayer) {
+                ChoosePlayFormat.isPlayingWhite = !ChoosePlayFormat.isPlayingWhite;
+                String newText = ChoosePlayFormat.isPlayingWhite ? "Play as black" : "Play as white";
+                changeButtonText(chooseIsPlayingWhite, newText);
+                Main.board.refresh();
+            }
         });
         styleButton(chooseIsPlayingWhite);
         gbc.gridx = 1;

@@ -33,17 +33,20 @@ public class King extends Piece{
     }
 
     private boolean canCastle(int col, int row) {
+        if (board.getIsWhiteToMove() ? this.row != 7 : this.row != 0) {
+            return false;
+        }
         if (this.row == row) {
             if (col == 6) {
                 Piece rook = board.getPiece(7, row);
-                if (rook != null && rook.isFirstMove && isFirstMove) {
+                if (rook != null && rook.isFirstMove && isFirstMove && rook.name.equals("Rook")) {
                     return  board.getPiece(5, row) == null &&
                             board.getPiece(6, row) == null &&
                             !board.checkScanner.isMoveCausesCheck(new Move(board,this, 5, row)) && !board.checkScanner.isChecking(board);
                 }
             } else if (col == 2) {
                 Piece rook = board.getPiece(0, row);
-                if (rook != null && rook.isFirstMove && isFirstMove) {
+                if (rook != null && rook.isFirstMove && isFirstMove && rook.name.equals("Rook")) {
                     return  board.getPiece(3, row) == null &&
                             board.getPiece(2, row) == null &&
                             board.getPiece(1, row) == null &&

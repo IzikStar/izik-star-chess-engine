@@ -220,6 +220,17 @@ public class Input extends MouseAdapter {
                                 randomMoveEngine.makeMove(board.convertPiecesToFEN());
                             }
                         }
+                        if (!ChoosePlayFormat.isOnePlayer) {
+                            new Thread(() -> {
+                                try {
+                                    Thread.sleep(1000);
+                                } catch (InterruptedException event) {
+                                    event.printStackTrace();
+                                }
+                                ChoosePlayFormat.isPlayingWhite = board.getIsWhiteToMove();
+                                board.loadPiecesFromFen(board.fenCurrentPosition, true);
+                            }).start();
+                        }
                     }
                 } else {
                     if (ChoosePlayFormat.isPlayingWhite) {
@@ -298,6 +309,20 @@ public class Input extends MouseAdapter {
                             } */else {
                                 randomMoveEngine.makeMove(board.convertPiecesToFEN());
                             }
+                        }
+                        if (!ChoosePlayFormat.isOnePlayer) {
+                            new Thread(() -> {
+                                try {
+                                    Thread.sleep(1000);
+                                } catch (InterruptedException event) {
+                                    event.printStackTrace();
+                                }
+                                ChoosePlayFormat.isPlayingWhite = board.getIsWhiteToMove();
+                                board.selectedPiece = null;
+                                board.loadPiecesFromFen(board.fenCurrentPosition, true);
+                                selectedX = -1;
+                                selectedY = -1;
+                            }).start();
                         }
                     }
                 } else {
