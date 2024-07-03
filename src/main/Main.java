@@ -6,6 +6,7 @@ import javax.swing.*;
 import java.awt.*;
 
 import GUI.CustomButtonPanel;
+import main.setting.ChoosePlayFormat;
 import main.setting.SettingPanel;
 
 public class Main {
@@ -47,45 +48,55 @@ public class Main {
         frame.add(tabbedPane, tabConstraints);
 
         // Create custom button panel for "Go back"
-        CustomButtonPanel customButtonPanel = new CustomButtonPanel(1, "Go back", (Integer id) -> {
+        CustomButtonPanel goBackButton = new CustomButtonPanel(1, "Go back", (Integer id) -> {
             board.goBack();
         });
+        styleButton(goBackButton);
 
-        // Add "Go back" button to frame
+        // Create custom button panel for "New Game"
+        CustomButtonPanel newGameButton = new CustomButtonPanel(2, "New Game", (Integer id) -> {
+            restartGame();
+        });
+        styleButton(newGameButton);
+
+        // Create custom button panel for "Take a hint"
+        CustomButtonPanel takeHintButton = new CustomButtonPanel(3, "Take a hint", (Integer id) -> {
+            board.input.takeEngineHint();
+        });
+        styleButton(takeHintButton);
+
+        // Add buttons to a single row
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
+        buttonPanel.setBackground(Color.gray);
+        buttonPanel.add(goBackButton);
+        buttonPanel.add(newGameButton);
+        buttonPanel.add(takeHintButton);
+
         GridBagConstraints buttonConstraints = new GridBagConstraints();
         buttonConstraints.gridx = 0;
         buttonConstraints.gridy = 0;
+        buttonConstraints.gridwidth = 3;
         buttonConstraints.anchor = GridBagConstraints.NORTHWEST;
         buttonConstraints.insets = new Insets(10, 10, 10, 10);
-        frame.add(customButtonPanel, buttonConstraints);
-
-        // Create custom button panel for "Take a hint"
-        CustomButtonPanel customButtonPanel2 = new CustomButtonPanel(2, "Take a hint", (Integer id) -> {
-            board.input.takeEngineHint();
-        });
-
-        // Add "Take a hint" button to frame
-        GridBagConstraints buttonConstraints2 = new GridBagConstraints();
-        buttonConstraints2.gridx = 1;
-        buttonConstraints2.gridy = 0;
-        buttonConstraints2.anchor = GridBagConstraints.NORTHWEST;
-        buttonConstraints2.insets = new Insets(10, 10, 10, 10);
-        frame.add(customButtonPanel2, buttonConstraints2);
+        frame.add(buttonPanel, buttonConstraints);
 
         // Create score panel
         JPanel scorePanel = new JPanel();
         scorePanel.setBackground(Color.lightGray);
         scorePanel.setLayout(new BoxLayout(scorePanel, BoxLayout.Y_AXIS));
+        scorePanel.setBorder(BorderFactory.createTitledBorder("Score"));
 
         player1ScoreLabel = new JLabel("    White:    \n\t0\t    ");
+        player1ScoreLabel.setFont(new Font("Arial", Font.BOLD, 16));
         player2ScoreLabel = new JLabel("    Black:    \n\t0\t    ");
+        player2ScoreLabel.setFont(new Font("Arial", Font.BOLD, 16));
 
         scorePanel.add(player1ScoreLabel);
         scorePanel.add(player2ScoreLabel);
 
         // Add score panel to frame
         GridBagConstraints scoreConstraints = new GridBagConstraints();
-        scoreConstraints.gridx = 2;
+        scoreConstraints.gridx = 3;
         scoreConstraints.gridy = 0;
         scoreConstraints.gridheight = 4;
         scoreConstraints.fill = GridBagConstraints.BOTH;
@@ -104,11 +115,26 @@ public class Main {
     public static void updateScores(int player1Score, int player2Score) {
         if (player1Score >= 0) {
             player1ScoreLabel.setText("    White:    \n\t" + player1Score + "\t    ");
+            if (ChoosePlayFormat.isPlayingWhite && player1Score > 0) {
+                player1ScoreLabel.setForeground(new Color(0, 72, 255));
+            } else if (player1Score > 0){
+                player1ScoreLabel.setForeground(new Color(255, 0, 0));
+            }
+            else {
+                player1ScoreLabel.setForeground(Color.BLACK);
+            }
         } else {
             player1ScoreLabel.setText("                ");
         }
         if (player2Score >= 0) {
             player2ScoreLabel.setText("    Black:    \n\t" + player2Score + "\t    ");
+            if (player2Score > 0 && ChoosePlayFormat.isPlayingWhite) {
+                player2ScoreLabel.setForeground(new Color(255, 0, 0));
+            } else if (player2Score > 0){
+                player2ScoreLabel.setForeground(new Color(0, 72, 255));
+            } else {
+                player2ScoreLabel.setForeground(Color.BLACK);
+            }
         } else {
             player2ScoreLabel.setText("                ");
         }
@@ -116,5 +142,11 @@ public class Main {
 
     public static void restartGame() {
         board.restart();
+    }
+
+    private static void styleButton(CustomButtonPanel button) {
+        button.setBackground(Color.blue);
+        button.setForeground(Color.white);
+        button.setFont(new Font("Arial", Font.BOLD, 14));
     }
 }

@@ -65,7 +65,7 @@ public class RandomMoveEngine {
             Move tempMove = randomMove;
             //System.out.println(fen);
             if (board.makeMoveToCheckIt(tempMove)) {
-                board.makeMove(randomMove);
+                board.makeMove(randomMove, true);
                 board.input.selectedX = -1;
                 board.input.selectedY = -1;
                 board.selectedPiece = null;

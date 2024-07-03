@@ -63,7 +63,7 @@ public class Input extends MouseAdapter {
                     Move move = new Move(board, board.getPiece(fromCol, fromRow), toCol, toRow);
 
                     if (board.isValidMove(move, true)) {
-                        board.makeMove(move);
+                        board.makeMove(move, true);
                         moveFound = true; // מהלך חוקי נמצא, לצאת מהלולאה
                         // System.out.println("Move found and made: " + bestMove);
                     } else {
@@ -197,7 +197,7 @@ public class Input extends MouseAdapter {
             if (board.selectedPiece != null) {
                 Move move = new Move(board, board.selectedPiece, col, row);
                 if (board.isValidMove(move, true)) {
-                    board.makeMove(move);
+                    board.makeMove(move, true);
                     selectedX = -1;
                     selectedY = -1;
                     board.selectedPiece = null;
@@ -279,7 +279,7 @@ public class Input extends MouseAdapter {
                 int row = board.getRowFromY(e.getY());
                 Move move = new Move(board, board.selectedPiece, col, row);
                 if (board.isValidMove(move, true)) {
-                    board.makeMove(move);
+                    board.makeMove(move, false);
                     if (isStatusChanged) {
                         board.selectedPiece = null;
                         board.repaint();

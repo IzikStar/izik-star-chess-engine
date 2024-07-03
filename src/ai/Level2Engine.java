@@ -28,7 +28,7 @@ public class Level2Engine {
             }
             //if (!board.checkScanner.isChecking(board)) {
                 getBestMove();
-                board.makeMove(bestMove);
+                board.makeMove(bestMove, true);
             //}
 //            else {
 //                // System.out.println("check");

@@ -1,12 +1,15 @@
 package main;
 
 import GUI.AudioPlayer;
+import GUI.ChessAnimation;
 import main.setting.ChoosePlayFormat;
 import main.setting.SettingPanel;
 import pieces.*;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.Stack;
 import java.util.stream.Collectors;
@@ -17,8 +20,9 @@ public class Board extends JPanel {
     public static String fenStartingPosition = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     public String fenCurrentPosition = fenStartingPosition;
     public Stack<String> savedStates = new Stack<>();
-
-    private JFrame parentFrame;
+    private ChessAnimation animation;
+    private Timer animationTimer;
+    JFrame parentFrame;
 
     int cols = 8;
     int rows = 8;
@@ -28,31 +32,37 @@ public class Board extends JPanel {
     public CheckScanner checkScanner = new CheckScanner(this);
     AudioPlayer audioPlayer = new AudioPlayer();
     ShowScore showScore = new ShowScore(this);
+    ArrayList<Piece> pieceList = new ArrayList<>();
 
     int fromC = -1, fromR = -1, toC = -1, toR = -1;
     int hintFromC = -1, hintFromR = -1, hintToC = -1, hintToR = -1;
     public Piece lastToMove;
     public int enPassantTile = -1;
     public int enPassantTileClone = -1;
-    // public Move lastMove;
     private boolean isWhiteToMove = true;
     public int numOfTurns = 0;
     public int numOfTurnWithoutCaptureOrPawnMove = 0;
     public boolean isGameOver = false;
-    // public static boolean isStatusChanged = false, isCheckMate = false, isStaleMate = false, isWhiteTurn;
 
     public Board() {
-        this.setPreferredSize(new Dimension(cols * tileSize /* + tileSize / 2 */, rows * tileSize));
-
+        this.setPreferredSize(new Dimension(cols * tileSize, rows * tileSize));
         this.addMouseListener(input);
         this.addMouseMotionListener(input);
         this.savedStates.push(fenCurrentPosition);
 
-        // addPieces();
         loadPiecesFromFen(fenCurrentPosition, true);
-    }
 
-    ArrayList<Piece> pieceList = new ArrayList<>();
+        animationTimer = new Timer(10, new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (animation != null && animation.isFinished()) {
+                    animation = null;
+                }
+                repaint();
+            }
+        });
+        animationTimer.start();
+    }
 
     public Piece getPiece(int col, int row) {
 
@@ -341,6 +351,10 @@ public class Board extends JPanel {
             }
         }
 
+        // Paint animations
+        if (animation != null) {
+            animation.paint(g2d);
+        }
 
         // paint pieces
         for (Piece piece : pieceList) {
@@ -353,18 +367,16 @@ public class Board extends JPanel {
     private void drawSquareWithCircle(Graphics g, int col, int row) {
         int x = col * tileSize;
         int y = row * tileSize;
-        int borderThickness = 5; // עובי המסגרת
+        int borderThickness = 5;
 
-        // צביעת מסגרת הריבוע
         g.setColor(Color.RED);
-        g.fillRect(x, y, tileSize, borderThickness); // עליון
-        g.fillRect(x, y, borderThickness, tileSize); // שמאל
-        g.fillRect(x + tileSize - borderThickness, y, borderThickness, tileSize); // ימין
-        g.fillRect(x, y + tileSize - borderThickness, tileSize, borderThickness); // תחתון
+        g.fillRect(x, y, tileSize, borderThickness); // Top
+        g.fillRect(x, y, borderThickness, tileSize); // Left
+        g.fillRect(x + tileSize - borderThickness, y, borderThickness, tileSize); // Right
+        g.fillRect(x, y + tileSize - borderThickness, tileSize, borderThickness); // Bottom
     }
 
-    public void makeMove(Move move) {
-        //System.out.println(convertPiecesToFEN());
+    public void makeMove(Move move, boolean toAnimate) {
         Piece piece = getPiece(move.piece.col, move.piece.row);
         boolean pawnMoveSuccess = true;
         if (piece.name.equals("Pawn")) {
@@ -380,21 +392,27 @@ public class Board extends JPanel {
             if (move.captured != null && getPiece(move.captured.col, move.captured.row) != null) {
                 capture(getPiece(move.captured.col, move.captured.row));
                 audioPlayer.playCaptureSound();
-            }
-            else {
+            } else {
                 audioPlayer.playMovingPieceSound();
             }
             setLastMove(piece.col, piece.row, move.newCol, move.newRow, move.piece);
+
+            if (toAnimate) {
+                if (ChoosePlayFormat.isPlayingWhite) {
+                    animation = new ChessAnimation(piece, piece.col * tileSize, piece.row * tileSize,
+                            move.newCol * tileSize, move.newRow * tileSize, 500);
+                } else {
+                    animation = new ChessAnimation(piece, (cols - 1 - piece.col) * tileSize, (rows - 1 - piece.row) * tileSize,
+                            (cols - 1 - move.newCol) * tileSize, (rows - 1 - move.newRow) * tileSize, 500);
+                }
+            }
+
             piece.col = move.newCol;
             piece.row = move.newRow;
-            //System.out.println(move.piece.col + " " + move.piece.row);
-            //System.out.println(convertPiecesToFEN());
             if (ChoosePlayFormat.isPlayingWhite) {
                 piece.xPos = move.newCol * tileSize;
                 piece.yPos = move.newRow * tileSize;
-                //System.out.println(move.piece.xPos + " " + move.piece.yPos);
-            }
-            else {
+            } else {
                 piece.xPos = (cols - 1 - move.newCol) * tileSize;
                 piece.yPos = (rows - 1 - move.newRow) * tileSize;
             }
