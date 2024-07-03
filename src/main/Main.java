@@ -20,6 +20,7 @@ public class Main {
 
         JFrame frame = new JFrame("Chess Game");
         frame.setMinimumSize(new Dimension(900, 900));
+        frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new GridBagLayout());
         frame.getContentPane().setBackground(Color.gray);
@@ -104,7 +105,7 @@ public class Main {
         frame.add(scorePanel, scoreConstraints);
 
         // Pack and display the frame
-        frame.pack();
+        //frame.pack();
         frame.setVisible(true);
     }
 
