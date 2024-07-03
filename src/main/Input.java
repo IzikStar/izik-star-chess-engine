@@ -1,7 +1,6 @@
 package main;
 
 import GUI.AudioPlayer;
-import ai.Level2Engine;
 import ai.RandomMoveEngine;
 import main.setting.ChoosePlayFormat;
 import main.setting.SettingPanel;
@@ -25,13 +24,11 @@ public class Input extends MouseAdapter {
     String pathToStockfish = "src/res/stockfish/stockfish-windows-x86-64.exe";
     StockfishEngine engine;
     RandomMoveEngine randomMoveEngine;
-    Level2Engine level2Engine;
 
     public Input(Board board) {
         this.board = board;
         engine = new StockfishEngine();
         randomMoveEngine = new RandomMoveEngine(board);
-        level2Engine = new Level2Engine(board);
         if (!ChoosePlayFormat.isPlayingWhite) {
             makeEngineMove();
         }
