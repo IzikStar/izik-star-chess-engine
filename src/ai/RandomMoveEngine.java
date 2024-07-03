@@ -1,59 +1,52 @@
 package ai;
 
 import main.Board;
-import main.Main;
 import main.Move;
-import main.setting.ChoosePlayFormat;
-import main.setting.SettingPanel;
 import pieces.Piece;
-
-import javax.swing.*;
 import java.util.ArrayList;
 
 public class RandomMoveEngine {
     Board board;
     private int randomNumOfPiece;
     private int randomNumOfMove;
-    public Piece chocenPiece;
+    public Piece chosenPiece;
     private ArrayList<Move> randomMovesList;
     private ArrayList<Piece> alreadyChecked = new ArrayList<>();
     public static int waitTime = 1000;
     private String fen;
     public String promotionChoice;
+    private Thread thread;
 
     public RandomMoveEngine(Board board) {
         this.board = board;
     }
 
     public void makeMove(String fen) {
-        new Thread(() -> {
+        board.selectedPiece = null;
+        thread = new Thread(() -> {
             try {
                 Thread.sleep(waitTime);
+                if (Thread.currentThread().isInterrupted()) {
+                    return; // בדיקה אם ה-Thread הופסק
+                }
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                return; // יציאה מה-Thread במקרה של הפסקה
             }
             this.fen = fen;
-            board.loadPiecesFromFen(fen, false);
             if (!board.checkScanner.isChecking(board)) {
                 chosePiece();
-            }
-            else {
-                // System.out.println("check");
+            } else {
                 for (int i = 0; i < board.getNumOfPieces(board.getIsWhiteToMove()); i++) {
-                    this.chocenPiece = board.getPieceByNumber(i, board.getIsWhiteToMove());
-                    if (chocenPiece.isWhite == board.getIsWhiteToMove()) {
-                        // System.out.println(chosenPiece + " col: " + chosenPiece.col + " row: " + chosenPiece.row);
-                        this.randomMovesList = chocenPiece.getValidMoves(board);
-                        // נוודא שהמהלכים לא מכניסים את המלך לשח
-                        //randomMovesList.removeIf(move -> board.checkScanner.isMoveCausesCheck(new Move(board, chocenPiece, move.newCol, move.newRow)));
-                        if ((!randomMovesList.isEmpty()) /*&& chocenPiece.name.equals("King")*/) {
+                    this.chosenPiece = board.getPieceByNumber(i, board.getIsWhiteToMove());
+                    if (chosenPiece.isWhite == board.getIsWhiteToMove()) {
+                        this.randomMovesList = chosenPiece.getValidMoves(board);
+                        if (!randomMovesList.isEmpty()) {
                             break;
                         }
                     }
                 }
             }
             if (randomMovesList == null || randomMovesList.isEmpty()) {
-                // לא נמצאו מהלכים חוקיים. טיפול מתאים, כמו הדפסת הודעת שגיאה או סיום המשחק
                 System.out.println("No valid moves available");
                 return;
             }
@@ -63,52 +56,53 @@ public class RandomMoveEngine {
                 setPromotionChoice();
             }
             Move tempMove = randomMove;
-            //System.out.println(fen);
             if (board.makeMoveToCheckIt(tempMove)) {
                 board.makeMove(randomMove, true);
                 board.input.selectedX = -1;
                 board.input.selectedY = -1;
-                board.selectedPiece = null;
-                board.repaint();
                 alreadyChecked.clear();
-            }
-            else {
+            } else {
                 makeMove(fen);
             }
-        }).start();
+        });
+        thread.start();
+    }
+
+    public void stop() {
+        if (thread != null) {
+            thread.interrupt();
+        }
     }
 
     private void setPromotionChoice() {
         int randomPromotionChoiceNum = (int) (Math.random() * 4);
         switch (randomPromotionChoiceNum) {
-            case 1: promotionChoice = "r";
-            break;
-            case 2: promotionChoice = "b";
-            break;
-            case 3: promotionChoice = "n";
-            break;
-            default: promotionChoice = "q";
-            break;
+            case 1:
+                promotionChoice = "r";
+                break;
+            case 2:
+                promotionChoice = "b";
+                break;
+            case 3:
+                promotionChoice = "n";
+                break;
+            default:
+                promotionChoice = "q";
+                break;
         }
     }
 
     private void chosePiece() {
         this.randomNumOfPiece = (int) (Math.random() * board.getNumOfPieces(board.getIsWhiteToMove()));
-        //System.out.println(randomNumOfPiece);
-        this.chocenPiece = board.getPieceByNumber(randomNumOfPiece, board.getIsWhiteToMove());
-        //System.out.println(chocenPiece);
-        if (chocenPiece != null && !alreadyChecked.contains(chocenPiece) /*&& chocenPiece.name.equals("Pawn")*/) { //נועד לבדיקת הכתרות
-            this.randomMovesList = chocenPiece.getValidMoves(board);
-            // נוודא שהמהלכים לא מכניסים את המלך לשח
-            //randomMovesList.removeIf(move -> board.checkScanner.isMoveCausesCheck(new Move(board, chocenPiece, move.newCol, move.newRow)));
+        this.chosenPiece = board.getPieceByNumber(randomNumOfPiece, board.getIsWhiteToMove());
+        if (chosenPiece != null && !alreadyChecked.contains(chosenPiece)) {
+            this.randomMovesList = chosenPiece.getValidMoves(board);
             if (randomMovesList.isEmpty()) {
-                alreadyChecked.add(chocenPiece);
+                alreadyChecked.add(chosenPiece);
                 chosePiece();
             }
-        }
-        else {
+        } else {
             chosePiece();
         }
     }
-
 }

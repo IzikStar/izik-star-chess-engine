@@ -107,6 +107,11 @@ public class AudioPlayer {
         playAudio(goBackSound);
     }
 
+    public void playSwitchSound() {
+        String switchSound = "src/res/sounds/switchSound1.wav";
+        playAudio(switchSound);
+    }
+
 
 }
 

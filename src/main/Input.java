@@ -223,7 +223,9 @@ public class Input extends MouseAdapter {
                         if (!ChoosePlayFormat.isOnePlayer) {
                             new Thread(() -> {
                                 try {
-                                    Thread.sleep(1000);
+                                    Thread.sleep(500);
+                                    audioPlayer.playSwitchSound();
+                                    Thread.sleep(500);
                                 } catch (InterruptedException event) {
                                     event.printStackTrace();
                                 }
@@ -313,7 +315,9 @@ public class Input extends MouseAdapter {
                         if (!ChoosePlayFormat.isOnePlayer) {
                             new Thread(() -> {
                                 try {
-                                    Thread.sleep(1000);
+                                    Thread.sleep(500);
+                                    audioPlayer.playSwitchSound();
+                                    Thread.sleep(500);
                                 } catch (InterruptedException event) {
                                     event.printStackTrace();
                                 }

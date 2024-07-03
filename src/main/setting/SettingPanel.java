@@ -8,9 +8,9 @@ import java.awt.*;
 
 public class SettingPanel extends JPanel {
 
-    private CustomButtonPanel chooseIsOnePlayer = null;
-    private CustomButtonPanel chooseIsPlayingWhite = null;
-    private CustomButtonPanel[] levelButtons = new CustomButtonPanel[10];
+    private static CustomButtonPanel chooseIsOnePlayer = null;
+    private static CustomButtonPanel chooseIsPlayingWhite = null;
+    private static final CustomButtonPanel[] levelButtons = new CustomButtonPanel[10];
     public static int skillLevel = 0;
 
     public SettingPanel() {
@@ -61,8 +61,13 @@ public class SettingPanel extends JPanel {
         this.add(levelPanel, gbc);
     }
 
-    public void changeButtonText(CustomButtonPanel button, String newText) {
+    public static void changeButtonText(CustomButtonPanel button, String newText) {
         button.changeText(newText);
+    }
+
+    public static void changeIsPlayingWhiteText() {
+        String newText = ChoosePlayFormat.isPlayingWhite ? "Play as black" : "Play as white";
+        changeButtonText(chooseIsPlayingWhite, newText);
     }
 
     private void styleButton(CustomButtonPanel button) {

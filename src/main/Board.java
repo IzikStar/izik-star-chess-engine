@@ -22,7 +22,7 @@ public class Board extends JPanel {
     public String fenCurrentPosition = fenStartingPosition;
     public Stack<String> savedStates = new Stack<>();
     private ChessAnimation animation;
-    private java.util.List<ChessAnimation> animations = new ArrayList<>();
+    private final java.util.List<ChessAnimation> animations = new ArrayList<>();
     private Timer animationTimer;
     JFrame parentFrame;
 
@@ -54,7 +54,7 @@ public class Board extends JPanel {
 
         loadPiecesFromFen(fenCurrentPosition, true);
 
-        animationTimer = new Timer(10, new ActionListener() {
+        animationTimer = new Timer(5, new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (animation != null && animation.isFinished()) {
@@ -90,84 +90,47 @@ public class Board extends JPanel {
     public void loadPiecesFromFen(String fenCurrentPosition, boolean isRealBoard) {
         String[] parts = fenCurrentPosition.split(" ");
 
-        pieceList.clear();
-
+        // pieceList.clear();
+        ArrayList<Piece> newState = new ArrayList<>();
         // position
         String position = parts[0];
-        if (ChoosePlayFormat.isPlayingWhite) {
-            int row = 0;
-            int col = 0;
-            for (int i = 0; i < position.length(); i++) {
-                char ch = position.charAt(i);
-                if (ch == '/') {
-                    row++;
-                    col = 0;
-                } else if (Character.isDigit(ch)) {
-                    col += Character.getNumericValue(ch);
-                } else {
-                    boolean isWhite = Character.isUpperCase(ch);
-                    ch = Character.toLowerCase(ch);
-                    switch (ch) {
-                        case 'r':
-                            pieceList.add(new Rook(this, col, row, isWhite));
-                            break;
-                        case 'n':
-                            pieceList.add(new Knight(this, col, row, isWhite));
-                            break;
-                        case 'b':
-                            pieceList.add(new Bishop(this, col, row, isWhite));
-                            break;
-                        case 'q':
-                            pieceList.add(new Queen(this, col, row, isWhite));
-                            break;
-                        case 'k':
-                            pieceList.add(new King(this, col, row, isWhite));
-                            break;
-                        case 'p':
-                            pieceList.add(new Pawn(this, col, row, isWhite, col));
-                            break;
-                    }
-                    col++;
+        int row = 0;
+        int col = 0;
+        for (int i = 0; i < position.length(); i++) {
+            char ch = position.charAt(i);
+            if (ch == '/') {
+                row++;
+                col = 0;
+            } else if (Character.isDigit(ch)) {
+                col += Character.getNumericValue(ch);
+            } else {
+                boolean isWhite = Character.isUpperCase(ch);
+                ch = Character.toLowerCase(ch);
+                switch (ch) {
+                    case 'r':
+                        newState.add(new Rook(this, col, row, isWhite));
+                        break;
+                    case 'n':
+                        newState.add(new Knight(this, col, row, isWhite));
+                        break;
+                    case 'b':
+                        newState.add(new Bishop(this, col, row, isWhite));
+                        break;
+                    case 'q':
+                        newState.add(new Queen(this, col, row, isWhite));
+                        break;
+                    case 'k':
+                        newState.add(new King(this, col, row, isWhite));
+                        break;
+                    case 'p':
+                        newState.add(new Pawn(this, col, row, isWhite, col));
+                        break;
                 }
+                col++;
             }
         }
-        else {
-            int row = 0;
-            int col = 0;
-            for (int i = 0; i < position.length(); i++) {
-                char ch = position.charAt(i);
-                if (ch == '/') {
-                    row++;
-                    col = 0;
-                } else if (Character.isDigit(ch)) {
-                    col += Character.getNumericValue(ch);
-                } else {
-                    boolean isWhite = Character.isUpperCase(ch);
-                    ch = Character.toLowerCase(ch);
-                    switch (ch) {
-                        case 'r':
-                            pieceList.add(new Rook(this, col, row, isWhite));
-                            break;
-                        case 'n':
-                            pieceList.add(new Knight(this, col, row, isWhite));
-                            break;
-                        case 'b':
-                            pieceList.add(new Bishop(this, col, row, isWhite));
-                            break;
-                        case 'q':
-                            pieceList.add(new Queen(this, col, row, isWhite));
-                            break;
-                        case 'k':
-                            pieceList.add(new King(this, col, row, isWhite));
-                            break;
-                        case 'p':
-                            pieceList.add(new Pawn(this, col, row, isWhite, col));
-                            break;
-                    }
-                    col++;
-                }
-            }
-        }
+        pieceList = newState;
+
         // turn
         isWhiteToMove = parts[1].equals("w");
 
@@ -280,10 +243,8 @@ public class Board extends JPanel {
         }
 
         // paint the border of the king red if it's under attack
-        if (checkScanner.isChecking(this)) {
+        if (findKing(isWhiteToMove) != null && checkScanner.isChecking(this)) {
             Piece king = findKing(isWhiteToMove);
-            //g2d.setColor(new Color(255, 0, 0, 237)); // אדום חצי שקוף
-            //g2d.fillRect(king.col * tileSize, king.row * tileSize, tileSize, tileSize);
             if (ChoosePlayFormat.isPlayingWhite) {
                 drawSquareWithCircle(g ,king.col, king.row);
             }
@@ -451,7 +412,7 @@ public class Board extends JPanel {
             moveKingForClone(move);
         }
 
-         if (pawnMoveSuccess) {
+        if (pawnMoveSuccess) {
             if (!piece.name.equals("Pawn") || !(Math.abs(piece.row - move.newRow) == 2)) {
                 enPassantTile = -1;
             }
@@ -473,7 +434,8 @@ public class Board extends JPanel {
 
             piece.col = tempMovePC;
             piece.row = tempMovePR;
-            loadPiecesFromFen(tempFen, true);
+            isWhiteToMove = !isWhiteToMove;
+            loadPiecesFromFen(tempFen, false);
             //System.out.println(tempFen);
         }
         return success;
@@ -943,18 +905,23 @@ public class Board extends JPanel {
     }
 
     public void restart() {
+        input.randomMoveEngine.stop();
         isGameOver = false;
         input.isStatusChanged = false;
         fromC = -1; fromR = -1; toC = -1; toR = -1;
         hintFromC = -1; hintFromR = -1; hintToC = -1; hintToR = -1;
         Main.updateScores(0, 0);
         audioPlayer.playHintSound();
-        if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != isWhiteToMove) {
+        if (ChoosePlayFormat.isOnePlayer) {
+            SettingPanel.changeIsPlayingWhiteText();
             loadPiecesFromFen(fenStartingPosition, true);
-            input.makeEngineMove();
+            if (ChoosePlayFormat.isPlayingWhite != isWhiteToMove) {
+                input.makeEngineMove();
+            }
         }
         else {
             ChoosePlayFormat.isPlayingWhite = true;
+            SettingPanel.changeIsPlayingWhiteText();
             loadPiecesFromFen(fenStartingPosition, true);
         }
     }
