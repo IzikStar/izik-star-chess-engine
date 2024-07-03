@@ -6,12 +6,12 @@ import main.setting.SettingPanel;
 import pieces.Piece;
 import java.util.ArrayList;
 
-public class RandomMoveEngine {
+public class myEngine {
     // board state:
     Board board;
     private String fen;
 
-    private int randomNumOfMove;
+    // for the random engine:
     private ArrayList<Move> randomMovesList;
     public String promotionChoice;
     private final ArrayList<Piece> alreadyChecked = new ArrayList<>();
@@ -25,7 +25,7 @@ public class RandomMoveEngine {
     private static final int DEPTH = 1;
 
     // constructor:
-    public RandomMoveEngine(Board board) {
+    public myEngine(Board board) {
         this.board = board;
     }
 
@@ -93,7 +93,7 @@ public class RandomMoveEngine {
             System.out.println("No valid moves available");
             return null;
         }
-        this.randomNumOfMove = (int) (Math.random() * randomMovesList.size());
+        int randomNumOfMove = (int) (Math.random() * randomMovesList.size());
         Move randomMove = randomMovesList.get(randomNumOfMove);
         if (randomMove.piece.name.equals("Pawn") && board.getIsWhiteToMove() ? randomMove.newRow == 0 : randomMove.newRow == 7) {
             setPromotionChoice();
@@ -134,7 +134,7 @@ public class RandomMoveEngine {
         }
     }
 
-    // other engines methods
+    // other engine methods
     private Move getBestMove() {
         Move bestMove = null;
 
