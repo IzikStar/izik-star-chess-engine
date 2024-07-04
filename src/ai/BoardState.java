@@ -33,6 +33,7 @@ public class BoardState {
         this.fenCurrentPosition = fenCurrentPosition;
         loadPiecesFromFen(fenCurrentPosition);
         setLastMove(lastMove);
+        checkScanner = new CheckScanner(this);
     }
 
     // יצירת הלוח
@@ -161,7 +162,6 @@ public class BoardState {
     }
 
 
-
     // פונקציות לבדיקת חוקיות מהלכים ומצב המשחק
     public boolean getIsWhiteToMove() {
         return this.isWhiteToMove;
@@ -226,53 +226,6 @@ public class BoardState {
         }
         return names.size() < 3;
     }
-
-
-//    public void updateGameState(boolean isRealBoard) {
-//        Piece king = findKing(isWhiteToMove);
-//        if (checkScanner.isGameOver(king)) {
-//            if (checkScanner.isChecking(this)) {
-//                // System.out.println(isWhiteToMove ? "black wins!" : "white wins!");
-//                if (isRealBoard){
-//                    input.isStatusChanged = true;
-//                    input.isCheckMate = true;
-//                    input.isStaleMate = false;
-//                    input.isWhiteTurn = isWhiteToMove;
-//                    if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite == isWhiteToMove) {
-//                        audioPlayer.playLosingSound();
-//                    }
-//                    else {
-//                        audioPlayer.playCheckMateSound();
-//                    }
-//                    animation = new ChessAnimation(king, king.xPos, king.yPos, king.xPos, king.yPos, 500);
-//                }
-//            } else {
-//                // System.out.println("stale mate! draw!");
-//                if (isRealBoard){
-//                    input.isStatusChanged = true;
-//                    input.isCheckMate = false;
-//                    input.isStaleMate = true;
-//                    input.isWhiteTurn = isWhiteToMove;
-//                    audioPlayer.playDrawSound();
-//                }
-//            }
-////            isGameOver = true;
-//        } else if (insufficientMaterial(true) && insufficientMaterial(false)) {
-//            // System.out.println("insufficientMaterial! draw!");
-////            isGameOver = true;
-//            if (isRealBoard){
-//                input.isStatusChanged = true;
-//                input.isCheckMate = false;
-//                input.isStaleMate = false;
-//                input.isWhiteTurn = isWhiteToMove;
-//                audioPlayer.playDrawSound();
-//            }
-//        }
-//        else if (checkScanner.isChecking(this)) {
-//            audioPlayer.playCheckSound();
-//            repaint();
-//        }
-//    }
 
 
     // גטרים למצב הלוח
@@ -353,11 +306,9 @@ public class BoardState {
     public String squareToLetters(int col, int row) {
         String namesOfRows = "87654321";
         String namesOfCols = "abcdefgh";
-        StringBuilder squareName = new StringBuilder();
-        squareName.append (namesOfCols.charAt(col));
-        squareName.append (namesOfRows.charAt(row));
         // System.out.println(col + " " + row + " " + squareName);
-        return squareName.toString();
+        return String.valueOf(namesOfCols.charAt(col)) +
+                namesOfRows.charAt(row);
     }
 
 
@@ -394,6 +345,7 @@ public class BoardState {
                 success = true;
             }
 
+            // cancel move
             piece.col = tempMovePC;
             piece.row = tempMovePR;
             isWhiteToMove = !isWhiteToMove;
@@ -401,6 +353,44 @@ public class BoardState {
             //System.out.println(tempFen);
         }
         return success;
+    }
+
+    public int makeMoveAndGetValue(Move move) {
+        String tempFen = convertPiecesToFEN();
+        Piece piece = getPiece(move.piece.col, move.piece.row);
+        boolean success = false;
+        boolean pawnMoveSuccess = true;
+        if (piece.name.equals("Pawn")) {
+            pawnMoveSuccess = movePawnForClone(move);
+        } else if (piece.name.equals("King")) {
+            moveKingForClone(move);
+        }
+
+        if (pawnMoveSuccess) {
+            if (!piece.name.equals("Pawn") || !(Math.abs(piece.row - move.newRow) == 2)) {
+                enPassantTile = -1;
+            }
+            if (move.captured != null && getPiece(move.captured.col, move.captured.row) != null) {
+                capture(getPiece(move.captured.col, move.captured.row));
+            }
+            int tempMovePC = piece.col;
+            int tempMovePR = piece.row;
+            piece.col = move.newCol;
+            piece.row = move.newRow;
+            isWhiteToMove = !isWhiteToMove;
+            if (isWhiteToMove) {
+                ++numOfTurns;
+            }
+            ++numOfTurnWithoutCaptureOrPawnMove;
+
+            // cancel move
+            piece.col = tempMovePC;
+            piece.row = tempMovePR;
+            isWhiteToMove = !isWhiteToMove;
+            loadPiecesFromFen(tempFen);
+            //System.out.println(tempFen);
+        }
+        return 0;
     }
 
     private boolean movePawnForClone(Move move) {
@@ -480,7 +470,104 @@ public class BoardState {
         numOfTurnWithoutCaptureOrPawnMove = 0;
     }
 
+    // ביצוע מהלכים על אמת
+    public int makeMove(Move move, String promotionChoice) {
+        int moveKind = 0;
+        Piece piece = getPiece(move.piece.col, move.piece.row);
+        boolean pawnMoveSuccess = true;
+        if (piece.name.equals("Pawn")) {
+            pawnMoveSuccess = movePawn(move, promotionChoice);
+            if (pawnMoveSuccess) {
+                moveKind = 2;
+            }
+        } else if (piece.name.equals("King")) {
+            if(moveKing(move)) {
+                moveKind = 1;
+            }
+        }
 
+        if (pawnMoveSuccess) {
+            if (!piece.name.equals("Pawn") || !(Math.abs(piece.row - move.newRow) == 2)) {
+                enPassantTile = -1;
+            }
+            if (move.captured != null && getPiece(move.captured.col, move.captured.row) != null) {
+                capture(getPiece(move.captured.col, move.captured.row));
+            }
+            setLastMove(piece.col, piece.row, move.newCol, move.newRow, move.piece);
+
+            piece.col = move.newCol;
+            piece.row = move.newRow;
+            piece.isFirstMove = false;
+            isWhiteToMove = !isWhiteToMove;
+            if (isWhiteToMove) {
+                ++numOfTurns;
+            }
+            ++numOfTurnWithoutCaptureOrPawnMove;
+        }
+        return moveKind;
+    }
+
+    public boolean moveKing(Move move) {
+        if (Math.abs(move.piece.col - move.newCol) == 2) {
+            Piece rook;
+            int rookEndCol;
+            if (move.piece.col < move.newCol) {
+                rook = getPiece(7, move.piece.row);
+                rookEndCol = 5;
+            } else {
+                rook = getPiece(0, move.piece.row);
+                rookEndCol = 3;
+            }
+
+            move.piece.col = move.newCol;
+            move.piece.row = move.newRow;
+            rook.col = rookEndCol;
+            rook.row = move.newRow;
+            return true;
+        }
+        return false;
+    }
+
+    public boolean movePawn(Move move, String promotionChoice) {
+        // en passant:
+        int colorIndex = move.piece.isWhite ? 1 : -1;
+
+        if (getTileNum(move.newCol, move.newRow) == enPassantTile) {
+            move.captured = getPiece(move.newCol, move.newRow + colorIndex);
+        }
+        if (Math.abs(move.piece.row - move.newRow) == 2) {
+            enPassantTile = getTileNum(move.newCol, move.newRow + colorIndex);
+        } else {
+            enPassantTile = -1;
+        }
+
+        // promotions:
+        colorIndex = move.piece.isWhite ? 0 : 7;
+        if (move.newRow == colorIndex) {
+            promotePawnTo(move, promotionChoice);
+        }
+        numOfTurnWithoutCaptureOrPawnMove = -1;
+        return true;
+    }
+
+    public void promotePawnTo(Move move, String choice) {
+        Piece piece = getPiece(move.piece.col, move.piece.row);
+        switch (choice) {
+            case "q":
+                pieceList.add(new Queen(this, move.newCol, move.newRow, piece.isWhite));
+                break;
+            case "r":
+                pieceList.add(new Rook(this, move.newCol, move.newRow, piece.isWhite));
+                break;
+            case "b":
+                pieceList.add(new Bishop(this, move.newCol, move.newRow, piece.isWhite));
+                break;
+            case "n":
+                pieceList.add(new Knight(this, move.newCol, move.newRow, piece.isWhite));
+                break;
+        }
+        capture(piece);
+    }
 
 
 

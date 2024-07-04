@@ -28,7 +28,7 @@ public class Input extends MouseAdapter {
     public Input(Board board) {
         this.board = board;
         engine = new StockfishEngine();
-        randomMoveEngine = new myEngine(board);
+        randomMoveEngine = new myEngine(board.state);
         if (!ChoosePlayFormat.isPlayingWhite) {
             makeEngineMove();
         }
@@ -42,7 +42,7 @@ public class Input extends MouseAdapter {
             long endTime = System.currentTimeMillis();
             while (!(moveFound) && endTime - startTime < 1500) {
                 engine.setSkillLevel(ChoosePlayFormat.setSkillLevel);
-                String fen = board.convertPiecesToFEN();
+                String fen = board.state.convertPiecesToFEN();
                 // System.out.println("Current FEN: " + fen);
                 String bestMove = engine.getBestMove(fen);
                 // System.out.println("Best move: " + bestMove);
@@ -54,13 +54,15 @@ public class Input extends MouseAdapter {
                     int toRow = 8 - (bestMove.charAt(3) - '0');
                     if (bestMove.length() > 4) {
                         engine.promotionChoice = String.valueOf(bestMove.charAt(4));
+                    } else {
+                        engine.promotionChoice = null;
                     }
                     // System.out.println("From: " + fromCol + "," + fromRow + " To: " + toCol + "," + toRow);
 
-                    Move move = new Move(board, board.getPiece(fromCol, fromRow), toCol, toRow);
+                    Move move = new Move(board.state, board.state.getPiece(fromCol, fromRow), toCol, toRow);
 
-                    if (board.isValidMove(move, true)) {
-                        board.makeMove(move, true);
+                    if (board.state.isValidMove(move)) {
+                        board.makeMove(move, engine.promotionChoice);
                         moveFound = true; // מהלך חוקי נמצא, לצאת מהלולאה
                         // System.out.println("Move found and made: " + bestMove);
                     } else {
@@ -75,13 +77,13 @@ public class Input extends MouseAdapter {
             if (!moveFound) {
                 System.out.println("taking to long, making a random move");
                 myEngine.waitTime = 0;
-                randomMoveEngine.makeMove(board.convertPiecesToFEN());
+                randomMoveEngine.makeMove(board.state.convertPiecesToFEN());
                 myEngine.waitTime = 1000;
             }
             SwingUtilities.invokeLater(() -> {
                 board.repaint();
                 if (isStatusChanged) {
-                    board.selectedPiece = null;
+                    Board.selectedPiece = null;
                     JFrame frame = new JFrame("Game Over");
                     board.updateGameState(true);
                     Main.showEndGameMessage(frame, (isCheckMate ? (isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח") : "תיקו"));
@@ -97,7 +99,7 @@ public class Input extends MouseAdapter {
             long endTime = System.currentTimeMillis();
             while ((!moveFound) && endTime - startTime < 1500) {
                 engine.setSkillLevel(20);
-                String fen = board.convertPiecesToFEN();
+                String fen = board.state.convertPiecesToFEN();
                 // System.out.println("Current FEN: " + fen);
                 String bestMove = engine.getBestMove(fen);
                 // System.out.println("Best move: " + bestMove);
@@ -109,12 +111,14 @@ public class Input extends MouseAdapter {
                     int toRow = 8 - (bestMove.charAt(3) - '0');
                     if (bestMove.length() > 4) {
                         engine.promotionChoice = String.valueOf(bestMove.charAt(4));
+                    } else {
+                        engine.promotionChoice = null;
                     }
                     // System.out.println("From: " + fromCol + "," + fromRow + " To: " + toCol + "," + toRow);
 
-                    Move move = new Move(board, board.getPiece(fromCol, fromRow), toCol, toRow);
+                    Move move = new Move(board.state, board.state.getPiece(fromCol, fromRow), toCol, toRow);
 
-                    if (board.isValidMove(move, true)) {
+                    if (board.state.isValidMove(move)) {
                         board.hintFromC = fromCol;
                         board.hintFromR = fromRow;
                         board.hintToC = toCol;
@@ -124,8 +128,6 @@ public class Input extends MouseAdapter {
                         engine.setSkillLevel(SettingPanel.skillLevel);
                         moveFound = true; // מהלך חוקי נמצא, לצאת מהלולאה
                         // System.out.println("Move found and made: " + bestMove);
-                    } else {
-                        // System.out.println("Move is invalid, retrying...");
                     }
                 } else {
                     // System.out.println("No valid move found, retrying...");
@@ -139,7 +141,7 @@ public class Input extends MouseAdapter {
             SwingUtilities.invokeLater(() -> {
                 board.repaint();
                 if (isStatusChanged) {
-                    board.selectedPiece = null;
+                    Board.selectedPiece = null;
                     JFrame frame = new JFrame("Game Over");
                     board.updateGameState(true);
                     Main.showEndGameMessage(frame, (isCheckMate ? (isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח") : "תיקו"));
@@ -157,24 +159,19 @@ public class Input extends MouseAdapter {
         board.hintToR = -1;
         if (selectedX == -1 && selectedY == -1) {
             // בחירת כלי
-            if (ChoosePlayFormat.isPlayingWhite) {
-                col = e.getX() / Board.tileSize;
-                row = e.getY() / Board.tileSize;
-            } else {
-                col = (board.cols - 1) - (e.getX() / Board.tileSize);
-                row = (board.rows - 1) - (e.getY() / Board.tileSize);
-            }
+            col = board.getColFromX(e.getX());
+            row = board.getRowFromY(e.getY());
 
-            Piece pieceXY = board.getPiece(col, row);
-            if (pieceXY != null && pieceXY.isWhite == board.getIsWhiteToMove() && (!ChoosePlayFormat.isOnePlayer || ChoosePlayFormat.isPlayingWhite == board.getIsWhiteToMove())) {
+            Piece pieceXY = board.state.getPiece(col, row);
+            if (pieceXY != null && pieceXY.isWhite == board.state.getIsWhiteToMove() && (!ChoosePlayFormat.isOnePlayer || ChoosePlayFormat.isPlayingWhite == board.state.getIsWhiteToMove())) {
                 audioPlayer.playSelectPieceSound();
-                board.selectedPiece = pieceXY;
+                Board.selectedPiece = pieceXY;
                 if (ChoosePlayFormat.isPlayingWhite) {
                     selectedX = e.getX() - Board.tileSize / 2;
                     selectedY = e.getY() - Board.tileSize / 2;
                 } else {
-                    selectedX = (board.cols - 1) - (e.getX() - Board.tileSize) / 2;
-                    selectedY = (board.rows - 1) - (e.getY() - Board.tileSize) / 2;
+                    selectedX = (Board.cols - 1) - (e.getX() - Board.tileSize) / 2;
+                    selectedY = (Board.rows - 1) - (e.getY() - Board.tileSize) / 2;
                 }
             } else {
                 selectedX = -1;
@@ -187,20 +184,20 @@ public class Input extends MouseAdapter {
                 col = e.getX() / Board.tileSize;
                 row = e.getY() / Board.tileSize;
             } else {
-                col = (board.cols - 1) - (e.getX() / Board.tileSize);
-                row = (board.rows - 1) - (e.getY() / Board.tileSize);
+                col = (Board.cols - 1) - (e.getX() / Board.tileSize);
+                row = (Board.rows - 1) - (e.getY() / Board.tileSize);
             }
 
-            if (board.selectedPiece != null) {
-                Move move = new Move(board, board.selectedPiece, col, row);
-                if (board.isValidMove(move, true)) {
-                    board.makeMove(move, true);
+            if (Board.selectedPiece != null) {
+                Move move = new Move(board.state, Board.selectedPiece, col, row);
+                if (board.state.isValidMove(move)) {
+                    board.makeMove(move, randomMoveEngine.promotionChoice);
                     selectedX = -1;
                     selectedY = -1;
-                    board.selectedPiece = null;
+                    Board.selectedPiece = null;
                     board.repaint();
                     if (isStatusChanged) {
-                        board.selectedPiece = null;
+                        Board.selectedPiece = null;
                         board.repaint();
                         SwingUtilities.invokeLater(() -> {
                             JFrame frame = new JFrame("Game Over");
@@ -208,13 +205,13 @@ public class Input extends MouseAdapter {
                             Main.showEndGameMessage(frame, (isCheckMate ? (isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח!") : (isStaleMate ? "פת. ליריב אין מהלכים חוקיים. המשחק נגמר בתיקו" : "אין חומר מספיק. המשחק נגמר בתיקו.")));
                         });
                     } else {
-                        if ((ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != board.getIsWhiteToMove())) {
+                        if ((ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != board.state.getIsWhiteToMove())) {
                             if (SettingPanel.skillLevel > 1) {
                                 makeEngineMove();
                             } /*else if (SettingPanel.skillLevel > 0){
                                 level2Engine.makeMove(board);
                             }*/ else {
-                                randomMoveEngine.makeMove(board.convertPiecesToFEN());
+                                randomMoveEngine.makeMove(board.state.convertPiecesToFEN());
                             }
                         }
                         if (!ChoosePlayFormat.isOnePlayer) {
@@ -226,30 +223,21 @@ public class Input extends MouseAdapter {
                                 } catch (InterruptedException event) {
                                     event.printStackTrace();
                                 }
-                                ChoosePlayFormat.isPlayingWhite = board.getIsWhiteToMove();
-                                board.loadPiecesFromFen(board.fenCurrentPosition, true);
+                                ChoosePlayFormat.isPlayingWhite = board.state.getIsWhiteToMove();
+                                board.loadPiecesFromFen(board.state.fenCurrentPosition);
                             }).start();
                         }
                     }
                 } else {
-                    if (ChoosePlayFormat.isPlayingWhite) {
-                        board.selectedPiece.xPos = board.selectedPiece.col * Board.tileSize;
-                        board.selectedPiece.yPos = board.selectedPiece.row * Board.tileSize;
-                    } else {
-                        board.selectedPiece.xPos = (board.cols - 1 - board.selectedPiece.col) * Board.tileSize;
-                        board.selectedPiece.yPos = (board.rows - 1 - board.selectedPiece.row) * Board.tileSize;
-                    }
-                    col = e.getX() / Board.tileSize;
-                    row = e.getY() / Board.tileSize;
-                    if (!ChoosePlayFormat.isPlayingWhite) {
-                        col = (board.cols - 1) - col;
-                        row = (board.rows - 1) - row;
-                    }
+                    Board.selectedPiece.xPos = board.getXFromCol(Board.selectedPiece.col);
+                    Board.selectedPiece.yPos = board.getYFromRow(Board.selectedPiece.row);
+                    col = board.getColFromX(e.getX());
+                    row = board.getRowFromY(e.getY());
 
-                    Piece pieceXY = board.getPiece(col, row);
-                    if (pieceXY != null && pieceXY.isWhite == board.getIsWhiteToMove()) {
+                    Piece pieceXY = board.state.getPiece(col, row);
+                    if (pieceXY != null && pieceXY.isWhite == board.state.getIsWhiteToMove()) {
                         audioPlayer.playSelectPieceSound();
-                        board.selectedPiece = pieceXY;
+                        Board.selectedPiece = pieceXY;
                         if (ChoosePlayFormat.isPlayingWhite) {
                             selectedX = e.getX() - Board.tileSize / 2;
                             selectedY = e.getY() - Board.tileSize / 2;
@@ -262,7 +250,7 @@ public class Input extends MouseAdapter {
                         audioPlayer.playInvalidMoveSound();
                         selectedX = -1;
                         selectedY = -1;
-                        board.selectedPiece = null;
+                        Board.selectedPiece = null;
                         board.repaint();
                     }
                     board.repaint();
@@ -273,9 +261,9 @@ public class Input extends MouseAdapter {
 
     @Override
     public void mouseDragged(MouseEvent e) {
-        if (board.selectedPiece != null) {
-            board.selectedPiece.xPos = e.getX() - Board.tileSize / 2;
-            board.selectedPiece.yPos = e.getY() - Board.tileSize / 2;
+        if (Board.selectedPiece != null) {
+            Board.selectedPiece.xPos = e.getX() - Board.tileSize / 2;
+            Board.selectedPiece.yPos = e.getY() - Board.tileSize / 2;
             board.repaint();
             isDragged = true;
         }
@@ -284,14 +272,14 @@ public class Input extends MouseAdapter {
     @Override
     public void mouseReleased(MouseEvent e) {
         if (isDragged) {
-            if (Math.abs(selectedX - board.selectedPiece.xPos) > Board.tileSize / 2 || Math.abs(selectedY - board.selectedPiece.yPos) > Board.tileSize / 2) {
+            if (Math.abs(selectedX - Board.selectedPiece.xPos) > Board.tileSize / 2 || Math.abs(selectedY - board.selectedPiece.yPos) > Board.tileSize / 2) {
                 int col = board.getColFromX(e.getX());
                 int row = board.getRowFromY(e.getY());
-                Move move = new Move(board, board.selectedPiece, col, row);
-                if (board.isValidMove(move, true)) {
-                    board.makeMove(move, false);
+                Move move = new Move(board.state, Board.selectedPiece, col, row);
+                if (board.state.isValidMove(move)) {
+                    board.makeMove(move, randomMoveEngine.promotionChoice);
                     if (isStatusChanged) {
-                        board.selectedPiece = null;
+                        Board.selectedPiece = null;
                         board.repaint();
                         SwingUtilities.invokeLater(() -> {
                             JFrame frame = new JFrame("Game Over");
@@ -300,13 +288,13 @@ public class Input extends MouseAdapter {
                         });
                     } else {
                         board.repaint();
-                        if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != board.getIsWhiteToMove()) {
+                        if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != board.state.getIsWhiteToMove()) {
                             if (SettingPanel.skillLevel > 1) {
                                 makeEngineMove();
                             } /*else if (SettingPanel.skillLevel > 0){
                                 level2Engine.makeMove(board);
                             } */else {
-                                randomMoveEngine.makeMove(board.convertPiecesToFEN());
+                                randomMoveEngine.makeMove(board.state.convertPiecesToFEN());
                             }
                         }
                         if (!ChoosePlayFormat.isOnePlayer) {
@@ -318,26 +306,26 @@ public class Input extends MouseAdapter {
                                 } catch (InterruptedException event) {
                                     event.printStackTrace();
                                 }
-                                ChoosePlayFormat.isPlayingWhite = board.getIsWhiteToMove();
-                                board.selectedPiece = null;
-                                board.loadPiecesFromFen(board.fenCurrentPosition, true);
+                                ChoosePlayFormat.isPlayingWhite = board.state.getIsWhiteToMove();
+                                Board.selectedPiece = null;
+                                board.loadPiecesFromFen(board.state.fenCurrentPosition);
                                 selectedX = -1;
                                 selectedY = -1;
                             }).start();
                         }
                     }
                 } else {
-                    board.selectedPiece.xPos = board.getXFromCol(board.selectedPiece.col);
-                    board.selectedPiece.yPos = board.getYFromRow(board.selectedPiece.row);
+                    Board.selectedPiece.xPos = board.getXFromCol(Board.selectedPiece.col);
+                    Board.selectedPiece.yPos = board.getYFromRow(Board.selectedPiece.row);
                     audioPlayer.playInvalidMoveSound();
                 }
-                board.selectedPiece = null;
+                Board.selectedPiece = null;
                 board.repaint();
                 selectedX = -1;
                 selectedY = -1;
             } else {
-                board.selectedPiece.xPos = board.getXFromCol(board.selectedPiece.col);
-                board.selectedPiece.yPos = board.getYFromRow(board.selectedPiece.row);
+                Board.selectedPiece.xPos = board.getXFromCol(Board.selectedPiece.col);
+                Board.selectedPiece.yPos = board.getYFromRow(Board.selectedPiece.row);
                 board.repaint();
             }
         }

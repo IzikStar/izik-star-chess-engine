@@ -6,7 +6,7 @@ import pieces.Piece;
 
 public class EvaluationLevel2 {
 
-    public static int evaluate(Board board) {
+    public static int evaluate(BoardState board) {
         int score = 0;
 
         // דוגמה להערכת מצב על הלוח

@@ -6,7 +6,7 @@ import pieces.Piece;
 
 public class ChessMoveConverter {
 
-    public static Move convertChessNotationToMove(Board board, Piece piece, String chessMove) {
+    public static Move convertChessNotationToMove(BoardState board, Piece piece, String chessMove) {
         if (chessMove == null || chessMove.length() != 4) {
             throw new IllegalArgumentException("Invalid chess move notation");
         }
@@ -32,15 +32,6 @@ public class ChessMoveConverter {
 
         // Create and return the Move object
         return new Move(board, piece, endX, endY);
-    }
-
-    public static void main(String[] args) {
-        Board board = new Board();
-        Piece piece = board.getPiece(4, 6); // Example: get the piece at e2
-
-        String chessMove = "e2e4";
-        Move move = convertChessNotationToMove(board, piece, chessMove);
-        System.out.println("Move created: " + move);
     }
 }
 

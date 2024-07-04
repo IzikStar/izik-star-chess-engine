@@ -16,7 +16,7 @@ public class ShowScore {
         whiteScore = 0;
         blackScore = 0;
         int betterScore = 0;
-        for (Piece piece : board.pieceList) {
+        for (Piece piece : board.state.getAllPieces()) {
             if (piece != null) {
                 if (piece.isWhite) {
                     whiteScore += piece.value;

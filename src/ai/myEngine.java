@@ -8,7 +8,7 @@ import java.util.ArrayList;
 
 public class myEngine {
     // board state:
-    Board board;
+    BoardState board;
     private String fen;
 
     // for the random engine:
@@ -25,13 +25,13 @@ public class myEngine {
     private static final int DEPTH = 1;
 
     // constructor:
-    public myEngine(Board board) {
+    public myEngine(BoardState board) {
         this.board = board;
     }
 
     // making move methods
     public void makeMove(String fen) {
-        board.selectedPiece = null;
+        Board.selectedPiece = null;
         thread = new Thread(() -> {
             try {
                 Thread.sleep(waitTime);
@@ -48,9 +48,9 @@ public class myEngine {
             }
             Move tempMove = move;
             if (board.makeMoveToCheckIt(tempMove)) {
-                board.makeMove(move, true);
-                board.input.selectedX = -1;
-                board.input.selectedY = -1;
+                board.makeMove(move, promotionChoice);
+                //Board.input.selectedX = -1;
+                //Board.input.selectedY = -1;
                 alreadyChecked.clear();
             } else {
                 makeMove(fen);
@@ -97,6 +97,8 @@ public class myEngine {
         Move randomMove = randomMovesList.get(randomNumOfMove);
         if (randomMove.piece.name.equals("Pawn") && board.getIsWhiteToMove() ? randomMove.newRow == 0 : randomMove.newRow == 7) {
             setPromotionChoice();
+        } else {
+            promotionChoice = null;
         }
         return randomMove;
     }

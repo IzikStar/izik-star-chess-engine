@@ -15,7 +15,6 @@ import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Stack;
-import java.util.stream.Collectors;
 
 public class Board extends JPanel {
 
@@ -40,7 +39,6 @@ public class Board extends JPanel {
     AudioPlayer audioPlayer = new AudioPlayer();
     private ChessAnimation animation;
     private final java.util.List<ChessAnimation> animations = new ArrayList<>();
-    private Timer animationTimer;
     ShowScore showScore = new ShowScore(this);
 
     // הצגת רמזים
@@ -57,7 +55,7 @@ public class Board extends JPanel {
         this.state = new BoardState(fenStartingPosition, null);
         loadPiecesFromFen(state.fenCurrentPosition);
 
-        animationTimer = new Timer(5, new ActionListener() {
+        Timer animationTimer = new Timer(5, new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (animation != null && animation.isFinished()) {
@@ -82,10 +80,12 @@ public class Board extends JPanel {
         }
 
         // paint last move
-        g.setColor(new Color(72, 255, 0, 158));
-        g.fillRect(getXFromCol(state.getLastMove().piece.col), getYFromRow(state.getLastMove().piece.row), tileSize, tileSize);
-        g.setColor(new Color(55, 255, 0, 186));
-        g.fillRect(getXFromCol(state.getLastMove().newCol), getYFromRow(state.getLastMove().newRow), tileSize, tileSize);
+        if (state.getLastMove() != null) {
+            g.setColor(new Color(72, 255, 0, 158));
+            g.fillRect(getXFromCol(state.getLastMove().piece.col), getYFromRow(state.getLastMove().piece.row), tileSize, tileSize);
+            g.setColor(new Color(55, 255, 0, 186));
+            g.fillRect(getXFromCol(state.getLastMove().newCol), getYFromRow(state.getLastMove().newRow), tileSize, tileSize);
+        }
 
         // paint engine hint
         g.setColor(new Color(0, 255, 215, 158));
@@ -212,61 +212,36 @@ public class Board extends JPanel {
     }
 
 
-    public void makeMove(Move move, boolean toAnimate) {
-        Piece piece = getPiece(move.piece.col, move.piece.row);
-        boolean pawnMoveSuccess = true;
-        if (piece.name.equals("Pawn")) {
-            pawnMoveSuccess = movePawn(move);
-        } else if (piece.name.equals("King")) {
-            moveKing(move);
+    public void makeMove(Move move, String promotionChoice) {
+        state.makeMove(move, promotionChoice);
+
+        Piece piece = state.getPiece(move.piece.col, move.piece.row);
+
+        if (move.captured != null && state.getPiece(move.captured.col, move.captured.row) != null) {
+            audioPlayer.playCaptureSound();
+        } else {
+            audioPlayer.playMovingPieceSound();
         }
 
-        if (pawnMoveSuccess) {
-            if (!piece.name.equals("Pawn") || !(Math.abs(piece.row - move.newRow) == 2)) {
-                enPassantTile = -1;
-            }
-            if (move.captured != null && getPiece(move.captured.col, move.captured.row) != null) {
-                capture(getPiece(move.captured.col, move.captured.row));
-                audioPlayer.playCaptureSound();
-            } else {
-                audioPlayer.playMovingPieceSound();
-            }
-            setLastMove(piece.col, piece.row, move.newCol, move.newRow, move.piece);
-
-            if (toAnimate) {
-                ChessAnimation moveAnimation;
-                if (ChoosePlayFormat.isPlayingWhite) {
-                    moveAnimation = new ChessAnimation(piece, piece.col * tileSize, piece.row * tileSize,
-                            move.newCol * tileSize, move.newRow * tileSize, 500);
-                } else {
-                    moveAnimation = new ChessAnimation(piece, (cols - 1 - piece.col) * tileSize, (rows - 1 - piece.row) * tileSize,
-                            (cols - 1 - move.newCol) * tileSize, (rows - 1 - move.newRow) * tileSize, 500);
-                }
-                animations.add(moveAnimation);
-            }
-
-            piece.col = move.newCol;
-            piece.row = move.newRow;
-            if (ChoosePlayFormat.isPlayingWhite) {
-                piece.xPos = move.newCol * tileSize;
-                piece.yPos = move.newRow * tileSize;
-            } else {
-                piece.xPos = (cols - 1 - move.newCol) * tileSize;
-                piece.yPos = (rows - 1 - move.newRow) * tileSize;
-            }
-            piece.isFirstMove = false;
-            isWhiteToMove = !isWhiteToMove;
-            if (isWhiteToMove) {
-                ++numOfTurns;
-            }
-            ++numOfTurnWithoutCaptureOrPawnMove;
-            updateGameState(true);
-            if (ChoosePlayFormat.isPlayingWhite == isWhiteToMove || !ChoosePlayFormat.isOnePlayer) {
-                savedStates.push(fenCurrentPosition);
-                fenCurrentPosition = convertPiecesToFEN();
-            }
-            showScore.calculateScore();
+        ChessAnimation moveAnimation;
+        if (ChoosePlayFormat.isPlayingWhite) {
+            moveAnimation = new ChessAnimation(piece, piece.col * tileSize, piece.row * tileSize,
+                    move.newCol * tileSize, move.newRow * tileSize, 500);
+        } else {
+            moveAnimation = new ChessAnimation(piece, (cols - 1 - piece.col) * tileSize, (rows - 1 - piece.row) * tileSize,
+                    (cols - 1 - move.newCol) * tileSize, (rows - 1 - move.newRow) * tileSize, 500);
         }
+        animations.add(moveAnimation);
+
+        piece.xPos = getXFromCol(move.newCol);
+        piece.yPos = getYFromRow(move.newRow);
+        updateGameState(true);
+
+        if (ChoosePlayFormat.isPlayingWhite == state.getIsWhiteToMove() || !ChoosePlayFormat.isOnePlayer) {
+            savedStates.push(state.fenCurrentPosition);
+            state.fenCurrentPosition = state.convertPiecesToFEN();
+        }
+        showScore.calculateScore();
     }
 
     public void moveKing(Move move) {
@@ -274,10 +249,10 @@ public class Board extends JPanel {
             Piece rook;
             int rookEndCol;
             if (move.piece.col < move.newCol) {
-                rook = getPiece(7, move.piece.row);
+                rook = state.getPiece(7, move.piece.row);
                 rookEndCol = 5;
             } else {
-                rook = getPiece(0, move.piece.row);
+                rook = state.getPiece(0, move.piece.row);
                 rookEndCol = 3;
             }
 
@@ -310,37 +285,26 @@ public class Board extends JPanel {
     }
 
     public boolean movePawn(Move move) {
-        // en passant:
-        int colorIndex = move.piece.isWhite ? 1 : -1;
-
-        if (getTileNum(move.newCol, move.newRow) == enPassantTile) {
-            move.captured = getPiece(move.newCol, move.newRow + colorIndex);
-        }
-        if (Math.abs(move.piece.row - move.newRow) == 2) {
-            enPassantTile = getTileNum(move.newCol, move.newRow + colorIndex);
-        } else {
-            enPassantTile = -1;
-        }
 
         // promotions:
-        colorIndex = move.piece.isWhite ? 0 : 7;
+        int colorIndex = move.piece.isWhite ? 0 : 7;
         if (move.newRow == colorIndex) {
-            if (!ChoosePlayFormat.isOnePlayer || ChoosePlayFormat.isPlayingWhite == isWhiteToMove) { // כאן אמור להיות אם זה שני שחקנים
+            if (!ChoosePlayFormat.isOnePlayer || ChoosePlayFormat.isPlayingWhite == state.getIsWhiteToMove()) { // כאן אמור להיות אם זה שני שחקנים
                 if(!promotePawn(move)) {
                     return false;
                 }
             }
             else {
                 if (SettingPanel.skillLevel != 0) {
-                    promotePawnTo(move, input.engine.promotionChoice);
+                    state.promotePawnTo(move, input.engine.promotionChoice);
                 }
                 else {
-                    promotePawnTo(move, input.randomMoveEngine.promotionChoice);
+                    state.promotePawnTo(move, input.randomMoveEngine.promotionChoice);
                 }
-                capture(move.piece);
+                state.capture(move.piece);
             }
         }
-        numOfTurnWithoutCaptureOrPawnMove = -1;
+        state.numOfTurnWithoutCaptureOrPawnMove = -1;
         return true;
     }
 
@@ -348,8 +312,8 @@ public class Board extends JPanel {
         PromotionDialog promotionDialog = new PromotionDialog(parentFrame, move.piece.isWhite);
         String choice = promotionDialog.getSelection();
         if (choice != null) {
-            promotePawnTo(move, choice);
-            capture(move.piece);
+            state.promotePawnTo(move, choice);
+            state.capture(move.piece);
 
             // הוספת אנימציה להכתרת רגלי
             animation = new ChessAnimation(move.piece, move.piece.xPos, move.piece.yPos, move.piece.xPos, move.piece.yPos, 500);
@@ -366,42 +330,6 @@ public class Board extends JPanel {
         return true;
     }
 
-    private void promotePawnTo(Move move, String choice) {
-        Piece piece = getPiece(move.piece.col, move.piece.row);
-        switch (choice) {
-            case "q":
-                pieceList.add(new Queen(this, move.newCol, move.newRow, piece.isWhite));
-                repaint();
-                break;
-            case "r":
-                pieceList.add(new Rook(this, move.newCol, move.newRow, piece.isWhite));
-                repaint();
-                break;
-            case "b":
-                pieceList.add(new Bishop(this, move.newCol, move.newRow, piece.isWhite));
-                repaint();
-                break;
-            case "n":
-                pieceList.add(new Knight(this, move.newCol, move.newRow, piece.isWhite));
-                repaint();
-                break;
-        }
-        capture(piece);
-    }
-
-    public void setLastMove(int fromC, int fromR, int toC, int toR, Piece lastToMove) {
-        this.fromC = fromC;
-        this.fromR = fromR;
-        this.toC = toC;
-        this.toR = toR;
-        this.lastToMove = lastToMove;
-        repaint();
-    }
-
-    public void capture(Piece piece) {
-        pieceList.remove(piece);
-        numOfTurnWithoutCaptureOrPawnMove = 0;
-    }
 
     // שינוי מצב הלוח שלא באמצעות ביצוע מהלך
     public void goBack() {
@@ -506,11 +434,9 @@ public class Board extends JPanel {
     public String squareToLetters(int col, int row) {
         String namesOfRows = "87654321";
         String namesOfCols = "abcdefgh";
-        StringBuilder squareName = new StringBuilder();
-        squareName.append (namesOfCols.charAt(col));
-        squareName.append (namesOfRows.charAt(row));
         // System.out.println(col + " " + row + " " + squareName);
-        return squareName.toString();
+        return String.valueOf(namesOfCols.charAt(col)) +
+                namesOfRows.charAt(row);
     }
 
 }
