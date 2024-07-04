@@ -1,5 +1,6 @@
 package pieces;
 
+import ai.BoardState;
 import main.Board;
 import main.Move;
 
@@ -32,9 +33,9 @@ public class Piece {
 
     Image sprite;
 
-    Board board;
+    BoardState board;
 
-    public Piece(Board board) {
+    public Piece(BoardState board) {
         this.board = board;
     }
 
@@ -46,14 +47,14 @@ public class Piece {
 
     public boolean moveCollidesWithPiece(int col, int row) {return false;}
 
-    public ArrayList<Move> getValidMoves(Board board) {
+    public ArrayList<Move> getValidMoves(BoardState board) {
         ArrayList<Move> validMoves = new ArrayList<>();
         //System.out.println(chosenPiece);
         for (int c = 0; c < 8; c++) {
             for (int r = 0; r < 8; r++) {
                 //System.out.println("c: " + c + " r: " + r);
                 Move move = new Move(board, this, c, r);
-                if (board.isValidMove(move, false)) {
+                if (board.isValidMove(move)) {
                     validMoves.add(move);
                 }
             }

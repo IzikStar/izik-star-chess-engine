@@ -1,22 +1,23 @@
 package pieces;
 
+import ai.BoardState;
 import main.Board;
 import main.setting.ChoosePlayFormat;
 
 import java.awt.image.BufferedImage;
 
 public class Rook extends Piece{
-    public Rook(Board board, int col, int row, boolean isWhite) {
+    public Rook(BoardState board, int col, int row, boolean isWhite) {
         super(board);
         this.col = col;
         this.row = row;
         if (ChoosePlayFormat.isPlayingWhite) {
-            this.xPos = col * board.tileSize;
-            this.yPos = row * board.tileSize;
+            this.xPos = col * Board.tileSize;
+            this.yPos = row * Board.tileSize;
         }
         else {
-            this.xPos = (7 - col) * board.tileSize;
-            this.yPos = (7 - row) * board.tileSize;
+            this.xPos = (7 - col) * Board.tileSize;
+            this.yPos = (7 - row) * Board.tileSize;
         }
 
         this.isWhite = isWhite;
@@ -24,7 +25,7 @@ public class Rook extends Piece{
         this.type = isWhite ? 'R' : 'r';
         this.value = 5;
 
-        this.sprite = sheet.getSubimage(4 * sheetScale, isWhite ? 0 : sheetScale, sheetScale, sheetScale).getScaledInstance(board.tileSize, board.tileSize, BufferedImage.SCALE_SMOOTH);
+        this.sprite = sheet.getSubimage(4 * sheetScale, isWhite ? 0 : sheetScale, sheetScale, sheetScale).getScaledInstance(Board.tileSize, Board.tileSize, BufferedImage.SCALE_SMOOTH);
     }
 
     public boolean isValidMovement(int col, int row) {

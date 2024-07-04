@@ -1,9 +1,3 @@
-
-
-// כרגע כל הבעיות בקלאס הזה נובעות מהעובדה שהמחלקות של כלים והסורק שח מקבלות לוח ולא מצב לוח
-
-
-
 package ai;
 
 
@@ -22,6 +16,7 @@ public class BoardState {
     public CheckScanner checkScanner;
     ArrayList<Piece> pieceList = new ArrayList<>();
 
+    Move lastMove;
     int fromC = -1, fromR = -1, toC = -1, toR = -1;
     public Piece lastToMove;
 
@@ -34,9 +29,10 @@ public class BoardState {
 
 
     // constructor
-    public BoardState(String fenCurrentPosition) {
+    public BoardState(String fenCurrentPosition, Move lastMove) {
         this.fenCurrentPosition = fenCurrentPosition;
         loadPiecesFromFen(fenCurrentPosition);
+        setLastMove(lastMove);
     }
 
     // יצירת הלוח
@@ -120,6 +116,13 @@ public class BoardState {
         numOfTurns = Character.getNumericValue(parts[5].charAt(0));
     }
 
+    public void setLastMove(Move lastMove) {
+        this.lastMove = lastMove;
+    }
+    public Move getLastMove() {
+        return lastMove;
+    }
+
     // גטרים לכלים על הלוח
     public Piece getPiece(int col, int row) {
 
@@ -164,7 +167,7 @@ public class BoardState {
         return this.isWhiteToMove;
     }
 
-    Piece findKing(boolean isWhite) {
+    public Piece findKing(boolean isWhite) {
         for (Piece piece : pieceList) {
             if (piece.isWhite == isWhite && piece.name.equals("King")) {
                 return piece;
@@ -213,7 +216,7 @@ public class BoardState {
         return rows * row + col;
     }
 
-    private boolean insufficientMaterial(boolean isWhite) {
+    public boolean insufficientMaterial(boolean isWhite) {
         ArrayList<String> names = pieceList.stream()
                 .filter(p -> p.isWhite == isWhite)
                 .map(p -> p.name)
@@ -476,6 +479,10 @@ public class BoardState {
         pieceList.remove(piece);
         numOfTurnWithoutCaptureOrPawnMove = 0;
     }
+
+
+
+
 
 
 }

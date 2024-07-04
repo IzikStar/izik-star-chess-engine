@@ -1,5 +1,6 @@
 package main;
 
+import ai.BoardState;
 import pieces.Piece;
 
 public class Move {
@@ -12,7 +13,7 @@ public class Move {
     public Piece piece;
     public Piece captured;
 
-    public Move(Board board, Piece piece, int newCol, int newRow) {
+    public Move(BoardState board, Piece piece, int newCol, int newRow) {
         this.newCol = newCol;
         this.newRow = newRow;
         this.oldCol = piece.col;

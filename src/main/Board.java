@@ -3,6 +3,7 @@ package main;
 // מחלקות שלי
 import GUI.AudioPlayer;
 import GUI.ChessAnimation;
+import ai.BoardState;
 import main.setting.ChoosePlayFormat;
 import main.setting.SettingPanel;
 import pieces.*;
@@ -16,33 +17,22 @@ import java.util.Iterator;
 import java.util.Stack;
 import java.util.stream.Collectors;
 
-
 public class Board extends JPanel {
+
     // משתנים לציור הלוח
     JFrame parentFrame;
     public static String fenStartingPosition = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     public static int tileSize = 85;
-    int cols = 8;
-    int rows = 8;
+    public static int cols = 8;
+    public static int rows = 8;
 
 
-
+    BoardState state;
     // משתנים של מצב הלוח
-    public String fenCurrentPosition = fenStartingPosition;
-    ArrayList<Piece> pieceList = new ArrayList<>();
-    public Piece selectedPiece;
-    public Piece lastToMove;
-    int fromC = -1, fromR = -1, toC = -1, toR = -1;
-    // דרך הילוכו
-    public int enPassantTile = -1;
-    public int enPassantTileClone = -1;
-    // משתני תור
-    private boolean isWhiteToMove = true;
-    public int numOfTurns = 0;
-    public int numOfTurnWithoutCaptureOrPawnMove = 0;
+    public static Piece selectedPiece;
+
     public boolean isGameOver = false;
     // כללי יותר
-    public CheckScanner checkScanner = new CheckScanner(this);
     public Stack<String> savedStates = new Stack<>();
 
     // משתנים לטיפול באינפוט וGUI
@@ -52,6 +42,7 @@ public class Board extends JPanel {
     private final java.util.List<ChessAnimation> animations = new ArrayList<>();
     private Timer animationTimer;
     ShowScore showScore = new ShowScore(this);
+
     // הצגת רמזים
     int hintFromC = -1, hintFromR = -1, hintToC = -1, hintToR = -1;
 
@@ -60,9 +51,11 @@ public class Board extends JPanel {
         this.setPreferredSize(new Dimension(cols * tileSize, rows * tileSize));
         this.addMouseListener(input);
         this.addMouseMotionListener(input);
-        this.savedStates.push(fenCurrentPosition);
 
-        loadPiecesFromFen(fenCurrentPosition, true);
+        this.savedStates.push(fenStartingPosition);
+
+        this.state = new BoardState(fenStartingPosition, null);
+        loadPiecesFromFen(state.fenCurrentPosition);
 
         animationTimer = new Timer(5, new ActionListener() {
             @Override
@@ -74,43 +67,6 @@ public class Board extends JPanel {
             }
         });
         animationTimer.start();
-    }
-
-    // גטרים לכלים על הלוח
-    public Piece getPiece(int col, int row) {
-
-        for (Piece piece : pieceList) {
-            if (piece.col == col && piece.row == row) {
-                return piece;
-            }
-        }
-
-
-        return null;
-    }
-
-    public Piece[] getAllPieces() {
-        return pieceList.toArray(new Piece[0]);
-    }
-
-    public int getNumOfPieces(boolean isWhite) {
-        int counter = 0;
-        for (Piece piece : pieceList) {
-            if (piece.isWhite == isWhite) {
-                ++counter;
-            }
-        }
-        return counter;
-    }
-
-    public Piece getPieceByNumber(int randomNum, boolean isWhite) {
-        ArrayList<Piece> onlyWantedColorPieces = new ArrayList<>();
-        for (Piece piece : pieceList) {
-            if (piece.isWhite == isWhite) {
-                onlyWantedColorPieces.add(piece);
-            }
-        }
-        return onlyWantedColorPieces.get(randomNum);
     }
 
     // פונקציות צביעה
@@ -125,54 +81,27 @@ public class Board extends JPanel {
             }
         }
 
-
         // paint last move
         g.setColor(new Color(72, 255, 0, 158));
-        if (ChoosePlayFormat.isPlayingWhite) {
-            g.fillRect(fromC * tileSize, fromR * tileSize, tileSize, tileSize);
-        }
-        else {
-            g.fillRect((cols - 1 - fromC) * tileSize, (rows - 1 - fromR) * tileSize, tileSize, tileSize);
-        }
+        g.fillRect(getXFromCol(state.getLastMove().piece.col), getYFromRow(state.getLastMove().piece.row), tileSize, tileSize);
         g.setColor(new Color(55, 255, 0, 186));
-        if (ChoosePlayFormat.isPlayingWhite) {
-            g.fillRect(toC * tileSize, toR * tileSize, tileSize, tileSize);
-        }
-        else {
-            g.fillRect((cols - 1 - toC) * tileSize, (rows - 1 - toR) * tileSize, tileSize, tileSize);
-        }
-
+        g.fillRect(getXFromCol(state.getLastMove().newCol), getYFromRow(state.getLastMove().newRow), tileSize, tileSize);
 
         // paint engine hint
         g.setColor(new Color(0, 255, 215, 158));
-        if (ChoosePlayFormat.isPlayingWhite) {
-            g.fillRect(hintFromC * tileSize, hintFromR * tileSize, tileSize, tileSize);
-        }
-        else {
-            g.fillRect((cols - 1 - hintFromC) * tileSize, (rows - 1 - hintFromR) * tileSize, tileSize, tileSize);
-        }
+        g.fillRect(getXFromCol(hintFromC), getYFromRow(hintFromR), tileSize, tileSize);
         g.setColor(new Color(47, 206, 255, 237));
-        if (ChoosePlayFormat.isPlayingWhite) {
-            g.fillRect(hintToC * tileSize, hintToR * tileSize, tileSize, tileSize);
-        }
-        else {
-            g.fillRect((cols - 1 - hintToC) * tileSize, (rows - 1 - hintToR) * tileSize, tileSize, tileSize);
-        }
+        g.fillRect(getXFromCol(hintToC), getYFromRow(hintToR), tileSize, tileSize);
 
         // paint the border of the king red if it's under attack
-        if (findKing(isWhiteToMove) != null && checkScanner.isChecking(this)) {
-            Piece king = findKing(isWhiteToMove);
-            if (ChoosePlayFormat.isPlayingWhite) {
-                drawSquareWithCircle(g ,king.col, king.row);
-            }
-            else {
-                drawSquareWithCircle(g ,cols - 1 - king.col, rows - 1 - king.row);
-            }
+        if (state.findKing(state.getIsWhiteToMove()) != null && state.checkScanner.isChecking(state)) {
+            Piece king = state.findKing(state.getIsWhiteToMove());
+            drawSquareWithCircle(g ,getXFromCol(king.col) / tileSize, getYFromRow(king.row) / tileSize);
         }
 
         // paint highLights
         if (selectedPiece != null) {
-            if (selectedPiece.isWhite == isWhiteToMove) {
+            if (selectedPiece.isWhite == state.getIsWhiteToMove()) {
                 g2d.setColor(new Color(0, 0, 255, 128)); // כחול חצי שקוף
                 if (ChoosePlayFormat.isPlayingWhite) {
                     g2d.fillRect(selectedPiece.col * tileSize, selectedPiece.row * tileSize, tileSize, tileSize);
@@ -180,23 +109,18 @@ public class Board extends JPanel {
                 else {
                     g2d.fillRect((cols - 1 - selectedPiece.col) * tileSize, (rows - 1 - selectedPiece.row) * tileSize, tileSize, tileSize);
                 }
-                if (checkScanner.isChecking(this)) {
-                    Piece king = findKing(isWhiteToMove);
+                if (state.checkScanner.isChecking(state)) {
+                    Piece king = state.findKing(state.getIsWhiteToMove());
                     //g2d.setColor(new Color(255, 0, 0, 237)); // אדום חצי שקוף
                     //g2d.fillRect(king.col * tileSize, king.row * tileSize, tileSize, tileSize);
-                    if (ChoosePlayFormat.isPlayingWhite) {
-                        drawSquareWithCircle(g ,king.col, king.row);
-                    }
-                    else {
-                        drawSquareWithCircle(g ,cols - 1 - king.col, rows - 1 - king.row);
-                    }
+                    drawSquareWithCircle(g ,getXFromCol(king.col) / tileSize, getYFromRow(king.row) / tileSize);
                 }
             }
 
             for (int c = 0; c < cols; c++) {
                 for (int r = 0; r < rows; r++) {
-                    if (isValidMove(new Move(this, selectedPiece, c, r), false)) {
-                        if (getPiece(c, r) == null) {
+                    if (state.isValidMove(new Move(state, selectedPiece, c, r))) {
+                        if (state.getPiece(c, r) == null) {
                             // ציור עיגול במרכז הריבוע
                             g.setColor(new Color(72, 255, 0, 158));
                             int diameter = tileSize / 3;
@@ -212,19 +136,7 @@ public class Board extends JPanel {
                             }
                             g.fillOval(circleX, circleY, diameter, diameter);
                         } else {
-                            if (ChoosePlayFormat.isPlayingWhite) {
-                                drawSquareWithCircle(g, c, r);
-                            }
-                            else {
-                                drawSquareWithCircle(g, (cols - 1 - c), (rows - 1 - r));
-                            }
-//                            g.setColor(new Color(255, 0, 0, 90));
-//                            int diameter = tileSize / 3;
-//                            int circleX = c * tileSize + (tileSize - diameter) / 2;
-//                            int circleY = r * tileSize + (tileSize - diameter) / 2;
-//                            g.fillOval(circleX, circleY, diameter, diameter);
-//                            g2d.setColor(new Color(255, 0, 0, 90)); // אדום חצי שקוף
-//                            g2d.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
+                            drawSquareWithCircle(g, getXFromCol(c) / tileSize, getYFromRow(r) / tileSize);
                         }
                     }
                 }
@@ -242,11 +154,9 @@ public class Board extends JPanel {
         }
 
         // paint pieces
-        for (Piece piece : pieceList) {
+        for (Piece piece : state.getAllPieces()) {
             piece.paint(g2d);
         }
-
-
     }
 
     private void drawSquareWithCircle(Graphics g, int col, int row) {
@@ -296,86 +206,9 @@ public class Board extends JPanel {
 
 
     // פונקציות לשינוי מצב הלוח וביצוע מהלכים
-    public void loadPiecesFromFen(String fenCurrentPosition, boolean isRealBoard) {
-        String[] parts = fenCurrentPosition.split(" ");
-
-        // pieceList.clear();
-        ArrayList<Piece> newState = new ArrayList<>();
-        // position
-        String position = parts[0];
-        int row = 0;
-        int col = 0;
-        for (int i = 0; i < position.length(); i++) {
-            char ch = position.charAt(i);
-            if (ch == '/') {
-                row++;
-                col = 0;
-            } else if (Character.isDigit(ch)) {
-                col += Character.getNumericValue(ch);
-            } else {
-                boolean isWhite = Character.isUpperCase(ch);
-                ch = Character.toLowerCase(ch);
-                switch (ch) {
-                    case 'r':
-                        newState.add(new Rook(this, col, row, isWhite));
-                        break;
-                    case 'n':
-                        newState.add(new Knight(this, col, row, isWhite));
-                        break;
-                    case 'b':
-                        newState.add(new Bishop(this, col, row, isWhite));
-                        break;
-                    case 'q':
-                        newState.add(new Queen(this, col, row, isWhite));
-                        break;
-                    case 'k':
-                        newState.add(new King(this, col, row, isWhite));
-                        break;
-                    case 'p':
-                        newState.add(new Pawn(this, col, row, isWhite, col));
-                        break;
-                }
-                col++;
-            }
-        }
-        pieceList = newState;
-
-        // turn
-        isWhiteToMove = parts[1].equals("w");
-
-        // castling
-        Piece bqr = getPiece(0, 0);
-        if (bqr instanceof Rook) {
-            bqr.isFirstMove = parts[2].contains("q");
-        }
-        Piece bkr = getPiece(7, 0);
-        if (bkr instanceof Rook) {
-            bkr.isFirstMove = parts[2].contains("k");
-        }
-        Piece wqr = getPiece(0, 7);
-        if (wqr instanceof Rook) {
-            wqr.isFirstMove = parts[2].contains("Q");
-        }
-        Piece wkr = getPiece(7, 7);
-        if (wkr instanceof Rook) {
-            wkr.isFirstMove = parts[2].contains("K");
-        }
-
-        // en passant
-        if (parts[3].equals("-")) {
-            enPassantTile = -1;
-        }
-        else {
-            enPassantTile = (7 - (parts[3].charAt(1) - '1')) * 8 + (parts[3].charAt(0) - 'a');
-        }
-
-        // num Of Turn Without Capture Or Pawn Move
-        numOfTurnWithoutCaptureOrPawnMove = Character.getNumericValue(parts[4].charAt(0));
-
-        // num of turns
-        numOfTurns = Character.getNumericValue(parts[5].charAt(0));
-
-        if (isRealBoard) {repaint();}
+    public void loadPiecesFromFen(String fenCurrentPosition) {
+        state.loadPiecesFromFen(fenCurrentPosition);
+        repaint();
     }
 
 
@@ -556,7 +389,6 @@ public class Board extends JPanel {
         capture(piece);
     }
 
-
     public void setLastMove(int fromC, int fromR, int toC, int toR, Piece lastToMove) {
         this.fromC = fromC;
         this.fromR = fromR;
@@ -573,21 +405,17 @@ public class Board extends JPanel {
 
     // שינוי מצב הלוח שלא באמצעות ביצוע מהלך
     public void goBack() {
-        if(!ChoosePlayFormat.isOnePlayer || ChoosePlayFormat.isPlayingWhite == isWhiteToMove) {
+        if(!ChoosePlayFormat.isOnePlayer || ChoosePlayFormat.isPlayingWhite == state.getIsWhiteToMove()) {
             //System.out.println("current position: " + fenCurrentPosition);
-            fenCurrentPosition = savedStates.pop();
+            state.fenCurrentPosition = savedStates.pop();
             //System.out.println("changing position to: " + fenCurrentPosition);
             input.engine.stopEngine();
-            fromC = -1;
-            fromR = -1;
-            toC = -1;
-            toR = -1;
-            lastToMove = null;
+            state.setLastMove(null);
             input.selectedX = input.selectedY = -1;
             selectedPiece = null;
             audioPlayer.playGoBackSound();
-            loadPiecesFromFen(fenCurrentPosition, true);
-            if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != isWhiteToMove) {
+            loadPiecesFromFen(state.fenCurrentPosition);
+            if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != state.getIsWhiteToMove()) {
                 input.makeEngineMove();
             }
         }
@@ -600,102 +428,44 @@ public class Board extends JPanel {
         input.randomMoveEngine.stop();
         isGameOver = false;
         input.isStatusChanged = false;
-        fromC = -1; fromR = -1; toC = -1; toR = -1;
+        state.setLastMove(null);
         hintFromC = -1; hintFromR = -1; hintToC = -1; hintToR = -1;
         Main.updateScores(0, 0);
         audioPlayer.playHintSound();
         if (ChoosePlayFormat.isOnePlayer) {
             SettingPanel.changeIsPlayingWhiteText();
-            loadPiecesFromFen(fenStartingPosition, true);
-            if (ChoosePlayFormat.isPlayingWhite != isWhiteToMove) {
+            loadPiecesFromFen(fenStartingPosition);
+            if (ChoosePlayFormat.isPlayingWhite != state.getIsWhiteToMove()) {
                 input.makeEngineMove();
             }
         }
         else {
             ChoosePlayFormat.isPlayingWhite = true;
             SettingPanel.changeIsPlayingWhiteText();
-            loadPiecesFromFen(fenStartingPosition, true);
+            loadPiecesFromFen(fenStartingPosition);
         }
     }
 
     public void refresh() {
-        savedStates.push(fenCurrentPosition);
-        fenCurrentPosition = convertPiecesToFEN();
-        loadPiecesFromFen(fenCurrentPosition, true);
-        if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != isWhiteToMove) {
+        savedStates.push(state.fenCurrentPosition);
+        state.fenCurrentPosition = state.convertPiecesToFEN();
+        loadPiecesFromFen(state.fenCurrentPosition);
+        if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != state.getIsWhiteToMove()) {
             input.makeEngineMove();
         }
     }
 
-
-    // פונקציות לבדיקת חוקיות מהלכים ומצב המשחק
-    public boolean getIsWhiteToMove() {
-        return this.isWhiteToMove;
-    }
-
-    Piece findKing(boolean isWhite) {
-        for (Piece piece : pieceList) {
-            if (piece.isWhite == isWhite && piece.name.equals("King")) {
-                return piece;
-            }
-        }
-        return null;
-    }
-
-    public boolean isValidMove(Move move, boolean isExecuting) {
-        if (isGameOver) {
-            //if (isExecuting) System.out.println(1);
-            return false;
-        }
-        if (move.piece.isWhite != isWhiteToMove) {
-            //if (isExecuting) System.out.println(2);
-            return false;
-        }
-        if (sameTeam(move.piece, move.captured)) {
-            //if (isExecuting) System.out.println(3);
-            return false;
-        }
-        if (!move.piece.isValidMovement(move.newCol, move.newRow)) {
-            //if (isExecuting) System.out.println(4);
-            return false;
-        }
-        if (move.piece.moveCollidesWithPiece(move.newCol, move.newRow)) {
-            //if (isExecuting) System.out.println(5);
-            return false;
-        }
-        if (checkScanner.isMoveCausesCheck(move)) {
-            if (isExecuting) {
-                audioPlayer.playInvalidMoveBecauseOfCheckSound();
-            }
-            //if (isExecuting) System.out.println(6);
-            return false;
-        }
-
-        return true;
-    }
-
-    public boolean sameTeam(Piece p1, Piece p2) {
-        if (p1 == null || p2 == null) {
-            return false;
-        }
-        return p1.isWhite == p2.isWhite;
-    }
-
-    public int getTileNum(int col, int row) {
-        return rows * row + col;
-    }
-
     public void updateGameState(boolean isRealBoard) {
-        Piece king = findKing(isWhiteToMove);
-        if (checkScanner.isGameOver(king)) {
-            if (checkScanner.isChecking(this)) {
+        Piece king = state.findKing(state.getIsWhiteToMove());
+        if (state.checkScanner.isGameOver(king)) {
+            if (state.checkScanner.isChecking(state)) {
                 // System.out.println(isWhiteToMove ? "black wins!" : "white wins!");
                 if (isRealBoard){
                     input.isStatusChanged = true;
                     input.isCheckMate = true;
                     input.isStaleMate = false;
-                    input.isWhiteTurn = isWhiteToMove;
-                    if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite == isWhiteToMove) {
+                    input.isWhiteTurn = state.getIsWhiteToMove();
+                    if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite == state.getIsWhiteToMove()) {
                         audioPlayer.playLosingSound();
                     }
                     else {
@@ -709,115 +479,30 @@ public class Board extends JPanel {
                     input.isStatusChanged = true;
                     input.isCheckMate = false;
                     input.isStaleMate = true;
-                    input.isWhiteTurn = isWhiteToMove;
+                    input.isWhiteTurn = state.getIsWhiteToMove();
                     audioPlayer.playDrawSound();
                 }
             }
 //            isGameOver = true;
-        } else if (insufficientMaterial(true) && insufficientMaterial(false)) {
+        } else if (state.insufficientMaterial(true) && state.insufficientMaterial(false)) {
             // System.out.println("insufficientMaterial! draw!");
 //            isGameOver = true;
             if (isRealBoard){
                 input.isStatusChanged = true;
                 input.isCheckMate = false;
                 input.isStaleMate = false;
-                input.isWhiteTurn = isWhiteToMove;
+                input.isWhiteTurn = state.getIsWhiteToMove();
                 audioPlayer.playDrawSound();
             }
         }
-        else if (checkScanner.isChecking(this)) {
+        else if (state.checkScanner.isChecking(state)) {
             audioPlayer.playCheckSound();
             repaint();
         }
     }
 
-    private boolean insufficientMaterial(boolean isWhite) {
-        ArrayList<String> names = pieceList.stream()
-                .filter(p -> p.isWhite == isWhite)
-                .map(p -> p.name)
-                .collect(Collectors.toCollection(ArrayList::new));
-        if (names.contains("Queen") || names.contains("Rook") || names.contains("Pawn")) {
-            return false;
-        }
-        return names.size() < 3;
-    }
-
 
     // גטרים למצב הלוח
-    public String convertPiecesToFEN() {
-        StringBuilder fen = new StringBuilder();
-        for (int row = 0; row < 8; row++) {
-            int emptySquares = 0;
-            for (int col = 0; col < 8; col++) {
-                Piece piece = getPiece(col, row);
-                if (piece == null) {
-                    emptySquares++;
-                } else {
-                    if (emptySquares > 0) {
-                        fen.append(emptySquares);
-                        emptySquares = 0;
-                    }
-                    fen.append(piece.getRepresentation());
-                }
-            }
-            if (emptySquares > 0) {
-                fen.append(emptySquares);
-            }
-            if (row < 7) {
-                fen.append('/');
-            }
-        }
-        fen.append(isWhiteToMove ? " w " : " b "); // תור השחקן הבא
-
-        // castling
-        Piece wKing = getPiece(4, 7);
-        Piece bKing = getPiece(4, 0);
-
-        Piece bqr = getPiece(0, 0);
-        if (bqr instanceof Rook && bqr.isFirstMove && bKing instanceof King && bKing.isFirstMove) {
-            fen.append("q");
-        }
-        Piece bkr = getPiece(7, 0);
-        if (bkr instanceof Rook && bkr.isFirstMove && bKing instanceof King && bKing.isFirstMove) {
-            fen.append("k");
-        }
-        Piece wqr = getPiece(0, 7);
-        if (wqr instanceof Rook && wqr.isFirstMove && wKing instanceof King && wKing.isFirstMove) {
-            fen.append("Q");
-        }
-        Piece wkr = getPiece(7, 7);
-        if (wkr instanceof Rook && wkr.isFirstMove && wKing instanceof King && wKing.isFirstMove) {
-            fen.append("K");
-        }
-        if ((!(bqr instanceof Rook && bqr.isFirstMove && bKing instanceof King && bKing.isFirstMove) && !(bkr instanceof Rook && bkr.isFirstMove && bKing instanceof King && bKing.isFirstMove)) || !((wqr instanceof Rook && wqr.isFirstMove && wKing instanceof King && wKing.isFirstMove) || !(wkr instanceof Rook && wkr.isFirstMove && wKing instanceof King && wKing.isFirstMove))){
-            fen.append('-');
-        }
-        fen.append(" ");
-
-        // en passant
-        int colorIndex = isWhiteToMove ? 1 : -1;
-        // System.out.println(lastToMove + " " + );
-        if (lastToMove instanceof Pawn && Math.abs(toR - fromR) == 2) {
-            int col = fromC;
-            int row = fromR + colorIndex;
-            fen.append(squareToLetters(col, row));
-        }
-        else {
-            fen.append('-');
-        }
-
-        // מספר החצאים
-        fen.append(" ");
-        fen.append(numOfTurnWithoutCaptureOrPawnMove);
-
-        // מספר התורות
-        fen.append(" ");
-        fen.append(numOfTurns);
-
-        // System.out.println(fen);
-        return fen.toString();
-    }
-
     public String squareToLetters(int col, int row) {
         String namesOfRows = "87654321";
         String namesOfCols = "abcdefgh";
@@ -827,145 +512,6 @@ public class Board extends JPanel {
         // System.out.println(col + " " + row + " " + squareName);
         return squareName.toString();
     }
-
-
-
-    // פונקציות לחישובים בלי פגיע אמיתית במצב הלוח
-    public boolean makeMoveToCheckIt(Move move) {
-        String tempFen = convertPiecesToFEN();
-        Piece piece = getPiece(move.piece.col, move.piece.row);
-        boolean success = false;
-        boolean pawnMoveSuccess = true;
-        if (piece.name.equals("Pawn")) {
-            pawnMoveSuccess = movePawnForClone(move);
-        } else if (piece.name.equals("King")) {
-            moveKingForClone(move);
-        }
-
-        if (pawnMoveSuccess) {
-            if (!piece.name.equals("Pawn") || !(Math.abs(piece.row - move.newRow) == 2)) {
-                enPassantTile = -1;
-            }
-            if (move.captured != null && getPiece(move.captured.col, move.captured.row) != null) {
-                capture(getPiece(move.captured.col, move.captured.row));
-            }
-            int tempMovePC = piece.col;
-            int tempMovePR = piece.row;
-            piece.col = move.newCol;
-            piece.row = move.newRow;
-            isWhiteToMove = !isWhiteToMove;
-            if (isWhiteToMove) {
-                ++numOfTurns;
-            }
-            ++numOfTurnWithoutCaptureOrPawnMove;
-            if (!checkScanner.isCheckingForClone(this)) {
-                success = true;
-            }
-
-            piece.col = tempMovePC;
-            piece.row = tempMovePR;
-            isWhiteToMove = !isWhiteToMove;
-            loadPiecesFromFen(tempFen, false);
-            //System.out.println(tempFen);
-        }
-        return success;
-    }
-
-    private boolean movePawnForClone(Move move) {
-        // en passant:
-        int colorIndex = move.piece.isWhite ? 1 : -1;
-
-        if (getTileNum(move.newCol, move.newRow) == enPassantTile) {
-            move.captured = getPiece(move.newCol, move.newRow + colorIndex);
-        }
-        if (Math.abs(move.piece.row - move.newRow) == 2) {
-            enPassantTileClone = getTileNum(move.newCol, move.newRow + colorIndex);
-        } else {
-            enPassantTile = -1;
-        }
-
-        // promotions:
-        colorIndex = move.piece.isWhite ? 0 : 7;
-        if (move.newRow == colorIndex) {
-            if (!ChoosePlayFormat.isOnePlayer || ChoosePlayFormat.isPlayingWhite == isWhiteToMove) { // כאן אמור להיות אם זה שני שחקנים
-                return false;
-            }
-            else {
-                if (SettingPanel.skillLevel != 0) {
-                    promotePawnToForClone(move, input.engine.promotionChoice);
-                }
-                else {
-                    promotePawnToForClone(move, input.randomMoveEngine.promotionChoice);
-                }
-                pieceList.remove(move.piece);
-            }
-        }
-        numOfTurnWithoutCaptureOrPawnMove = -1;
-        return true;
-    }
-
-    public void moveKingForClone(Move move) {
-        if (Math.abs(move.piece.col - move.newCol) == 2) {
-            Piece rook;
-            if (move.piece.col < move.newCol) {
-                rook = getPiece(7, move.piece.row);
-                rook.col = 5;
-            } else {
-                rook = getPiece(0, move.piece.row);
-                rook.col = 3;
-            }
-        }
-    }
-
-    private void promotePawnToForClone(Move move, String choice) {
-        switch (choice) {
-            case "q":
-                pieceList.add(new Queen(this, move.newCol, move.newRow, move.piece.isWhite));
-                break;
-            case "r":
-                pieceList.add(new Rook(this, move.newCol, move.newRow, move.piece.isWhite));
-                break;
-            case "b":
-                pieceList.add(new Bishop(this, move.newCol, move.newRow, move.piece.isWhite));
-                break;
-            case "n":
-                pieceList.add(new Knight(this, move.newCol, move.newRow, move.piece.isWhite));
-                break;
-        }
-        capture(move.piece);
-    }
-
-
-
-    // פונקציות מיותרות כרגע
-//    public void addPieces() {
-//        pieceList.add(new Rook(this, 0, 0, false));
-//        pieceList.add(new Rook(this, 7, 0, false));
-//        pieceList.add(new Rook(this, 0, 7, true));
-//        pieceList.add(new Rook(this, 7, 7, true));
-//
-//        pieceList.add(new Knight(this, 1, 0, false));
-//        pieceList.add(new Knight(this, 6, 0, false));
-//        pieceList.add(new Knight(this, 1, 7, true));
-//        pieceList.add(new Knight(this, 6, 7, true));
-//
-//        pieceList.add(new Bishop(this, 2, 0, false));
-//        pieceList.add(new Bishop(this, 5, 0, false));
-//        pieceList.add(new Bishop(this, 2, 7, true));
-//        pieceList.add(new Bishop(this, 5, 7, true));
-//
-//        pieceList.add(new King(this, 4, 0, false));
-//        pieceList.add(new King(this, 4, 7, true));
-//
-//        pieceList.add(new Queen(this, 3, 0, false));
-//        pieceList.add(new Queen(this, 3, 7, true));
-//
-//        for (int i = 0; i < 8; i++) {
-//            pieceList.add(new Pawn(this, i, 1, false, 1));
-//            pieceList.add(new Pawn(this, i, 6, true, 1));
-//        }
-//    }
-
 
 }
 

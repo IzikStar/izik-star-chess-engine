@@ -1,12 +1,13 @@
 package main;
 
+import ai.BoardState;
 import pieces.Piece;
 
 public class CheckScanner {
 
-    Board board;
+    BoardState board;
 
-    public CheckScanner(Board board) {
+    public CheckScanner(BoardState board) {
         this.board = board;
     }
 
@@ -44,7 +45,7 @@ public class CheckScanner {
                 break;
             }
             Piece piece = board.getPiece(kingCol + (i * colVal), kingRow + (i *rowVal));
-            if (piece != null && piece != board.selectedPiece) {
+            if (piece != null && piece != Board.selectedPiece) {
                 if ((!board.sameTeam(piece, king)) && (piece.name.equals("Rook") || piece.name.equals("Queen"))) {
                     return true;
                 }
@@ -60,7 +61,7 @@ public class CheckScanner {
                 break;
             }
             Piece piece = board.getPiece(kingCol - (i * colVal), kingRow - (i *rowVal));
-            if (piece != null && piece != board.selectedPiece) {
+            if (piece != null && piece != Board.selectedPiece) {
                 if ((piece.name.equals("Bishop") || piece.name.equals("Queen")) && !(board.sameTeam(piece, king))) {
                     return true;
                 }
@@ -110,13 +111,13 @@ public class CheckScanner {
     }
 
     public boolean isGameOver(Piece king) {
-        for (Piece piece : board.pieceList) {
+        for (Piece piece : board.getAllPieces()) {
             if (board.sameTeam(piece, king)) {
-                board.selectedPiece = piece == king ? king : null;
-                for (int row = 0; row < board.rows; row++) {
-                    for (int col = 0; col < board.cols; col++) {
+                Board.selectedPiece = piece == king ? king : null;
+                for (int row = 0; row < Board.rows; row++) {
+                    for (int col = 0; col < Board.cols; col++) {
                         Move move = new Move(board, piece, col, row);
-                        if (board.isValidMove(move, false)) {
+                        if (board.isValidMove(move)) {
                             return false;
                         }
                     }
@@ -126,7 +127,7 @@ public class CheckScanner {
         return true;
     }
 
-    public boolean isChecking(Board board) {
+    public boolean isChecking(BoardState board) {
         Piece king = board.findKing(board.getIsWhiteToMove());
         int kingCol = king.col;
         int kingRow = king.row;
@@ -149,7 +150,7 @@ public class CheckScanner {
         return false;
     }
 
-    public boolean isCheckingForClone(Board board) {
+    public boolean isCheckingForClone(BoardState board) {
         Piece king = board.findKing(!board.getIsWhiteToMove());
         int kingCol = king.col;
         int kingRow = king.row;

@@ -1,5 +1,6 @@
 package pieces;
 
+import ai.BoardState;
 import main.Board;
 import main.setting.ChoosePlayFormat;
 
@@ -9,17 +10,17 @@ public class Pawn extends Piece{
 
     public int id;
 
-    public Pawn(Board board, int col, int row, boolean isWhite, int id) {
+    public Pawn(BoardState board, int col, int row, boolean isWhite, int id) {
         super(board);
         this.col = col;
         this.row = row;
         if (ChoosePlayFormat.isPlayingWhite) {
-            this.xPos = col * board.tileSize;
-            this.yPos = row * board.tileSize;
+            this.xPos = col * Board.tileSize;
+            this.yPos = row * Board.tileSize;
         }
         else {
-            this.xPos = (7 - col) * board.tileSize;
-            this.yPos = (7 - row) * board.tileSize;
+            this.xPos = (7 - col) * Board.tileSize;
+            this.yPos = (7 - row) * Board.tileSize;
         }
 
         this.isWhite = isWhite;
@@ -27,7 +28,7 @@ public class Pawn extends Piece{
         this.type = isWhite ? 'P' : 'p';
         this.id = id;
         this.value = 1;
-        this.sprite = sheet.getSubimage(5 * sheetScale, isWhite ? 0 : sheetScale, sheetScale, sheetScale).getScaledInstance(board.tileSize, board.tileSize, BufferedImage.SCALE_SMOOTH);
+        this.sprite = sheet.getSubimage(5 * sheetScale, isWhite ? 0 : sheetScale, sheetScale, sheetScale).getScaledInstance(Board.tileSize, Board.tileSize, BufferedImage.SCALE_SMOOTH);
     }
 
     public boolean isValidMovement(int col, int row) {
