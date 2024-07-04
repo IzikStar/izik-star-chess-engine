@@ -1,6 +1,5 @@
 package main;
 
-import ai.BoardClone;
 import pieces.Piece;
 
 public class CheckScanner {

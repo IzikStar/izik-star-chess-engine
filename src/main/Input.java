@@ -1,7 +1,7 @@
 package main;
 
 import GUI.AudioPlayer;
-import ai.RandomMoveEngine;
+import ai.myEngine;
 import main.setting.ChoosePlayFormat;
 import main.setting.SettingPanel;
 import pieces.Piece;
@@ -23,12 +23,12 @@ public class Input extends MouseAdapter {
 
     String pathToStockfish = "src/res/stockfish/stockfish-windows-x86-64.exe";
     StockfishEngine engine;
-    RandomMoveEngine randomMoveEngine;
+    myEngine randomMoveEngine;
 
     public Input(Board board) {
         this.board = board;
         engine = new StockfishEngine();
-        randomMoveEngine = new RandomMoveEngine(board);
+        randomMoveEngine = new myEngine(board);
         if (!ChoosePlayFormat.isPlayingWhite) {
             makeEngineMove();
         }
@@ -74,9 +74,9 @@ public class Input extends MouseAdapter {
             // System.out.println(endTime - startTime);
             if (!moveFound) {
                 System.out.println("taking to long, making a random move");
-                RandomMoveEngine.waitTime = 0;
+                myEngine.waitTime = 0;
                 randomMoveEngine.makeMove(board.convertPiecesToFEN());
-                RandomMoveEngine.waitTime = 1000;
+                myEngine.waitTime = 1000;
             }
             SwingUtilities.invokeLater(() -> {
                 board.repaint();

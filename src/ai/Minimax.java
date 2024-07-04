@@ -17,7 +17,7 @@ public class Minimax {
             if (piece.isWhite != ChoosePlayFormat.isPlayingWhite) {
                 ArrayList<Move> validMoves = piece.getValidMoves(board);
                 for (Move move : validMoves) {
-                    BoardClone newBoard = new BoardClone(board.convertPiecesToFEN()); // שיבוץ לוח משוכפל באמצעות FEN
+                    BoardState newBoard = new BoardState(board.convertPiecesToFEN()); // שיבוץ לוח משוכפל באמצעות FEN
                     newBoard.makeMove(move, false);
                     int boardValue = minimax(newBoard, depth - 1, false);
                     if (boardValue > bestValue) {
@@ -42,7 +42,7 @@ public class Minimax {
                 if (piece.isWhite != ChoosePlayFormat.isPlayingWhite) {
                     ArrayList<Move> validMoves = piece.getValidMoves(board);
                     for (Move move : validMoves) {
-                        BoardClone newBoard = new BoardClone(board.convertPiecesToFEN());
+                        BoardState newBoard = new BoardState(board.convertPiecesToFEN());
                         newBoard.makeMove(move, false);
                         int boardValue = minimax(newBoard, depth - 1, false);
                         bestValue = Math.max(bestValue, boardValue);
@@ -56,7 +56,7 @@ public class Minimax {
                 if (piece.isWhite == ChoosePlayFormat.isPlayingWhite) {
                     ArrayList<Move> validMoves = piece.getValidMoves(board);
                     for (Move move : validMoves) {
-                        BoardClone newBoard = new BoardClone(board.convertPiecesToFEN());
+                        BoardState newBoard = new BoardState(board.convertPiecesToFEN());
                         newBoard.makeMove(move, false);
                         int boardValue = minimax(newBoard, depth - 1, true);
                         bestValue = Math.min(bestValue, boardValue);
