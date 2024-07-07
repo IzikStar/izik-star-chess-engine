@@ -30,7 +30,7 @@ public class myEngine {
     }
 
     // making move methods
-    public void makeMove(String fen) {
+    public void makeMove(String fen, Board realBoard) {
         Board.selectedPiece = null;
         thread = new Thread(() -> {
             try {
@@ -48,12 +48,12 @@ public class myEngine {
             }
             Move tempMove = move;
             if (board.makeMoveToCheckIt(tempMove)) {
-                board.makeMove(move, promotionChoice);
+                board.makeEngineMove(move, promotionChoice, realBoard);
                 //Board.input.selectedX = -1;
                 //Board.input.selectedY = -1;
                 alreadyChecked.clear();
             } else {
-                makeMove(fen);
+                makeMove(fen, realBoard);
             }
         });
         thread.start();
@@ -76,6 +76,11 @@ public class myEngine {
 
     // random move methods
     private Move getRandomMove() {
+        if (board == null) {
+            System.out.println("BoardState is null");
+            return null;
+        }
+
         if (!board.checkScanner.isChecking(board)) {
             chosePiece();
         } else {
@@ -143,4 +148,8 @@ public class myEngine {
         return bestMove;
     }
 
+    // board setter
+    public void setBoard(BoardState state) {
+        this.board = state;
+    }
 }

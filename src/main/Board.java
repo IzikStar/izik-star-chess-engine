@@ -43,6 +43,7 @@ public class Board extends JPanel {
 
     // הצגת רמזים
     int hintFromC = -1, hintFromR = -1, hintToC = -1, hintToR = -1;
+    public String promotionChoice;
 
     // constructor
     public Board() {
@@ -53,6 +54,7 @@ public class Board extends JPanel {
         this.savedStates.push(fenStartingPosition);
 
         this.state = new BoardState(fenStartingPosition, null);
+        this.input.randomMoveEngine.setBoard(state);
         loadPiecesFromFen(state.fenCurrentPosition);
 
         Timer animationTimer = new Timer(5, new ActionListener() {
@@ -212,8 +214,8 @@ public class Board extends JPanel {
     }
 
 
-    public void makeMove(Move move, String promotionChoice) {
-        state.makeMove(move, promotionChoice);
+    public void makePlayerMove(Move move) {
+        state.makePlayerMove(move, this);
 
         Piece piece = state.getPiece(move.piece.col, move.piece.row);
 
@@ -242,6 +244,10 @@ public class Board extends JPanel {
             state.fenCurrentPosition = state.convertPiecesToFEN();
         }
         showScore.calculateScore();
+    }
+
+    public void makeEngineMove(Move move, String promotionChoice) {
+
     }
 
     public void moveKing(Move move) {
@@ -308,9 +314,10 @@ public class Board extends JPanel {
         return true;
     }
 
-    private boolean promotePawn(Move move) {
+    public boolean promotePawn(Move move) {
         PromotionDialog promotionDialog = new PromotionDialog(parentFrame, move.piece.isWhite);
         String choice = promotionDialog.getSelection();
+        this.promotionChoice = choice;
         if (choice != null) {
             state.promotePawnTo(move, choice);
             state.capture(move.piece);

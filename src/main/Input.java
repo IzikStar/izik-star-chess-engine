@@ -62,7 +62,7 @@ public class Input extends MouseAdapter {
                     Move move = new Move(board.state, board.state.getPiece(fromCol, fromRow), toCol, toRow);
 
                     if (board.state.isValidMove(move)) {
-                        board.makeMove(move, engine.promotionChoice);
+                        board.makeEngineMove(move, engine.promotionChoice);
                         moveFound = true; // מהלך חוקי נמצא, לצאת מהלולאה
                         // System.out.println("Move found and made: " + bestMove);
                     } else {
@@ -77,7 +77,7 @@ public class Input extends MouseAdapter {
             if (!moveFound) {
                 System.out.println("taking to long, making a random move");
                 myEngine.waitTime = 0;
-                randomMoveEngine.makeMove(board.state.convertPiecesToFEN());
+                randomMoveEngine.makeMove(board.state.convertPiecesToFEN(), board);
                 myEngine.waitTime = 1000;
             }
             SwingUtilities.invokeLater(() -> {
@@ -191,7 +191,7 @@ public class Input extends MouseAdapter {
             if (Board.selectedPiece != null) {
                 Move move = new Move(board.state, Board.selectedPiece, col, row);
                 if (board.state.isValidMove(move)) {
-                    board.makeMove(move, randomMoveEngine.promotionChoice);
+                    board.makePlayerMove(move);
                     selectedX = -1;
                     selectedY = -1;
                     Board.selectedPiece = null;
@@ -209,9 +209,10 @@ public class Input extends MouseAdapter {
                             if (SettingPanel.skillLevel > 1) {
                                 makeEngineMove();
                             } /*else if (SettingPanel.skillLevel > 0){
-                                level2Engine.makeMove(board);
+                                level2Engine.makePlayerMove(board);
                             }*/ else {
-                                randomMoveEngine.makeMove(board.state.convertPiecesToFEN());
+                                randomMoveEngine.makeMove(board.state.convertPiecesToFEN(), board);
+                                board.repaint();
                             }
                         }
                         if (!ChoosePlayFormat.isOnePlayer) {
@@ -277,7 +278,7 @@ public class Input extends MouseAdapter {
                 int row = board.getRowFromY(e.getY());
                 Move move = new Move(board.state, Board.selectedPiece, col, row);
                 if (board.state.isValidMove(move)) {
-                    board.makeMove(move, randomMoveEngine.promotionChoice);
+                    board.makePlayerMove(move);
                     if (isStatusChanged) {
                         Board.selectedPiece = null;
                         board.repaint();
@@ -292,9 +293,10 @@ public class Input extends MouseAdapter {
                             if (SettingPanel.skillLevel > 1) {
                                 makeEngineMove();
                             } /*else if (SettingPanel.skillLevel > 0){
-                                level2Engine.makeMove(board);
+                                level2Engine.makePlayerMove(board);
                             } */else {
-                                randomMoveEngine.makeMove(board.state.convertPiecesToFEN());
+                                randomMoveEngine.makeMove(board.state.convertPiecesToFEN(), board);
+                                board.repaint();
                             }
                         }
                         if (!ChoosePlayFormat.isOnePlayer) {
