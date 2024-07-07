@@ -214,10 +214,33 @@ public class Board extends JPanel {
     }
 
 
-    public void makePlayerMove(Move move) {
-        state.makePlayerMove(move, this);
-
+    public void makeMove(Move move) {
         Piece piece = state.getPiece(move.piece.col, move.piece.row);
+        boolean pawnMoveSuccess = true;
+        if (piece.name.equals("Pawn")) {
+            pawnMoveSuccess = movePawn(move);
+        } else if (piece.name.equals("King")) {
+            moveKing(move);
+        }
+
+        if (pawnMoveSuccess) {
+            if (!piece.name.equals("Pawn") || !(Math.abs(piece.row - move.newRow) == 2)) {
+                state.enPassantTile = -1;
+            }
+            if (move.captured != null && state.getPiece(move.captured.col, move.captured.row) != null) {
+                state.capture(state.getPiece(move.captured.col, move.captured.row));
+            }
+            state.setLastMove(piece.col, piece.row, move.newCol, move.newRow, move.piece);
+
+            piece.col = move.newCol;
+            piece.row = move.newRow;
+            piece.isFirstMove = false;
+            state.setIsWhiteToMove(!state.getIsWhiteToMove());
+            if (state.getIsWhiteToMove()) {
+                ++state.numOfTurns;
+            }
+            ++state.numOfTurnWithoutCaptureOrPawnMove;
+        }
 
         if (move.captured != null && state.getPiece(move.captured.col, move.captured.row) != null) {
             audioPlayer.playCaptureSound();
@@ -246,10 +269,6 @@ public class Board extends JPanel {
         showScore.calculateScore();
     }
 
-    public void makeEngineMove(Move move, String promotionChoice) {
-
-    }
-
     public void moveKing(Move move) {
         if (Math.abs(move.piece.col - move.newCol) == 2) {
             Piece rook;
@@ -263,6 +282,7 @@ public class Board extends JPanel {
             }
 
             // הוספת אנימציה להצרחה גם למלך וגם לצריח
+            Piece king = state.getPiece(move.piece.col, move.piece.row);
             int kingStartX = move.piece.xPos;
             int kingStartY = move.piece.yPos;
             int kingEndX = getXFromCol(move.newCol);
@@ -276,13 +296,13 @@ public class Board extends JPanel {
             animations.add(new ChessAnimation(move.piece, kingStartX, kingStartY, kingEndX, kingEndY, 500));
             animations.add(new ChessAnimation(rook, rookStartX, rookStartY, rookEndX, rookEndY, 500));
 
-            move.piece.col = move.newCol;
-            move.piece.row = move.newRow;
+            king.col = move.newCol;
+            king.row = move.newRow;
             rook.col = rookEndCol;
             rook.row = move.newRow;
 
-            move.piece.xPos = kingEndX;
-            move.piece.yPos = kingEndY;
+            king.xPos = kingEndX;
+            king.yPos = kingEndY;
             rook.xPos = rookEndX;
             rook.yPos = rookEndY;
 
@@ -302,10 +322,10 @@ public class Board extends JPanel {
             }
             else {
                 if (SettingPanel.skillLevel != 0) {
-                    state.promotePawnTo(move, input.engine.promotionChoice);
+                    promotePawnTo(move, input.engine.promotionChoice);
                 }
                 else {
-                    state.promotePawnTo(move, input.randomMoveEngine.promotionChoice);
+                    promotePawnTo(move, input.randomMoveEngine.promotionChoice);
                 }
                 state.capture(move.piece);
             }
@@ -319,7 +339,7 @@ public class Board extends JPanel {
         String choice = promotionDialog.getSelection();
         this.promotionChoice = choice;
         if (choice != null) {
-            state.promotePawnTo(move, choice);
+            promotePawnTo(move, choice);
             state.capture(move.piece);
 
             // הוספת אנימציה להכתרת רגלי
@@ -335,6 +355,25 @@ public class Board extends JPanel {
             return false;
         }
         return true;
+    }
+
+    public void promotePawnTo(Move move, String choice) {
+        Piece piece = state.getPiece(move.piece.col, move.piece.row);
+        switch (choice) {
+            case "q":
+                state.addPiece(new Queen(state, move.newCol, move.newRow, piece.isWhite));
+                break;
+            case "r":
+                state.addPiece(new Rook(state, move.newCol, move.newRow, piece.isWhite));
+                break;
+            case "b":
+                state.addPiece(new Bishop(state, move.newCol, move.newRow, piece.isWhite));
+                break;
+            case "n":
+                state.addPiece(new Knight(state, move.newCol, move.newRow, piece.isWhite));
+                break;
+        }
+        state.capture(piece);
     }
 
 

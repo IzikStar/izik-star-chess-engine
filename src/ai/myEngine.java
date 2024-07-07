@@ -48,7 +48,7 @@ public class myEngine {
             }
             Move tempMove = move;
             if (board.makeMoveToCheckIt(tempMove)) {
-                board.makeEngineMove(move, promotionChoice, realBoard);
+                realBoard.makeMove(move, promotionChoice);
                 //Board.input.selectedX = -1;
                 //Board.input.selectedY = -1;
                 alreadyChecked.clear();

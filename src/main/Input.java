@@ -62,7 +62,7 @@ public class Input extends MouseAdapter {
                     Move move = new Move(board.state, board.state.getPiece(fromCol, fromRow), toCol, toRow);
 
                     if (board.state.isValidMove(move)) {
-                        board.makeEngineMove(move, engine.promotionChoice);
+                        board.makeMove(move, engine.promotionChoice);
                         moveFound = true; // מהלך חוקי נמצא, לצאת מהלולאה
                         // System.out.println("Move found and made: " + bestMove);
                     } else {
@@ -191,7 +191,7 @@ public class Input extends MouseAdapter {
             if (Board.selectedPiece != null) {
                 Move move = new Move(board.state, Board.selectedPiece, col, row);
                 if (board.state.isValidMove(move)) {
-                    board.makePlayerMove(move);
+                    board.makeMove(move, null);
                     selectedX = -1;
                     selectedY = -1;
                     Board.selectedPiece = null;
@@ -212,7 +212,6 @@ public class Input extends MouseAdapter {
                                 level2Engine.makePlayerMove(board);
                             }*/ else {
                                 randomMoveEngine.makeMove(board.state.convertPiecesToFEN(), board);
-                                board.repaint();
                             }
                         }
                         if (!ChoosePlayFormat.isOnePlayer) {
@@ -278,7 +277,7 @@ public class Input extends MouseAdapter {
                 int row = board.getRowFromY(e.getY());
                 Move move = new Move(board.state, Board.selectedPiece, col, row);
                 if (board.state.isValidMove(move)) {
-                    board.makePlayerMove(move);
+                    board.makeMove(move, null);
                     if (isStatusChanged) {
                         Board.selectedPiece = null;
                         board.repaint();
@@ -296,7 +295,6 @@ public class Input extends MouseAdapter {
                                 level2Engine.makePlayerMove(board);
                             } */else {
                                 randomMoveEngine.makeMove(board.state.convertPiecesToFEN(), board);
-                                board.repaint();
                             }
                         }
                         if (!ChoosePlayFormat.isOnePlayer) {

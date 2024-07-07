@@ -338,8 +338,14 @@ public class BoardState {
                 namesOfRows.charAt(row);
     }
 
+    // סטרים
+    public void setIsWhiteToMove(boolean isWhiteToMove) {
+        this.isWhiteToMove = isWhiteToMove;
+    }
 
-
+    public void addPiece(Piece piece) {
+        pieceList.add(piece);
+    }
 
 
     // פונקציות לחישובים בלי פגיע אמיתית במצב הלוח
@@ -539,159 +545,5 @@ public class BoardState {
         pieceList.remove(piece);
         numOfTurnWithoutCaptureOrPawnMove = 0;
     }
-
-    // ביצוע מהלכים על אמת
-    public int makeEngineMove(Move move, String promotionChoice, Board realBoard) {
-        int moveKind = 0;
-        Piece piece = getPiece(move.piece.col, move.piece.row);
-        boolean pawnMoveSuccess = true;
-        if (piece.name.equals("Pawn")) {
-            pawnMoveSuccess = moveEnginePawn(move, promotionChoice);
-            if (pawnMoveSuccess) {
-                moveKind = 2;
-            }
-        } else if (piece.name.equals("King")) {
-            if(moveKing(move)) {
-                moveKind = 1;
-            }
-        }
-
-        if (pawnMoveSuccess) {
-            if (!piece.name.equals("Pawn") || !(Math.abs(piece.row - move.newRow) == 2)) {
-                enPassantTile = -1;
-            }
-            if (move.captured != null && getPiece(move.captured.col, move.captured.row) != null) {
-                capture(getPiece(move.captured.col, move.captured.row));
-            }
-            setLastMove(piece.col, piece.row, move.newCol, move.newRow, move.piece);
-
-            piece.col = move.newCol;
-            piece.row = move.newRow;
-            piece.isFirstMove = false;
-            isWhiteToMove = !isWhiteToMove;
-            if (isWhiteToMove) {
-                ++numOfTurns;
-            }
-            ++numOfTurnWithoutCaptureOrPawnMove;
-        }
-        return moveKind;
-    }
-
-    public void makePlayerMove(Move move, Board realBoard) {
-        Piece piece = getPiece(move.piece.col, move.piece.row);
-        boolean pawnMoveSuccess = true;
-        if (piece.name.equals("Pawn")) {
-            pawnMoveSuccess = movePlayerPawn(move, realBoard);
-        } else if (piece.name.equals("King")) {
-            realBoard.moveKing(move);
-        }
-
-        if (pawnMoveSuccess) {
-            if (!piece.name.equals("Pawn") || !(Math.abs(piece.row - move.newRow) == 2)) {
-                enPassantTile = -1;
-            }
-            if (move.captured != null && getPiece(move.captured.col, move.captured.row) != null) {
-                capture(getPiece(move.captured.col, move.captured.row));
-            }
-            setLastMove(piece.col, piece.row, move.newCol, move.newRow, move.piece);
-
-            piece.col = move.newCol;
-            piece.row = move.newRow;
-            piece.isFirstMove = false;
-            isWhiteToMove = !isWhiteToMove;
-            if (isWhiteToMove) {
-                ++numOfTurns;
-            }
-            ++numOfTurnWithoutCaptureOrPawnMove;
-        }
-    }
-
-    public boolean moveKing(Move move) {
-        if (Math.abs(move.piece.col - move.newCol) == 2) {
-            Piece rook;
-            int rookEndCol;
-            if (move.piece.col < move.newCol) {
-                rook = getPiece(7, move.piece.row);
-                rookEndCol = 5;
-            } else {
-                rook = getPiece(0, move.piece.row);
-                rookEndCol = 3;
-            }
-
-            move.piece.col = move.newCol;
-            move.piece.row = move.newRow;
-            rook.col = rookEndCol;
-            rook.row = move.newRow;
-            return true;
-        }
-        return false;
-    }
-
-    public boolean moveEnginePawn(Move move, String promotionChoice) {
-        // en passant:
-        int colorIndex = move.piece.isWhite ? 1 : -1;
-
-        if (getTileNum(move.newCol, move.newRow) == enPassantTile) {
-            move.captured = getPiece(move.newCol, move.newRow + colorIndex);
-        }
-        if (Math.abs(move.piece.row - move.newRow) == 2) {
-            enPassantTile = getTileNum(move.newCol, move.newRow + colorIndex);
-        } else {
-            enPassantTile = -1;
-        }
-
-        // promotions:
-        colorIndex = move.piece.isWhite ? 0 : 7;
-        if (move.newRow == colorIndex) {
-            promotePawnTo(move, promotionChoice);
-        }
-        numOfTurnWithoutCaptureOrPawnMove = -1;
-        return true;
-    }
-
-    public boolean movePlayerPawn(Move move, Board realBoard) {
-        // en passant:
-        int colorIndex = move.piece.isWhite ? 1 : -1;
-
-        if (getTileNum(move.newCol, move.newRow) == enPassantTile) {
-            move.captured = getPiece(move.newCol, move.newRow + colorIndex);
-        }
-        if (Math.abs(move.piece.row - move.newRow) == 2) {
-            enPassantTile = getTileNum(move.newCol, move.newRow + colorIndex);
-        } else {
-            enPassantTile = -1;
-        }
-
-        // promotions:
-        colorIndex = move.piece.isWhite ? 0 : 7;
-        if (move.newRow == colorIndex) {
-            realBoard.promotePawn(move);
-            promotePawnTo(move, realBoard.promotionChoice);
-        }
-        numOfTurnWithoutCaptureOrPawnMove = -1;
-        return true;
-    }
-
-    public void promotePawnTo(Move move, String choice) {
-        Piece piece = getPiece(move.piece.col, move.piece.row);
-        switch (choice) {
-            case "q":
-                pieceList.add(new Queen(this, move.newCol, move.newRow, piece.isWhite));
-                break;
-            case "r":
-                pieceList.add(new Rook(this, move.newCol, move.newRow, piece.isWhite));
-                break;
-            case "b":
-                pieceList.add(new Bishop(this, move.newCol, move.newRow, piece.isWhite));
-                break;
-            case "n":
-                pieceList.add(new Knight(this, move.newCol, move.newRow, piece.isWhite));
-                break;
-        }
-        capture(piece);
-    }
-
-
-
 
 }
