@@ -39,6 +39,7 @@ public class BoardState {
         this.fenCurrentPosition = fenCurrentPosition;
         loadPiecesFromFen(fenCurrentPosition);
         setLastMove(lastMove);
+        System.out.println(BoardState.numOfNodes);
         ++BoardState.numOfNodes;
     }
 
@@ -154,14 +155,11 @@ public class BoardState {
 
     // גטרים לכלים על הלוח
     public Piece getPiece(int col, int row) {
-
         for (Piece piece : pieceList) {
             if (piece.col == col && piece.row == row) {
                 return piece;
             }
         }
-
-
         return null;
     }
 
@@ -429,7 +427,7 @@ public class BoardState {
         return 0;
     }
 
-    String makeMoveAndGetFen(Move move) {
+    public String makeMoveAndGetFen(Move move) {
         String newFen = null;
         String tempFen = convertPiecesToFEN();
         Piece piece = getPiece(move.piece.col, move.piece.row);
@@ -541,6 +539,38 @@ public class BoardState {
     public void capture(Piece piece) {
         pieceList.remove(piece);
         numOfTurnWithoutCaptureOrPawnMove = 0;
+    }
+
+    // ביצוע מהלך אמיתי
+    public void makeMove(Move move) {
+        System.out.printf("\nMove: %d, %d to %d, %d\n\n", move.piece.col, move.piece.row, move.newCol, move.newRow);
+        Piece piece = getPiece(move.piece.col, move.piece.row);
+        if (piece == null) {
+            return;
+        }
+        boolean pawnMoveSuccess = true;
+        if (piece.name.equals("Pawn")) {
+            pawnMoveSuccess = movePawnForClone(move);
+        } else if (piece.name.equals("King")) {
+            moveKingForClone(move);
+        }
+
+        if (pawnMoveSuccess) {
+            if (!piece.name.equals("Pawn") || !(Math.abs(piece.row - move.newRow) == 2)) {
+                enPassantTile = -1;
+            }
+            if (move.captured != null && getPiece(move.captured.col, move.captured.row) != null) {
+                capture(getPiece(move.captured.col, move.captured.row));
+            }
+            piece.col = move.newCol;
+            piece.row = move.newRow;
+            isWhiteToMove = !isWhiteToMove;
+            if (isWhiteToMove) {
+                ++numOfTurns;
+            }
+            ++numOfTurnWithoutCaptureOrPawnMove;
+            //setLastMove(move);
+        }
     }
 
 }

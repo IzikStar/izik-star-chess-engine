@@ -32,7 +32,7 @@ public class myEngine {
 
     // making move methods
     public void makeMove(String fen, Board realBoard) {
-        Board.selectedPiece = null;
+        // Board.selectedPiece = null;
         thread = new Thread(() -> {
             try {
                 Thread.sleep(waitTime);
