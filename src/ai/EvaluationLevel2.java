@@ -24,4 +24,5 @@ public class EvaluationLevel2 {
     private static int getPieceValue(Piece piece) {
         return (int) piece.value;
     }
+
 }

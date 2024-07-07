@@ -2,6 +2,7 @@ package ai;
 
 import main.Board;
 import main.Move;
+import main.setting.ChoosePlayFormat;
 import main.setting.SettingPanel;
 import pieces.Piece;
 import java.util.ArrayList;
@@ -22,7 +23,7 @@ public class myEngine {
 
     // for making move methods:
     public Piece chosenPiece;
-    private static final int DEPTH = 1;
+    private static final int DEPTH = 2;
 
     // constructor:
     public myEngine(BoardState board) {
@@ -53,6 +54,7 @@ public class myEngine {
                 //Board.input.selectedY = -1;
                 alreadyChecked.clear();
             } else {
+                System.out.println("retrying...");
                 makeMove(fen, realBoard);
             }
         });
@@ -143,8 +145,7 @@ public class myEngine {
 
     // other engine methods
     private Move getBestMove() {
-        Move bestMove = null;
-
+        Move bestMove = Minimax.getBestMove(board, SettingPanel.skillLevel/2);
         return bestMove;
     }
 

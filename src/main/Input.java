@@ -206,7 +206,7 @@ public class Input extends MouseAdapter {
                         });
                     } else {
                         if ((ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != board.state.getIsWhiteToMove())) {
-                            if (SettingPanel.skillLevel > 1) {
+                            if (SettingPanel.skillLevel > 6) {
                                 makeEngineMove();
                             } /*else if (SettingPanel.skillLevel > 0){
                                 level2Engine.makePlayerMove(board);
@@ -289,7 +289,7 @@ public class Input extends MouseAdapter {
                     } else {
                         board.repaint();
                         if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != board.state.getIsWhiteToMove()) {
-                            if (SettingPanel.skillLevel > 1) {
+                            if (SettingPanel.skillLevel > 6) {
                                 makeEngineMove();
                             } /*else if (SettingPanel.skillLevel > 0){
                                 level2Engine.makePlayerMove(board);

@@ -5,6 +5,7 @@ import main.Board;
 import main.CheckScanner;
 import main.Move;
 import main.setting.ChoosePlayFormat;
+import main.setting.SettingPanel;
 import pieces.*;
 
 import java.util.ArrayList;
@@ -428,7 +429,7 @@ public class BoardState {
         return 0;
     }
 
-    private String makeMoveAndGetFen(Move move) {
+    String makeMoveAndGetFen(Move move) {
         String newFen = null;
         String tempFen = convertPiecesToFEN();
         Piece piece = getPiece(move.piece.col, move.piece.row);
@@ -488,15 +489,11 @@ public class BoardState {
             if (!ChoosePlayFormat.isOnePlayer || ChoosePlayFormat.isPlayingWhite == isWhiteToMove) { // כאן אמור להיות אם זה שני שחקנים
                 return false;
             }
-//            else {
-//                if (SettingPanel.skillLevel != 0) {
-//                    promotePawnToForClone(move, input.engine.promotionChoice);
-//                }
-//                else {
-//                    promotePawnToForClone(move, input.randomMoveEngine.promotionChoice);
-//                }
-//                pieceList.remove(move.piece);
-//            }
+            else {
+                String promotionChoice = "q"; // צריך לקבל את זה ממינימקס
+                promotePawnToForClone(move, promotionChoice);
+                pieceList.remove(move.piece);
+            }
         }
         numOfTurnWithoutCaptureOrPawnMove = -1;
         return true;
