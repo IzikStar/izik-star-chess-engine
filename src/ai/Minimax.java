@@ -14,6 +14,8 @@ public class Minimax {
         double bestValue = Double.NEGATIVE_INFINITY;
         double alpha = Double.NEGATIVE_INFINITY;
         double beta = Double.POSITIVE_INFINITY;
+        String tempFen = board.convertPiecesToFEN();
+        //BoardState cloneBoard = new BoardState(tempFen, board.lastMove);
         BoardState cloneBoard = board;
         String fen = cloneBoard.convertPiecesToFEN();
 
@@ -48,11 +50,12 @@ public class Minimax {
                         board.makeMove(move);
                         double boardValue = minimax(board, depth - 1, false, alpha, beta);
                         board.loadPiecesFromFen(fen);
-                        System.out.printf("Maximizing: %d, %d to %d, %d, Value: %.2f, Alpha: %.2f, Beta: %.2f", move.piece.col, move.piece.row, move.newCol, move.newRow, boardValue, alpha, beta); // בדיקת ערכים
+                        System.out.printf("Maximizing: %d, %d to %d, %d, Value: %.2f, Alpha: %.2f, Beta: %.2f\n", move.piece.col, move.piece.row, move.newCol, move.newRow, boardValue, alpha, beta); // בדיקת ערכים
                         bestValue = Math.max(bestValue, boardValue);
-                        alpha = Math.max(alpha, boardValue);
+                        alpha = Math.max(alpha, bestValue); // עדכון ערך alpha
                         if (alpha >= beta) {
-                            System.out.printf("Pruning at move: %d, %d to %d, %d, Alpha: %.2f, Beta: %.2f", move.piece.col, move.piece.row, move.newCol, move.newRow, alpha, beta); // בדיקת גיזום
+                            System.out.printf("Pruning at move: %d, %d to %d, %d, Alpha: %.2f, Beta: %.2f\n", move.piece.col, move.piece.row, move.newCol, move.newRow, alpha, beta); // בדיקת גיזום
+                            board.loadPiecesFromFen(fen); // טעינת מצב הלוח המקורי
                             break; // אלפא-בטא גיזום
                         }
                     }
@@ -68,11 +71,12 @@ public class Minimax {
                         board.makeMove(move);
                         double boardValue = minimax(board, depth - 1, true, alpha, beta);
                         board.loadPiecesFromFen(fen);
-                        System.out.printf("Minimizing: %d, %d to %d, %d, Value: %.2f, Alpha: %.2f, Beta: %.2f", move.piece.col, move.piece.row, move.newCol, move.newRow, boardValue, alpha, beta); // בדיקת ערכים
+                        System.out.printf("Minimizing: %d, %d to %d, %d, Value: %.2f, Alpha: %.2f, Beta: %.2f\n", move.piece.col, move.piece.row, move.newCol, move.newRow, boardValue, alpha, beta); // בדיקת ערכים
                         bestValue = Math.min(bestValue, boardValue);
-                        beta = Math.min(beta, boardValue);
+                        beta = Math.min(beta, bestValue); // עדכון ערך beta
                         if (alpha >= beta) {
-                            System.out.printf("Pruning at %d, %d to %d, %d, Value: %.2f, Alpha: %.2f, Beta: %.2f", move.piece.col, move.piece.row, move.newCol, move.newRow, alpha, beta); // בדיקת גיזום
+                            System.out.printf("Pruning at move: %d, %d to %d, %d, Alpha: %.2f, Beta: %.2f\n", move.piece.col, move.piece.row, move.newCol, move.newRow, alpha, beta); // בדיקת גיזום
+                            board.loadPiecesFromFen(fen); // טעינת מצב הלוח המקורי
                             break; // אלפא-בטא גיזום
                         }
                     }
@@ -81,5 +85,6 @@ public class Minimax {
             return bestValue;
         }
     }
+
 
 }

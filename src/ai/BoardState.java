@@ -1,11 +1,9 @@
 package ai;
 
 
-import main.Board;
 import main.CheckScanner;
 import main.Move;
 import main.setting.ChoosePlayFormat;
-import main.setting.SettingPanel;
 import pieces.*;
 
 import java.util.ArrayList;

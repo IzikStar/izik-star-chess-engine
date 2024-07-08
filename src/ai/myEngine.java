@@ -35,7 +35,9 @@ public class myEngine {
         // Board.selectedPiece = null;
         thread = new Thread(() -> {
             try {
-                Thread.sleep(waitTime);
+                if (SettingPanel.skillLevel == 1) {
+                    Thread.sleep(waitTime);
+                }
                 if (Thread.currentThread().isInterrupted()) {
                     return; // בדיקה אם ה-Thread הופסק
                 }
@@ -45,6 +47,7 @@ public class myEngine {
             this.fen = fen;
             Move move = chooseMethod();
             while (move == null) {
+
                 move = chooseMethod();
             }
             Move tempMove = move;

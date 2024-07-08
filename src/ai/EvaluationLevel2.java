@@ -1,6 +1,5 @@
 package ai;
 
-import main.Board;
 import main.setting.ChoosePlayFormat;
 import pieces.Piece;
 
@@ -13,10 +12,10 @@ public class EvaluationLevel2 {
         for (Piece piece : board.getAllPieces()) {
             if (piece.isWhite != ChoosePlayFormat.isPlayingWhite) {
                 score += getPieceValue(piece);
-                score += piece.getValidMoves(board).size() * 0.25 * (piece.name.equals("King") ? 0 : getPieceValue(piece));
+                score += piece.getValidMoves(board).size() * 0.10 * (piece.name.equals("King") ? 0 : getPieceValue(piece));
             } else {
                 score -= getPieceValue(piece);
-                score += piece.getValidMoves(board).size() * 0.25 * (piece.name.equals("King") ? 0 : getPieceValue(piece));
+                score -= piece.getValidMoves(board).size() * 0.10 * (piece.name.equals("King") ? 0 : getPieceValue(piece));
             }
         }
 

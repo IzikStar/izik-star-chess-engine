@@ -43,6 +43,7 @@ public class Board extends JPanel {
 
     // הצגת רמזים
     int hintFromC = -1, hintFromR = -1, hintToC = -1, hintToR = -1;
+    int fromC = -1, fromR = -1, toC = -1, toR = -1;
     public String promotionChoice;
 
     // constructor
@@ -57,7 +58,7 @@ public class Board extends JPanel {
         this.input.randomMoveEngine.setBoard(state);
         loadPiecesFromFen(state.fenCurrentPosition);
 
-        Timer animationTimer = new Timer(5, new ActionListener() {
+        Timer animationTimer = new Timer(2, new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (animation != null && animation.isFinished()) {
@@ -82,12 +83,11 @@ public class Board extends JPanel {
         }
 
         // paint last move
-        if (state.getLastMove() != null) {
-            g.setColor(new Color(72, 255, 0, 158));
-            g.fillRect(getXFromCol(state.getLastMove().piece.col), getYFromRow(state.getLastMove().piece.row), tileSize, tileSize);
-            g.setColor(new Color(55, 255, 0, 186));
-            g.fillRect(getXFromCol(state.getLastMove().newCol), getYFromRow(state.getLastMove().newRow), tileSize, tileSize);
-        }
+        // System.out.println(fromC + " ," + fromR + " : " + toC + " ," + toR);
+        g.setColor(new Color(72, 255, 0, 158));
+        g.fillRect(getXFromCol(fromC), getYFromRow(fromR), tileSize, tileSize);
+        g.setColor(new Color(55, 255, 0, 186));
+        g.fillRect(getXFromCol(toC), getYFromRow(toR), tileSize, tileSize);
 
         // paint engine hint
         g.setColor(new Color(0, 255, 215, 158));
@@ -213,7 +213,6 @@ public class Board extends JPanel {
         repaint();
     }
 
-
     public void makeMove(Move move) {
         Piece piece = state.getPiece(move.piece.col, move.piece.row);
         boolean pawnMoveSuccess = true;
@@ -224,6 +223,10 @@ public class Board extends JPanel {
         }
 
         if (pawnMoveSuccess) {
+            fromC = piece.col;
+            fromR = piece.row;
+            toC = move.newCol;
+            toR = move.newRow;
             if (!piece.name.equals("Pawn") || !(Math.abs(piece.row - move.newRow) == 2)) {
                 state.enPassantTile = -1;
             }
@@ -231,6 +234,19 @@ public class Board extends JPanel {
                 state.capture(state.getPiece(move.captured.col, move.captured.row));
             }
             state.setLastMove(piece.col, piece.row, move.newCol, move.newRow, move.piece);
+
+            if (!input.isDraggingMove) {
+                ChessAnimation moveAnimation;
+                if (ChoosePlayFormat.isPlayingWhite) {
+                    //System.out.println(piece + ", " + piece.col + ", " + piece.row  + ", " + move.newCol + ", " + move.newRow);
+                    moveAnimation = new ChessAnimation(piece, piece.col * tileSize, piece.row * tileSize,
+                            move.newCol * tileSize, move.newRow * tileSize, 500);
+                } else {
+                    moveAnimation = new ChessAnimation(piece, (cols - 1 - piece.col) * tileSize, (rows - 1 - piece.row) * tileSize,
+                            (cols - 1 - move.newCol) * tileSize, (rows - 1 - move.newRow) * tileSize, 500);
+                }
+                animations.add(moveAnimation);
+            }
 
             piece.col = move.newCol;
             piece.row = move.newRow;
@@ -247,16 +263,6 @@ public class Board extends JPanel {
         } else {
             audioPlayer.playMovingPieceSound();
         }
-
-        ChessAnimation moveAnimation;
-        if (ChoosePlayFormat.isPlayingWhite) {
-            moveAnimation = new ChessAnimation(piece, piece.col * tileSize, piece.row * tileSize,
-                    move.newCol * tileSize, move.newRow * tileSize, 500);
-        } else {
-            moveAnimation = new ChessAnimation(piece, (cols - 1 - piece.col) * tileSize, (rows - 1 - piece.row) * tileSize,
-                    (cols - 1 - move.newCol) * tileSize, (rows - 1 - move.newRow) * tileSize, 500);
-        }
-        animations.add(moveAnimation);
 
         piece.xPos = getXFromCol(move.newCol);
         piece.yPos = getYFromRow(move.newRow);
@@ -293,7 +299,9 @@ public class Board extends JPanel {
             int rookEndX = getXFromCol(rookEndCol);
             int rookEndY = getYFromRow(move.newRow);
 
-            animations.add(new ChessAnimation(move.piece, kingStartX, kingStartY, kingEndX, kingEndY, 500));
+            if (!input.isDraggingMove) {
+                animations.add(new ChessAnimation(move.piece, kingStartX, kingStartY, kingEndX, kingEndY, 500));
+            }
             animations.add(new ChessAnimation(rook, rookStartX, rookStartY, rookEndX, rookEndY, 500));
 
             king.col = move.newCol;
@@ -312,8 +320,20 @@ public class Board extends JPanel {
 
     public boolean movePawn(Move move) {
 
+        // en passant:
+        int colorIndex = move.piece.isWhite ? 1 : -1;
+
+        if (state.getTileNum(move.newCol, move.newRow) == state.enPassantTile) {
+            move.captured = state.getPiece(move.newCol, move.newRow + colorIndex);
+        }
+        if (Math.abs(move.piece.row - move.newRow) == 2) {
+            state.enPassantTile = state.getTileNum(move.newCol, move.newRow + colorIndex);
+        } else {
+            state.enPassantTile = -1;
+        }
+
         // promotions:
-        int colorIndex = move.piece.isWhite ? 0 : 7;
+        colorIndex = move.piece.isWhite ? 0 : 7;
         if (move.newRow == colorIndex) {
             if (!ChoosePlayFormat.isOnePlayer || ChoosePlayFormat.isPlayingWhite == state.getIsWhiteToMove()) { // כאן אמור להיות אם זה שני שחקנים
                 if(!promotePawn(move)) {
@@ -339,11 +359,17 @@ public class Board extends JPanel {
         String choice = promotionDialog.getSelection();
         this.promotionChoice = choice;
         if (choice != null) {
-            promotePawnTo(move, choice);
-            state.capture(move.piece);
-
-            // הוספת אנימציה להכתרת רגלי
             animation = new ChessAnimation(move.piece, move.piece.xPos, move.piece.yPos, move.piece.xPos, move.piece.yPos, 500);
+            new Thread(() -> {
+                try {
+                    Thread.sleep(500);
+                    audioPlayer.playCastlingSound();
+                } catch (InterruptedException event) {
+                    event.printStackTrace();
+                }
+                promotePawnTo(move, choice);
+                state.capture(move.piece);
+            }).start();
         } else {
             System.out.println("No selection made");
             selectedPiece.xPos = getXFromCol(selectedPiece.col);
@@ -403,6 +429,7 @@ public class Board extends JPanel {
         isGameOver = false;
         input.isStatusChanged = false;
         state.setLastMove(null);
+        fromC = -1; fromR = -1; toC = -1; toR = -1;
         hintFromC = -1; hintFromR = -1; hintToC = -1; hintToR = -1;
         Main.updateScores(0, 0);
         audioPlayer.playHintSound();
