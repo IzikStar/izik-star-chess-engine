@@ -35,7 +35,7 @@ public class myEngine {
         // Board.selectedPiece = null;
         thread = new Thread(() -> {
             try {
-                if (SettingPanel.skillLevel == 1) {
+                if (SettingPanel.skillLevel == 0) {
                     Thread.sleep(waitTime);
                 }
                 if (Thread.currentThread().isInterrupted()) {
