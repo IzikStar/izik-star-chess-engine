@@ -388,7 +388,7 @@ public class BoardState {
             piece.row = tempMovePR;
             isWhiteToMove = !isWhiteToMove;
             loadPiecesFromFen(tempFen);
-            System.out.println(tempFen);
+            //System.out.println(tempFen);
         }
         return success;
     }
@@ -552,7 +552,7 @@ public class BoardState {
     public void makeMove(Move move) {
         isLastMoveCastling = false;
         isLastMovePawn = false;
-        System.out.printf("\nMove: %d, %d to %d, %d\n\n", move.piece.col, move.piece.row, move.newCol, move.newRow);
+        // System.out.printf("\nMove: %d, %d to %d, %d\n\n", move.piece.col, move.piece.row, move.newCol, move.newRow);
         Piece piece = getPiece(move.piece.col, move.piece.row);
         if (piece == null) {
             return;
