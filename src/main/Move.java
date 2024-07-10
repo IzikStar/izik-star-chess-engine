@@ -27,6 +27,11 @@ public class Move {
         return piece;
     }
 
+    @Override
+    public String toString() {
+        return oldCol + ", " + oldRow + " to " + newCol + ", " + newRow;
+    }
+
 
 //    public int getRow() {
 //        return row;
