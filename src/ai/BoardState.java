@@ -131,22 +131,24 @@ public class BoardState {
         return lastMove;
     }
 
-    private void setChildNodes() {
-        if (childNodes != null) {
-            childNodes.clear();
-        }
-        for (Move move : getAllPossibleMoves()) {
-            BoardState boardState = new BoardState(makeMoveAndGetFen(move), move);
-            childNodes.add(boardState);
-        }
-    }
+//    private void setChildNodes() {
+//        if (childNodes != null) {
+//            childNodes.clear();
+//        }
+//        for (Move move : getAllPossibleMovesForASide()) {
+//            BoardState boardState = new BoardState(makeMoveAndGetFen(move), move);
+//            childNodes.add(boardState);
+//        }
+//    }
 
-    public Move[] getAllPossibleMoves() {
+    public Move[] getAllPossibleMovesForASide() {
         ArrayList<Move> possibleMoves = new ArrayList<>();
         for (Piece piece : pieceList) {
-            for (Move move : piece.getValidMoves(this)) {
-                if (makeMoveToCheckIt(move)) {
-                    possibleMoves.add(move);
+            if (piece.isWhite == isWhiteToMove) {
+                for (Move move : piece.getValidMoves(this)) {
+                    if (makeMoveToCheckIt(move)) {
+                        possibleMoves.add(move);
+                    }
                 }
             }
         }

@@ -27,6 +27,7 @@ public class Input extends MouseAdapter {
     myEngine randomMoveEngine;
 
     public boolean isDraggingMove = false;
+    private int switchToStockFish = 6;
 
     public Input(Board board) {
         this.board = board;
@@ -212,7 +213,7 @@ public class Input extends MouseAdapter {
                         });
                     } else {
                         if ((ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != board.state.getIsWhiteToMove())) {
-                            if (SettingPanel.skillLevel > 4) {
+                            if (SettingPanel.skillLevel > switchToStockFish) {
                                 makeEngineMove();
                             } /*else if (SettingPanel.skillLevel > 0){
                                 level2Engine.makePlayerMove(board);
@@ -297,7 +298,7 @@ public class Input extends MouseAdapter {
                     } else {
                         board.repaint();
                         if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != board.state.getIsWhiteToMove()) {
-                            if (SettingPanel.skillLevel > 4) {
+                            if (SettingPanel.skillLevel > switchToStockFish) {
                                 makeEngineMove();
                             } else {
                                 randomMoveEngine.makeMove(board.state.convertPiecesToFEN(), board);

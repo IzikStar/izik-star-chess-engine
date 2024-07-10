@@ -70,7 +70,7 @@ public class EvaluationLevel2 {
                 moveScore += threatValue;
             }
         } else if (!sameTeam) {
-            moveScore += 3;
+            moveScore += 1.5;
         } else {
             double defendingValue = capturedValue * 0.1 - pieceValue * 0.05;
             if (defendingValue > 0) {
