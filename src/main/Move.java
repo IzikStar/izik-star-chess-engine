@@ -29,7 +29,7 @@ public class Move {
 
     @Override
     public String toString() {
-        return oldCol + ", " + oldRow + " to " + newCol + ", " + newRow;
+        return "[" + oldCol + ", " + oldRow + " to " + newCol + ", " + newRow + "]";
     }
 
 

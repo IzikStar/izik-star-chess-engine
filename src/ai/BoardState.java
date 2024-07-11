@@ -155,6 +155,20 @@ public class BoardState {
         return possibleMoves.toArray(new Move[0]);
     }
 
+    private Move[] getAllPossibleMoves() {
+        ArrayList<Move> possibleMoves = new ArrayList<>();
+        for (Piece piece : pieceList) {
+            for (Move move : piece.getValidMoves(this)) {
+                if (makeMoveToCheckIt(move)) {
+                    possibleMoves.add(move);
+                }
+            }
+        }
+        return possibleMoves.toArray(new Move[0]);
+    }
+
+
+
 
     // גטרים לכלים על הלוח
     public Piece getPiece(int col, int row) {
@@ -608,6 +622,17 @@ public class BoardState {
 
     }
 
+
+    public int getStatus() {
+        if (checkScanner.isGameOver(findKing(isWhiteToMove))) {
+            return 0;
+        }
+        return 1;
+    }
+
+    public boolean getIsCheck() {
+        return checkScanner.isCheckingForEvaluation(this);
+    }
 
 }
 

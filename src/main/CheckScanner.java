@@ -157,20 +157,52 @@ public class CheckScanner {
         //System.out.println(king + " " + kingCol + ", " + kingRow);
         for (int i = 0; i < 8; i++) {
             for (int j = 0; j < 8; j++) {
+                //System.out.print("1");
                 if (board.getPiece(i, j) != null) {
+                    //System.out.print("2");
                     Piece piece = board.getPiece(i, j);
                     if (piece.isWhite == board.getIsWhiteToMove()) {
-                        if (!board.sameTeam(piece, king)) {
-                            if (piece.isValidMovement(kingCol, kingRow)) {
-                                if (!piece.moveCollidesWithPiece(kingCol, kingRow)) {
-                                    return true;
-                                }
+                        //System.out.print("3" + new Move(board, piece, kingCol, kingRow));
+                        if (piece.isValidMovement(kingCol, kingRow)) {
+                            //System.out.print("4");
+                            if (!piece.moveCollidesWithPiece(kingCol, kingRow)) {
+                                //System.out.println("5");
+                                return true;
                             }
                         }
                     }
                 }
             }
         }
+        //System.out.println(" ");
+        return false;
+    }
+
+    public boolean isCheckingForEvaluation(BoardState board) {
+        Piece king = board.findKing(board.getIsWhiteToMove());
+        int kingCol = king.col;
+        int kingRow = king.row;
+        //System.out.println(king + " " + kingCol + ", " + kingRow);
+        for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 8; j++) {
+                //System.out.print("1");
+                if (board.getPiece(i, j) != null) {
+                    //System.out.print("2");
+                    Piece piece = board.getPiece(i, j);
+                    if (piece.isWhite == board.getIsWhiteToMove()) {
+                        System.out.print("3" + new Move(board, piece, kingCol, kingRow));
+                        if (piece.isValidMovement(kingCol, kingRow)) {
+                            System.out.print("4");
+                            if (!piece.moveCollidesWithPiece(kingCol, kingRow)) {
+                                System.out.println("5");
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        System.out.println(" ");
         return false;
     }
 

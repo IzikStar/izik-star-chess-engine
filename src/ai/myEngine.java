@@ -148,8 +148,8 @@ public class myEngine {
 
     // other engine methods
     private Move getBestMove() {
-        Move bestMove = Minimax.getBestMove(board, SettingPanel.skillLevel/2);
-        return bestMove;
+        Minimax.maxDepth = SettingPanel.skillLevel / 2;
+        return Minimax.getBestMove(board);
     }
 
     // board setter

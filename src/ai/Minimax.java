@@ -13,8 +13,9 @@ public class Minimax {
 
     private static final Random random = new Random();
     public static ArrayList<Move> bestMoves;
+    public static int maxDepth;
 
-    public static Move getBestMove(BoardState board, int maxDepth) {
+    public static Move getBestMove(BoardState board) {
         if (ChoosePlayFormat.isPlayingWhite != board.getIsWhiteToMove()) {
             BoardState.numOfNodes = 1;
             String tempFen = board.convertPiecesToFEN();
@@ -30,11 +31,14 @@ public class Minimax {
                 timeElapsed = Duration.between(start, end).toMillis(); // זמן במילישניות
                 System.out.printf("Depth: %d, Best Move: %s, Best Value: %.2f, Time Spend: %d ms\n", depth, result.move, result.value, timeElapsed);
 
-                System.out.println("best moves: " + bestMoves);
-                int numOfMove = random.nextInt(bestMoves.size());
-                if (bestMoves.get(numOfMove) != null) {
-                    result.move = bestMoves.get(numOfMove);
+                if (depth == maxDepth) {
+                    System.out.println("best moves: " + bestMoves);
+                    int randomIndex = random.nextInt(bestMoves.size());
+                    if (bestMoves.get(randomIndex) != null) {
+                        result.move = bestMoves.get(randomIndex);
+                    }
                 }
+
                 if (result.move != null) {
                     bestMove = result.move;
                 }
@@ -45,10 +49,10 @@ public class Minimax {
     }
 
     private static MinimaxResult minimax(BoardState board, int depth, boolean isMaximizingPlayer, double alpha, double beta) {
-        if (depth == 0) {
+        if (depth == 0 || board.getStatus() == 0) {
             return new MinimaxResult(null, EvaluationLevel2.evaluate(board));
         }
-        boolean lastDepth = depth == 1;
+        boolean lastDepth = depth == maxDepth;
         if (lastDepth) {
             bestMoves = new ArrayList<>();
         }
@@ -71,7 +75,7 @@ public class Minimax {
                             board.loadPiecesFromFen(fen);
                             end = Instant.now(); // סיום מדידת זמן
                             timeElapsed = Duration.between(start, end).toMillis(); // זמן במילישניות
-                            System.out.printf("Maximizing: %d, %d to %d, %d, Value: %.2f, Alpha: %.2f, Beta: %.2f, Time: %d ms\n", move.piece.col, move.piece.row, move.newCol, move.newRow, result.value, alpha, beta, timeElapsed);
+                            System.out.printf("Maximizing: %s, Value: %.2f, Alpha: %.2f, Beta: %.2f, Time: %d ms\n", move, result.value, alpha, beta, timeElapsed);
                             if (result.value > bestValue) {
                                 bestValue = result.value;
                                 bestMove = move;
@@ -85,7 +89,7 @@ public class Minimax {
                             }
                             alpha = Math.max(alpha, bestValue);
                             if (beta <= alpha) {
-                                System.out.printf("Pruning at move: %d, %d to %d, %d, Alpha: %.2f, Beta: %.2f\n", move.piece.col, move.piece.row, move.newCol, move.newRow, alpha, beta);
+                                System.out.printf("Pruning at move: %s, Alpha: %.2f, Beta: %.2f\n", move, alpha, beta);
                                 break; // אלפא-בטא גיזום
                             }
                         }
@@ -105,7 +109,7 @@ public class Minimax {
                             board.loadPiecesFromFen(fen);
                             end = Instant.now(); // סיום מדידת זמן
                             timeElapsed = Duration.between(start, end).toMillis(); // זמן במילישניות
-                            System.out.printf("Minimizing: %d, %d to %d, %d, Value: %.2f, Alpha: %.2f, Beta: %.2f, Time: %d ms\n", move.piece.col, move.piece.row, move.newCol, move.newRow, result.value, alpha, beta, timeElapsed);
+                            System.out.printf("Minimizing: %s, Value: %.2f, Alpha: %.2f, Beta: %.2f, Time: %d ms\n", move, result.value, alpha, beta, timeElapsed);
                             if (result.value < bestValue) {
                                 bestValue = result.value;
                                 bestMove = move;
@@ -119,7 +123,7 @@ public class Minimax {
                             }
                             beta = Math.min(beta, bestValue);
                             if (beta <= alpha) {
-                                System.out.printf("Pruning at move: %d, %d to %d, %d, Alpha: %.2f, Beta: %.2f\n", move.piece.col, move.piece.row, move.newCol, move.newRow, alpha, beta);
+                                System.out.printf("Pruning at move: %s, Alpha: %.2f, Beta: %.2f\n", move, alpha, beta);
                                 break; // אלפא-בטא גיזום
                             }
                         }
