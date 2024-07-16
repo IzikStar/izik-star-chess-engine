@@ -1,17 +1,17 @@
-package ai;
+package ai.BitBoard;
 
+import ai.BoardState;
 import pieces.Piece;
 import main.Debug;
 
 import java.util.ArrayList;
-import java.util.Collection;
 
 public class BitBoard {
     // state arguments
     protected long whiteKings = 0x0, whiteQueens = 0x0, whiteRooks = 0x0, whiteBishops = 0x0, whiteKnights = 0x0, whitePawns = 0x0;
     protected long blackKings = 0x0, blackQueens = 0x0, blackRooks = 0x0, blackBishops = 0x0, blackKnights = 0x0, blackPawns = 0x0;
-    protected long whitePieces = 0x0, blackPieces = 0x0;
-    protected long enPassantTile = 0x0;
+    protected long whitePieces, blackPieces;
+    protected long enPassantTile;
     private boolean canWhiteCastleKingSide, canWhiteCastleQueenSide, canBlackCastleKingSide, canBlackCastleQueenSide;
     protected boolean isWhiteToMove;
     protected int numOfTurns, numOfTurnsWithoutCaptureOrPawnMove;
@@ -34,7 +34,7 @@ public class BitBoard {
 
     // constructors
     public BitBoard(BoardState boardState) {
-        for (Piece piece : boardState.pieceList) {
+        for (Piece piece : boardState.getAllPieces()) {
             int tile = boardState.getTileNum(piece.col, piece.row);
             long tileNum = 0x1;
             tileNum <<= tile;
@@ -237,11 +237,11 @@ public class BitBoard {
             else if (numOfPiece == 3) {
                 wR = newPosition;
                 // checking if kingSide rook left its origin tile and cancel castling rights for that side:
-                if (K && (0x0000000000000001L & newPosition) == 0) {
+                if (K && (0x1L & newPosition) == 0) {
                     K = false;
                 }
                 // checking if queenSide rook left its origin tile and cancel castling rights for that side:
-                else if (Q && (0x0000000000000080L & newPosition) == 0) {
+                else if (Q && (0x80L & newPosition) == 0) {
                     Q = false;
                 }
             }
