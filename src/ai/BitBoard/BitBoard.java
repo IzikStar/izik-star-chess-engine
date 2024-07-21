@@ -15,22 +15,6 @@ public class BitBoard {
     private boolean canWhiteCastleKingSide, canWhiteCastleQueenSide, canBlackCastleKingSide, canBlackCastleQueenSide;
     protected boolean isWhiteToMove;
     protected int numOfTurns, numOfTurnsWithoutCaptureOrPawnMove;
-    // rows and cols
-    public static final long BACK_RANK = 0xFF00000000000000L;      // השורה השמינית (אחורית)
-    public static final long FIRST_RANK = 0x00000000000000FFL;     // השורה הראשונה (קדמית)
-    public static final long LEFT_FILE = 0x8080808080808080L;      // העמודה השמאלית
-    public static final long RIGHT_FILE = 0x0101010101010101L;     // העמודה הימנית
-    // חצאי מסגרות של הלוח
-    public static final long BACK_LEFT_CORNER = BACK_RANK | LEFT_FILE;  // שורה שמינית ועמודה שמאלית
-    public static final long BACK_RIGHT_CORNER = BACK_RANK | RIGHT_FILE; // שורה שמינית ועמודה ימנית
-    public static final long FIRST_LEFT_CORNER = FIRST_RANK | LEFT_FILE; // שורה ראשונה ועמודה שמאלית
-    public static final long FIRST_RIGHT_CORNER = FIRST_RANK | RIGHT_FILE; // שורה ראשונה ועמודה ימנית
-    // diagonals
-    public static final long BACK_LEFT_DIAGONAL = 0x8040201008040201L;  // אלכסון אחורי שמאלי (A8-H1)
-    public static final long BACK_RIGHT_DIAGONAL = 0x0102040810204080L; // אלכסון אחורי ימני (A1-H8)
-    public static final long FIRST_LEFT_DIAGONAL = 0x0102040810204080L;  // אלכסון קדמי שמאלי (A1-H8)
-    public static final long FIRST_RIGHT_DIAGONAL = 0x8040201008040201L; // אלכסון קדמי ימני (H1-A8)
-
 
     // constructors
     public BitBoard(BoardState boardState) {
@@ -153,42 +137,6 @@ public class BitBoard {
         this.canBlackCastleQueenSide = canBlackCastleQueenSide;
     }
 
-    // operations:
-    // Set a bit at a specific position
-    public void setBit(long bitboard, int position) {
-        bitboard |= (1L << position);
-    }
-    // Clear a bit at a specific position
-    public void clearBit(long bitboard, int position) {
-        bitboard &= ~(1L << position);
-    }
-    // Toggle a bit at a specific position
-    public void toggleBit(long bitboard, int position) {
-        bitboard ^= (1L << position);
-    }
-    // Check if a bit at a specific position is set
-    public boolean isBitSet(long bitboard, int position) {
-        return (bitboard & (1L << position)) != 0;
-    }
-    // Method to check if the result has exactly two 1-bits that are 16 positions apart
-    public static boolean isShiftBy16(long bitboard) {
-        // Check if the number has exactly two 1-bits
-        if (Long.bitCount(bitboard) != 2) {
-            return false;
-        }
-
-        // Check if the number is of the form 1 << x | 1 << (x + 16)
-        while (bitboard != 0 && (bitboard & 1) == 0) {
-            bitboard >>= 1;
-        }
-
-        // Now the least significant bit is set, shift right by 16 and check the next bit
-        return (bitboard >> 1) == (1L << 15);
-    }
-    // Print the bitboard as a binary string
-    public void printBitboard(long bitboard) {
-        System.out.println(Long.toBinaryString(bitboard));
-    }
 
     // move details:
     public boolean sameTeem(long bitBoard) {
@@ -223,9 +171,9 @@ public class BitBoard {
             if (numOfPiece == 6 /*&& (whitePawns ^ newPosition) != 0*/) {
                 nOTWCOPM = 0;
                 // pawn 2 square move:
-                if(isShiftBy16(whitePawns ^ newPosition)) {
+                if(BitOperations.isShiftBy16(whitePawns ^ newPosition)) {
                     // "whitePawns ^ newPosition" is the pawn how moved in the start and the end location, ">>8" move it to first row and third row, then we get only third row.
-                    ePT = FIRST_RANK ^ (whitePawns ^ newPosition >> 8);
+                    ePT = BoardParts.FIRST_RANK ^ (whitePawns ^ newPosition >> 8);
                 }
                 wP = newPosition;
             }
@@ -237,11 +185,11 @@ public class BitBoard {
             else if (numOfPiece == 3) {
                 wR = newPosition;
                 // checking if kingSide rook left its origin tile and cancel castling rights for that side:
-                if (K && (0x1L & newPosition) == 0) {
+                if (K && (BoardParts.Tile.A8.position & newPosition) == 0) {
                     K = false;
                 }
                 // checking if queenSide rook left its origin tile and cancel castling rights for that side:
-                else if (Q && (0x80L & newPosition) == 0) {
+                else if (Q && (BoardParts.Tile.A1.position & newPosition) == 0) {
                     Q = false;
                 }
             }
@@ -255,7 +203,7 @@ public class BitBoard {
             }
         }
         else {
-            // update num of turn because the black turn just ended:
+            // update name of turn because the black turn just ended:
             nOT++;
             // capture:
             if((newPosition & whitePieces) != 0) {
@@ -267,9 +215,9 @@ public class BitBoard {
             if (numOfPiece == 6 /*&& (whitePawns ^ newPosition) != 0*/) {
                 nOTWCOPM = 0;
                 // pawn 2 square move:
-                if(isShiftBy16(blackPawns ^ newPosition)) {
+                if(BitOperations.isShiftBy16(blackPawns ^ newPosition)) {
                     // "whitePawns ^ newPosition" is the pawn how moved in the start and the end location, ">>8" move it to first row and third row, then we get only third row.
-                    ePT = BACK_RANK ^ (blackPawns ^ newPosition << 8);
+                    ePT = BoardParts.EIGHTH_RANK ^ (blackPawns ^ newPosition << 8);
                 }
                 bP = newPosition;
             }
@@ -280,11 +228,11 @@ public class BitBoard {
             // rook:
             else if (numOfPiece == 3) {
                 // checking if kingSide rook left its origin tile and cancel castling rights for that side:
-                if (k && (0x0100000000000000L & newPosition) == 0) {
+                if (k && (BoardParts.Tile.H8.position & newPosition) == 0) {
                     k = false;
                 }
                 // checking if queenSide rook left its origin tile and cancel castling rights for that side:
-                else if (q && (0x8000000000000000L & newPosition) == 0) {
+                else if (q && (BoardParts.Tile.H1.position & newPosition) == 0) {
                     q = false;
                 }
                 bR = newPosition;
@@ -337,7 +285,7 @@ public class BitBoard {
         ArrayList<BitBoard> nextStates = new ArrayList<>();
         long newState;
         long king = isWhiteToMove ? whiteKings : blackKings;
-        if ((king & BACK_RANK) == 0) {
+        if ((king & BoardParts.EIGHTH_RANK) == 0) {
             newState = king << 8;
             if (!sameTeem(newState)) {
                 BitBoard newBoard = getNewBoardFromMove(1, newState);
@@ -372,14 +320,7 @@ public class BitBoard {
 
     // main for debugging
     public static void main(String[] args) {
-        System.out.println("BACK_RANK: " + Long.toBinaryString(BACK_RANK));
-        System.out.println("FIRST_RANK: " + Long.toBinaryString(FIRST_RANK));
-        System.out.println("LEFT_FILE: " + Long.toBinaryString(LEFT_FILE));
-        System.out.println("RIGHT_FILE: " + Long.toBinaryString(RIGHT_FILE));
-        System.out.println("BACK_LEFT_CORNER: " + Long.toBinaryString(BACK_LEFT_CORNER));
-        System.out.println("BACK_RIGHT_CORNER: " + Long.toBinaryString(BACK_RIGHT_CORNER));
-        System.out.println("FIRST_LEFT_CORNER: " + Long.toBinaryString(FIRST_LEFT_CORNER));
-        System.out.println("FIRST_RIGHT_CORNER: " + Long.toBinaryString(FIRST_RIGHT_CORNER));
+
     }
 
 }

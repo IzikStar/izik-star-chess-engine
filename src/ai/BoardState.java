@@ -12,8 +12,8 @@ import java.util.stream.Collectors;
 public class BoardState {
     public static int numOfNodes = 0;
 
-    int cols = 8;
-    int rows = 8;
+    public static final int COLS = 8;
+    public static final int ROWS = 8;
     // board state
     public String fenCurrentPosition;
     ArrayList<Piece> pieceList = new ArrayList<>();
@@ -116,10 +116,10 @@ public class BoardState {
             enPassantTile = (7 - (parts[3].charAt(1) - '1')) * 8 + (parts[3].charAt(0) - 'a');
         }
 
-        // num Of Turn Without Capture Or Pawn Move
+        // name Of Turn Without Capture Or Pawn Move
         numOfTurnWithoutCaptureOrPawnMove = Character.getNumericValue(parts[4].charAt(0));
 
-        // num of turns
+        // name of turns
         numOfTurns = Character.getNumericValue(parts[5].charAt(0));
     }
 
@@ -249,14 +249,13 @@ public class BoardState {
     }
 
     public boolean sameTeam(Piece p1, Piece p2) {
-        if (p1 == null || p2 == null) {
-            return false;
-        }
+        assert (p1 != null && p2 != null) : "pieces are null";
+        if (p1 == null || p2 == null) return false;
         return p1.isWhite == p2.isWhite;
     }
 
     public int getTileNum(int col, int row) {
-        return rows * row + col;
+        return COLS * row + col;
     }
 
     public boolean insufficientMaterial(boolean isWhite) {
@@ -518,21 +517,6 @@ public class BoardState {
         return true;
     }
 
-    public void moveKingForClone(Move move) {
-        if (Math.abs(move.piece.col - move.newCol) == 2) {
-            fenCurrentPosition = convertPiecesToFEN();
-            Piece rook;
-            if (move.piece.col < move.newCol) {
-                rook = getPiece(7, move.piece.row);
-                rook.col = 5;
-            } else {
-                rook = getPiece(0, move.piece.row);
-                rook.col = 3;
-            }
-            isLastMoveCastling = true;
-        }
-    }
-
     private void promotePawnToForClone(Move move, String choice) {
         switch (choice) {
             case "q":
@@ -549,6 +533,21 @@ public class BoardState {
                 break;
         }
         capture(move.piece);
+    }
+
+    public void moveKingForClone(Move move) {
+        if (Math.abs(move.piece.col - move.newCol) == 2) {
+            fenCurrentPosition = convertPiecesToFEN();
+            Piece rook;
+            if (move.piece.col < move.newCol) {
+                rook = getPiece(7, move.piece.row);
+                rook.col = 5;
+            } else {
+                rook = getPiece(0, move.piece.row);
+                rook.col = 3;
+            }
+            isLastMoveCastling = true;
+        }
     }
 
     public void setLastMove(int fromC, int fromR, int toC, int toR, Piece lastToMove) {

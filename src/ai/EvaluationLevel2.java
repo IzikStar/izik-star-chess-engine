@@ -74,7 +74,7 @@ public class EvaluationLevel2 {
         if (!sameTeam && !move.captured.name.equals("King")) {
             // אם הכלים הם מאותו סוג האיום הוא דו צדדי ולכן המשמעות היא שבמצב הנוכחי הכלי הנבדק כנראה יאכל בתור הבא
             if (move.piece.name.equals(move.captured.name)) {
-                moveScore -= pieceValue * 0.8;
+                moveScore += pieceValue * 0.8;
             }
             else {
                 double threatValue = capturedValue * 0.1 - pieceValue * 0.05;
