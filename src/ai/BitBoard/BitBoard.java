@@ -1,5 +1,6 @@
 package ai.BitBoard;
 
+import ai.BitBoard.BitPiece.*;
 import ai.BoardState;
 import pieces.Piece;
 import main.Debug;
@@ -139,12 +140,12 @@ public class BitBoard {
 
 
     // move details:
-    public boolean sameTeem(long bitBoard) {
+    public boolean sameTeem(long newPosition, long prevPosition) {
         if (isWhiteToMove) {
-            return (bitBoard & whitePieces) != 0;
+            return ((newPosition & ~prevPosition) & whitePieces) != 0;
         }
         else {
-            return (bitBoard & blackPieces) != 0;
+            return ((newPosition & ~prevPosition) & blackPieces) != 0;
         }
     }
     private boolean isSelfCheck() {
@@ -283,13 +284,13 @@ public class BitBoard {
     // get next state for any piece
     private ArrayList<BitBoard> getKingsMoves() {
         ArrayList<BitBoard> nextStates = new ArrayList<>();
-        long newState;
-        long king = isWhiteToMove ? whiteKings : blackKings;
-        if ((king & BoardParts.EIGHTH_RANK) == 0) {
-            newState = king << 8;
-            if (!sameTeem(newState)) {
-                BitBoard newBoard = getNewBoardFromMove(1, newState);
-                if (!newBoard.isSelfCheck()) {
+        int color = isWhiteToMove ? 1 : 0;
+        long position = isWhiteToMove ? whiteKings : blackKings;
+        BitKing king = new BitKing(color, position);
+        for (long move : king.validMovements()) {
+            if (!sameTeem(move, position)) {
+                BitBoard newBoard = getNewBoardFromMove(1, move);
+                if (!newBoard.isSelfCheck() || true) {
                     nextStates.add(newBoard);
                 }
             }
@@ -298,29 +299,138 @@ public class BitBoard {
     }
     private ArrayList<BitBoard> getQueensMoves() {
         ArrayList<BitBoard> nextStates = new ArrayList<>();
+        int color = isWhiteToMove ? 1 : 0;
+        long position = isWhiteToMove ? whiteQueens : blackQueens;
+        BitQueen queen = new BitQueen(color, position);
+        for (long move : queen.validMovements()) {
+            if (!sameTeem(move, position)) {
+                BitBoard newBoard = getNewBoardFromMove(2, move);
+                if (!newBoard.isSelfCheck() || true) {
+                    nextStates.add(newBoard);
+                }
+            }
+        }
         return nextStates;
     }
     private ArrayList<BitBoard> getRooksMoves() {
         ArrayList<BitBoard> nextStates = new ArrayList<>();
+        int color = isWhiteToMove ? 1 : 0;
+        long position = isWhiteToMove ? whiteRooks : blackRooks;
+        BitRook rook = new BitRook(color, position);
+        for (long move : rook.validMovements()) {
+            if (!sameTeem(move, position)) {
+                BitBoard newBoard = getNewBoardFromMove(3, move);
+                if (!newBoard.isSelfCheck() || true) {
+                    nextStates.add(newBoard);
+                }
+            }
+        }
         return nextStates;
     }
     private ArrayList<BitBoard> getBishopsMoves() {
         ArrayList<BitBoard> nextStates = new ArrayList<>();
+        int color = isWhiteToMove ? 1 : 0;
+        long position = isWhiteToMove ? whiteBishops : blackBishops;
+        BitBishop bishop = new BitBishop(color, position);
+        for (long move : bishop.validMovements()) {
+            if (!sameTeem(move, position)) {
+                BitBoard newBoard = getNewBoardFromMove(4, move);
+                if (!newBoard.isSelfCheck() || true) {
+                    nextStates.add(newBoard);
+                }
+            }
+        }
         return nextStates;
     }
     private ArrayList<BitBoard> getKnightsMoves() {
         ArrayList<BitBoard> nextStates = new ArrayList<>();
+        int color = isWhiteToMove ? 1 : 0;
+        long position = isWhiteToMove ? whiteKnights : blackKnights;
+        BitKnight knight = new BitKnight(color, position);
+        for (long move : knight.validMovements()) {
+            if (!sameTeem(move, position)) {
+                BitBoard newBoard = getNewBoardFromMove(5, move);
+                if (!newBoard.isSelfCheck() || true) {
+                    nextStates.add(newBoard);
+                }
+            }
+        }
         return nextStates;
     }
     private ArrayList<BitBoard> getPawnsMoves() {
         ArrayList<BitBoard> nextStates = new ArrayList<>();
+        int color = isWhiteToMove ? 1 : 0;
+        long position = isWhiteToMove ? whitePawns : blackPawns;
+        BitPawn pawn = new BitPawn(color, position);
+        for (long move : pawn.validMovements()) {
+            if (!sameTeem(move, position)) {
+                BitBoard newBoard = getNewBoardFromMove(6, move);
+                if (!newBoard.isSelfCheck() || true) {
+                    nextStates.add(newBoard);
+                }
+            }
+        }
         return nextStates;
     }
 
-
     // main for debugging
     public static void main(String[] args) {
+        String fen = "rnbqkbnr/8/8/8/8/8/8/RNBQKBNR w KQkq - 0 1\n";
+        BoardState boardState = new BoardState(fen, null);
+        BitBoard board = new BitBoard(boardState);
 
+        System.out.println("Initial Board:");
+        System.out.println(BitBoardOperations.printBitBoard(board));
+
+        // בדיקת המהלכים של המלכים
+        ArrayList<BitBoard> kingMoves = board.getKingsMoves();
+        System.out.println("King Moves:");
+        System.out.println("size:" + kingMoves.size());
+        for (BitBoard move : kingMoves) {
+            System.out.println(BitBoardOperations.printBitBoard(move));
+        }
+
+        // בדיקת המהלכים של המלכות
+        ArrayList<BitBoard> queenMoves = board.getQueensMoves();
+        System.out.println("Queen Moves:");
+        System.out.println("size:" + queenMoves.size());
+        for (BitBoard move : queenMoves) {
+            System.out.println(BitBoardOperations.printBitBoard(move));
+        }
+
+        // בדיקת המהלכים של הצריחים
+        ArrayList<BitBoard> rookMoves = board.getRooksMoves();
+        System.out.println("Rook Moves:");
+        System.out.println("size:" + rookMoves.size());
+        for (BitBoard move : rookMoves) {
+            System.out.println(BitBoardOperations.printBitBoard(move));
+        }
+
+        // בדיקת המהלכים של הרצים
+        ArrayList<BitBoard> bishopMoves = board.getBishopsMoves();
+        System.out.println("Bishop Moves:");
+        System.out.println("size:" + bishopMoves.size());
+        for (BitBoard move : bishopMoves) {
+            System.out.println(BitBoardOperations.printBitBoard(move));
+        }
+
+        // בדיקת המהלכים של הפרשים
+        ArrayList<BitBoard> knightMoves = board.getKnightsMoves();
+        System.out.println("Knight Moves:");
+        System.out.println("size:" + knightMoves.size());
+        for (BitBoard move : knightMoves) {
+            System.out.println(BitBoardOperations.printBitBoard(move));
+        }
+
+        // בדיקת המהלכים של הרגלים
+        ArrayList<BitBoard> pawnMoves = board.getPawnsMoves();
+        System.out.println("Pawn Moves:");
+        System.out.println("size:" + pawnMoves.size());
+        for (BitBoard move : pawnMoves) {
+            System.out.println(BitBoardOperations.printBitBoard(move));
+        }
     }
+
+
 
 }

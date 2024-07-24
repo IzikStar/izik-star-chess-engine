@@ -20,32 +20,32 @@ public class BitKing extends BitPiece{
             if (BitOperations.isBitSet(position, i)) {
                 long iTile = 0;
                 long otherSetTiles = position;
-                BitOperations.setBit(iTile, i);
-                BitOperations.clearBit(otherSetTiles, i);
+                iTile = BitOperations.setBit(iTile, i);
+                otherSetTiles = BitOperations.clearBit(otherSetTiles, i);
 
-                // checking if up-left move is possible:
-                if (isUpLeftMoveValid(iTile)) {
-                    movements.add(otherSetTiles | upLeftMove(iTile, i));
+                // checking if up move is possible:
+                if (isUpMoveValid(iTile)) {
+                    movements.add(otherSetTiles | upMove(iTile, i));
+                }
+                // checking if right move is possible:
+                if (isRightMoveValid(iTile)) {
+                    movements.add(otherSetTiles | rightMove(iTile, i));
+                }
+                // checking if left move is possible:
+                if (isLeftMoveValid(iTile)) {
+                    movements.add(otherSetTiles | leftMove(iTile, i));
+                }
+                // checking if down move is possible:
+                if (isDownMoveValid(iTile)) {
+                    movements.add(otherSetTiles | downMove(iTile, i));
                 }
                 // checking if up-right move is possible:
                 if (isUpRightMoveValid(iTile)) {
                     movements.add(otherSetTiles | upRightMove(iTile, i));
                 }
-                // checking if left-up move is possible:
-                if (isLeftUpMoveValid(iTile)) {
-                    movements.add(otherSetTiles | leftUpMove(iTile, i));
-                }
-                // checking if left-down move is possible:
-                if (isLeftDownMoveValid(iTile)) {
-                    movements.add(otherSetTiles | leftDownMove(iTile, i));
-                }
-                // checking if right-up move is possible:
-                if (isRightUpMoveValid(iTile)) {
-                    movements.add(otherSetTiles | rightUpMove(iTile, i));
-                }
-                // checking if right-down move is possible:
-                if (isRightDownMoveValid(iTile)) {
-                    movements.add(otherSetTiles | rightDownMove(iTile, i));
+                // checking if up-left move is possible:
+                if (isUpLeftMoveValid(iTile)) {
+                    movements.add(otherSetTiles | upLeftMove(iTile, i));
                 }
                 // checking if down-left move is possible:
                 if (isDownLeftMoveValid(iTile)) {
@@ -67,101 +67,88 @@ public class BitKing extends BitPiece{
     }
 
     // the 8 options of valid movements:
-    // up left
-    private boolean isUpLeftMoveValid(long tile) {
-        if ((tile & BoardParts.BACK_LEFT_CORNER) != 0) {
-            return (tile & BoardParts.SEVENTH_RANK) != 0;
-        }
-        return false;
+    // up
+    private boolean isUpMoveValid(long tile) {
+        return (tile & BoardParts.EIGHTH_RANK) == 0;
     }
-    private long upLeftMove(long tile, int i) {
-        BitOperations.setBit(tile, i - 17);
-        BitOperations.clearBit(tile, i);
-        return tile;
+    private long upMove(long tile, int i) {
+        long move = BitOperations.setBit(0x0L, i - 8);
+        move = BitOperations.clearBit(move, i);
+        return move;
+    }
+    // right
+    private boolean isRightMoveValid(long tile) {
+        return (tile & BoardParts.H_FILE) == 0;
+    }
+    private long rightMove(long tile, int i) {
+        long move = BitOperations.setBit(tile, i + 1);
+        move = BitOperations.clearBit(move, i);
+        return move;
+    }
+    // left
+    private boolean isLeftMoveValid(long tile) {
+        return (tile & BoardParts.A_FILE) == 0;
+    }
+    private long leftMove(long tile, int i) {
+        long move = BitOperations.setBit(tile, i - 1);
+        move = BitOperations.clearBit(move, i);
+        return move;
+    }
+    // down
+    private boolean isDownMoveValid(long tile) {
+        return (tile & BoardParts.FIRST_RANK) == 0;
+    }
+    private long downMove(long tile, int i) {
+        long move = BitOperations.setBit(tile, i + 8);
+        move = BitOperations.clearBit(move, i);
+        return move;
     }
     // up right
     private boolean isUpRightMoveValid(long tile) {
-        if ((tile & BoardParts.BACK_RIGHT_CORNER) != 0) {
-            return (tile & BoardParts.SEVENTH_RANK) != 0;
-        }
-        return false;
+        return (tile & BoardParts.BACK_RIGHT_CORNER) == 0;
     }
     private long upRightMove(long tile, int i) {
-        BitOperations.setBit(tile, i - 15);
-        BitOperations.clearBit(tile, i);
-        return tile;
+        long move = BitOperations.setBit(tile, i - 7);
+        move = BitOperations.clearBit(move, i);
+        return move;
     }
-    // left up
-    private boolean isLeftUpMoveValid(long tile) {
-        if ((tile & BoardParts.BACK_LEFT_CORNER) != 0) {
-            return (tile & BoardParts.B_FILE) != 0;
-        }
-        return false;
+    // up left
+    private boolean isUpLeftMoveValid(long tile) {
+        return (tile & BoardParts.BACK_LEFT_CORNER) == 0;
     }
-    private long leftUpMove(long tile, int i) {
-        BitOperations.setBit(tile, i - 10);
-        BitOperations.clearBit(tile, i);
-        return tile;
-    }
-    // left down
-    private boolean isLeftDownMoveValid(long tile) {
-        if ((tile & BoardParts.FIRST_LEFT_CORNER) != 0) {
-            return (tile & BoardParts.SECOND_RANK) != 0;
-        }
-        return false;
-    }
-    private long leftDownMove(long tile, int i) {
-        BitOperations.setBit(tile, i + 6);
-        BitOperations.clearBit(tile, i);
-        return tile;
-    }
-    // right up
-    private boolean isRightUpMoveValid(long tile) {
-        if ((tile & BoardParts.BACK_RIGHT_CORNER) != 0) {
-            return (tile & BoardParts.SEVENTH_RANK) != 0;
-        }
-        return false;
-    }
-    private long rightUpMove(long tile, int i) {
-        BitOperations.setBit(tile, i - 6);
-        BitOperations.clearBit(tile, i);
-        return tile;
-    }
-    // right down
-    private boolean isRightDownMoveValid(long tile) {
-        if ((tile & BoardParts.FIRST_RIGHT_CORNER) != 0) {
-            return (tile & BoardParts.G_FILE) != 0;
-        }
-        return false;
-    }
-    private long rightDownMove(long tile, int i) {
-        BitOperations.setBit(tile, i + 10);
-        BitOperations.clearBit(tile, i);
-        return tile;
-    }
-    // down left
-    private boolean isDownLeftMoveValid(long tile) {
-        if ((tile & BoardParts.FIRST_LEFT_CORNER) != 0) {
-            return (tile & BoardParts.SECOND_RANK) != 0;
-        }
-        return false;
-    }
-    private long downLeftMove(long tile, int i) {
-        BitOperations.setBit(tile, i + 15);
-        BitOperations.clearBit(tile, i);
-        return tile;
+    private long upLeftMove(long tile, int i) {
+        long move = BitOperations.setBit(tile, i - 9);
+        move = BitOperations.clearBit(move, i);
+        return move;
     }
     // down right
     private boolean isDownRightMoveValid(long tile) {
-        if ((tile & BoardParts.FIRST_RIGHT_CORNER) != 0) {
-            return (tile & BoardParts.SECOND_RANK) != 0;
-        }
-        return false;
+        return (tile & BoardParts.FIRST_RIGHT_CORNER) == 0;
     }
     private long downRightMMove(long tile, int i) {
-        BitOperations.setBit(tile, i + 17);
-        BitOperations.clearBit(tile, i);
-        return tile;
+        long move = BitOperations.setBit(tile, i + 9);
+        move = BitOperations.clearBit(move, i);
+        return move;
+    }
+    // down left
+    private boolean isDownLeftMoveValid(long tile) {
+        return (tile & BoardParts.FIRST_LEFT_CORNER) == 0;
+    }
+    private long downLeftMove(long tile, int i) {
+        long move = BitOperations.setBit(tile, i + 7);
+        move = BitOperations.clearBit(move, i);
+        return move;
+    }
+
+    public static void main(String[] args) {
+        BitKing king = new BitKing(1, (BoardParts.Tile.E1.position));
+
+        ArrayList<Long> movements = king.validMovements();
+        System.out.println(movements.size());
+        for (Long move : movements) {
+            long l = move;
+            System.out.println(BitOperations.printBitboard(l));
+        }
     }
 
 }

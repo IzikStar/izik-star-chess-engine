@@ -20,7 +20,7 @@ public class Board extends JPanel {
 
     // משתנים לציור הלוח
     JFrame parentFrame;
-    public static String fenStartingPosition = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    public static final String fenStartingPosition = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     public static int tileSize = 85;
     public static int cols = 8;
     public static int rows = 8;

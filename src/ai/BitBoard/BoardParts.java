@@ -3,6 +3,7 @@ package ai.BitBoard;
 public class BoardParts {
     // information:
     public static final int NUM_OF_TILES = 64;
+    public static final String FEN_STARTING_POSITION = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
     // rows:
     public static final long FIRST_RANK = 0xFF00000000000000L;
