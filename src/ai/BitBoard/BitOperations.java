@@ -71,6 +71,8 @@ public class BitOperations {
         return count;
     }
 
+    // get integers from bits:
+    // row and col:
     public static int getRowFromBit(long bitBoard) {
         if ((bitBoard & BoardParts.FIRST_RANK) != 0) return 1;
         if ((bitBoard & BoardParts.SECOND_RANK) != 0) return 2;
@@ -93,7 +95,7 @@ public class BitOperations {
         if ((bitBoard & BoardParts.H_FILE) != 0) return 8;
         return 0;
     }
-
+    // index row and col:
     public static int getRowIndexFromBit(long bitBoard) {
         if ((bitBoard & BoardParts.FIRST_RANK) != 0) return 7;
         if ((bitBoard & BoardParts.SECOND_RANK) != 0) return 6;
@@ -115,6 +117,15 @@ public class BitOperations {
         if ((bitBoard & BoardParts.G_FILE) != 0) return 6;
         if ((bitBoard & BoardParts.H_FILE) != 0) return 7;
         return 0;
+    }
+    // position:
+    public static int getPositionFromBit(long bitBoard) {
+        for (int i = 0; i < BoardParts.NUM_OF_TILES; i++) {
+            if (isBitSet(bitBoard, i)) {
+                return i;
+            }
+        }
+        return -1;
     }
 
 }

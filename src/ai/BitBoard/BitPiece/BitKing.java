@@ -7,8 +7,8 @@ import java.util.ArrayList;
 
 public class BitKing extends BitPiece{
 
-    public BitKing(int color, long position) {
-        super(color, position);
+    public BitKing(int color, long position, long wPosition, long bPosition) {
+        super(color, position, wPosition, bPosition);
         this.name = 1;
     }
 
@@ -25,35 +25,59 @@ public class BitKing extends BitPiece{
 
                 // checking if up move is possible:
                 if (isUpMoveValid(iTile)) {
-                    movements.add(otherSetTiles | upMove(iTile, i));
+                    long up = (otherSetTiles | upMove(i));
+                    if (!isSelfCapturing(up)) {
+                        movements.add(up);
+                    }
                 }
                 // checking if right move is possible:
                 if (isRightMoveValid(iTile)) {
-                    movements.add(otherSetTiles | rightMove(iTile, i));
+                    long right = (otherSetTiles | rightMove(i));
+                    if (!isSelfCapturing(right)) {
+                        movements.add(right);
+                    }
                 }
                 // checking if left move is possible:
                 if (isLeftMoveValid(iTile)) {
-                    movements.add(otherSetTiles | leftMove(iTile, i));
+                    long left = (otherSetTiles | leftMove(i));
+                    if (!isSelfCapturing(left)) {
+                        movements.add(left);
+                    }
                 }
                 // checking if down move is possible:
                 if (isDownMoveValid(iTile)) {
-                    movements.add(otherSetTiles | downMove(iTile, i));
+                    long down = (otherSetTiles | downMove(i));
+                    if (!isSelfCapturing(down)) {
+                        movements.add(down);
+                    }
                 }
                 // checking if up-right move is possible:
                 if (isUpRightMoveValid(iTile)) {
-                    movements.add(otherSetTiles | upRightMove(iTile, i));
+                    long upRight = (otherSetTiles | upRightMove(i));
+                    if (!isSelfCapturing(upRight)) {
+                        movements.add(upRight);
+                    }
                 }
                 // checking if up-left move is possible:
                 if (isUpLeftMoveValid(iTile)) {
-                    movements.add(otherSetTiles | upLeftMove(iTile, i));
+                    long upLeft = (otherSetTiles | upLeftMove(i));
+                    if (!isSelfCapturing(upLeft)) {
+                        movements.add(upLeft);
+                    }
                 }
                 // checking if down-left move is possible:
                 if (isDownLeftMoveValid(iTile)) {
-                    movements.add(otherSetTiles | downLeftMove(iTile, i));
+                    long downLeft = (otherSetTiles | downLeftMove(i));
+                    if (!isSelfCapturing(downLeft)) {
+                        movements.add(downLeft);
+                    }
                 }
                 // checking if down-right move is possible:
                 if (isDownRightMoveValid(iTile)) {
-                    movements.add(otherSetTiles | downRightMMove(iTile, i));
+                    long downRight = (otherSetTiles | downRightMMove(i));
+                    if (!isSelfCapturing(downRight)) {
+                        movements.add(downRight);
+                    }
                 }
 
             }
@@ -62,8 +86,57 @@ public class BitKing extends BitPiece{
     }
 
     @Override
+    public long getAttackedTiles() {
+        long attackedTile = 0L;
+        for (int i = 0; i < BoardParts.NUM_OF_TILES; i++) {
+            if (BitOperations.isBitSet(position, i)) {
+                long iTile = BitOperations.setBit(0x0L, i);
+
+                // checking if up move is possible:
+                if (isUpMoveValid(iTile)) {
+                    attackedTile |= upMove(i);
+                }
+                // checking if right move is possible:
+                if (isRightMoveValid(iTile)) {
+                    attackedTile |= rightMove(i);
+                }
+                // checking if left move is possible:
+                if (isLeftMoveValid(iTile)) {
+                    attackedTile |= leftMove(i);
+                }
+                // checking if down move is possible:
+                if (isDownMoveValid(iTile)) {
+                    attackedTile |= downMove(i);
+                }
+                // checking if up-right move is possible:
+                if (isUpRightMoveValid(iTile)) {
+                    attackedTile |= upRightMove(i);
+                }
+                // checking if up-left move is possible:
+                if (isUpLeftMoveValid(iTile)) {
+                    attackedTile |= upLeftMove(i);
+                }
+                // checking if down-left move is possible:
+                if (isDownLeftMoveValid(iTile)) {
+                    attackedTile |= downLeftMove(i);
+                }
+                // checking if down-right move is possible:
+                if (isDownRightMoveValid(iTile)) {
+                    downRightMMove(i);
+                }
+            }
+        }
+        return attackedTile;
+    }
+
+    @Override
     public boolean isAttackingTheOpponentPiece(BitPiece piece) {
         return false;
+    }
+
+    @Override
+    public boolean isSelfCapturing(long tile) {
+        return  (tile & playerPosition) != 0;
     }
 
     // the 8 options of valid movements:
@@ -71,7 +144,7 @@ public class BitKing extends BitPiece{
     private boolean isUpMoveValid(long tile) {
         return (tile & BoardParts.EIGHTH_RANK) == 0;
     }
-    private long upMove(long tile, int i) {
+    private long upMove(int i) {
         long move = BitOperations.setBit(0x0L, i - 8);
         move = BitOperations.clearBit(move, i);
         return move;
@@ -80,8 +153,8 @@ public class BitKing extends BitPiece{
     private boolean isRightMoveValid(long tile) {
         return (tile & BoardParts.H_FILE) == 0;
     }
-    private long rightMove(long tile, int i) {
-        long move = BitOperations.setBit(tile, i + 1);
+    private long rightMove(int i) {
+        long move = BitOperations.setBit(0L, i + 1);
         move = BitOperations.clearBit(move, i);
         return move;
     }
@@ -89,8 +162,8 @@ public class BitKing extends BitPiece{
     private boolean isLeftMoveValid(long tile) {
         return (tile & BoardParts.A_FILE) == 0;
     }
-    private long leftMove(long tile, int i) {
-        long move = BitOperations.setBit(tile, i - 1);
+    private long leftMove(int i) {
+        long move = BitOperations.setBit(0L, i - 1);
         move = BitOperations.clearBit(move, i);
         return move;
     }
@@ -98,8 +171,8 @@ public class BitKing extends BitPiece{
     private boolean isDownMoveValid(long tile) {
         return (tile & BoardParts.FIRST_RANK) == 0;
     }
-    private long downMove(long tile, int i) {
-        long move = BitOperations.setBit(tile, i + 8);
+    private long downMove(int i) {
+        long move = BitOperations.setBit(0L, i + 8);
         move = BitOperations.clearBit(move, i);
         return move;
     }
@@ -107,8 +180,8 @@ public class BitKing extends BitPiece{
     private boolean isUpRightMoveValid(long tile) {
         return (tile & BoardParts.BACK_RIGHT_CORNER) == 0;
     }
-    private long upRightMove(long tile, int i) {
-        long move = BitOperations.setBit(tile, i - 7);
+    private long upRightMove(int i) {
+        long move = BitOperations.setBit(0L, i - 7);
         move = BitOperations.clearBit(move, i);
         return move;
     }
@@ -116,8 +189,8 @@ public class BitKing extends BitPiece{
     private boolean isUpLeftMoveValid(long tile) {
         return (tile & BoardParts.BACK_LEFT_CORNER) == 0;
     }
-    private long upLeftMove(long tile, int i) {
-        long move = BitOperations.setBit(tile, i - 9);
+    private long upLeftMove(int i) {
+        long move = BitOperations.setBit(0L, i - 9);
         move = BitOperations.clearBit(move, i);
         return move;
     }
@@ -125,8 +198,8 @@ public class BitKing extends BitPiece{
     private boolean isDownRightMoveValid(long tile) {
         return (tile & BoardParts.FIRST_RIGHT_CORNER) == 0;
     }
-    private long downRightMMove(long tile, int i) {
-        long move = BitOperations.setBit(tile, i + 9);
+    private long downRightMMove(int i) {
+        long move = BitOperations.setBit(0L, i + 9);
         move = BitOperations.clearBit(move, i);
         return move;
     }
@@ -134,14 +207,14 @@ public class BitKing extends BitPiece{
     private boolean isDownLeftMoveValid(long tile) {
         return (tile & BoardParts.FIRST_LEFT_CORNER) == 0;
     }
-    private long downLeftMove(long tile, int i) {
-        long move = BitOperations.setBit(tile, i + 7);
+    private long downLeftMove(int i) {
+        long move = BitOperations.setBit(0L, i + 7);
         move = BitOperations.clearBit(move, i);
         return move;
     }
 
     public static void main(String[] args) {
-        BitKing king = new BitKing(1, (BoardParts.Tile.E1.position));
+        BitKing king = new BitKing(1, (BoardParts.Tile.E1.position), BoardParts.SECOND_RANK, BoardParts.BLACK_START_POSITION);
 
         ArrayList<Long> movements = king.validMovements();
         System.out.println(movements.size());

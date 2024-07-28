@@ -39,4 +39,9 @@ public class BitBoardOperations {
         return String.valueOf((stringBuilder));
     }
 
+    // switch the color from white to black:
+    public static int toggleColor(int color) {
+        return color == 1 ? 0 : 1;
+    }
+
 }

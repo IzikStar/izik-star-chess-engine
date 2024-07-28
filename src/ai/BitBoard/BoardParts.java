@@ -1,5 +1,7 @@
 package ai.BitBoard;
 
+import pieces.Pawn;
+
 public class BoardParts {
     // information:
     public static final int NUM_OF_TILES = 64;
@@ -41,6 +43,15 @@ public class BoardParts {
     public static final long BACK_HALF = 0xFFFFFFFF00000000L;          // חצי אחורי של הלוח
     public static final long FRONT_HALF = 0x00000000FFFFFFFFL;         // חצי קדמי של הלוח
 
+    // starting positions:
+    public static final long WHITE_START_POSITION = FIRST_RANK | SECOND_RANK;
+    public static final long BLACK_START_POSITION = EIGHTH_RANK | SEVENTH_RANK;
+
+    public static final long WHITE_PROMOTION_ROW = EIGHTH_RANK;
+    public static final long BLACK_PROMOTION_ROW = FIRST_RANK;
+    public static long getPromotionRow(int color) {
+        return color == 1 ? WHITE_PROMOTION_ROW : BLACK_PROMOTION_ROW;
+    }
 
     public static void printAllTiles() {
         // List of all tiles
@@ -68,6 +79,7 @@ public class BoardParts {
             this.name = name;
             this.position = position;
         }
+
         // Squares
         public static final Tile A8 = new Tile("A8", 0x0000000000000001L);
         public static final Tile B8 = new Tile("B8", 0x0000000000000002L);

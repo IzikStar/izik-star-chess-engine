@@ -8,8 +8,8 @@ import java.util.ArrayList;
 
 public class BitBishop extends BitPiece{
 
-    public BitBishop(int color, long position) {
-        super(color, position);
+    public BitBishop(int color, long position, long wPosition, long bPosition) {
+        super(color, position, wPosition, bPosition);
         this.name = 1;
     }
 
@@ -29,52 +29,58 @@ public class BitBishop extends BitPiece{
 
                 // checking if up left move is possible:
                 for (int r = row, c = col; r > 0 && c > 0; r--, c--) {
-                    long upMove = otherSetTiles | upLeftMove(iTile, i, counter);
+                    long upMove = upLeftMove(i, counter);
                     counter++;
-                    if (BitOperations.countSetBits(position) == BitOperations.countSetBits(upMove)) {
+                    if ((!isSelfCapturing(upMove)) && (!isCapturing(upMove))) {
                         Debug.log("up left move");
-                        movements.add(upMove);
+                        movements.add(upMove | otherSetTiles);
                     }
                     else {
+                        if (isCapturing(upMove)) movements.add(upMove | otherSetTiles);
                         break;
                     }
                 }
                 counter = 1;
                 // checking if up right move is possible:
                 for (int r = row, c = col; r > 0 && c < 7; r--, c++) {
-                    long rightMove = otherSetTiles | upRightMove(iTile, i, counter);
+                    long rightMove = upRightMove(i, counter);
                     counter++;
-                    if (BitOperations.countSetBits(position) == BitOperations.countSetBits(rightMove)) {
+                    if ((!isSelfCapturing(rightMove)) && (!isCapturing(rightMove))) {
                         Debug.log("up right move");
-                        movements.add(rightMove);
+                        movements.add(rightMove | otherSetTiles);
                     }
                     else {
+                        if (isCapturing(rightMove)) movements.add(rightMove | otherSetTiles);
                         break;
                     }
                 }
                 counter = 1;
                 // checking if down left move is possible:
                 for (int r = row, c = col; r < 7 && c > 0; r++, c--) {
-                    long leftMove = otherSetTiles | downLeftMove(iTile, i, counter);
+                    long leftMove = downLeftMove(i, counter);
                     counter++;
-                    if (BitOperations.countSetBits(position) == BitOperations.countSetBits(leftMove)) {
+                    if ((!isSelfCapturing(leftMove)) && (!isCapturing(leftMove))) {
                         Debug.log("down left move");
-                        movements.add(leftMove);
+                        movements.add(leftMove | otherSetTiles);
                     }
                     else {
+                        if (isCapturing(leftMove)) movements.add(leftMove | otherSetTiles);
                         break;
                     }
                 }
                 counter = 1;
                 // checking if down right move is possible:
                 for (int r = row, c = col; r < 7 && c < 7; r++, c++) {
-                    long downMove = otherSetTiles | downRightMove(iTile, i, counter);
+                    long downMove = downRightMove(i, counter);
                     counter++;
-                    if (BitOperations.countSetBits(position) == BitOperations.countSetBits(downMove)) {
+                    if ((!isSelfCapturing(downMove)) && (!isCapturing(downMove))) {
                         Debug.log("down right move");
-                        movements.add(downMove);
+                        movements.add(downMove | otherSetTiles);
                     }
-                    else break;
+                    else {
+                        if (isCapturing(downMove)) movements.add(downMove | otherSetTiles);
+                        break;
+                    }
                 }
             }
         }
@@ -87,36 +93,84 @@ public class BitBishop extends BitPiece{
         return false;
     }
 
+    @Override
+    public long getAttackedTiles() {
+        long attackedTile = 0L;
+        for (int i = 0; i < BoardParts.NUM_OF_TILES; i++) {
+            if (BitOperations.isBitSet(position, i)) {
+                long iTile = BitOperations.setBit(0x0L, i);
+                long otherSetTiles = BitOperations.clearBit(position, i);
+                int row = BitOperations.getRowIndexFromBit(iTile);
+                int col = BitOperations.getColIndexFromBit(iTile);
+                int counter = 1;
+
+                // checking if up left move is possible:
+                for (int r = row, c = col; r > 0 && c > 0; r--, c--) {
+                    long upMove = upLeftMove(i, counter);
+                    counter++;
+                    attackedTile |= upMove;
+                    if (isSelfCapturing(upMove) || isCapturing(upMove)) break;
+                }
+                counter = 1;
+                // checking if up right move is possible:
+                for (int r = row, c = col; r > 0 && c < 7; r--, c++) {
+                    long rightMove = upRightMove(i, counter);
+                    counter++;
+                    attackedTile |= rightMove;
+                    if (isSelfCapturing(rightMove) || isCapturing(rightMove)) break;
+                }
+                counter = 1;
+                // checking if down left move is possible:
+                for (int r = row, c = col; r < 7 && c > 0; r++, c--) {
+                    long leftMove = downLeftMove(i, counter);
+                    counter++;
+                    attackedTile |= leftMove;
+                    if (isSelfCapturing(leftMove) || isCapturing(leftMove)) break;
+                }
+                counter = 1;
+                // checking if down right move is possible:
+                for (int r = row, c = col; r < 7 && c < 7; r++, c++) {
+                    long downMove = downRightMove(i, counter);
+                    counter++;
+                    attackedTile |= downMove;
+                    if (isSelfCapturing(downMove) || isCapturing(downMove)) break;
+                }
+            }
+        }
+        return attackedTile;
+    }
+
+    @Override
+    public boolean isSelfCapturing(long target) {
+        return (target & playerPosition) != 0;
+    }
+
+    public boolean isCapturing(long target) {
+        return (target & opponentPosition) != 0;
+    }
 
     // the 4 options of valid movements:
     // up left
-    private long upLeftMove(long tile, int i, int counter) {
-        long move = BitOperations.setBit(tile, i - 9 * counter);
-        move = BitOperations.clearBit(move, i);
-        return move;
+    private long upLeftMove(int i, int counter) {
+        return BitOperations.setBit(0L, i - 9 * counter);
     }
     // up right
-    private long upRightMove(long tile, int i, int counter) {
-        long move = BitOperations.setBit(tile, i - 7 * counter);
-        move = BitOperations.clearBit(move, i);
-        return move;
+    private long upRightMove(int i, int counter) {
+        return BitOperations.setBit(0L, i - 7 * counter);
     }
     // down left
-    private long downLeftMove(long tile, int i, int counter) {
-        long move = BitOperations.setBit(tile, i + 7 * counter);
-        move = BitOperations.clearBit(move, i);
-        return move;
+    private long downLeftMove(int i, int counter) {
+        return BitOperations.setBit(0L, i + 7 * counter);
     }
     // down right
-    private long downRightMove(long tile, int i, int counter) {
-        long move = BitOperations.setBit(tile, i + 9 * counter);
-        move = BitOperations.clearBit(move, i);
-        return move;
+    private long downRightMove(int i, int counter) {
+        return BitOperations.setBit(0L, i + 9 * counter);
     }
+
 
 
     public static void main(String[] args) {
-        BitBishop bishop = new BitBishop(1, (BoardParts.Tile.D4.position | BoardParts.Tile.E5.position));
+        BitBishop bishop = new BitBishop(1, (BoardParts.Tile.D4.position | BoardParts.Tile.E5.position), BoardParts.WHITE_START_POSITION, BoardParts.BLACK_START_POSITION);
 
         ArrayList<Long> movements = bishop.validMovements();
         System.out.println(movements.size());
