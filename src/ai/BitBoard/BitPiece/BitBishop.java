@@ -14,6 +14,11 @@ public class BitBishop extends BitPiece{
     }
 
     @Override
+    public String toString() {
+        return (color == 1 ? "white" : "black") + " bishop";
+    }
+
+    @Override
     public ArrayList<Long> validMovements() {
         ArrayList<Long> movements = new ArrayList<>();
         // for each bishop in the position:

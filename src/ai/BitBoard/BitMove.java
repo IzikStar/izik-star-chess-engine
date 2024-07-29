@@ -1,6 +1,7 @@
 package ai.BitBoard;
 
 import ai.BitBoard.BitPiece.BitPiece;
+import main.Move;
 
 public class BitMove {
     public BitPiece piece;
@@ -9,7 +10,7 @@ public class BitMove {
     public BitPiece otherPieceToChange;
     public boolean isCastling = false;
     public boolean isEnPassant = false;
-    public String promotionChoice;
+    public char promotionChoice;
 
     public BitMove(BitPiece piece, long newPosition){
         this.piece = piece;
@@ -20,7 +21,7 @@ public class BitMove {
         this.newPosition = newPosition;
         this.otherPieceToChange = otherPieceToChange;
     }
-    public BitMove(BitPiece piece, long newPosition, String promotionChoice, BitPiece otherPieceToChange){
+    public BitMove(BitPiece piece, long newPosition, char promotionChoice, BitPiece otherPieceToChange){
         this.piece = piece;
         this.newPosition = newPosition;
         this.promotionChoice = promotionChoice;
@@ -32,6 +33,19 @@ public class BitMove {
         this.isCastling = isCastling;
         this.isEnPassant = isEnPassant;
         this.otherPieceToChange = otherPieceToChange;
+    }
+
+    public BitMove(long prevPosition, Move lastMove, int fromC, int fromR, boolean isCastling, boolean isPawnMove) {
+
+    }
+
+    public void setPromotionChoice(char promotionChoice) {
+        this.promotionChoice = promotionChoice;
+    }
+
+    @Override
+    public String toString() {
+        return "piece: " + piece + ".\nfrom: " + BitOperations.printBitboard(piece.position) + "to: " + BitOperations.printBitboard(newPosition);
     }
 
 }

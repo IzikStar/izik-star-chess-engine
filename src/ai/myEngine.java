@@ -1,5 +1,6 @@
 package ai;
 
+import ai.BitBoard.BitMove;
 import main.Board;
 import main.Move;
 import main.setting.ChoosePlayFormat;
@@ -45,9 +46,9 @@ public class myEngine {
                 return; // יציאה מה-Thread במקרה של הפסקה
             }
             this.fen = fen;
-            Move move = chooseMethod();
+            Move move = chooseMethod(board);
             while (move == null) {
-                move = chooseMethod();
+                move = chooseMethod(board);
             }
             Move tempMove = move;
             if (board.makeMoveToCheckIt(tempMove)) {
@@ -63,12 +64,12 @@ public class myEngine {
         thread.start();
     }
 
-    private Move chooseMethod() {
+    private Move chooseMethod(BoardState board) {
         int skillLevel = SettingPanel.skillLevel;
         if (skillLevel == 0) {
             return getRandomMove();
         } else {
-            return getBestMove();
+            return new Move(board, getBestMove());
         }
     }
 
@@ -146,7 +147,7 @@ public class myEngine {
     }
 
     // other engine methods
-    private Move getBestMove() {
+    private BitMove getBestMove() {
         Minimax.maxDepth = SettingPanel.skillLevel / 2;
         return Minimax.getBestMove(board);
     }

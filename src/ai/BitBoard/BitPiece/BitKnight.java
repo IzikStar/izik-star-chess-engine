@@ -14,6 +14,11 @@ public class BitKnight extends BitPiece{
     }
 
     @Override
+    public String toString() {
+        return (color == 1 ? "white" : "black") + " knight";
+    }
+
+    @Override
     public ArrayList<Long> validMovements() {
         ArrayList<Long> movements = new ArrayList<>();
         // for every knight in the position:

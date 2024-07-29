@@ -17,6 +17,11 @@ public class BitPawn extends BitPiece{
     }
 
     @Override
+    public String toString() {
+        return (color == 1 ? "white" : "black") + " pawn";
+    }
+
+    @Override
     public ArrayList<Long> validMovements() {
         ArrayList<Long> movements = new ArrayList<>();
         // for every pawn in the position:
@@ -141,6 +146,11 @@ public class BitPawn extends BitPiece{
         knightPromotion.setKnights(color, BitOperations.setBit(knightPromotion.getKnights(color), targetInt));
         rookPromotion.setRooks(color, BitOperations.setBit(rookPromotion.getRooks(color), targetInt));
         bishopPromotion.setBishops(color, BitOperations.setBit(bishopPromotion.getBishops(color), targetInt));
+
+        queenPromotion.setPromotionChoice('q');
+        knightPromotion.setPromotionChoice('n');
+        rookPromotion.setPromotionChoice('r');
+        bishopPromotion.setPromotionChoice('b');
 
         queenPromotion.setPawns(color, BitOperations.clearBit(queenPromotion.getPawns(color), targetInt));
         knightPromotion.setPawns(color, BitOperations.clearBit(knightPromotion.getPawns(color), targetInt));

@@ -19,7 +19,6 @@ public abstract class BitPiece {
             this.playerPosition = bPosition;
             this.opponentPosition = wPosition;
         }
-
     }
 
     public abstract ArrayList<Long> validMovements();

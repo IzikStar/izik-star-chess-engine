@@ -45,7 +45,7 @@ public class BitBoardOperations {
     }
 
     public static BitMove CompareTwoPositionsAndGetMove(BitBoard prevPosition, BitBoard currentPosition) {
-
+        System.out.println("prev:" + prevPosition + "current:" + currentPosition);
 
         BitMove move = null;
         return move;
