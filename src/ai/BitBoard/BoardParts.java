@@ -1,7 +1,5 @@
 package ai.BitBoard;
 
-import pieces.Pawn;
-
 public class BoardParts {
     // information:
     public static final int NUM_OF_TILES = 64;
@@ -53,6 +51,11 @@ public class BoardParts {
         return color == 1 ? WHITE_PROMOTION_ROW : BLACK_PROMOTION_ROW;
     }
 
+    public static final long WHITE_KING_SIDE_CASTLE = Tile.F1.position | Tile.G1.position;
+    public static final long WHITE_QUEEN_SIDE_CASTLE = Tile.D1.position | Tile.C1.position | Tile.B1.position;
+    public static final long BLACK_KING_SIDE_CASTLE = Tile.F8.position | Tile.G8.position;
+    public static final long BLACK_QUEEN_SIDE_CASTLE = Tile.D8.position | Tile.C8.position | Tile.B8.position;
+
     public static void printAllTiles() {
         // List of all tiles
         Tile[] tiles = {
@@ -70,6 +73,10 @@ public class BoardParts {
         for (Tile tile : tiles) {
             System.out.println(tile.name + ": " + BitOperations.printBitboard(tile.position));
         }
+    }
+
+    public static long getPawnsStartingPosition(int color) {
+        return color == 1 ? SECOND_RANK : SEVENTH_RANK;
     }
 
     public static class Tile {

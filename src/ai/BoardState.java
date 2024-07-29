@@ -20,6 +20,7 @@ public class BoardState {
     Move lastMove;
     public int fromC = -1, fromR = -1, toC = -1, toR = -1;
     public boolean isLastMoveCastling = false;
+    public boolean canWhiteCastleKingSide, canWhiteCastleQueenSide, canBlackCastleKingSide, canBlackCastleQueenSide;
     public boolean isLastMovePawn = false;
     public Piece lastToMove;
     ArrayList<BoardState> childNodes;
@@ -92,21 +93,26 @@ public class BoardState {
         isWhiteToMove = parts[1].equals("w");
 
         // castling
+        canWhiteCastleKingSide = canWhiteCastleQueenSide = canBlackCastleKingSide = canBlackCastleQueenSide = false;
         Piece bqr = getPiece(0, 0);
         if (bqr instanceof Rook) {
             bqr.isFirstMove = parts[2].contains("q");
+            canBlackCastleQueenSide = parts[2].contains("q");
         }
         Piece bkr = getPiece(7, 0);
         if (bkr instanceof Rook) {
             bkr.isFirstMove = parts[2].contains("k");
+            canBlackCastleKingSide = parts[2].contains("k");
         }
         Piece wqr = getPiece(0, 7);
         if (wqr instanceof Rook) {
             wqr.isFirstMove = parts[2].contains("Q");
+            canWhiteCastleQueenSide = parts[2].contains("Q");
         }
         Piece wkr = getPiece(7, 7);
         if (wkr instanceof Rook) {
             wkr.isFirstMove = parts[2].contains("K");
+            canWhiteCastleKingSide = parts[2].contains("K");
         }
 
         // en passant

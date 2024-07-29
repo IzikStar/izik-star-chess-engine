@@ -12,7 +12,7 @@ public class BitBoard {
     protected long whiteKings = 0x0, whiteQueens = 0x0, whiteRooks = 0x0, whiteBishops = 0x0, whiteKnights = 0x0, whitePawns = 0x0;
     protected long blackKings = 0x0, blackQueens = 0x0, blackRooks = 0x0, blackBishops = 0x0, blackKnights = 0x0, blackPawns = 0x0;
     protected long whitePieces, blackPieces;
-    protected long enPassantTile;
+    protected int enPassantTile;
     private boolean canWhiteCastleKingSide, canWhiteCastleQueenSide, canBlackCastleKingSide, canBlackCastleQueenSide;
     protected boolean isWhiteToMove;
     protected int numOfTurns, numOfTurnsWithoutCaptureOrPawnMove;
@@ -106,13 +106,17 @@ public class BitBoard {
         numOfTurns = boardState.numOfTurns;
         numOfTurnsWithoutCaptureOrPawnMove = boardState.numOfTurnWithoutCaptureOrPawnMove;
         enPassantTile = boardState.enPassantTile;
+        canWhiteCastleKingSide = boardState.canWhiteCastleKingSide;
+        canWhiteCastleQueenSide = boardState.canWhiteCastleQueenSide;
+        canBlackCastleKingSide = boardState.canBlackCastleKingSide;
+        canBlackCastleQueenSide = boardState.canBlackCastleQueenSide;
     }
     public BitBoard(long whiteKings, long whiteQueens, long whiteRooks, long whiteBishops, long whiteKnights, long whitePawns,
                     long blackKings, long blackQueens, long blackRooks, long blackBishops, long blackKnights, long blackPawns,
                     boolean isWhiteToMove,
                     boolean canWhiteCastleKingSide, boolean canWhiteCastleQueenSide,
                     boolean canBlackCastleKingSide, boolean canBlackCastleQueenSide,
-                    long enPassantTile,
+                    int enPassantTile,
                     int numOfTurns, int numOfTurnsWithoutCaptureOrPawnMove) {
         this.whiteKings = whiteKings;
         this.whiteQueens = whiteQueens;
@@ -220,7 +224,7 @@ public class BitBoard {
     private BitBoard getNewBoardFromMove(int numOfPiece, long newPosition) {
         long wK = whiteKings, wQ = whiteQueens, wR = whiteRooks, wB = whiteBishops, wN = whiteKnights, wP = whitePawns;
         long bK = blackKings, bQ = blackQueens, bR = blackRooks, bB = blackBishops, bN = blackKnights, bP = blackPawns;
-        long ePT = -1;
+        int ePT = -1;
         boolean K = canWhiteCastleKingSide, Q = canWhiteCastleQueenSide, k = canBlackCastleKingSide, q = canBlackCastleQueenSide;
         boolean WTM = !isWhiteToMove;
         int nOT = numOfTurns, nOTWCOPM = numOfTurnsWithoutCaptureOrPawnMove + 1;
@@ -233,7 +237,7 @@ public class BitBoard {
                 // pawn 2 square move:
                 if(BitOperations.isShiftBy16(whitePawns ^ newPosition)) {
                     // "whitePawns ^ newPosition" is the pawn how moved in the start and the end location, ">>8" move it to first row and third row, then we get only third row.
-                    ePT = BoardParts.FIRST_RANK ^ (whitePawns ^ newPosition >>> 8);
+                    ePT = BitOperations.getColIndexFromBit(BoardParts.FIRST_RANK ^ (whitePawns ^ newPosition >>> 8));
                 }
                 wP = newPosition;
                 target = wP & ~whitePawns;
@@ -300,7 +304,7 @@ public class BitBoard {
                 // pawn 2 square move:
                 if(BitOperations.isShiftBy16(blackPawns ^ newPosition)) {
                     // "blackPawns ^ newPosition" is the pawn how moved in the start and the end location, ">>8" move it to first row and third row, then we get only third row.
-                    ePT = BoardParts.EIGHTH_RANK ^ (blackPawns ^ newPosition << 8);
+                    ePT = BitOperations.getColIndexFromBit(BoardParts.EIGHTH_RANK ^ (blackPawns ^ newPosition << 8));
                 }
                 bP = newPosition;
                 target = bP & ~blackPawns;
@@ -395,8 +399,7 @@ public class BitBoard {
     }
     // get next moves:
     public ArrayList<BitBoard> getMovesForColor(int color) {
-        ArrayList<BitBoard> nextStates = new ArrayList<>();
-        nextStates.addAll(getKingsMoves(color));
+        ArrayList<BitBoard> nextStates = new ArrayList<>(getKingsMoves(color));
         Debug.log("size = " + nextStates.size());
         nextStates.addAll(getQueensMoves(color));
         Debug.log("size = " + nextStates.size());
@@ -419,6 +422,50 @@ public class BitBoard {
             if (!sameTeem(move, position)) {
                 BitBoard newBoard = getNewBoardFromMove(1, move);
                 nextStates.add(newBoard);
+            }
+        }
+        nextStates.addAll(getCastles(color));
+        return nextStates;
+    }
+    private ArrayList<BitBoard> getCastles(int color) {
+        ArrayList<BitBoard> nextStates = new ArrayList<>();
+        long king = color == 1 ? whiteKings : blackKings;
+        long rooks = color == 1 ? whiteRooks : blackRooks;
+        int opponentColor = BitBoardOperations.toggleColor(color);
+        if (color == 1) {
+            if (canWhiteCastleKingSide && ((whitePieces & blackPieces) & BoardParts.WHITE_KING_SIDE_CASTLE) == 0 && (((king & BoardParts.WHITE_KING_SIDE_CASTLE) & getAllAttackedTiles(opponentColor)) == 0 && (rooks & BoardParts.Tile.H1.position) != 0)) {
+                long kingNewPosition = BoardParts.Tile.G1.position;
+                long rooksNewPosition = ((rooks | BoardParts.Tile.F1.position) & ~BoardParts.Tile.H1.position);
+                BitBoard board = getNewBoardFromMove(1, kingNewPosition);
+                board.setRooks(color, rooksNewPosition);
+                Debug.log("white king side castle!");
+                nextStates.add(board);
+            }
+            if (canWhiteCastleQueenSide && ((whitePieces & blackPieces) & BoardParts.WHITE_QUEEN_SIDE_CASTLE) == 0 && (((king & BoardParts.WHITE_QUEEN_SIDE_CASTLE) & getAllAttackedTiles(opponentColor)) == 0 && (rooks & BoardParts.Tile.A1.position) != 0)) {
+                long kingNewPosition = BoardParts.Tile.C1.position;
+                long rooksNewPosition = ((rooks | BoardParts.Tile.D1.position) & ~BoardParts.Tile.A1.position);
+                BitBoard board = getNewBoardFromMove(1, kingNewPosition);
+                board.setRooks(color, rooksNewPosition);
+                Debug.log("white queen side castle!");
+                nextStates.add(board);
+            }
+        }
+        else {
+            if (canBlackCastleKingSide && ((whitePieces & blackPieces) & BoardParts.BLACK_KING_SIDE_CASTLE) == 0 && (((king & BoardParts.BLACK_KING_SIDE_CASTLE) & getAllAttackedTiles(opponentColor)) == 0 && (rooks & BoardParts.Tile.H8.position) != 0)) {
+                long kingNewPosition = BoardParts.Tile.G8.position;
+                long rooksNewPosition = ((rooks | BoardParts.Tile.F8.position) & ~BoardParts.Tile.H8.position);
+                BitBoard board = getNewBoardFromMove(1, kingNewPosition);
+                board.setRooks(color, rooksNewPosition);
+                Debug.log("black king side castle!");
+                nextStates.add(board);
+            }
+            if (canBlackCastleQueenSide && ((whitePieces & blackPieces) & BoardParts.BLACK_QUEEN_SIDE_CASTLE) == 0 && (((king & BoardParts.BLACK_QUEEN_SIDE_CASTLE) & getAllAttackedTiles(opponentColor)) == 0 && (rooks & BoardParts.Tile.A8.position) != 0)) {
+                long kingNewPosition = BoardParts.Tile.C8.position;
+                long rooksNewPosition = ((rooks | BoardParts.Tile.D8.position) & ~BoardParts.Tile.A8.position);
+                BitBoard board = getNewBoardFromMove(1, kingNewPosition);
+                board.setRooks(color, rooksNewPosition);
+                Debug.log("black queen side castle!");
+                nextStates.add(board);
             }
         }
         return nextStates;
@@ -466,6 +513,8 @@ public class BitBoard {
     private ArrayList<BitBoard> getPawnsMoves(int color) {
         ArrayList<BitBoard> nextStates = new ArrayList<>();
         long position = color == 1 ? whitePawns : blackPawns;
+        int opponentColor = BitBoardOperations.toggleColor(color);
+        int colorIndex = color == 1 ? 1 : -1;
         BitPawn pawn = new BitPawn(color, position, whitePieces, blackPieces);
         for (long move : pawn.validMovements()) {
             BitBoard newBoard = getNewBoardFromMove(6, move);
@@ -474,6 +523,11 @@ public class BitBoard {
                 nextStates.addAll(pawn.getPromotions(newBoard, promotionTile));
             }
             else nextStates.add(newBoard);
+        }
+        for (long move : pawn.getEnPassantMoves(enPassantTile)) {
+            BitBoard newBoard = getNewBoardFromMove(6, move);
+            newBoard.setPawns(opponentColor, BitOperations.clearBit(newBoard.getPawns(opponentColor), enPassantTile + 8 * colorIndex));
+            nextStates.add(newBoard);
         }
         return nextStates;
     }
@@ -499,11 +553,11 @@ public class BitBoard {
 
     // main for debugging
     public static void main(String[] args) {
-        String fen = "rnbqkbnr/8/8/8/8/p5pP/8/RNBQKBNR w KQkq - 0 1";
+        // String fen = "rnbqkbn1/8/8/8/6r1/p5pP/8/RNBQK2R w KQkq - 0 1";
+        String fen = "r3k2r/8/8/8/8/8/8/R3K2R b KQkq - 0 1";
         //String fen = "rk6/p1p5/B4p2/1q2bP2/3N4/2K5/8/1R6 b - - 0 1";
         BoardState boardState = new BoardState(fen, null);
         BitBoard board = new BitBoard(boardState);
-
         System.out.println("Initial Board:");
         System.out.println(BitBoardOperations.printBitBoard(board));
 

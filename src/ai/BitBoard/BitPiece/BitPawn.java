@@ -13,12 +13,58 @@ public class BitPawn extends BitPiece{
     public BitPawn(int color, long position, long wPosition, long bPosition) {
         super(color, position, wPosition, bPosition);
         this.name = 6;
-        this.colorIndex = color == 1 ? 1 : -1;
+        this.colorIndex = color == 1 ? -1 : 1;
     }
 
     @Override
     public ArrayList<Long> validMovements() {
-        return new ArrayList<>();
+        ArrayList<Long> movements = new ArrayList<>();
+        // for every pawn in the position:
+        for (int i = 0; i < BoardParts.NUM_OF_TILES; i++) {
+            if (BitOperations.isBitSet(position, i)) {
+                long iTile = 0;
+                long otherSetTiles = position;
+                iTile = BitOperations.setBit(iTile, i);
+                otherSetTiles = BitOperations.clearBit(otherSetTiles, i);
+
+                if (isUpMovePossible(iTile, i)) {
+                    long upMove = upMove(i);
+                    movements.add(otherSetTiles | upMove);
+                    if ((iTile & BoardParts.getPawnsStartingPosition(color)) != 0) {
+                        long up2move = upMove(i + 8 * colorIndex);
+                        if (isUpMovePossible(upMove, i + 8 * colorIndex)) movements.add(otherSetTiles | up2move);
+                    }
+                }
+                if (isLeftCapturePossible(iTile)) {
+                    long leftCapture = leftCapture(i);
+                    if (isCapturing(leftCapture)) {
+                        movements.add(otherSetTiles | leftCapture);
+                    }
+                }
+                if (isRightCapturePossible(iTile)) {
+                    long rightCapture = rightCapture(i);
+                    if (isCapturing(rightCapture)) {
+                        movements.add(otherSetTiles | rightCapture);
+                    }
+                }
+            }
+        }
+        return movements;
+    }
+
+    public long[] getEnPassantMoves(int enPassantIndex) {
+        long[] movements = new long[2];
+        long enPassantToTheRight = getRightEnPassantTile(enPassantIndex) & position;
+        long enPassantToTheLeft = getLeftEnPassantTile(enPassantIndex) & position;
+        if (enPassantToTheLeft != 0) {
+            movements[0] = position | enPassantToTheLeft;
+            movements[0] = BitOperations.clearBit(movements[0], enPassantIndex);
+        }
+        if (enPassantToTheRight != 0) {
+            movements[1] = position | enPassantToTheRight;
+            movements[1] = BitOperations.clearBit(movements[1], enPassantIndex);
+        }
+        return movements;
     }
 
     @Override
@@ -26,13 +72,8 @@ public class BitPawn extends BitPiece{
         long attackedTile = 0L;
         for (int i = 0; i < BoardParts.NUM_OF_TILES; i++) {
             if (BitOperations.isBitSet(position, i)) {
-                long iTile = BitOperations.setBit(0x0L, i);
-                long otherSetTiles = BitOperations.clearBit(position, i);
-                int row = BitOperations.getRowIndexFromBit(iTile);
-                int col = BitOperations.getColIndexFromBit(iTile);
-                int counter = 1;
-
-                // checking if up move is possible:
+                if (isLeftCapturePossible(i)) attackedTile |= leftCapture(i);
+                if (isRightCapturePossible(i)) attackedTile |= rightCapture(i);
             }
         }
         return attackedTile;
@@ -75,11 +116,15 @@ public class BitPawn extends BitPiece{
         return BitOperations.setBit(0L, i + 8 * colorIndex - 1);
     }
 
-    private boolean isRightEnPassantPossible(int enPassantNum, int i) {
-        return enPassantNum == (i + 8 * colorIndex + 1);
+    private long getRightEnPassantTile(int enPassantNum) {
+        long tile = BitOperations.setBit (0L, enPassantNum + 8 * colorIndex - 1);
+        if (isRightCapturePossible(tile)) return tile;
+        return - 1;
     }
-    private boolean isLeftEnPassantPossible(int enPassantNum, int i) {
-        return enPassantNum == (i + 8 * colorIndex - 1);
+    private long getLeftEnPassantTile(int enPassantNum) {
+        long tile = BitOperations.setBit (0L, enPassantNum + 8 * colorIndex + 1);
+        if (isLeftCapturePossible(tile)) return tile;
+        return - 1;
     }
 
     public ArrayList<BitBoard> getPromotions(BitBoard board, long target) {
@@ -106,6 +151,17 @@ public class BitPawn extends BitPiece{
         promotions.add(bishopPromotion);
 
         return promotions;
+    }
+
+    public static void main(String[] args) {
+        BitPawn pawn = new BitPawn(1, (BoardParts.Tile.E2.position), BoardParts.SECOND_RANK, BoardParts.BLACK_START_POSITION | BoardParts.Tile.F3.position | BoardParts.Tile.D3.position);
+
+        ArrayList<Long> movements = pawn.validMovements();
+        System.out.println(movements.size());
+        for (Long move : movements) {
+            long l = move;
+            System.out.println(BitOperations.printBitboard(l));
+        }
     }
 
 }
