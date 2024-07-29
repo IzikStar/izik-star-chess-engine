@@ -27,7 +27,7 @@ public class myEngine {
 
     // constructor:
     public myEngine(BoardState board) {
-        this.board = board;
+        setBoard(board);
     }
 
     // making move methods
@@ -47,7 +47,6 @@ public class myEngine {
             this.fen = fen;
             Move move = chooseMethod();
             while (move == null) {
-
                 move = chooseMethod();
             }
             Move tempMove = move;

@@ -9,7 +9,6 @@ import pieces.Piece;
 import javax.swing.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.util.Set;
 
 import ai.StockfishEngine;
 
@@ -24,7 +23,7 @@ public class Input extends MouseAdapter {
 
     String pathToStockfish = "src/res/stockfish/stockfish-windows-x86-64.exe";
     StockfishEngine engine;
-    myEngine randomMoveEngine;
+    myEngine myEngine;
 
     public boolean isDraggingMove = false;
     private int switchToStockFish = 6;
@@ -32,7 +31,7 @@ public class Input extends MouseAdapter {
     public Input(Board board) {
         this.board = board;
         engine = new StockfishEngine();
-        randomMoveEngine = new myEngine(board.state);
+        myEngine = new myEngine(board.state);
         if (!ChoosePlayFormat.isPlayingWhite) {
             makeEngineMove();
         }
@@ -83,7 +82,7 @@ public class Input extends MouseAdapter {
                 myEngine.waitTime = 0;
                 int temp = SettingPanel.skillLevel;
                 SettingPanel.skillLevel = 1;
-                randomMoveEngine.makeMove(board.state.convertPiecesToFEN(), board);
+                myEngine.makeMove(board.state.convertPiecesToFEN(), board);
                 SettingPanel.skillLevel = temp;
                 myEngine.waitTime = 1000;
             }
@@ -218,7 +217,7 @@ public class Input extends MouseAdapter {
                             } /*else if (SettingPanel.skillLevel > 0){
                                 level2Engine.makePlayerMove(board);
                             }*/ else {
-                                randomMoveEngine.makeMove(board.state.convertPiecesToFEN(), board);
+                                myEngine.makeMove(board.state.convertPiecesToFEN(), board);
                             }
                         }
                         if (!ChoosePlayFormat.isOnePlayer) {
@@ -301,7 +300,7 @@ public class Input extends MouseAdapter {
                             if (SettingPanel.skillLevel > switchToStockFish) {
                                 makeEngineMove();
                             } else {
-                                randomMoveEngine.makeMove(board.state.convertPiecesToFEN(), board);
+                                myEngine.makeMove(board.state.convertPiecesToFEN(), board);
 //                                long startTime = System.currentTimeMillis();
 //                                long endTime = System.currentTimeMillis();
 //                                while (endTime - startTime < 2000 && ) {

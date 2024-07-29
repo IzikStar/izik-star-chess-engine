@@ -55,7 +55,7 @@ public class Board extends JPanel {
         this.savedStates.push(fenStartingPosition);
 
         this.state = new BoardState(fenStartingPosition, null);
-        this.input.randomMoveEngine.setBoard(state);
+        this.input.myEngine.setBoard(state);
         loadPiecesFromFen(state.fenCurrentPosition);
 
         Timer animationTimer = new Timer(1, new ActionListener() {
@@ -361,7 +361,7 @@ public class Board extends JPanel {
                         promotePawnTo(move, input.engine.promotionChoice);
                     }
                     else {
-                        promotePawnTo(move, input.randomMoveEngine.promotionChoice);
+                        promotePawnTo(move, input.myEngine.promotionChoice);
                     }
                     state.capture(move.piece);
                 }).start();
@@ -442,7 +442,7 @@ public class Board extends JPanel {
     }
 
     public void restart() {
-        input.randomMoveEngine.stop();
+        input.myEngine.stop();
         isGameOver = false;
         input.isStatusChanged = false;
         state.setLastMove(null);

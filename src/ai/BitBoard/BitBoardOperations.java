@@ -44,4 +44,10 @@ public class BitBoardOperations {
         return color == 1 ? 0 : 1;
     }
 
+    public static BitMove CompareTwoPositionsAndGetMove(BitBoard prevPosition, BitBoard currentPosition) {
+
+
+        BitMove move = null;
+        return move;
+    }
 }

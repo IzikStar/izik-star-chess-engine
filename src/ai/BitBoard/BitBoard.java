@@ -5,6 +5,8 @@ import ai.BoardState;
 import pieces.Piece;
 import main.Debug;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 
 public class BitBoard {
@@ -16,6 +18,7 @@ public class BitBoard {
     private boolean canWhiteCastleKingSide, canWhiteCastleQueenSide, canBlackCastleKingSide, canBlackCastleQueenSide;
     protected boolean isWhiteToMove;
     protected int numOfTurns, numOfTurnsWithoutCaptureOrPawnMove;
+    protected ArrayList<BitBoard> nextStates;
 
     // constructors
     public BitBoard(BoardState boardState) {
@@ -164,6 +167,10 @@ public class BitBoard {
         this.canWhiteCastleQueenSide = board.canWhiteCastleQueenSide;
         this.canBlackCastleKingSide = board.canBlackCastleKingSide;
         this.canBlackCastleQueenSide = board.canBlackCastleQueenSide;
+        if (board.nextStates != null) {
+            this.nextStates = new ArrayList<>();
+            this.nextStates.addAll(board.nextStates);
+        }
     }
 
     // Getters and Setters to the relevant pieces
@@ -387,15 +394,17 @@ public class BitBoard {
 
     // get next states:
     public ArrayList<BitBoard> getNextStates() {
-        int color = isWhiteToMove ? 1 : 0;
-        ArrayList<BitBoard> nextMoves = getMovesForColor(color);
-        ArrayList<BitBoard> nextStates = new ArrayList<>();
-        int counter = 0;
-        for (BitBoard state : nextMoves) {
-            if (state.isCheckOn(color)) counter++;
-            else nextStates.add(state);
+        if (this.nextStates == null) {
+            int color = isWhiteToMove ? 1 : 0;
+            ArrayList<BitBoard> nextMoves = getMovesForColor(color);
+            nextStates = new ArrayList<>();
+            int counter = 0;
+            for (BitBoard state : nextMoves) {
+                if (state.isCheckOn(color)) counter++;
+                else nextStates.add(state);
+            }
+            Debug.log("move that causes check: " + counter);
         }
-        Debug.log("move that causes check: " + counter);
         return nextStates;
     }
     // get next moves:
@@ -576,6 +585,18 @@ public class BitBoard {
         return king.getAttackedTiles() | queen.getAttackedTiles() | rook.getAttackedTiles() | bishop.getAttackedTiles() | knight.getAttackedTiles() | pawn.getAttackedTiles();
     }
 
+    public int getStatus() {
+        if (nextStates != null && nextStates.isEmpty()) return 0;
+        if (nextStates == null) {
+            return getNextStates().isEmpty() ? 0 : 1;
+        }
+        return 1;
+    }
+
+    @Override
+    public String toString() {
+        return BitBoardOperations.printBitBoard(this);
+    }
 
     // main for debugging
     public static void main(String[] args) {
@@ -585,6 +606,10 @@ public class BitBoard {
         String fen = "1k4r1/7P/8/8/8/8/8/7K w - - 0 1";
         BoardState boardState = new BoardState(fen, null);
         BitBoard board = new BitBoard(boardState);
+        long timeElapsed;
+        Instant start, end;
+        start = Instant.now(); // התחלת מדידת זמן
+
         System.out.println("Initial Board:");
         System.out.println(BitBoardOperations.printBitBoard(board));
 
@@ -596,7 +621,9 @@ public class BitBoard {
         for (BitBoard move : states) {
             System.out.println(BitBoardOperations.printBitBoard(move));
         }
-
+        end = Instant.now(); // סיום מדידת זמן
+        timeElapsed = Duration.between(start, end).toMillis(); // זמן במילישניות
+        System.out.println("time spend: " + timeElapsed);
     }
 
 //        // בדיקת המהלכים של המלכים

@@ -6,6 +6,8 @@ import main.Move;
 import main.setting.ChoosePlayFormat;
 import pieces.*;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
 
@@ -637,6 +639,23 @@ public class BoardState {
 
     public boolean getIsCheck() {
         return checkScanner.isCheckingForEvaluation(this);
+    }
+
+
+    public static void main(String[] args) {
+        String fen = "1k4r1/7P/8/8/8/8/8/7K w - - 0 1";
+        BoardState boardState = new BoardState(fen, null);
+        long timeElapsed;
+        Instant start, end;
+        start = Instant.now(); // התחלת מדידת זמן
+
+        for (Move move :boardState.getAllPossibleMoves()) {
+            System.out.println(move);
+        }
+
+        end = Instant.now(); // סיום מדידת זמן
+        timeElapsed = Duration.between(start, end).toMillis(); // זמן במילישניות
+        System.out.println("time spend: " + timeElapsed);
     }
 
 }
