@@ -390,11 +390,12 @@ public class BitBoard {
         int color = isWhiteToMove ? 1 : 0;
         ArrayList<BitBoard> nextMoves = getMovesForColor(color);
         ArrayList<BitBoard> nextStates = new ArrayList<>();
+        int counter = 0;
         for (BitBoard state : nextMoves) {
-            if (!state.isCheckOn(color)) {
-                nextStates.add(state);
-            }
+            if (state.isCheckOn(color)) counter++;
+            else nextStates.add(state);
         }
+        Debug.log("move that causes check: " + counter);
         return nextStates;
     }
     // get next moves:
@@ -418,13 +419,17 @@ public class BitBoard {
         ArrayList<BitBoard> nextStates = new ArrayList<>();
         long position = color == 1 ? whiteKings : blackKings;
         BitKing king = new BitKing(color, position, whitePieces, blackPieces);
-        for (long move : king.validMovements()) {
+        ArrayList<Long> kingMoves = king.validMovements();
+        ArrayList<BitBoard> castles = getCastles(color);
+        for (long move : kingMoves) {
             if (!sameTeem(move, position)) {
                 BitBoard newBoard = getNewBoardFromMove(1, move);
                 nextStates.add(newBoard);
             }
         }
-        nextStates.addAll(getCastles(color));
+        nextStates.addAll(castles);
+        Debug.log("king moves: " + kingMoves.size());
+        Debug.log("castle moves: " + castles.size());
         return nextStates;
     }
     private ArrayList<BitBoard> getCastles(int color) {
@@ -474,40 +479,48 @@ public class BitBoard {
         ArrayList<BitBoard> nextStates = new ArrayList<>();
         long position = color == 1 ? whiteQueens : blackQueens;
         BitQueen queen = new BitQueen(color, position, whitePieces, blackPieces);
-        for (long move : queen.validMovements()) {
+        ArrayList<Long> moves = queen.validMovements();
+        for (long move : moves) {
             BitBoard newBoard = getNewBoardFromMove(2, move);
             nextStates.add(newBoard);
         }
+        Debug.log("queen moves: " + moves.size());
         return nextStates;
     }
     private ArrayList<BitBoard> getRooksMoves(int color) {
         ArrayList<BitBoard> nextStates = new ArrayList<>();
         long position = color == 1 ? whiteRooks : blackRooks;
         BitRook rook = new BitRook(color, position, whitePieces, blackPieces);
-        for (long move : rook.validMovements()) {
+        ArrayList<Long> moves = rook.validMovements();
+        for (long move : moves) {
             BitBoard newBoard = getNewBoardFromMove(3, move);
             nextStates.add(newBoard);
         }
+        Debug.log("rook moves: " + moves.size());
         return nextStates;
     }
     private ArrayList<BitBoard> getBishopsMoves(int color) {
         ArrayList<BitBoard> nextStates = new ArrayList<>();
         long position = color == 1 ? whiteBishops : blackBishops;
         BitBishop bishop = new BitBishop(color, position, whitePieces, blackPieces);
-        for (long move : bishop.validMovements()) {
+        ArrayList<Long> moves = bishop.validMovements();
+        for (long move : moves) {
             BitBoard newBoard = getNewBoardFromMove(4, move);
             nextStates.add(newBoard);
         }
+        Debug.log("bishop moves: " + moves.size());
         return nextStates;
     }
     private ArrayList<BitBoard> getKnightsMoves(int color) {
         ArrayList<BitBoard> nextStates = new ArrayList<>();
         long position = color == 1 ? whiteKnights : blackKnights;
         BitKnight knight = new BitKnight(color, position, whitePieces, blackPieces);
-        for (long move : knight.validMovements()) {
+        ArrayList<Long> moves = knight.validMovements();
+        for (long move : moves) {
             BitBoard newBoard = getNewBoardFromMove(5, move);
             nextStates.add(newBoard);
         }
+        Debug.log("knight moves: " + moves.size());
         return nextStates;
     }
     private ArrayList<BitBoard> getPawnsMoves(int color) {
@@ -516,19 +529,32 @@ public class BitBoard {
         int opponentColor = BitBoardOperations.toggleColor(color);
         int colorIndex = color == 1 ? 1 : -1;
         BitPawn pawn = new BitPawn(color, position, whitePieces, blackPieces);
-        for (long move : pawn.validMovements()) {
+        ArrayList<Long> moves = pawn.validMovements();
+        long[] enPassantMoves = pawn.getEnPassantMoves(enPassantTile);
+        // int EnPassantCounter = 0, promotionCounter = 0;
+        for (long move : moves) {
             BitBoard newBoard = getNewBoardFromMove(6, move);
             long promotionTile = (move & BoardParts.getPromotionRow(color));
             if (promotionTile != 0) {
+                // promotionCounter++;
                 nextStates.addAll(pawn.getPromotions(newBoard, promotionTile));
             }
             else nextStates.add(newBoard);
         }
-        for (long move : pawn.getEnPassantMoves(enPassantTile)) {
-            BitBoard newBoard = getNewBoardFromMove(6, move);
-            newBoard.setPawns(opponentColor, BitOperations.clearBit(newBoard.getPawns(opponentColor), enPassantTile + 8 * colorIndex));
-            nextStates.add(newBoard);
+        for (long move : enPassantMoves) {
+            if (move != 0) {
+                BitBoard newBoard = getNewBoardFromMove(6, move);
+                newBoard.setPawns(opponentColor, BitOperations.clearBit(newBoard.getPawns(opponentColor), enPassantTile + 8 * colorIndex));
+                nextStates.add(newBoard);
+            }
         }
+        Debug.log("pawn moves: " + moves.size());
+        //Debug.log("promotion possibilities: " + promotionCounter * 4);
+        Debug.log("En Passant moves: ");
+//        for (long enPassantMove : enPassantMoves) {
+//            if (enPassantMove != 0) EnPassantCounter++;
+//        }
+        //Debug.log(EnPassantCounter + "");
         return nextStates;
     }
     // get all attacked tiles:
@@ -554,8 +580,9 @@ public class BitBoard {
     // main for debugging
     public static void main(String[] args) {
         // String fen = "rnbqkbn1/8/8/8/6r1/p5pP/8/RNBQK2R w KQkq - 0 1";
-        String fen = "r3k2r/8/8/8/8/8/8/R3K2R b KQkq - 0 1";
+        // String fen = "r3k2r/8/8/8/8/8/8/R3K2R b KQkq - 0 1";
         //String fen = "rk6/p1p5/B4p2/1q2bP2/3N4/2K5/8/1R6 b - - 0 1";
+        String fen = "1k4r1/7P/8/8/8/8/8/7K w - - 0 1";
         BoardState boardState = new BoardState(fen, null);
         BitBoard board = new BitBoard(boardState);
         System.out.println("Initial Board:");

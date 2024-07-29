@@ -54,15 +54,17 @@ public class BitPawn extends BitPiece{
 
     public long[] getEnPassantMoves(int enPassantIndex) {
         long[] movements = new long[2];
-        long enPassantToTheRight = getRightEnPassantTile(enPassantIndex) & position;
-        long enPassantToTheLeft = getLeftEnPassantTile(enPassantIndex) & position;
-        if (enPassantToTheLeft != 0) {
-            movements[0] = position | enPassantToTheLeft;
-            movements[0] = BitOperations.clearBit(movements[0], enPassantIndex);
-        }
-        if (enPassantToTheRight != 0) {
-            movements[1] = position | enPassantToTheRight;
-            movements[1] = BitOperations.clearBit(movements[1], enPassantIndex);
+        if (enPassantIndex != -1) {
+            long enPassantToTheRight = getRightEnPassantTile(enPassantIndex) & position;
+            long enPassantToTheLeft = getLeftEnPassantTile(enPassantIndex) & position;
+            if (enPassantToTheLeft != 0) {
+                movements[0] = position | enPassantToTheLeft;
+                movements[0] = BitOperations.clearBit(movements[0], enPassantIndex);
+            }
+            if (enPassantToTheRight != 0) {
+                movements[1] = position | enPassantToTheRight;
+                movements[1] = BitOperations.clearBit(movements[1], enPassantIndex);
+            }
         }
         return movements;
     }
