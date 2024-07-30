@@ -28,8 +28,8 @@ public class BitBishop extends BitPiece{
                 long otherSetTiles = BitOperations.clearBit(position, i);
                 int row = BitOperations.getRowIndexFromBit(iTile);
                 int col = BitOperations.getColIndexFromBit(iTile);
-                Debug.log("iTile:" + BitOperations.printBitboard(iTile) + "otherSetTiles: " + BitOperations.printBitboard(otherSetTiles)/* + "position:" + BitOperations.printBitboard(position)*/);
-                Debug.log("i = " + i);
+                //Debug.log("iTile:" + BitOperations.printBitboard(iTile) + "otherSetTiles: " + BitOperations.printBitboard(otherSetTiles)/* + "position:" + BitOperations.printBitboard(position)*/);
+                //Debug.log("i = " + i);
                 int counter = 1;
 
                 // checking if up left move is possible:
@@ -37,7 +37,7 @@ public class BitBishop extends BitPiece{
                     long upMove = upLeftMove(i, counter);
                     counter++;
                     if ((!isSelfCapturing(upMove)) && (!isCapturing(upMove))) {
-                        Debug.log("up left move");
+                        //Debug.log("up left move");
                         movements.add(upMove | otherSetTiles);
                     }
                     else {
@@ -51,7 +51,7 @@ public class BitBishop extends BitPiece{
                     long rightMove = upRightMove(i, counter);
                     counter++;
                     if ((!isSelfCapturing(rightMove)) && (!isCapturing(rightMove))) {
-                        Debug.log("up right move");
+                        //Debug.log("up right move");
                         movements.add(rightMove | otherSetTiles);
                     }
                     else {
@@ -65,7 +65,7 @@ public class BitBishop extends BitPiece{
                     long leftMove = downLeftMove(i, counter);
                     counter++;
                     if ((!isSelfCapturing(leftMove)) && (!isCapturing(leftMove))) {
-                        Debug.log("down left move");
+                        //Debug.log("down left move");
                         movements.add(leftMove | otherSetTiles);
                     }
                     else {
@@ -79,7 +79,7 @@ public class BitBishop extends BitPiece{
                     long downMove = downRightMove(i, counter);
                     counter++;
                     if ((!isSelfCapturing(downMove)) && (!isCapturing(downMove))) {
-                        Debug.log("down right move");
+                        //Debug.log("down right move");
                         movements.add(downMove | otherSetTiles);
                     }
                     else {

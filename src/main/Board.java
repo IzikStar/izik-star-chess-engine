@@ -378,13 +378,13 @@ public class Board extends JPanel {
         if (choice != null) {
             animation = new ChessAnimation(move.piece, move.piece.xPos, move.piece.yPos, move.piece.xPos, move.piece.yPos, 500);
             new Thread(() -> {
+                promotePawnTo(move, choice);
                 try {
                     Thread.sleep(500);
                     audioPlayer.playCastlingSound();
                 } catch (InterruptedException event) {
                     event.printStackTrace();
                 }
-                promotePawnTo(move, choice);
                 state.capture(move.piece);
             }).start();
         } else {

@@ -155,7 +155,7 @@ public class BitKnight extends BitPiece{
         //Debug.log("pos: " + BitOperations.printBitboard(tile) + " comparing to: " + BitOperations.printBitboard(BoardParts.BACK_LEFT_CORNER) + " and to: " + BitOperations.printBitboard(BoardParts.SEVENTH_RANK));
         if ((tile & BoardParts.BACK_LEFT_CORNER) == 0) {
             if ((tile & BoardParts.SEVENTH_RANK) == 0) {
-                Debug.log("UpLeftMove!");
+                //Debug.log("UpLeftMove!");
                 return true;
             }
         }
@@ -170,7 +170,7 @@ public class BitKnight extends BitPiece{
     private boolean isUpRightMoveValid(long tile) {
         if ((tile & BoardParts.BACK_RIGHT_CORNER) == 0) {
             if ((tile & BoardParts.SEVENTH_RANK) == 0) {
-                Debug.log("UpRightMove!");
+                //Debug.log("UpRightMove!");
                 return true;
             }
         }
@@ -185,7 +185,7 @@ public class BitKnight extends BitPiece{
     private boolean isLeftUpMoveValid(long tile) {
         if ((tile & BoardParts.BACK_LEFT_CORNER) == 0) {
             if ((tile & BoardParts.B_FILE) == 0) {
-                Debug.log("LeftUpMove!");
+                //Debug.log("LeftUpMove!");
                 return true;
             }
         }
@@ -199,8 +199,8 @@ public class BitKnight extends BitPiece{
     // left down
     private boolean isLeftDownMoveValid(long tile) {
         if ((tile & BoardParts.FIRST_LEFT_CORNER) == 0) {
-            if ((tile & BoardParts.SECOND_RANK) == 0) {
-                Debug.log("LeftDownMove!");
+            if ((tile & BoardParts.B_FILE) == 0) {
+                //Debug.log("LeftDownMove!");
                 return true;
             }
         }
@@ -215,7 +215,7 @@ public class BitKnight extends BitPiece{
     private boolean isRightUpMoveValid(long tile) {
         if ((tile & BoardParts.BACK_RIGHT_CORNER) == 0) {
             if ((tile & BoardParts.G_FILE) == 0) {
-                Debug.log("RightUpMove!");
+                //Debug.log("RightUpMove!");
                 return true;
             }
         }
@@ -230,7 +230,7 @@ public class BitKnight extends BitPiece{
     private boolean isRightDownMoveValid(long tile) {
         if ((tile & BoardParts.FIRST_RIGHT_CORNER) == 0) {
             if ((tile & BoardParts.G_FILE) == 0) {
-                Debug.log("RightDownMove!");
+                //Debug.log("RightDownMove!");
                 return true;
             }
         }
@@ -245,7 +245,7 @@ public class BitKnight extends BitPiece{
     private boolean isDownLeftMoveValid(long tile) {
         if ((tile & BoardParts.FIRST_LEFT_CORNER) == 0) {
             if ((tile & BoardParts.SECOND_RANK) == 0) {
-                Debug.log("DownLeftMove!");
+                //Debug.log("DownLeftMove!");
                 return true;
             }
         }
@@ -260,7 +260,7 @@ public class BitKnight extends BitPiece{
     private boolean isDownRightMoveValid(long tile) {
         if ((tile & BoardParts.FIRST_RIGHT_CORNER) == 0) {
             if ((tile & BoardParts.SECOND_RANK) == 0) {
-                Debug.log("DownRightMove!");
+                //Debug.log("DownRightMove!");
                 return true;
             }
         }

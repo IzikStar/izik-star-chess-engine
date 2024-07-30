@@ -28,17 +28,17 @@ public class BitRook extends BitPiece{
                 long otherSetTiles = BitOperations.clearBit(position, i);
                 int row = BitOperations.getRowIndexFromBit(iTile);
                 int col = BitOperations.getColIndexFromBit(iTile);
-                Debug.log("iTile:" + BitOperations.printBitboard(iTile) + "otherSetTiles: " + BitOperations.printBitboard(otherSetTiles)/* + "position:" + BitOperations.printBitboard(position)*/);
-                Debug.log("i = " + i);
+                //Debug.log("iTile:" + BitOperations.printBitboard(iTile) + "otherSetTiles: " + BitOperations.printBitboard(otherSetTiles)/* + "position:" + BitOperations.printBitboard(position)*/);
+                //Debug.log("i = " + i);
                 int counter = 1;
 
                 // checking if up move is possible:
                 for (int j = row; j > 0; j--) {
                     long upMove = upMove(i, counter);
                     counter++;
-                    Debug.log("self capture = " + isSelfCapturing(upMove) + ", capture = " + isCapturing(upMove));
+                    //Debug.log("self capture = " + isSelfCapturing(upMove) + ", capture = " + isCapturing(upMove));
                     if ((!isSelfCapturing(upMove)) && (!isCapturing(upMove))) {
-                        Debug.log("up move");
+                        //Debug.log("up move");
                         movements.add(upMove | otherSetTiles);
                     } else {
                         if (isCapturing(upMove)) movements.add(upMove | otherSetTiles);
@@ -50,9 +50,9 @@ public class BitRook extends BitPiece{
                 for (int k = col; k > 0; k--) {
                     long leftMove = leftMove(i, counter);
                     counter++;
-                    if ((!isSelfCapturing(leftMove)) && (!isCapturing(leftMove | otherSetTiles))) {
-                        Debug.log("left move");
-                        movements.add(leftMove);
+                    if ((!isSelfCapturing(leftMove)) && (!isCapturing(leftMove))) {
+                        //Debug.log("left move");
+                        movements.add(leftMove | otherSetTiles);
                     } else {
                         if (isCapturing(leftMove)) movements.add(leftMove | otherSetTiles);
                         break;
@@ -63,9 +63,9 @@ public class BitRook extends BitPiece{
                 for (int x = col; x < 7; x++) {
                     long rightMove = rightMove(i, counter);
                     counter++;
-                    if ((!isSelfCapturing(rightMove)) && (!isCapturing(rightMove | otherSetTiles))) {
-                        Debug.log("right move");
-                        movements.add(rightMove);
+                    if ((!isSelfCapturing(rightMove)) && (!isCapturing(rightMove))) {
+                        //Debug.log("right move");
+                        movements.add(rightMove | otherSetTiles);
                     } else {
                         if (isCapturing(rightMove)) movements.add(rightMove | otherSetTiles);
                         break;
@@ -77,7 +77,7 @@ public class BitRook extends BitPiece{
                     long downMove = downMove(i, counter);
                     counter++;
                     if ((!isSelfCapturing(downMove)) && (!isCapturing(downMove))) {
-                        Debug.log("down move");
+                        //Debug.log("down move");
                         movements.add(downMove | otherSetTiles);
                     } else {
                         if (isCapturing(downMove)) movements.add(downMove | otherSetTiles);
@@ -173,7 +173,7 @@ public class BitRook extends BitPiece{
 
 
     public static void main(String[] args) {
-        BitRook rook = new BitRook(1, (BoardParts.Tile.A1.position | BoardParts.Tile.H1.position), /*BoardParts.WHITE_START_POSITION, BoardParts.BLACK_START_POSITION*/ BoardParts.FIRST_RANK, BoardParts.EIGHTH_RANK);
+        BitRook rook = new BitRook(0, (BoardParts.Tile.A8.position | BoardParts.Tile.C8.position), /*BoardParts.WHITE_START_POSITION, BoardParts.BLACK_START_POSITION*/ BoardParts.FIRST_RANK, BoardParts.EIGHTH_RANK);
 
         ArrayList<Long> movements = rook.validMovements();
         System.out.println(movements.size());

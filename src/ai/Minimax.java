@@ -14,7 +14,6 @@ import java.util.Random;
 public class Minimax {
     private static final Random random = new Random();
     public static ArrayList<BitMove> bestMoves;
-    public static BitMove bestMove;
     public static int maxDepth;
 
     public static BitMove getBestMove(BoardState board) {
@@ -32,7 +31,7 @@ public class Minimax {
                 // System.out.printf("Depth: %d, Best Move: %s, Best Value: %d, Time Spend: %d ms\n", depth, result.move, result.value, timeElapsed);
 
                 if (depth == maxDepth) {
-                    System.out.println("best moves: " + bestMoves);
+                    System.out.println("best moves: " + bestMoves + " size: " + bestMoves.size());
                     if (!bestMoves.isEmpty()) {
                         int randomIndex = random.nextInt(bestMoves.size());
                         result.move = bestMoves.get(randomIndex);
@@ -49,9 +48,10 @@ public class Minimax {
     }
 
     private static MinimaxResult minimax(BitBoard board, int depth, boolean isMaximizingPlayer, int alpha, int beta) {
-        if (depth == 0 || board.getStatus() == 0) {
+        if (depth == 0 || board.getStatus() != 1) {
             return new MinimaxResult(board.lastMove, BitBoardEvaluate.evaluate(board));
         }
+        BitMove bestMove = board.getRandomPossibleMove();
         boolean lastDepth = depth == maxDepth;
         if (lastDepth) {
             bestMoves = new ArrayList<>();
@@ -69,6 +69,8 @@ public class Minimax {
                 timeElapsed = Duration.between(start, end).toMillis(); // זמן במילישניות
                 // System.out.printf("Maximizing: Value: %d, Alpha: %d, Beta: %d, Time: %d ms\n", result.value, alpha, beta, timeElapsed);
                 if (result.value > bestValue) {
+                    // System.out.println("board:" + board);
+                    // System.out.println("best state" + state);
                     bestValue = result.value;
                     bestMove = state.lastMove;
                     if (lastDepth) {
@@ -76,8 +78,8 @@ public class Minimax {
                         bestMoves.add(bestMove);
                         // System.out.println("move added, turn: " + (board.getIsWhiteToMove() ? "white." : "black.") + " depth: " + depth);
                     }
-                } else if (lastDepth && result.value == bestValue) {
-                    bestMoves.add(result.move);
+                } else if (lastDepth && result.value == bestValue && (!bestMoves.contains(result.move))) {
+                    bestMoves.add(bestMove);
                 }
                 alpha = Math.max(alpha, bestValue);
                 if (beta <= alpha) {
@@ -105,7 +107,6 @@ public class Minimax {
                 }
             }
         }
-        if (bestMove == null) bestMove = board.getRandomPossibleMove();
         return new MinimaxResult(bestMove, bestValue);
     }
 
@@ -120,8 +121,8 @@ public class Minimax {
     }
 
     public static void main(String[] args) {
-        maxDepth = 3;
-        String fen = "rnbqkbnr/8/8/8/8/8/8/RNBQKBNR b KQkq - 0 1";
+        maxDepth = 2;
+        String fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1";
         BoardState boardState = new BoardState(fen, null);
         System.out.println("best move final: " + getBestMove(boardState));
     }

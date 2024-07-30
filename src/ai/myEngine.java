@@ -58,7 +58,8 @@ public class myEngine {
                 alreadyChecked.clear();
             } else {
                 System.out.println("retrying...");
-                makeMove(fen, realBoard);
+                getRandomMove();
+                // makeMove(fen, realBoard);
             }
         });
         thread.start();

@@ -28,17 +28,17 @@ public class BitQueen extends BitPiece{
                 long otherSetTiles = BitOperations.clearBit(position, i);
                 int row = BitOperations.getRowIndexFromBit(iTile);
                 int col = BitOperations.getColIndexFromBit(iTile);
-                Debug.log("iTile:" + BitOperations.printBitboard(iTile) + "otherSetTiles: " + BitOperations.printBitboard(otherSetTiles)/* + "position:" + BitOperations.printBitboard(position)*/);
-                Debug.log("i = " + i);
+                //Debug.log("iTile:" + BitOperations.printBitboard(iTile) + "otherSetTiles: " + BitOperations.printBitboard(otherSetTiles)/* + "position:" + BitOperations.printBitboard(position)*/);
+                //Debug.log("i = " + i);
 
                 int counter = 1;
                 // checking if up move is possible:
                 for (int j = row; j > 0; j--) {
                     long upMove = upMove(i, counter);
                     counter++;
-                    Debug.log("self capture = " + isSelfCapturing(upMove) + " capture = " + isCapturing(upMove));
+                    //Debug.log("self capture = " + isSelfCapturing(upMove) + " capture = " + isCapturing(upMove));
                     if ((!isSelfCapturing(upMove)) && (!isCapturing(upMove))) {
-                        Debug.log("up move");
+                        //Debug.log("up move");
                         movements.add(upMove | otherSetTiles);
                     } else {
                         if (isCapturing(upMove)) movements.add(upMove | otherSetTiles);
@@ -51,7 +51,7 @@ public class BitQueen extends BitPiece{
                     long leftMove = leftMove(i, counter);
                     counter++;
                     if ((!isSelfCapturing(leftMove)) && (!isCapturing(leftMove | otherSetTiles))) {
-                        Debug.log("left move");
+                        //Debug.log("left move");
                         movements.add(leftMove);
                     } else {
                         if (isCapturing(leftMove)) movements.add(leftMove | otherSetTiles);
@@ -64,7 +64,7 @@ public class BitQueen extends BitPiece{
                     long rightMove = rightMove(i, counter);
                     counter++;
                     if ((!isSelfCapturing(rightMove)) && (!isCapturing(rightMove | otherSetTiles))) {
-                        Debug.log("right move");
+                        //Debug.log("right move");
                         movements.add(rightMove);
                     } else {
                         if (isCapturing(rightMove)) movements.add(rightMove | otherSetTiles);
@@ -77,7 +77,7 @@ public class BitQueen extends BitPiece{
                     long downMove = downMove(i, counter);
                     counter++;
                     if ((!isSelfCapturing(downMove)) && (!isCapturing(downMove))) {
-                        Debug.log("down move");
+                        //Debug.log("down move");
                         movements.add(downMove | otherSetTiles);
                     } else {
                         if (isCapturing(downMove)) movements.add(downMove | otherSetTiles);
@@ -90,7 +90,7 @@ public class BitQueen extends BitPiece{
                     long upMove = upLeftMove(i, counter);
                     counter++;
                     if ((!isSelfCapturing(upMove)) && (!isCapturing(upMove))) {
-                        Debug.log("up left move");
+                        //Debug.log("up left move");
                         movements.add(upMove | otherSetTiles);
                     }
                     else {
@@ -104,7 +104,7 @@ public class BitQueen extends BitPiece{
                     long rightMove = upRightMove(i, counter);
                     counter++;
                     if ((!isSelfCapturing(rightMove)) && (!isCapturing(rightMove))) {
-                        Debug.log("up right move");
+                        //Debug.log("up right move");
                         movements.add(rightMove | otherSetTiles);
                     }
                     else {
@@ -118,7 +118,7 @@ public class BitQueen extends BitPiece{
                     long leftMove = downLeftMove(i, counter);
                     counter++;
                     if ((!isSelfCapturing(leftMove)) && (!isCapturing(leftMove))) {
-                        Debug.log("down left move");
+                        //Debug.log("down left move");
                         movements.add(leftMove | otherSetTiles);
                     }
                     else {
@@ -132,7 +132,7 @@ public class BitQueen extends BitPiece{
                     long downMove = downRightMove(i, counter);
                     counter++;
                     if ((!isSelfCapturing(downMove)) && (!isCapturing(downMove))) {
-                        Debug.log("down right move");
+                        //Debug.log("down right move");
                         movements.add(downMove | otherSetTiles);
                     }
                     else {
