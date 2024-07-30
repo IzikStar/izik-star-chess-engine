@@ -147,20 +147,25 @@ public class BitPawn extends BitPiece {
         rookPromotion.setRooks(color, BitOperations.setBit(rookPromotion.getRooks(color), targetInt));
         bishopPromotion.setBishops(color, BitOperations.setBit(bishopPromotion.getBishops(color), targetInt));
 
-        queenPromotion.setPromotionChoice('q');
-        knightPromotion.setPromotionChoice('n');
-        rookPromotion.setPromotionChoice('r');
-        bishopPromotion.setPromotionChoice('b');
-
         queenPromotion.setPawns(color, BitOperations.clearBit(queenPromotion.getPawns(color), targetInt));
         knightPromotion.setPawns(color, BitOperations.clearBit(knightPromotion.getPawns(color), targetInt));
         rookPromotion.setPawns(color, BitOperations.clearBit(rookPromotion.getPawns(color), targetInt));
         bishopPromotion.setPawns(color, BitOperations.clearBit(bishopPromotion.getPawns(color), targetInt));
 
+        queenPromotion.setPromotionChoice('q');
+        knightPromotion.setPromotionChoice('n');
+        rookPromotion.setPromotionChoice('r');
+        bishopPromotion.setPromotionChoice('b');
+
         promotions.add(queenPromotion);
         promotions.add(knightPromotion);
         promotions.add(rookPromotion);
         promotions.add(bishopPromotion);
+
+        for (BitBoard board1 : promotions) {
+            System.out.println(board1.lastMove.promotionChoice);
+        }
+        System.out.println(promotions.size());
 
         return promotions;
     }

@@ -349,6 +349,14 @@ public class Board extends JPanel {
                 }
             }
             else {
+                if (SettingPanel.skillLevel > input.switchToStockFish) {
+                    promotePawnTo(move, input.engine.promotionChoice);
+                }
+                else {
+                    System.out.println(move + input.myEngine.promotionChoice);
+                    promotePawnTo(move, input.myEngine.promotionChoice);
+                }
+                state.capture(move.piece);
                 animation = new ChessAnimation(move.piece, move.piece.xPos, move.piece.yPos, move.piece.xPos, move.piece.yPos, 500);
                 new Thread(() -> {
                     try {
@@ -357,13 +365,6 @@ public class Board extends JPanel {
                     } catch (InterruptedException event) {
                         event.printStackTrace();
                     }
-                    if (SettingPanel.skillLevel != 0) {
-                        promotePawnTo(move, input.engine.promotionChoice);
-                    }
-                    else {
-                        promotePawnTo(move, input.myEngine.promotionChoice);
-                    }
-                    state.capture(move.piece);
                 }).start();
             }
         }
@@ -402,6 +403,11 @@ public class Board extends JPanel {
 
     public void promotePawnTo(Move move, String choice) {
         Piece piece = state.getPiece(move.piece.col, move.piece.row);
+        System.out.println("piece: " + piece);
+        for (Piece piece1 : state.getAllPieces()) {
+            System.out.println("pieces*: " + piece1.col + "-" + piece1.row);
+        }
+        System.out.println("choice: " + choice);
         switch (choice) {
             case "q":
                 state.addPiece(new Queen(state, move.newCol, move.newRow, piece.isWhite));

@@ -7,10 +7,10 @@ public class BitMove {
     public BitPiece piece;
     public long newPosition;
     // capturing, promotion, enPassant or castling all require one more long to change
-    public BitPiece otherPieceToChange;
+    public BitPiece otherPieceToChange = null;
     public boolean isCastling = false;
     public boolean isEnPassant = false;
-    public char promotionChoice;
+    public char promotionChoice = 'q';
 
     public BitMove(BitPiece piece, long newPosition){
         this.piece = piece;
@@ -37,6 +37,15 @@ public class BitMove {
 
     public BitMove(long prevPosition, Move lastMove, int fromC, int fromR, boolean isCastling, boolean isPawnMove) {
 
+    }
+
+    public BitMove(BitMove move) {
+        this.piece = move.piece;
+        this.newPosition = move.newPosition;
+        this.isCastling = move.isCastling;
+        this.isEnPassant = move.isEnPassant;
+        this.otherPieceToChange = move.otherPieceToChange;
+        this.promotionChoice = move.promotionChoice;
     }
 
     public void setPromotionChoice(char promotionChoice) {

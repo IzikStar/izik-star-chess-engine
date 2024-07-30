@@ -32,27 +32,8 @@ public class Move {
         long to = (move.newPosition & ~(move.piece.position & move.newPosition));
         newCol = BitOperations.getColIndexFromBit(to);
         newRow = BitOperations.getRowIndexFromBit(to);
-        switch (move.piece.name) {
-            case 1:
-                this.piece = new King(board, oldCol, oldRow, move.piece.color == 1);
-                break;
-            case 2:
-                this.piece = new Queen(board, oldCol, oldRow, move.piece.color == 1);
-                break;
-            case 3:
-                this.piece = new Rook(board, oldCol, oldRow, move.piece.color == 1);
-                break;
-            case 4:
-                this.piece = new Bishop(board, oldCol, oldRow, move.piece.color == 1);
-                break;
-            case 5:
-                this.piece = new Knight(board, oldCol, oldRow, move.piece.color == 1);
-                break;
-            case 6:
-                this.piece = new Pawn(board, oldCol, oldRow, move.piece.color == 1, 8);
-                break;
-            default: break;
-        }
+        piece = board.getPiece(oldCol, oldRow);
+        if (piece == null) System.out.println("!!!!!!!");
         captured = board.getPiece(newCol, newRow);
     }
 

@@ -187,7 +187,7 @@ public class BitBoard {
         this.canWhiteCastleQueenSide = board.canWhiteCastleQueenSide;
         this.canBlackCastleKingSide = board.canBlackCastleKingSide;
         this.canBlackCastleQueenSide = board.canBlackCastleQueenSide;
-        this.lastMove = board.lastMove;
+        this.lastMove = new BitMove(board.lastMove);
         if (board.nextStates != null) {
             this.nextStates = new ArrayList<>();
             this.nextStates.addAll(board.nextStates);
