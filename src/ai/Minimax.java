@@ -28,10 +28,10 @@ public class Minimax {
                 MinimaxResult result = minimax(bitboard, depth, true, Integer.MIN_VALUE, Integer.MAX_VALUE);
                 end = Instant.now(); // סיום מדידת זמן
                 timeElapsed = Duration.between(start, end).toMillis(); // זמן במילישניות
-                // System.out.printf("Depth: %d, Best Move: %s, Best Value: %d, Time Spend: %d ms\n", depth, result.move, result.value, timeElapsed);
+                System.out.printf("Depth: %d, Best Move: %s, Best Value: %d, Time Spend: %d ms\n", depth, result.move, result.value, timeElapsed);
 
                 if (depth == maxDepth) {
-                    System.out.println("best moves: " + bestMoves + " size: " + bestMoves.size());
+                    // System.out.println("best moves: " + bestMoves + " size: " + bestMoves.size());
                     if (!bestMoves.isEmpty()) {
                         int randomIndex = random.nextInt(bestMoves.size());
                         result.move = bestMoves.get(randomIndex);

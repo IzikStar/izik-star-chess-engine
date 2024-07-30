@@ -637,8 +637,8 @@ public class BitBoard {
     public int getStatus() {
         if (nextStates == null) getNextStates();
         if (nextStates.isEmpty()) {
-            if (isCheckOn(1)) return Integer.MIN_VALUE;
-            if (isCheckOn(0)) return Integer.MAX_VALUE;
+            if (isCheckOn(0)) return Integer.MIN_VALUE;
+            if (isCheckOn(1)) return Integer.MAX_VALUE;
             return 0;
         }
         return 1;

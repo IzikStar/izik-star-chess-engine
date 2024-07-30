@@ -2,10 +2,13 @@ package ai;
 
 import ai.BitBoard.BitMove;
 import main.Board;
+import main.Main;
 import main.Move;
 import main.setting.ChoosePlayFormat;
 import main.setting.SettingPanel;
 import pieces.Piece;
+
+import javax.swing.*;
 import java.util.ArrayList;
 
 public class myEngine {
@@ -20,7 +23,7 @@ public class myEngine {
 
     // general parameters:
     public static int waitTime = 1000;
-    private Thread thread;
+    public static Thread thread;
 
     // for making move methods:
     public Piece chosenPiece;
@@ -53,6 +56,16 @@ public class myEngine {
             Move tempMove = move;
             if (board.makeMoveToCheckIt(tempMove)) {
                 realBoard.makeMove(move);
+                System.out.println("isStatusChanged: " + realBoard.input.isStatusChanged);
+                if ( realBoard.input.isStatusChanged) {
+                    Board.selectedPiece = null;
+                    realBoard.repaint();
+                    SwingUtilities.invokeLater(() -> {
+                        JFrame frame = new JFrame("Game Over");
+                        realBoard.updateGameState(true);
+                        Main.showEndGameMessage(frame, ( realBoard.input.isCheckMate ? ( realBoard.input.isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח!") : ( realBoard.input.isStaleMate ? "פת. ליריב אין מהלכים חוקיים. המשחק נגמר בתיקו" : "אין חומר מספיק. המשחק נגמר בתיקו.")));
+                    });
+                }
                 //Board.input.selectedX = -1;
                 //Board.input.selectedY = -1;
                 alreadyChecked.clear();
@@ -150,7 +163,10 @@ public class myEngine {
     // other engine methods
     private BitMove getBestMove() {
         Minimax.maxDepth = SettingPanel.skillLevel / 2;
-        return Minimax.getBestMove(board);
+        BitMove move = Minimax.getBestMove(board);
+        assert move != null;
+        promotionChoice = String.valueOf(move.promotionChoice);
+        return move;
     }
 
     // board setter

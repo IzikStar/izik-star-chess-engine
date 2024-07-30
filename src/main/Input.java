@@ -26,7 +26,7 @@ public class Input extends MouseAdapter {
     myEngine myEngine;
 
     public boolean isDraggingMove = false;
-    private int switchToStockFish = 999;
+    private int switchToStockFish = 13;
 
     public Input(Board board) {
         this.board = board;
@@ -38,64 +38,69 @@ public class Input extends MouseAdapter {
     }
 
     public void makeEngineMove() {
-        new Thread(() -> {
-            long startTime = System.currentTimeMillis();
-            engine.setSkillLevel(SettingPanel.skillLevel - 1);
-            boolean moveFound = false;
-            long endTime = System.currentTimeMillis();
-            while (!(moveFound) && endTime - startTime < 1500) {
-                engine.setSkillLevel(ChoosePlayFormat.setSkillLevel);
-                String fen = board.state.convertPiecesToFEN();
-                // System.out.println("Current FEN: " + fen);
-                String bestMove = engine.getBestMove(fen);
-                // System.out.println("Best move: " + bestMove);
+        if (SettingPanel.skillLevel > switchToStockFish) {
+            new Thread(() -> {
+                long startTime = System.currentTimeMillis();
+                engine.setSkillLevel(SettingPanel.skillLevel - 1);
+                boolean moveFound = false;
+                long endTime = System.currentTimeMillis();
+                while (!(moveFound) && endTime - startTime < 1500) {
+                    engine.setSkillLevel(ChoosePlayFormat.setSkillLevel);
+                    String fen = board.state.convertPiecesToFEN();
+                    // System.out.println("Current FEN: " + fen);
+                    String bestMove = engine.getBestMove(fen);
+                    // System.out.println("Best move: " + bestMove);
 
-                if (bestMove != null && !bestMove.equals("unknown")) {
-                    int fromCol = bestMove.charAt(0) - 'a';
-                    int fromRow = 8 - (bestMove.charAt(1) - '0');
-                    int toCol = bestMove.charAt(2) - 'a';
-                    int toRow = 8 - (bestMove.charAt(3) - '0');
-                    if (bestMove.length() > 4) {
-                        engine.promotionChoice = String.valueOf(bestMove.charAt(4));
+                    if (bestMove != null && !bestMove.equals("unknown")) {
+                        int fromCol = bestMove.charAt(0) - 'a';
+                        int fromRow = 8 - (bestMove.charAt(1) - '0');
+                        int toCol = bestMove.charAt(2) - 'a';
+                        int toRow = 8 - (bestMove.charAt(3) - '0');
+                        if (bestMove.length() > 4) {
+                            engine.promotionChoice = String.valueOf(bestMove.charAt(4));
+                        } else {
+                            engine.promotionChoice = null;
+                        }
+                        // System.out.println("From: " + fromCol + "," + fromRow + " To: " + toCol + "," + toRow);
+
+                        Move move = new Move(board.state, board.state.getPiece(fromCol, fromRow), toCol, toRow);
+
+                        if (board.state.isValidMove(move)) {
+                            board.makeMove(move);
+                            moveFound = true; // מהלך חוקי נמצא, לצאת מהלולאה
+                            // System.out.println("Move found and made: " + bestMove);
+                        } else {
+                            // System.out.println("Move is invalid, retrying...");
+                        }
                     } else {
-                        engine.promotionChoice = null;
+                        // System.out.println("No valid move found, retrying...");
                     }
-                    // System.out.println("From: " + fromCol + "," + fromRow + " To: " + toCol + "," + toRow);
-
-                    Move move = new Move(board.state, board.state.getPiece(fromCol, fromRow), toCol, toRow);
-
-                    if (board.state.isValidMove(move)) {
-                        board.makeMove(move);
-                        moveFound = true; // מהלך חוקי נמצא, לצאת מהלולאה
-                        // System.out.println("Move found and made: " + bestMove);
-                    } else {
-                        // System.out.println("Move is invalid, retrying...");
+                    endTime = System.currentTimeMillis();
+                }
+                // System.out.println(endTime - startTime);
+                if (!moveFound) {
+                    System.out.println("taking to long, making a random move");
+                    myEngine.waitTime = 0;
+                    int temp = SettingPanel.skillLevel;
+                    SettingPanel.skillLevel = 1;
+                    myEngine.makeMove(board.state.convertPiecesToFEN(), board);
+                    SettingPanel.skillLevel = temp;
+                    myEngine.waitTime = 1000;
+                }
+                SwingUtilities.invokeLater(() -> {
+                    board.repaint();
+                    if (isStatusChanged) {
+                        Board.selectedPiece = null;
+                        JFrame frame = new JFrame("Game Over");
+                        board.updateGameState(true);
+                        Main.showEndGameMessage(frame, (isCheckMate ? (isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח") : "תיקו"));
                     }
-                } else {
-                    // System.out.println("No valid move found, retrying...");
-                }
-                endTime = System.currentTimeMillis();
-            }
-            // System.out.println(endTime - startTime);
-            if (!moveFound) {
-                System.out.println("taking to long, making a random move");
-                myEngine.waitTime = 0;
-                int temp = SettingPanel.skillLevel;
-                SettingPanel.skillLevel = 1;
-                myEngine.makeMove(board.state.convertPiecesToFEN(), board);
-                SettingPanel.skillLevel = temp;
-                myEngine.waitTime = 1000;
-            }
-            SwingUtilities.invokeLater(() -> {
-                board.repaint();
-                if (isStatusChanged) {
-                    Board.selectedPiece = null;
-                    JFrame frame = new JFrame("Game Over");
-                    board.updateGameState(true);
-                    Main.showEndGameMessage(frame, (isCheckMate ? (isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח") : "תיקו"));
-                }
-            });
-        }).start();
+                });
+            }).start();
+        }
+        else {
+            myEngine.makeMove(board.state.fenCurrentPosition, board);
+        }
     }
 
     public void takeEngineHint() {
@@ -212,13 +217,7 @@ public class Input extends MouseAdapter {
                         });
                     } else {
                         if ((ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != board.state.getIsWhiteToMove())) {
-                            if (SettingPanel.skillLevel > switchToStockFish) {
-                                makeEngineMove();
-                            } /*else if (SettingPanel.skillLevel > 0){
-                                level2Engine.makePlayerMove(board);
-                            }*/ else {
-                                myEngine.makeMove(board.state.convertPiecesToFEN(), board);
-                            }
+                            makeEngineMove();
                         }
                         if (!ChoosePlayFormat.isOnePlayer) {
                             new Thread(() -> {
@@ -297,17 +296,7 @@ public class Input extends MouseAdapter {
                     } else {
                         board.repaint();
                         if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != board.state.getIsWhiteToMove()) {
-                            if (SettingPanel.skillLevel > switchToStockFish) {
-                                makeEngineMove();
-                            } else {
-                                myEngine.makeMove(board.state.convertPiecesToFEN(), board);
-//                                long startTime = System.currentTimeMillis();
-//                                long endTime = System.currentTimeMillis();
-//                                while (endTime - startTime < 2000 && ) {
-//                                    randomMoveEngine.makeMove(board.state.convertPiecesToFEN(), board);
-//                                    endTime = System.currentTimeMillis();
-//                                }
-                            }
+                            makeEngineMove();
                         }
                         if (!ChoosePlayFormat.isOnePlayer) {
                             new Thread(() -> {

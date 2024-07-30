@@ -7,7 +7,7 @@ import ai.BitBoard.BoardParts;
 import java.util.ArrayList;
 
 
-public class BitPawn extends BitPiece{
+public class BitPawn extends BitPiece {
 
     public int colorIndex;
     public BitPawn(int color, long position, long wPosition, long bPosition) {
