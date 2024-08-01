@@ -45,7 +45,7 @@ public class Main {
         // יצירת עמוד חדש להצגת המהלכים
         SavedGamesPanel savedGamesPanel = new SavedGamesPanel();
         savedGamesPanel.setBackground(Color.white);
-        savedGamesPanel.add(new JLabel("Saved Games Panel"));
+        // savedGamesPanel.add(new JLabel("Saved Games Panel"));
 
 
         board = new Board(savedGamesPanel);

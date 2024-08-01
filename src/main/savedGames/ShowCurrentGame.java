@@ -15,7 +15,15 @@ public class ShowCurrentGame extends JPanel {
         this.movesTextArea.setFont(new Font("Arial", Font.PLAIN, 14)); // ניתן להגדיר את הגופן
 
         setLayout(new BorderLayout());
-        add(new JScrollPane(movesTextArea), BorderLayout.CENTER);
+
+        JScrollPane scrollPane = new JScrollPane(movesTextArea);
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+
+        // הגדרת גובה ורוחב קבועים ל-JScrollPane
+        scrollPane.setPreferredSize(new Dimension(500, 500)); // שנה את הערכים לפי הצורך
+
+        add(scrollPane, BorderLayout.CENTER);
 
         updateMovesPanel();
     }

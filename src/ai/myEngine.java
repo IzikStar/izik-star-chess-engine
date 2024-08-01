@@ -56,7 +56,7 @@ public class myEngine {
             Move tempMove = move;
             if (board.makeMoveToCheckIt(tempMove)) {
                 realBoard.makeMove(move);
-                System.out.println("isStatusChanged: " + realBoard.input.isStatusChanged);
+                // System.out.println("isStatusChanged: " + realBoard.input.isStatusChanged);
                 if ( realBoard.input.isStatusChanged) {
                     Board.selectedPiece = null;
                     realBoard.repaint();
@@ -72,7 +72,7 @@ public class myEngine {
             } else {
                 System.out.println("retrying...");
                 int temp = SettingPanel.skillLevel;
-                SettingPanel.skillLevel = 2;
+                SettingPanel.skillLevel = 0;
                 makeMove(fen, realBoard);
                 SettingPanel.skillLevel = temp;
             }
