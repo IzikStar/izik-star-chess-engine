@@ -2,6 +2,8 @@ package ai.BitBoard;
 
 import ai.BitBoard.BitPiece.*;
 import ai.BoardState;
+import ai.Minimax;
+import main.Move;
 import pieces.*;
 import main.Debug;
 
@@ -15,7 +17,7 @@ public class BitBoard {
     protected long blackKings = 0x0, blackQueens = 0x0, blackRooks = 0x0, blackBishops = 0x0, blackKnights = 0x0, blackPawns = 0x0;
     protected long whitePieces, blackPieces;
     protected int enPassantTile;
-    private boolean canWhiteCastleKingSide, canWhiteCastleQueenSide, canBlackCastleKingSide, canBlackCastleQueenSide;
+    protected boolean canWhiteCastleKingSide, canWhiteCastleQueenSide, canBlackCastleKingSide, canBlackCastleQueenSide;
     protected boolean isWhiteToMove;
     protected int numOfTurns, numOfTurnsWithoutCaptureOrPawnMove;
     protected ArrayList<BitBoard> nextStates;
@@ -470,6 +472,18 @@ public class BitBoard {
         Debug.log("size = " + nextStates.size());
         nextStates.addAll(getPawnsMoves(color));
         Debug.log("size = " + nextStates.size());
+        for (BitBoard board : nextStates) {
+            if (BitBoardOperations.printBitBoard(board).equals("\n[ r n b q k b n r ]\n" +
+                    "[ - p - p - p p p ]\n" +
+                    "[ - - p - - - - - ]\n" +
+                    "[ p - - - p - - - ]\n" +
+                    "[ - - B - P - - - ]\n" +
+                    "[ - - - P - - - - ]\n" +
+                    "[ - P P - - P P P ]\n" +
+                    "[ R N B Q K - N R ]\n")) {
+                System.out.println("found the problem! its move " + nextStates.indexOf(board) + ", and it is a " + board.lastMove);
+            }
+        }
         return nextStates;
     }
     // pieces moves:
@@ -496,7 +510,7 @@ public class BitBoard {
         long rooks = color == 1 ? whiteRooks : blackRooks;
         int opponentColor = BitBoardOperations.toggleColor(color);
         if (color == 1) {
-            if (canWhiteCastleKingSide && ((whitePieces | blackPieces) & BoardParts.WHITE_KING_SIDE_CASTLE) == 0 && (((king & BoardParts.WHITE_KING_SIDE_CASTLE) & getAllAttackedTiles(opponentColor)) == 0 && (rooks & BoardParts.Tile.H1.position) != 0)) {
+            if (canWhiteCastleKingSide && ((whitePieces | blackPieces) & BoardParts.WHITE_KING_SIDE_CASTLE) == 0 && (((king | BoardParts.WHITE_KING_SIDE_CASTLE) & getAllAttackedTiles(opponentColor)) == 0 && (rooks & BoardParts.Tile.H1.position) != 0)) {
                 long kingNewPosition = BoardParts.Tile.G1.position;
                 long rooksNewPosition = ((rooks | BoardParts.Tile.F1.position) & ~BoardParts.Tile.H1.position);
                 BitBoard board = getNewBoardFromMove(1, kingNewPosition);
@@ -504,7 +518,7 @@ public class BitBoard {
                 Debug.log("white king side castle!");
                 nextStates.add(board);
             }
-            if (canWhiteCastleQueenSide && ((whitePieces | blackPieces) & BoardParts.WHITE_QUEEN_SIDE_CASTLE) == 0 && (((king & BoardParts.WHITE_QUEEN_SIDE_CASTLE) & getAllAttackedTiles(opponentColor)) == 0 && (rooks & BoardParts.Tile.A1.position) != 0)) {
+            if (canWhiteCastleQueenSide && ((whitePieces | blackPieces) & BoardParts.WHITE_QUEEN_SIDE_CASTLE) == 0 && (((king | BoardParts.WHITE_QUEEN_SIDE_CASTLE) & getAllAttackedTiles(opponentColor)) == 0 && (rooks & BoardParts.Tile.A1.position) != 0)) {
                 long kingNewPosition = BoardParts.Tile.C1.position;
                 long rooksNewPosition = ((rooks | BoardParts.Tile.D1.position) & ~BoardParts.Tile.A1.position);
                 BitBoard board = getNewBoardFromMove(1, kingNewPosition);
@@ -514,7 +528,7 @@ public class BitBoard {
             }
         }
         else {
-            if (canBlackCastleKingSide && ((whitePieces | blackPieces) & BoardParts.BLACK_KING_SIDE_CASTLE) == 0 && (((king & BoardParts.BLACK_KING_SIDE_CASTLE) & getAllAttackedTiles(opponentColor)) == 0 && (rooks & BoardParts.Tile.H8.position) != 0)) {
+            if (canBlackCastleKingSide && ((whitePieces | blackPieces) & BoardParts.BLACK_KING_SIDE_CASTLE) == 0 && (((king | BoardParts.BLACK_KING_SIDE_CASTLE) & getAllAttackedTiles(opponentColor)) == 0 && (rooks & BoardParts.Tile.H8.position) != 0)) {
                 long kingNewPosition = BoardParts.Tile.G8.position;
                 long rooksNewPosition = ((rooks | BoardParts.Tile.F8.position) & ~BoardParts.Tile.H8.position);
                 BitBoard board = getNewBoardFromMove(1, kingNewPosition);
@@ -522,7 +536,7 @@ public class BitBoard {
                 Debug.log("black king side castle!");
                 nextStates.add(board);
             }
-            if (canBlackCastleQueenSide && ((whitePieces | blackPieces) & BoardParts.BLACK_QUEEN_SIDE_CASTLE) == 0 && (((king & BoardParts.BLACK_QUEEN_SIDE_CASTLE) & getAllAttackedTiles(opponentColor)) == 0 && (rooks & BoardParts.Tile.A8.position) != 0)) {
+            if (canBlackCastleQueenSide && ((whitePieces | blackPieces) & BoardParts.BLACK_QUEEN_SIDE_CASTLE) == 0 && (((king | BoardParts.BLACK_QUEEN_SIDE_CASTLE) & getAllAttackedTiles(opponentColor)) == 0 && (rooks & BoardParts.Tile.A8.position) != 0)) {
                 long kingNewPosition = BoardParts.Tile.C8.position;
                 long rooksNewPosition = ((rooks | BoardParts.Tile.D8.position) & ~BoardParts.Tile.A8.position);
                 BitBoard board = getNewBoardFromMove(1, kingNewPosition);
@@ -589,7 +603,7 @@ public class BitBoard {
         BitPawn pawn = new BitPawn(color, position, whitePieces, blackPieces);
         ArrayList<Long> moves = pawn.validMovements();
         long[] enPassantMoves = pawn.getEnPassantMoves(enPassantTile);
-        // int EnPassantCounter = 0, promotionCounter = 0;
+        int EnPassantCounter = 0;//, promotionCounter = 0;
         for (long move : moves) {
             BitBoard newBoard = getNewBoardFromMove(6, move);
             long promotionTile = (move & BoardParts.getPromotionRow(color));
@@ -600,7 +614,7 @@ public class BitBoard {
             else nextStates.add(newBoard);
         }
         for (long move : enPassantMoves) {
-            if (move != 0) {
+            if (move != 0L) {
                 BitBoard newBoard = getNewBoardFromMove(6, move);
                 newBoard.setPawns(opponentColor, BitOperations.clearBit(newBoard.getPawns(opponentColor), enPassantTile + 8 * colorIndex));
                 nextStates.add(newBoard);
@@ -609,10 +623,10 @@ public class BitBoard {
         Debug.log("pawn moves: " + moves.size());
         //Debug.log("promotion possibilities: " + promotionCounter * 4);
         Debug.log("En Passant moves: ");
-//        for (long enPassantMove : enPassantMoves) {
-//            if (enPassantMove != 0) EnPassantCounter++;
-//        }
-        //Debug.log(EnPassantCounter + "");
+        for (long enPassantMove : enPassantMoves) {
+            if (enPassantMove != 0) EnPassantCounter++;
+        }
+        Debug.log(EnPassantCounter + "");
         return nextStates;
     }
     // get all attacked tiles:
@@ -639,6 +653,7 @@ public class BitBoard {
         if (nextStates.isEmpty()) {
             if (isCheckOn(0)) return Integer.MIN_VALUE;
             if (isCheckOn(1)) return Integer.MAX_VALUE;
+            System.out.println("staleMate!!!!!!!!!!!");
             return 0;
         }
         return 1;
@@ -660,13 +675,16 @@ public class BitBoard {
 
     // main for debugging
     public static void main(String[] args) {
-        Debug.debugging = true;
+        //Debug.debugging = true;
         // String fen = "rnbqkbn1/8/8/8/6r1/p5pP/8/RNBQK2R w KQkq - 0 1";
-        String fen = "rnbqkb1r/pppppppp/5n2/8/8/5N2/PPPPPPPP/RNBQKB1R b KQkq - 0 1";
+        //String fen = "rnbqkb1r/pppppppp/5n2/8/8/5N2/PPPPPPPP/RNBQKB1R b KQkq - 0 1";
+        String prev = "rnbqkbnr/1p1p1ppp/2p5/p3p3/2B1P3/3P4/PPP2PPP/RNBQK1NR w qkQK a6 0 3";
+        String fen = "rnbqkbnr/1p1p1ppp/2p5/p3p3/P1B1P3/3P4/1PP2PPP/RNBQK1NR b qkQK a3 0 4";
         // String fen = "r3k2r/8/8/8/8/8/8/R3K2R b KQkq - 0 1";
         //String fen = "rk6/p1p5/B4p2/1q2bP2/3N4/2K5/8/1R6 b - - 0 1";
         //String fen = "1k4r1/7P/8/8/8/8/8/7K w - - 0 1";
-        BoardState boardState = new BoardState(fen, null);
+        BoardState tempState = new BoardState(prev, null);
+        BoardState boardState = new BoardState(fen, new Move(tempState, tempState.getPiece(0,6), 0, 4));
         BitBoard board = new BitBoard(boardState);
         long timeElapsed;
         Instant start, end;
@@ -683,59 +701,12 @@ public class BitBoard {
         for (BitBoard move : states) {
             System.out.println(BitBoardOperations.printBitBoard(move));
         }
+        // checking minimax:
+        Minimax.maxDepth = 4;
+        System.out.println(Minimax.getBestMove(boardState));
         end = Instant.now(); // סיום מדידת זמן
         timeElapsed = Duration.between(start, end).toMillis(); // זמן במילישניות
         System.out.println("time spend: " + timeElapsed);
     }
-
-//        // בדיקת המהלכים של המלכים
-//        ArrayList<BitBoard> kingMoves = board.getKingsMoves();
-//        System.out.println("King Moves:");
-//        System.out.println("size:" + kingMoves.size());
-//        for (BitBoard move : kingMoves) {
-//            System.out.println(BitBoardOperations.printBitBoard(move));
-//        }
-//
-//        // בדיקת המהלכים של המלכות
-//        ArrayList<BitBoard> queenMoves = board.getQueensMoves();
-//        System.out.println("Queen Moves:");
-//        System.out.println("size:" + queenMoves.size());
-//        for (BitBoard move : queenMoves) {
-//            System.out.println(BitBoardOperations.printBitBoard(move));
-//        }
-//
-//        // בדיקת המהלכים של הצריחים
-//        ArrayList<BitBoard> rookMoves = board.getRooksMoves();
-//        System.out.println("Rook Moves:");
-//        System.out.println("size:" + rookMoves.size());
-//        for (BitBoard move : rookMoves) {
-//            System.out.println(BitBoardOperations.printBitBoard(move));
-//        }
-//
-//        // בדיקת המהלכים של הרצים
-//        ArrayList<BitBoard> bishopMoves = board.getBishopsMoves();
-//        System.out.println("Bishop Moves:");
-//        System.out.println("size:" + bishopMoves.size());
-//        for (BitBoard move : bishopMoves) {
-//            System.out.println(BitBoardOperations.printBitBoard(move));
-//        }
-//
-//        // בדיקת המהלכים של הפרשים
-//        ArrayList<BitBoard> knightMoves = board.getKnightsMoves();
-//        System.out.println("Knight Moves:");
-//        System.out.println("size:" + knightMoves.size());
-//        for (BitBoard move : knightMoves) {
-//            System.out.println(BitBoardOperations.printBitBoard(move));
-//        }
-//
-//        // בדיקת המהלכים של הרגלים
-//        ArrayList<BitBoard> pawnMoves = board.getPawnsMoves();
-//        System.out.println("Pawn Moves:");
-//        System.out.println("size:" + pawnMoves.size());
-//        for (BitBoard move : pawnMoves) {
-//            System.out.println(BitBoardOperations.printBitBoard(move));
-//        }
-
-    //ArrayList<BitBoard> states = board.getMovesForColor(1);
 
 }

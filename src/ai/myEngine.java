@@ -71,8 +71,10 @@ public class myEngine {
                 alreadyChecked.clear();
             } else {
                 System.out.println("retrying...");
-                getRandomMove();
-                // makeMove(fen, realBoard);
+                int temp = SettingPanel.skillLevel;
+                SettingPanel.skillLevel = 2;
+                makeMove(fen, realBoard);
+                SettingPanel.skillLevel = temp;
             }
         });
         thread.start();

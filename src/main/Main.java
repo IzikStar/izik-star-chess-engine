@@ -6,6 +6,7 @@ import javax.swing.*;
 import java.awt.*;
 
 import GUI.CustomButtonPanel;
+import main.savedGames.SavedGamesPanel;
 import main.setting.ChoosePlayFormat;
 import main.setting.SettingPanel;
 
@@ -39,12 +40,16 @@ public class Main {
         tabConstraints.gridwidth = 2;
         frame.add(tabbedPane, tabConstraints);
 
-        board = new Board();
-        tabbedPane.addTab("Game", board);
 
-        JPanel savedGamesPanel = new JPanel();
+
+        // יצירת עמוד חדש להצגת המהלכים
+        SavedGamesPanel savedGamesPanel = new SavedGamesPanel();
         savedGamesPanel.setBackground(Color.white);
         savedGamesPanel.add(new JLabel("Saved Games Panel"));
+
+
+        board = new Board(savedGamesPanel);
+        tabbedPane.addTab("Game", board);
         tabbedPane.addTab("Saved Games", savedGamesPanel);
         frame.add(tabbedPane, tabConstraints);
 

@@ -26,7 +26,7 @@ public class Input extends MouseAdapter {
     myEngine myEngine;
 
     public boolean isDraggingMove = false;
-    public int switchToStockFish = 13;
+    public int switchToStockFish = 11;
 
     public Input(Board board) {
         this.board = board;

@@ -3,6 +3,7 @@ package ai.BitBoard.BitPiece;
 import ai.BitBoard.BitBoard;
 import ai.BitBoard.BitOperations;
 import ai.BitBoard.BoardParts;
+import main.Debug;
 
 import java.util.ArrayList;
 
@@ -59,16 +60,16 @@ public class BitPawn extends BitPiece {
 
     public long[] getEnPassantMoves(int enPassantIndex) {
         long[] movements = new long[2];
-        if (enPassantIndex != -1) {
+        if (enPassantIndex != 0) {
             long enPassantToTheRight = getRightEnPassantTile(enPassantIndex) & position;
             long enPassantToTheLeft = getLeftEnPassantTile(enPassantIndex) & position;
             if (enPassantToTheLeft != 0) {
-                movements[0] = position | enPassantToTheLeft;
-                movements[0] = BitOperations.clearBit(movements[0], enPassantIndex);
+                movements[0] = position & ~enPassantToTheLeft;
+                Debug.log("left en passant" + BitOperations.printBitboard(enPassantToTheLeft) + " position: " + BitOperations.printBitboard(position) + " sending: " + BitOperations.printBitboard(movements[0]));
             }
             if (enPassantToTheRight != 0) {
-                movements[1] = position | enPassantToTheRight;
-                movements[1] = BitOperations.clearBit(movements[1], enPassantIndex);
+                movements[1] = position & ~enPassantToTheRight;
+                Debug.log("right en passant: " + BitOperations.printBitboard(enPassantToTheRight) + " position: " + BitOperations.printBitboard(position) + " sending: " + BitOperations.printBitboard(movements[1]));
             }
         }
         return movements;
@@ -124,14 +125,14 @@ public class BitPawn extends BitPiece {
     }
 
     private long getRightEnPassantTile(int enPassantNum) {
-        long tile = BitOperations.setBit (0L, enPassantNum + 8 * colorIndex - 1);
-        if (isRightCapturePossible(tile)) return tile;
-        return - 1;
+        long tile = BitOperations.setBit (0L, enPassantNum - 8 * colorIndex - 1);
+        if (isRightCapturePossible(tile)) { /*System.out.println(BitOperations.printBitboard(tile));*/ return tile; }
+        return 0;
     }
     private long getLeftEnPassantTile(int enPassantNum) {
-        long tile = BitOperations.setBit (0L, enPassantNum + 8 * colorIndex + 1);
+        long tile = BitOperations.setBit (0L, enPassantNum - 8 * colorIndex + 1);
         if (isLeftCapturePossible(tile)) return tile;
-        return - 1;
+        return 0;
     }
 
     public ArrayList<BitBoard> getPromotions(BitBoard board, long target) {
@@ -162,10 +163,10 @@ public class BitPawn extends BitPiece {
         promotions.add(rookPromotion);
         promotions.add(bishopPromotion);
 
-        for (BitBoard board1 : promotions) {
-            System.out.println(board1.lastMove.promotionChoice);
-        }
-        System.out.println(promotions.size());
+//        for (BitBoard board1 : promotions) {
+//            System.out.println(board1.lastMove.promotionChoice);
+//        }
+//        System.out.println(promotions.size());
 
         return promotions;
     }

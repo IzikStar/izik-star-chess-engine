@@ -4,6 +4,7 @@ package main;
 import GUI.AudioPlayer;
 import GUI.ChessAnimation;
 import ai.BoardState;
+import main.savedGames.SavedGamesPanel;
 import main.setting.ChoosePlayFormat;
 import main.setting.SettingPanel;
 import pieces.*;
@@ -20,6 +21,7 @@ public class Board extends JPanel {
 
     // משתנים לציור הלוח
     JFrame parentFrame;
+    SavedGamesPanel savedGamesPanel;
     public static final String fenStartingPosition = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     public static int tileSize = 85;
     public static int cols = 8;
@@ -47,7 +49,8 @@ public class Board extends JPanel {
     public String promotionChoice;
 
     // constructor
-    public Board() {
+    public Board(SavedGamesPanel savedGamesPanel) {
+        this.savedGamesPanel = savedGamesPanel;
         this.setPreferredSize(new Dimension(cols * tileSize, rows * tileSize));
         this.addMouseListener(input);
         this.addMouseMotionListener(input);
@@ -276,6 +279,8 @@ public class Board extends JPanel {
 
         updateGameState(true);
 
+        savedGamesPanel.addMove(state.convertPiecesToFEN());
+
         if (ChoosePlayFormat.isPlayingWhite == state.getIsWhiteToMove() || !ChoosePlayFormat.isOnePlayer) {
             savedStates.push(state.fenCurrentPosition);
             state.fenCurrentPosition = state.convertPiecesToFEN();
@@ -454,6 +459,8 @@ public class Board extends JPanel {
         state.setLastMove(null);
         fromC = -1; fromR = -1; toC = -1; toR = -1;
         hintFromC = -1; hintFromR = -1; hintToC = -1; hintToR = -1;
+        savedStates.clear();
+        savedGamesPanel.newGame();
         Main.updateScores(0, 0);
         audioPlayer.playHintSound();
         if (ChoosePlayFormat.isOnePlayer) {
