@@ -353,6 +353,10 @@ public class BoardState {
         return Character.toString(namesOfCols.charAt(col));
     }
 
+    public BoardState cloneBoard() {
+        return new BoardState(this.convertPiecesToFEN(), null);
+    }
+
     // סטרים
     public void setIsWhiteToMove(boolean isWhiteToMove) {
         this.isWhiteToMove = isWhiteToMove;
@@ -410,12 +414,6 @@ public class BoardState {
     }
 
     public int makeMoveAndGetStatus(Move move) {
-        for (Piece piece : pieceList) {
-            System.out.println(piece.name + ": " + piece.col + ", " + piece.row);
-        }
-        System.out.println("Called from: " + Thread.currentThread().getStackTrace()[1]);
-        System.out.println("move piece: " + move.piece.name + ": " + move.piece.col + ", " + move.piece.row);
-
         int status = 1;
         String tempFen = convertPiecesToFEN();
         Piece piece = getPiece(move.piece.col, move.piece.row);
@@ -442,12 +440,18 @@ public class BoardState {
                 ++numOfTurns;
             }
             ++numOfTurnWithoutCaptureOrPawnMove;
+            status = getAccurateStatus();
+
+//            for (Piece p : pieceList) {
+//                System.out.println(piece.name + ": " + p.col + ", " + p.row);
+//            }
+//            System.out.println("Called from: " + Thread.currentThread().getStackTrace()[1]);
+//            System.out.println("move piece: " + move.piece.name + ": " + move.piece.col + ", " + move.piece.row);
 
             // cancel move
             piece.col = tempMovePC;
             piece.row = tempMovePR;
             isWhiteToMove = !isWhiteToMove;
-            status = getAccurateStatus();
             loadPiecesFromFen(tempFen);
         }
         return status;

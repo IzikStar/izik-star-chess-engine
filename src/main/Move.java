@@ -14,7 +14,7 @@ public class Move {
     public int newCol;
     public int newRow;
     public int num;
-    public String name;
+    public String representation;
     BoardState board;
     public Piece piece;
     public Piece captured;
@@ -55,9 +55,10 @@ public class Move {
 
     public void setPromotionChoice(char promotionChoice) {
         this.promotionChoice = promotionChoice;
+        representation = representation + "=" + Character.toUpperCase(promotionChoice);
     }
 
-    public String getRepresentation() {
+    public void setRepresentation() {
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.append(piece.isWhite ? "\n" : " ");
         if (piece.isWhite) {
@@ -70,7 +71,8 @@ public class Move {
         String status = getStatusString();
         if (!castling.isEmpty()) {
             stringBuilder.append(status);
-            return stringBuilder.toString();
+            representation = stringBuilder.toString();
+            return;
         }
 
 
@@ -84,36 +86,40 @@ public class Move {
         String enPassant = getEnPassantString();
         stringBuilder.append(enPassant);
         stringBuilder.append(status);
-        return stringBuilder.toString();
+        representation = stringBuilder.toString();
+    }
+
+    public String getRepresentation() {
+        return representation;
     }
 
     private String getPieceString() {
         String piece = Character.toString(Character.toUpperCase(this.piece.type));
         StringBuilder result = new StringBuilder();
         Piece[] allPieces = board.getAllPieces();
-        ArrayList<Piece> relevantPieces = new ArrayList<>();
+        int relevantPieces = 0;
         for (Piece p : allPieces) {
-            if (p.isWhite == this.piece.isWhite && (p.name.equals(this.piece.name) || piece.equals("P"))) {
+            if (p != this.piece && p.isWhite == this.piece.isWhite && (p.name.equals(this.piece.name))) {
                 if (board.isValidMove(new Move(board, p, newCol, newRow))) {
-                    result.append(piece);
-                    relevantPieces.add(p);
                     if (p.col != this.piece.col || p.row != this.piece.row) {
+                        result.append(piece);
+                        relevantPieces++;
                         if (p.col != this.piece.col) result.append(board.colToLetter(this.piece.col));
                         else result.append(this.piece.row + 1);
                     }
                 }
             }
         }
-        if (relevantPieces.size() < 2 && !piece.equals("P")) {
+        if (relevantPieces == 0 && !piece.equals("P")) {
             result.append(piece);
         }
-        if (piece.equals("P") && captured != null) {
+        if (piece.equals("P") && captured != null && relevantPieces == 0) {
             result.append(Character.toLowerCase(board.colToLetter(oldCol).charAt(0)));
         }
         return result.toString();
     }
     private String getEnPassantString() {
-
+        if (piece instanceof Pawn && Math.abs(piece.col - newCol) == 1 && board.getPiece(newCol, newRow) == null) return " .e.p";
         return "";
     }
     private String getPromotionString() {
@@ -127,7 +133,7 @@ public class Move {
         return "";
     }
     private String getStatusString() {
-        int status = board.getAccurateStatus();
+        int status = board.makeMoveAndGetStatus(this);
         if (status == 0) return "\n1/2-1/2";
         if (status == Integer.MAX_VALUE) return "#" + (piece.isWhite ? "\n1-0" : "\n0-1");
         if (status == 2) return "+";

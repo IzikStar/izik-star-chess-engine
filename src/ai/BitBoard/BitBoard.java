@@ -648,6 +648,24 @@ public class BitBoard {
         return king.getAttackedTiles() | queen.getAttackedTiles() | rook.getAttackedTiles() | bishop.getAttackedTiles() | knight.getAttackedTiles() | pawn.getAttackedTiles();
     }
 
+    public int getPieceAt(int square) {
+        long tile = BitOperations.setBit(0L, square);
+        if ((tile & (whiteKings | blackKings)) != 0) return 1;
+        if ((tile & (whiteQueens | blackQueens)) != 0) return 2;
+        if ((tile & (whiteRooks | blackRooks)) != 0) return 3;
+        if ((tile & (whiteBishops | blackBishops)) != 0) return 4;
+        if ((tile & (whiteKnights | blackKnights)) != 0) return 5;
+        if ((tile & (whitePawns | blackPawns)) != 0) return 0;
+        return 0;
+    }
+
+    public int getColorAt(int square) {
+        long tile = BitOperations.setBit(0L, square);
+        if ((tile & whitePieces) != 0) return 1;
+        // if ((tile & blackPieces) != 0) return 0;
+        return 0;
+    }
+
     public int getStatus() {
         if (nextStates == null) getNextStates();
         if (nextStates.isEmpty()) {

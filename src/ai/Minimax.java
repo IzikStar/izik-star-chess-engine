@@ -22,15 +22,16 @@ public class Minimax {
             Instant start, end;
             long timeElapsed;
 
+            // יצירת מופע של BoardStateTracker
+            BoardStateTracker boardStateTracker = new BoardStateTracker();
+
             for (int depth = maxDepth; depth <= maxDepth; depth++) {
                 start = Instant.now(); // התחלת מדידת זמן
-                MinimaxResult result = minimax(bitboard, depth, true, Integer.MIN_VALUE, Integer.MAX_VALUE);
+                MinimaxResult result = minimax(bitboard, depth, true, Integer.MIN_VALUE, Integer.MAX_VALUE, boardStateTracker);
                 end = Instant.now(); // סיום מדידת זמן
                 timeElapsed = Duration.between(start, end).toMillis(); // זמן במילישניות
-                // System.out.printf("Depth: %d, Best Move: %s, Best Value: %d, Time Spend: %d ms\n", depth, result.move, result.value, timeElapsed);
 
                 if (depth == maxDepth) {
-                    // System.out.println("best moves: " + bestMoves + " size: " + bestMoves.size());
                     if (!bestMoves.isEmpty()) {
                         int randomIndex = random.nextInt(bestMoves.size());
                         result.move = bestMoves.get(randomIndex);
@@ -46,10 +47,21 @@ public class Minimax {
         return null;
     }
 
-    private static MinimaxResult minimax(BitBoard board, int depth, boolean isMaximizingPlayer, int alpha, int beta) {
+    private static MinimaxResult minimax(BitBoard board, int depth, boolean isMaximizingPlayer, int alpha, int beta, BoardStateTracker boardStateTracker) {
+        // הוספת מצב חדש למעקב
+        boardStateTracker.addBoardState(board);
+
         if (depth == 0 || board.getStatus() != 1) {
+            // הסרת המצב מהסטאק לפני חזרה
+            boardStateTracker.removeLastBoardState();
             return new MinimaxResult(board.lastMove, BitBoardEvaluate.evaluate(board));
         }
+        if (boardStateTracker.isThreefoldRepetition()) {
+            // הסרת המצב מהסטאק לפני חזרה
+            boardStateTracker.removeLastBoardState();
+            return new MinimaxResult(board.lastMove, 0);
+        }
+
         BitMove bestMove = board.getRandomPossibleMove();
         boolean lastDepth = depth == maxDepth;
         if (lastDepth) {
@@ -62,50 +74,48 @@ public class Minimax {
         if (isMaximizingPlayer) {
             bestValue = Integer.MIN_VALUE;
             for (BitBoard state : board.getNextStates()) {
-                start = Instant.now(); // התחלת מדידת זמן
-                MinimaxResult result = minimax(state, depth - 1, false, alpha, beta);
-                end = Instant.now(); // סיום מדידת זמן
-                timeElapsed = Duration.between(start, end).toMillis(); // זמן במילישניות
-                // System.out.printf("Maximizing: Value: %d, Alpha: %d, Beta: %d, Time: %d ms\n", result.value, alpha, beta, timeElapsed);
+                start = Instant.now();
+                MinimaxResult result = minimax(state, depth - 1, false, alpha, beta, boardStateTracker);
+                end = Instant.now();
+                timeElapsed = Duration.between(start, end).toMillis();
+
                 if (result.value > bestValue) {
-                    // System.out.println("board:" + board);
-                    // System.out.println("best state" + state);
                     bestValue = result.value;
                     bestMove = state.lastMove;
                     if (lastDepth) {
                         bestMoves.clear();
                         bestMoves.add(bestMove);
-                        // System.out.println("move added, turn: " + (board.getIsWhiteToMove() ? "white." : "black.") + " depth: " + depth);
                     }
                 } else if (lastDepth && result.value == bestValue && (!bestMoves.contains(result.move))) {
                     bestMoves.add(bestMove);
                 }
                 alpha = Math.max(alpha, bestValue);
                 if (beta <= alpha) {
-                    // System.out.printf("Pruning at state: %s Alpha: %d, Beta: %d\n", state, alpha, beta);
                     break; // אלפא-בטא גיזום
                 }
             }
-        }
-        else {
+        } else {
             bestValue = Integer.MAX_VALUE;
             for (BitBoard state : board.getNextStates()) {
-                start = Instant.now(); // התחלת מדידת זמן
-                MinimaxResult result = minimax(state, depth - 1, true, alpha, beta);
-                end = Instant.now(); // סיום מדידת זמן
-                timeElapsed = Duration.between(start, end).toMillis(); // זמן במילישניות
-                // System.out.printf("Minimizing: Value: %d, Alpha: %d, Beta: %d, Time: %d ms\n", result.value, alpha, beta, timeElapsed);
+                start = Instant.now();
+                MinimaxResult result = minimax(state, depth - 1, true, alpha, beta, boardStateTracker);
+                end = Instant.now();
+                timeElapsed = Duration.between(start, end).toMillis();
+
                 if (result.value < bestValue) {
                     bestValue = result.value;
                     bestMove = state.lastMove;
                 }
-                beta = Math.min(beta, bestValue); // תיקון כאן
+                beta = Math.min(beta, bestValue);
                 if (beta <= alpha) {
-                    // System.out.printf("Pruning at state: %s Alpha: %d, Beta: %d\n", state, alpha, beta);
                     break; // אלפא-בטא גיזום
                 }
             }
         }
+
+        // הסרת המצב מהסטאק בסוף החישוב של הענף
+        boardStateTracker.removeLastBoardState();
+
         return new MinimaxResult(bestMove, bestValue);
     }
 

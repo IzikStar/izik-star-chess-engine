@@ -219,10 +219,7 @@ public class Board extends JPanel {
     }
 
     public void makeMove(Move move) {
-//        for (Piece piece : state.getAllPieces()) {
-//            System.out.println(piece.name + ": " + piece.col + ", " + piece.row);
-//        }
-//        System.out.println("move piece: " + move.piece.name + ": " + move.piece.col + ", " + move.piece.row);
+        move.setRepresentation();
         Piece piece = state.getPiece(move.piece.col, move.piece.row);
         boolean pawnMoveSuccess = true;
         if (piece.name.equals("Pawn")) {
@@ -287,7 +284,6 @@ public class Board extends JPanel {
         SavedStatesForDraws.addState(state.convertPiecesToFEN());
         updateGameState(true);
 
-        // savedMoves.push(move.toString());
         savedGamesPanel.addMove(move.getRepresentation());
 
         if (ChoosePlayFormat.isPlayingWhite == state.getIsWhiteToMove() || !ChoosePlayFormat.isOnePlayer) {

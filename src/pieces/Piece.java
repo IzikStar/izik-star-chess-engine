@@ -1,7 +1,6 @@
 package pieces;
 
 import ai.BoardState;
-import main.Board;
 import main.Move;
 
 import javax.imageio.ImageIO;
@@ -73,4 +72,5 @@ public class Piece {
     public int getCol() {
         return col;
     }
+
 }

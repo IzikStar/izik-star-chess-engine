@@ -1,8 +1,11 @@
 package ai.BitBoard;
 
-import main.savedGames.SavedStatesForDraws;
-import main.savedGames.ShowCurrentGame;
+
+import ai.BoardStateTracker;
 import main.setting.ChoosePlayFormat;
+
+
+import static ai.BitBoard.ZobristHashing.boardStateMap;
 
 public class BitBoardEvaluate {
     private static int gameStage;
@@ -267,7 +270,6 @@ public class BitBoardEvaluate {
         if (board.blackKings == 0) return switchSides ? Integer.MIN_VALUE : Integer.MAX_VALUE;
         value = board.getStatus();
         if (value != 1) return switchSides ? value : -value;
-        if (isRepetition()) return 0;
         value = 0;
         gameStage = getGameStage(board);
         value += getPiecesValue(board);
@@ -279,10 +281,6 @@ public class BitBoardEvaluate {
         value += getBishopsDevelopment(board);
         value += getKnightsDevelopment(board);
         return switchSides ? value : -value;
-    }
-
-    private static boolean isRepetition() {
-        return SavedStatesForDraws.isRepetition();
     }
 
     private static int getGameStage(BitBoard board) {
