@@ -5,7 +5,7 @@ import java.awt.*;
 import java.util.Stack;
 
 public class ShowCurrentGame extends JPanel {
-    private Stack<String> movesStack;
+    public static Stack<String> movesStack;
     private JTextArea movesTextArea;
 
     public ShowCurrentGame(Stack<String> movesStack) {
@@ -37,7 +37,7 @@ public class ShowCurrentGame extends JPanel {
         movesTextArea.setText("");  // נקה את הטקסט הקודם
 
         for (String move : movesStack) {
-            movesTextArea.append(move + "\n");
+            movesTextArea.append(move);
         }
 
         movesTextArea.setCaretPosition(movesTextArea.getDocument().getLength());  // גלול למטה בסיום

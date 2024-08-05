@@ -2,7 +2,6 @@ package ai;
 
 import ai.BitBoard.BitBoard;
 import ai.BitBoard.BitBoardEvaluate;
-import ai.BitBoard.BitBoardOperations;
 import ai.BitBoard.BitMove;
 import main.setting.ChoosePlayFormat;
 

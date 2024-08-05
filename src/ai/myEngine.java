@@ -164,7 +164,10 @@ public class myEngine {
 
     // other engine methods
     private BitMove getBestMove() {
-        Minimax.maxDepth = SettingPanel.skillLevel / 2;
+        if (board.getGameState() == 2) {
+            Minimax.maxDepth = SettingPanel.skillLevel / 2 + 2;
+        }
+        else Minimax.maxDepth = SettingPanel.skillLevel / 2;
         BitMove move = Minimax.getBestMove(board);
         assert move != null;
         promotionChoice = String.valueOf(move.promotionChoice);

@@ -128,7 +128,7 @@ public class BoardState {
         numOfTurnWithoutCaptureOrPawnMove = Character.getNumericValue(parts[4].charAt(0));
 
         // name of turns
-        numOfTurns = Character.getNumericValue(parts[5].charAt(0));
+        numOfTurns = Integer.parseInt(parts[5]);
     }
 
     public void setLastMove(Move lastMove) {
@@ -138,16 +138,6 @@ public class BoardState {
     public Move getLastMove() {
         return lastMove;
     }
-
-//    private void setChildNodes() {
-//        if (childNodes != null) {
-//            childNodes.clear();
-//        }
-//        for (Move move : getAllPossibleMovesForASide()) {
-//            BoardState boardState = new BoardState(makeMoveAndGetFen(move), move);
-//            childNodes.add(boardState);
-//        }
-//    }
 
     public Move[] getAllPossibleMovesForASide() {
         ArrayList<Move> possibleMoves = new ArrayList<>();
@@ -220,7 +210,7 @@ public class BoardState {
 
     public Piece findKing(boolean isWhite) {
         for (Piece piece : pieceList) {
-            if (piece.isWhite == isWhite && piece.name.equals("King")) {
+            if (piece.isWhite == isWhite && piece instanceof King) {
                 return piece;
             }
         }
@@ -354,10 +344,13 @@ public class BoardState {
 
     public String squareToLetters(int col, int row) {
         String namesOfRows = "87654321";
-        String namesOfCols = "abcdefgh";
         // System.out.println(col + " " + row + " " + squareName);
-        return String.valueOf(namesOfCols.charAt(col)) +
-                namesOfRows.charAt(row);
+        return colToLetter(col) + namesOfRows.charAt(row);
+    }
+
+    public String colToLetter(int col) {
+        String namesOfCols = "abcdefgh";
+        return Character.toString(namesOfCols.charAt(col));
     }
 
     // סטרים
@@ -414,6 +407,66 @@ public class BoardState {
             //System.out.println(tempFen);
         }
         return success;
+    }
+
+    public int makeMoveAndGetStatus(Move move) {
+        for (Piece piece : pieceList) {
+            System.out.println(piece.name + ": " + piece.col + ", " + piece.row);
+        }
+        System.out.println("Called from: " + Thread.currentThread().getStackTrace()[1]);
+        System.out.println("move piece: " + move.piece.name + ": " + move.piece.col + ", " + move.piece.row);
+
+        int status = 1;
+        String tempFen = convertPiecesToFEN();
+        Piece piece = getPiece(move.piece.col, move.piece.row);
+        boolean pawnMoveSuccess = true;
+        if (piece.name.equals("Pawn")) {
+            pawnMoveSuccess = movePawnForClone(move);
+        } else if (piece.name.equals("King")) {
+            moveKingForClone(move);
+        }
+
+        if (pawnMoveSuccess) {
+            if (!piece.name.equals("Pawn") || !(Math.abs(piece.row - move.newRow) == 2)) {
+                enPassantTile = -1;
+            }
+            if (move.captured != null && getPiece(move.captured.col, move.captured.row) != null) {
+                capture(getPiece(move.captured.col, move.captured.row));
+            }
+            int tempMovePC = piece.col;
+            int tempMovePR = piece.row;
+            piece.col = move.newCol;
+            piece.row = move.newRow;
+            isWhiteToMove = !isWhiteToMove;
+            if (isWhiteToMove) {
+                ++numOfTurns;
+            }
+            ++numOfTurnWithoutCaptureOrPawnMove;
+
+            // cancel move
+            piece.col = tempMovePC;
+            piece.row = tempMovePR;
+            isWhiteToMove = !isWhiteToMove;
+            status = getAccurateStatus();
+            loadPiecesFromFen(tempFen);
+        }
+        return status;
+    }
+
+    public int getAccurateStatus() {
+        if (checkScanner.isGameOver(findKing(isWhiteToMove))) {
+            if (getIsCheck()) {
+                return Integer.MAX_VALUE;
+            }
+            return 0;
+        }
+        return getIsCheck() ? 2 : 1;
+    }
+
+    public int getGameState() {
+        if (pieceList.size() <= 8) return 2;
+        if (numOfTurns > 10) return 1;
+        return 0;
     }
 
     public int makeMoveAndGetValue(Move move) {
@@ -657,6 +710,7 @@ public class BoardState {
         timeElapsed = Duration.between(start, end).toMillis(); // זמן במילישניות
         System.out.println("time spend: " + timeElapsed);
     }
+
 
 }
 

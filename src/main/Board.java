@@ -5,6 +5,7 @@ import GUI.AudioPlayer;
 import GUI.ChessAnimation;
 import ai.BoardState;
 import main.savedGames.SavedGamesPanel;
+import main.savedGames.SavedStatesForDraws;
 import main.setting.ChoosePlayFormat;
 import main.setting.SettingPanel;
 import pieces.*;
@@ -35,6 +36,7 @@ public class Board extends JPanel {
     public boolean isGameOver = false;
     // כללי יותר
     public Stack<String> savedStates = new Stack<>();
+    public Stack<String> savedMoves = new Stack<>();
 
     // משתנים לטיפול באינפוט וGUI
     public Input input = new Input(this);
@@ -217,6 +219,10 @@ public class Board extends JPanel {
     }
 
     public void makeMove(Move move) {
+//        for (Piece piece : state.getAllPieces()) {
+//            System.out.println(piece.name + ": " + piece.col + ", " + piece.row);
+//        }
+//        System.out.println("move piece: " + move.piece.name + ": " + move.piece.col + ", " + move.piece.row);
         Piece piece = state.getPiece(move.piece.col, move.piece.row);
         boolean pawnMoveSuccess = true;
         if (piece.name.equals("Pawn")) {
@@ -267,6 +273,7 @@ public class Board extends JPanel {
             state.setIsWhiteToMove(!state.getIsWhiteToMove());
             if (state.getIsWhiteToMove()) {
                 ++state.numOfTurns;
+                // System.out.println(state.numOfTurns);
             }
             ++state.numOfTurnWithoutCaptureOrPawnMove;
         }
@@ -277,9 +284,11 @@ public class Board extends JPanel {
             audioPlayer.playMovingPieceSound();
         }
 
+        SavedStatesForDraws.addState(state.convertPiecesToFEN());
         updateGameState(true);
 
-        savedGamesPanel.addMove(state.convertPiecesToFEN());
+        // savedMoves.push(move.toString());
+        savedGamesPanel.addMove(move.getRepresentation());
 
         if (ChoosePlayFormat.isPlayingWhite == state.getIsWhiteToMove() || !ChoosePlayFormat.isOnePlayer) {
             savedStates.push(state.fenCurrentPosition);
@@ -407,6 +416,7 @@ public class Board extends JPanel {
     }
 
     public void promotePawnTo(Move move, String choice) {
+        move.setPromotionChoice(Character.toLowerCase(choice.charAt(0)));
         Piece piece = state.getPiece(move.piece.col, move.piece.row);
         System.out.println("piece: " + piece);
         for (Piece piece1 : state.getAllPieces()) {
@@ -488,6 +498,15 @@ public class Board extends JPanel {
 
     public void updateGameState(boolean isRealBoard) {
         Piece king = state.findKing(state.getIsWhiteToMove());
+        if (SavedStatesForDraws.isRepetition()) {
+            if (isRealBoard){
+                input.isStatusChanged = true;
+                input.isCheckMate = false;
+                input.isStaleMate = true;
+                input.isWhiteTurn = state.getIsWhiteToMove();
+                audioPlayer.playDrawSound();
+            }
+        }
         if (state.checkScanner.isGameOver(king)) {
             if (state.checkScanner.isChecking(state)) {
                 // System.out.println(isWhiteToMove ? "black wins!" : "white wins!");
@@ -530,16 +549,6 @@ public class Board extends JPanel {
             audioPlayer.playCheckSound();
             repaint();
         }
-    }
-
-
-    // גטרים למצב הלוח
-    public String squareToLetters(int col, int row) {
-        String namesOfRows = "87654321";
-        String namesOfCols = "abcdefgh";
-        // System.out.println(col + " " + row + " " + squareName);
-        return String.valueOf(namesOfCols.charAt(col)) +
-                namesOfRows.charAt(row);
     }
 
 }
