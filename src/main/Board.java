@@ -487,6 +487,7 @@ public class Board extends JPanel {
         savedStates.push(state.fenCurrentPosition);
         state.fenCurrentPosition = state.convertPiecesToFEN();
         loadPiecesFromFen(state.fenCurrentPosition);
+        input.engine.skillLevel = SettingPanel.skillLevel;
         if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != state.getIsWhiteToMove()) {
             input.makeEngineMove();
         }

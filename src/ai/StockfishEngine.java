@@ -11,7 +11,7 @@ public class StockfishEngine {
     private boolean isEngineRunning;
     public String promotionChoice = null;
 
-    private int skillLevel = SettingPanel.skillLevel;
+    public int skillLevel = SettingPanel.skillLevel;
 
     public boolean startEngine(String path) {
         try {
@@ -74,6 +74,7 @@ public class StockfishEngine {
     }
 
     public String getBestMove(String fen) {
+        System.out.println("stocfish move. skill level: " + SettingPanel.skillLevel);
         sendCommand("uci");
         waitForOutput("uciok", 10);
 

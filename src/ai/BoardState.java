@@ -42,7 +42,7 @@ public class BoardState {
         this.fenCurrentPosition = fenCurrentPosition;
         loadPiecesFromFen(fenCurrentPosition);
         setLastMove(lastMove);
-        System.out.println(BoardState.numOfNodes);
+        // System.out.println(BoardState.numOfNodes);
         ++BoardState.numOfNodes;
     }
 

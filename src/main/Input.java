@@ -9,6 +9,9 @@ import pieces.Piece;
 import javax.swing.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Future;
+import java.util.concurrent.CountDownLatch;
 
 import ai.StockfishEngine;
 
@@ -20,6 +23,7 @@ public class Input extends MouseAdapter {
     public boolean isStatusChanged = false, isCheckMate = false, isStaleMate = false, isWhiteTurn;
     public int col, row;
     AudioPlayer audioPlayer = new AudioPlayer();
+    CountDownLatch latch = new CountDownLatch(1);
 
     String pathToStockfish = "src/res/stockfish/stockfish-windows-x86-64.exe";
     StockfishEngine engine;
@@ -37,71 +41,88 @@ public class Input extends MouseAdapter {
         }
     }
 
+    public Input(Board board, CountDownLatch latch) {
+        this.board = board;
+        engine = new StockfishEngine();
+        myEngine = new myEngine(board.state, latch);
+        if (!ChoosePlayFormat.isPlayingWhite) {
+            makeEngineMove();
+        }
+    }
+
     public void makeEngineMove() {
-        if (SettingPanel.skillLevel > switchToStockFish) {
+        if (SettingPanel.skillLevel < switchToStockFish) {
+            latch = new CountDownLatch(1);
+            Future<Void> future = myEngine.makeMove(board.state.convertPiecesToFEN(), board);
             new Thread(() -> {
-                long startTime = System.currentTimeMillis();
-                engine.setSkillLevel(SettingPanel.skillLevel - 1);
-                boolean moveFound = false;
-                long endTime = System.currentTimeMillis();
-                while (!(moveFound) && endTime - startTime < 1500) {
-                    engine.setSkillLevel(ChoosePlayFormat.setSkillLevel);
-                    String fen = board.state.convertPiecesToFEN();
-                    // System.out.println("Current FEN: " + fen);
-                    String bestMove = engine.getBestMove(fen);
-                    // System.out.println("Best move: " + bestMove);
-
-                    if (bestMove != null && !bestMove.equals("unknown")) {
-                        int fromCol = bestMove.charAt(0) - 'a';
-                        int fromRow = 8 - (bestMove.charAt(1) - '0');
-                        int toCol = bestMove.charAt(2) - 'a';
-                        int toRow = 8 - (bestMove.charAt(3) - '0');
-                        if (bestMove.length() > 4) {
-                            engine.promotionChoice = String.valueOf(bestMove.charAt(4));
-                        } else {
-                            engine.promotionChoice = null;
-                        }
-                        // System.out.println("From: " + fromCol + "," + fromRow + " To: " + toCol + "," + toRow);
-
-                        Move move = new Move(board.state, board.state.getPiece(fromCol, fromRow), toCol, toRow);
-
-                        if (board.state.isValidMove(move)) {
-                            board.makeMove(move);
-                            moveFound = true; // מהלך חוקי נמצא, לצאת מהלולאה
-                            // System.out.println("Move found and made: " + bestMove);
-                        } else {
-                            // System.out.println("Move is invalid, retrying...");
-                        }
-                    } else {
-                        // System.out.println("No valid move found, retrying...");
-                    }
-                    endTime = System.currentTimeMillis();
+                try {
+                    future.get(); // Wait for the task to complete
+                } catch (Exception e) {
+                    // Handle exceptions
+                } finally {
+                    latch.countDown(); // Release the latch
                 }
-                // System.out.println(endTime - startTime);
-                if (!moveFound) {
-                    System.out.println("taking to long, making a random move");
-                    myEngine.waitTime = 0;
-                    int temp = SettingPanel.skillLevel;
-                    SettingPanel.skillLevel = 1;
-                    myEngine.makeMove(board.state.convertPiecesToFEN(), board);
-                    SettingPanel.skillLevel = temp;
-                    myEngine.waitTime = 1000;
-                }
-                SwingUtilities.invokeLater(() -> {
-                    board.repaint();
-                    if (isStatusChanged) {
-                        Board.selectedPiece = null;
-                        JFrame frame = new JFrame("Game Over");
-                        board.updateGameState(true);
-                        Main.showEndGameMessage(frame, (isCheckMate ? (isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח") : "תיקו"));
-                    }
-                });
             }).start();
         }
         else {
-            myEngine.makeMove(board.state.fenCurrentPosition, board);
+            new Thread(() -> {
+                try {
+                    long startTime = System.currentTimeMillis();
+                    engine.setSkillLevel(SettingPanel.skillLevel - 1);
+                    boolean moveFound = false;
+                    long endTime = System.currentTimeMillis();
+                    while (!(moveFound) && endTime - startTime < 1200) {
+                        engine.setSkillLevel(ChoosePlayFormat.setSkillLevel);
+                        String fen = board.state.convertPiecesToFEN();
+                        String bestMove = engine.getBestMove(fen);
+
+                        if (bestMove != null && !bestMove.equals("unknown")) {
+                            int fromCol = bestMove.charAt(0) - 'a';
+                            int fromRow = 8 - (bestMove.charAt(1) - '0');
+                            int toCol = bestMove.charAt(2) - 'a';
+                            int toRow = 8 - (bestMove.charAt(3) - '0');
+                            if (bestMove.length() > 4) {
+                                engine.promotionChoice = String.valueOf(bestMove.charAt(4));
+                            } else {
+                                engine.promotionChoice = null;
+                            }
+
+                            Move move = new Move(board.state, board.state.getPiece(fromCol, fromRow), toCol, toRow);
+
+                            if (board.state.isValidMove(move)) {
+                                board.makeMove(move);
+                                moveFound = true; // Move found, exit the loop
+                            }
+                        }
+                        endTime = System.currentTimeMillis();
+                    }
+
+                    if (!moveFound) {
+                        int temp = SettingPanel.skillLevel;
+                        SettingPanel.skillLevel = 0;
+                        myEngine.makeMove(board.state.convertPiecesToFEN(), board);
+                        SettingPanel.skillLevel = temp;
+                    }
+
+                    SwingUtilities.invokeLater(() -> {
+                        board.repaint();
+                        if (isStatusChanged) {
+                            Board.selectedPiece = null;
+                            JFrame frame = new JFrame("Game Over");
+                            board.updateGameState(true);
+                            Main.showEndGameMessage(frame, (isCheckMate ? (isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח") : "תיקו"));
+                        }
+                    });
+
+                } finally {
+                    latch.countDown(); // Release the latch when done
+                }
+            }).start();
         }
     }
+
+
+
 
     public void takeEngineHint() {
         new Thread(() -> {

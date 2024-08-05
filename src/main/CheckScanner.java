@@ -197,7 +197,7 @@ public class CheckScanner {
                         if (piece.isValidMovement(kingCol, kingRow)) {
                             // System.out.print("4");
                             if (!piece.moveCollidesWithPiece(kingCol, kingRow)) {
-                                System.out.println("5");
+                                // System.out.println("5");
                                 return true;
                             }
                         }

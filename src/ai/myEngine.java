@@ -10,6 +10,11 @@ import pieces.Piece;
 
 import javax.swing.*;
 import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Future;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class myEngine {
     // board state:
@@ -24,60 +29,96 @@ public class myEngine {
     // general parameters:
     public static int waitTime = 1000;
     public static Thread thread;
+    private final CountDownLatch latch;
 
     // for making move methods:
     public Piece chosenPiece;
     private static final int DEPTH = 2;
 
     // constructor:
+    public myEngine(BoardState board, CountDownLatch latch) {
+        setBoard(board);
+        this.latch = latch;
+    }
     public myEngine(BoardState board) {
         setBoard(board);
+        this.latch = new CountDownLatch(1);
     }
 
     // making move methods
-    public void makeMove(String fen, Board realBoard) {
-        // Board.selectedPiece = null;
-        thread = new Thread(() -> {
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+
+    public Future<Void> makeMove(String fen, Board realBoard) {
+        Callable<Void> task = () -> {
             try {
                 if (SettingPanel.skillLevel == 0) {
                     Thread.sleep(waitTime);
                 }
                 if (Thread.currentThread().isInterrupted()) {
-                    return; // בדיקה אם ה-Thread הופסק
+                    return null; // Check if the thread was interrupted
+                }
+
+                this.fen = fen;
+                Move move = chooseMethod(board);
+                while (move == null) {
+                    move = chooseMethod(board);
+                }
+                Move tempMove = move;
+                if (board.makeMoveToCheckIt(tempMove)) {
+                    realBoard.makeMove(move);
+                    if (realBoard.input.isStatusChanged) {
+                        Board.selectedPiece = null;
+                        realBoard.repaint();
+                        SwingUtilities.invokeLater(() -> {
+                            JFrame frame = new JFrame("Game Over");
+                            realBoard.updateGameState(true);
+                            Main.showEndGameMessage(frame, (realBoard.input.isCheckMate ?
+                                    (realBoard.input.isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח!") :
+                                    (realBoard.input.isStaleMate ? "פת. ליריב אין מהלכים חוקיים. המשחק נגמר בתיקו" :
+                                            "אין חומר מספיק. המשחק נגמר בתיקו.")));
+                        });
+                    }
+                    alreadyChecked.clear();
+                } else {
+                    System.out.println("retrying...");
+                    int temp = SettingPanel.skillLevel;
+                    SettingPanel.skillLevel = 0;
+                    waitTime = 0;
+                    move = chooseMethod(board);
+                    while (move == null) {
+                        move = chooseMethod(board);
+                    }
+                    tempMove = move;
+                    if (board.makeMoveToCheckIt(tempMove)) {
+                        realBoard.makeMove(move);
+                        if (realBoard.input.isStatusChanged) {
+                            Board.selectedPiece = null;
+                            realBoard.repaint();
+                            SwingUtilities.invokeLater(() -> {
+                                JFrame frame = new JFrame("Game Over");
+                                realBoard.updateGameState(true);
+                                Main.showEndGameMessage(frame, (realBoard.input.isCheckMate ?
+                                        (realBoard.input.isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח!") :
+                                        (realBoard.input.isStaleMate ? "פת. ליריב אין מהלכים חוקיים. המשחק נגמר בתיקו" :
+                                                "אין חומר מספיק. המשחק נגמר בתיקו.")));
+                            });
+                        }
+                    }
+                    alreadyChecked.clear();
+                    waitTime = 1000;
+                    SettingPanel.skillLevel = temp;
                 }
             } catch (InterruptedException e) {
-                return; // יציאה מה-Thread במקרה של הפסקה
+                // Handle interruption
             }
-            this.fen = fen;
-            Move move = chooseMethod(board);
-            while (move == null) {
-                move = chooseMethod(board);
-            }
-            Move tempMove = move;
-            if (board.makeMoveToCheckIt(tempMove)) {
-                realBoard.makeMove(move);
-                // System.out.println("isStatusChanged: " + realBoard.input.isStatusChanged);
-                if ( realBoard.input.isStatusChanged) {
-                    Board.selectedPiece = null;
-                    realBoard.repaint();
-                    SwingUtilities.invokeLater(() -> {
-                        JFrame frame = new JFrame("Game Over");
-                        realBoard.updateGameState(true);
-                        Main.showEndGameMessage(frame, ( realBoard.input.isCheckMate ? ( realBoard.input.isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח!") : ( realBoard.input.isStaleMate ? "פת. ליריב אין מהלכים חוקיים. המשחק נגמר בתיקו" : "אין חומר מספיק. המשחק נגמר בתיקו.")));
-                    });
-                }
-                //Board.input.selectedX = -1;
-                //Board.input.selectedY = -1;
-                alreadyChecked.clear();
-            } else {
-                System.out.println("retrying...");
-                int temp = SettingPanel.skillLevel;
-                SettingPanel.skillLevel = 0;
-                makeMove(fen, realBoard);
-                SettingPanel.skillLevel = temp;
-            }
-        });
-        thread.start();
+            return null;
+        };
+
+        return executor.submit(task);
+    }
+
+    public void shutdown() {
+        executor.shutdown();
     }
 
     private Move chooseMethod(BoardState board) {
@@ -168,8 +209,9 @@ public class myEngine {
             Minimax.maxDepth = SettingPanel.skillLevel / 2 + 2;
         }
         else Minimax.maxDepth = SettingPanel.skillLevel / 2;
+        System.out.println("my engine move. depth: " + Minimax.maxDepth);
         BitMove move = Minimax.getBestMove(board);
-        assert move != null;
+        // if (move == null) return null;
         promotionChoice = String.valueOf(move.promotionChoice);
         return move;
     }
