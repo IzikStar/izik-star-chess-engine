@@ -342,6 +342,71 @@ public class BoardState {
         return fen.toString();
     }
 
+    public String convertPiecesToDrawFEN() {
+        StringBuilder fen = new StringBuilder();
+        for (int row = 0; row < 8; row++) {
+            int emptySquares = 0;
+            for (int col = 0; col < 8; col++) {
+                Piece piece = getPiece(col, row);
+                if (piece == null) {
+                    emptySquares++;
+                } else {
+                    if (emptySquares > 0) {
+                        fen.append(emptySquares);
+                        emptySquares = 0;
+                    }
+                    fen.append(piece.getRepresentation());
+                }
+            }
+            if (emptySquares > 0) {
+                fen.append(emptySquares);
+            }
+            if (row < 7) {
+                fen.append('/');
+            }
+        }
+        fen.append(isWhiteToMove ? " w " : " b "); // תור השחקן הבא
+
+        // castling
+        Piece wKing = getPiece(4, 7);
+        Piece bKing = getPiece(4, 0);
+
+        Piece bqr = getPiece(0, 0);
+        if (bqr instanceof Rook && bqr.isFirstMove && bKing instanceof King && bKing.isFirstMove) {
+            fen.append("q");
+        }
+        Piece bkr = getPiece(7, 0);
+        if (bkr instanceof Rook && bkr.isFirstMove && bKing instanceof King && bKing.isFirstMove) {
+            fen.append("k");
+        }
+        Piece wqr = getPiece(0, 7);
+        if (wqr instanceof Rook && wqr.isFirstMove && wKing instanceof King && wKing.isFirstMove) {
+            fen.append("Q");
+        }
+        Piece wkr = getPiece(7, 7);
+        if (wkr instanceof Rook && wkr.isFirstMove && wKing instanceof King && wKing.isFirstMove) {
+            fen.append("K");
+        }
+        if ((!(bqr instanceof Rook && bqr.isFirstMove && bKing instanceof King && bKing.isFirstMove) && !(bkr instanceof Rook && bkr.isFirstMove && bKing instanceof King && bKing.isFirstMove)) || !((wqr instanceof Rook && wqr.isFirstMove && wKing instanceof King && wKing.isFirstMove) || !(wkr instanceof Rook && wkr.isFirstMove && wKing instanceof King && wKing.isFirstMove))) {
+            fen.append('-');
+        }
+        fen.append(" ");
+
+        // en passant
+        int colorIndex = isWhiteToMove ? 1 : -1;
+        // System.out.println(lastToMove + " " + );
+        if (lastToMove instanceof Pawn && Math.abs(toR - fromR) == 2) {
+            int col = fromC % 8; // נועד למנוע שגיאות
+            int row = fromR + colorIndex % 8; // כנ"ל
+            fen.append(squareToLetters(col, row));
+        } else {
+            fen.append('-');
+        }
+
+        // System.out.println(fen);
+        return fen.toString();
+    }
+
     public String squareToLetters(int col, int row) {
         String namesOfRows = "87654321";
         // System.out.println(col + " " + row + " " + squareName);
@@ -468,9 +533,10 @@ public class BoardState {
     }
 
     public int getGameState() {
-        if (pieceList.size() <= 8) return 2;
-        if (numOfTurns > 10) return 1;
-        return 0;
+        if (pieceList.size() <= 8) return 10;
+        if (pieceList.size() <= 12) return 2;
+        if (numOfTurns < 10) return 0;
+        return 1;
     }
 
     public int makeMoveAndGetValue(Move move) {
@@ -714,7 +780,6 @@ public class BoardState {
         timeElapsed = Duration.between(start, end).toMillis(); // זמן במילישניות
         System.out.println("time spend: " + timeElapsed);
     }
-
 
 }
 

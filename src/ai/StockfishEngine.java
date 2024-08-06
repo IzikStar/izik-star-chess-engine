@@ -75,6 +75,7 @@ public class StockfishEngine {
 
     public String getBestMove(String fen) {
         System.out.println("stocfish move. skill level: " + SettingPanel.skillLevel);
+        skillLevel = SettingPanel.skillLevel;
         sendCommand("uci");
         waitForOutput("uciok", 10);
 
@@ -135,4 +136,5 @@ public class StockfishEngine {
             System.out.println("Failed to start the engine.");
         }
     }
+
 }

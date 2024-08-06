@@ -1,20 +1,16 @@
 package ai;
 
 import ai.BitBoard.BitMove;
+import ai.openingBook.OpeningBook;
 import main.Board;
 import main.Main;
 import main.Move;
-import main.setting.ChoosePlayFormat;
 import main.setting.SettingPanel;
 import pieces.Piece;
 
 import javax.swing.*;
 import java.util.ArrayList;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Callable;
-import java.util.concurrent.Future;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 
 public class myEngine {
     // board state:
@@ -35,11 +31,24 @@ public class myEngine {
     public Piece chosenPiece;
     private static final int DEPTH = 2;
 
+    // ספר הפתיחות
+    private static OpeningBook openingBook;
+
+//    static {
+//        try {
+//            openingBook = OpeningBook.loadFromFile("opening_book.dat");
+//        } catch (IOException | ClassNotFoundException e) {
+//            openingBook = new OpeningBook();  // אם הקובץ לא נמצא או יש שגיאה, ניצור ספר חדש
+//            System.out.println("Failed to load opening book. Starting with an empty book.");
+//        }
+//    }
+
     // constructor:
     public myEngine(BoardState board, CountDownLatch latch) {
         setBoard(board);
         this.latch = latch;
     }
+
     public myEngine(BoardState board) {
         setBoard(board);
         this.latch = new CountDownLatch(1);
@@ -55,7 +64,7 @@ public class myEngine {
                     Thread.sleep(waitTime);
                 }
                 if (Thread.currentThread().isInterrupted()) {
-                    return null; // Check if the thread was interrupted
+                    return null;
                 }
 
                 this.fen = fen;
@@ -75,7 +84,7 @@ public class myEngine {
                             Main.showEndGameMessage(frame, (realBoard.input.isCheckMate ?
                                     (realBoard.input.isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח!") :
                                     (realBoard.input.isStaleMate ? "פת. ליריב אין מהלכים חוקיים. המשחק נגמר בתיקו" :
-                                            "אין חומר מספיק. המשחק נגמר בתיקו.")));
+                                            "המשחק נגמר בתיקו.")));
                         });
                     }
                     alreadyChecked.clear();
@@ -189,7 +198,6 @@ public class myEngine {
     }
 
     private void chosePiece() {
-        // for the random engine:
         int randomNumOfPiece = (int) (Math.random() * board.getNumOfPieces(board.getIsWhiteToMove()));
         this.chosenPiece = board.getPieceByNumber(randomNumOfPiece, board.getIsWhiteToMove());
         if (chosenPiece != null && !alreadyChecked.contains(chosenPiece)) {
@@ -205,19 +213,42 @@ public class myEngine {
 
     // other engine methods
     private BitMove getBestMove() {
-        if (board.getGameState() == 2) {
+        // בדיקת מצב המשחק והשפעתו על העומק המקסימלי של האלגוריתם
+        if (board.getGameState() == 10) {
             Minimax.maxDepth = SettingPanel.skillLevel / 2 + 2;
+        } else if (board.getGameState() == 2) {
+            Minimax.maxDepth = SettingPanel.skillLevel / 2 + 1;
+        } else {
+            Minimax.maxDepth = SettingPanel.skillLevel / 2;
         }
-        else Minimax.maxDepth = SettingPanel.skillLevel / 2;
-        System.out.println("my engine move. depth: " + Minimax.maxDepth);
+
+        // בדיקת רמת המיומנות לשימוש בספר הפתיחות
+//        if (SettingPanel.skillLevel >= 5) {
+//            String currentFEN = board.convertPiecesToFEN();
+//            List<String> openingMoves = openingBook.getMoves(currentFEN);
+//
+//            if (openingMoves != null && !openingMoves.isEmpty()) {
+//                // בחירת מהלך אקראי מתוך ספר הפתיחות
+//                String chosenMove = openingMoves.get((int) (Math.random() * openingMoves.size()));
+//                System.out.println("Opening book move chosen: " + chosenMove);
+//                return convertToBitMove(chosenMove); // כאן תוסיף את הקוד להמרת מהלך ל-BitMove
+//            }
+//        }
+
+        // אם אין מהלך בספר הפתיחות, המנוע יחשב מהלך רגיל
+        System.out.println("Calculating engine move. Depth: " + Minimax.maxDepth);
         BitMove move = Minimax.getBestMove(board);
-        // if (move == null) return null;
         promotionChoice = String.valueOf(move.promotionChoice);
         return move;
+    }
+
+    private BitMove convertToBitMove(String chosenMove) {
+        return null;
     }
 
     // board setter
     public void setBoard(BoardState state) {
         this.board = state;
     }
+
 }

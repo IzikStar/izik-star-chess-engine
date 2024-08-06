@@ -1,11 +1,8 @@
 package ai.BitBoard;
 
 
-import ai.BoardStateTracker;
 import main.setting.ChoosePlayFormat;
 
-
-import static ai.BitBoard.ZobristHashing.boardStateMap;
 
 public class BitBoardEvaluate {
     private static int gameStage;
@@ -272,13 +269,14 @@ public class BitBoardEvaluate {
         if (value != 1) return switchSides ? value : -value;
         value = 0;
         gameStage = getGameStage(board);
-        value += getPiecesValue(board);
+        value += getPiecesPureValue(board);
+        value += getPawnsProgress(board);
+        // value += getPiecesValueForAmount(board, value);
         value += getKingSafety(board);
         value += getCastles(board);
         value += getTargets(board);
-        value += getPawnsProgress(board);
-        value += getQueensOutInTheOpening(board);
         value += getBishopsDevelopment(board);
+        value += getQueensOutInTheOpening(board);
         value += getKnightsDevelopment(board);
         return switchSides ? value : -value;
     }
@@ -294,7 +292,7 @@ public class BitBoardEvaluate {
         return gameStage;
     }
     
-    private static int getPiecesValue(BitBoard board) {
+    private static int getPiecesPureValue(BitBoard board) {
         int piecesValue = 0;
         piecesValue -= BitOperations.countSetBits(board.whitePawns) * 10;
         piecesValue -= BitOperations.countSetBits(board.whiteKnights) * 30;
@@ -307,6 +305,42 @@ public class BitBoardEvaluate {
         piecesValue += BitOperations.countSetBits(board.blackBishops) * 33;
         piecesValue += BitOperations.countSetBits(board.blackRooks) * 50;
         piecesValue += BitOperations.countSetBits(board.blackQueens) * 90;
+        return piecesValue;
+    }
+
+    private static int getPiecesValue(BitBoard board) {
+        int piecesValue = 0;
+        piecesValue -= BitOperations.countSetBits(board.whitePawns) * 9;
+        piecesValue -= BitOperations.countSetBits(board.whiteKnights) * 27;
+        piecesValue -= BitOperations.countSetBits(board.whiteBishops) * 30;
+        piecesValue -= BitOperations.countSetBits(board.whiteRooks) * 45;
+        piecesValue -= BitOperations.countSetBits(board.whiteQueens) * 81;
+
+        piecesValue += BitOperations.countSetBits(board.blackPawns) * 9;
+        piecesValue += BitOperations.countSetBits(board.blackKnights) * 27;
+        piecesValue += BitOperations.countSetBits(board.blackBishops) * 30;
+        piecesValue += BitOperations.countSetBits(board.blackRooks) * 45;
+        piecesValue += BitOperations.countSetBits(board.blackQueens) * 81;
+        return piecesValue;
+    }
+
+    private static int getPiecesValueForAmount(BitBoard board, int evaluate) {
+        int piecesValue = 0;
+        int wNumOfPieces = 16 - BitOperations.countSetBits(board.whitePieces) + evaluate;
+        int bNumOfPieces = 16 - BitOperations.countSetBits(board.blackPieces) - evaluate;
+        if (wNumOfPieces < 1) wNumOfPieces = 1;
+        if (bNumOfPieces < 1) bNumOfPieces = 1;
+        piecesValue -= BitOperations.countSetBits(board.whitePawns) * wNumOfPieces;
+        piecesValue -= BitOperations.countSetBits(board.whiteKnights) * 3 * wNumOfPieces;
+        piecesValue -= BitOperations.countSetBits(board.whiteBishops) * 4 * wNumOfPieces;
+        piecesValue -= BitOperations.countSetBits(board.whiteRooks) * 5 * wNumOfPieces;
+        piecesValue -= BitOperations.countSetBits(board.whiteQueens) * 9 * wNumOfPieces;
+
+        piecesValue += BitOperations.countSetBits(board.blackPawns) * bNumOfPieces;
+        piecesValue += BitOperations.countSetBits(board.blackKnights) * 3 * bNumOfPieces;
+        piecesValue += BitOperations.countSetBits(board.blackBishops) * 4 * bNumOfPieces;
+        piecesValue += BitOperations.countSetBits(board.blackRooks) * 5 * bNumOfPieces;
+        piecesValue += BitOperations.countSetBits(board.blackQueens) * 9 * bNumOfPieces;
         return piecesValue;
     }
 
@@ -416,6 +450,19 @@ public class BitBoardEvaluate {
         knightsDevelopment -= (board.whiteKnights & BoardParts.FIRST_RANK) != 0 ? -15 : 0;
         knightsDevelopment += (board.blackKnights & BoardParts.EIGHTH_RANK) != 0 ? -15 : 0;
         return knightsDevelopment;
+    }
+
+    private static int getPawnsInTheCenter(BitBoard board) {
+        int pawnsDevelopment = 0;
+        pawnsDevelopment -= (board.whitePawns & (BoardParts.Tile.E2.position | BoardParts.Tile.D2.position)) != 0 ? - 2 : 0;
+        pawnsDevelopment += (board.blackPawns & (BoardParts.Tile.E7.position | BoardParts.Tile.D7.position)) != 0 ? - 2 : 0;
+//        for (int i = 0; i < BEST_TILES_FOR_WHITE_PAWN_IN_END_GAME.length; i++) {
+//            pawnsDevelopment -= BitOperations.countSetBits((board.whitePawns & BEST_TILES_FOR_WHITE_PAWN_IN_END_GAME[i])) * (10 - i * 2 - 1);
+//        }
+//        for (int i = 0; i < BEST_TILES_FOR_BLACK_PAWN_IN_END_GAME.length; i++) {
+//            pawnsDevelopment += BitOperations.countSetBits((board.blackPawns & BEST_TILES_FOR_BLACK_PAWN_IN_END_GAME[i])) * (10 - i * 2 - 1);
+//        }
+        return pawnsDevelopment;
     }
 
     private static int getBishopsDevelopment(BitBoard board) {

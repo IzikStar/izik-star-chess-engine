@@ -11,7 +11,6 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
-import java.util.concurrent.CountDownLatch;
 
 import ai.StockfishEngine;
 
@@ -20,7 +19,7 @@ public class Input extends MouseAdapter {
     Board board;
     private boolean isDragged = false;
     public int selectedX = -1, selectedY = -1;
-    public boolean isStatusChanged = false, isCheckMate = false, isStaleMate = false, isWhiteTurn;
+    public boolean isStatusChanged = false, isCheckMate = false, isStaleMate = false, isRepetition = false, isWhiteTurn;
     public int col, row;
     AudioPlayer audioPlayer = new AudioPlayer();
     CountDownLatch latch = new CountDownLatch(1);
@@ -99,7 +98,7 @@ public class Input extends MouseAdapter {
 
                     if (!moveFound) {
                         int temp = SettingPanel.skillLevel;
-                        SettingPanel.skillLevel = 0;
+                        SettingPanel.skillLevel = 2;
                         myEngine.makeMove(board.state.convertPiecesToFEN(), board);
                         SettingPanel.skillLevel = temp;
                     }
@@ -234,7 +233,7 @@ public class Input extends MouseAdapter {
                         SwingUtilities.invokeLater(() -> {
                             JFrame frame = new JFrame("Game Over");
                             board.updateGameState(true);
-                            Main.showEndGameMessage(frame, (isCheckMate ? (isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח!") : (isStaleMate ? "פת. ליריב אין מהלכים חוקיים. המשחק נגמר בתיקו" : "אין חומר מספיק. המשחק נגמר בתיקו.")));
+                            Main.showEndGameMessage(frame, (isCheckMate ? (isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח!") : (isStaleMate ? "פת. ליריב אין מהלכים חוקיים. המשחק נגמר בתיקו" : "המשחק נגמר בתיקו.")));
                         });
                     } else {
                         if ((ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != board.state.getIsWhiteToMove())) {
@@ -312,7 +311,7 @@ public class Input extends MouseAdapter {
                         SwingUtilities.invokeLater(() -> {
                             JFrame frame = new JFrame("Game Over");
                             board.updateGameState(true);
-                            Main.showEndGameMessage(frame, (isCheckMate ? (isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח!") : (isStaleMate ? "פת. ליריב אין מהלכים חוקיים. המשחק נגמר בתיקו" : "אין חומר מספיק. המשחק נגמר בתיקו.")));
+                            Main.showEndGameMessage(frame, (isCheckMate ? (isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח!") : (isStaleMate ? "פת. ליריב אין מהלכים חוקיים. המשחק נגמר בתיקו" : "המשחק נגמר בתיקו.")));
                         });
                     } else {
                         board.repaint();

@@ -34,6 +34,8 @@ public class Minimax {
 
             if (depth == maxDepth) {
                 if (!bestMoves.isEmpty()) {
+                    System.out.println("best moves size: " + bestMoves.size());
+                    // System.out.println("best moves: " + bestMoves);
                     int randomIndex = random.nextInt(bestMoves.size());
                     result.move = bestMoves.get(randomIndex);
                 }
@@ -58,13 +60,18 @@ public class Minimax {
 
         boardStateTracker.addBoardState(board);
 
-        if (depth == 0 || board.getStatus() != 1 || boardStateTracker.isThreefoldRepetition()) {
+        if (depth == 0 || board.getStatus() != 1) {
             boardStateTracker.removeLastBoardState();
             return new MinimaxResult(board.lastMove, BitBoardEvaluate.evaluate(board));
         }
 
+        if (boardStateTracker.isThreefoldRepetition()) {
+            boardStateTracker.removeLastBoardState();
+            return new MinimaxResult(board.lastMove, 0);
+        }
+
         BitMove bestMove = board.getRandomPossibleMove();
-        boolean lastDepth = depth == maxDepth;
+        boolean lastDepth = (depth == maxDepth && ChoosePlayFormat.isPlayingWhite) == (!board.getIsWhiteToMove());
         if (lastDepth) {
             bestMoves = new ArrayList<>();
         }
@@ -76,14 +83,16 @@ public class Minimax {
                 MinimaxResult result = minimax(state, depth - 1, false, alpha, beta, boardStateTracker, transpositionTable);
 
                 if (result.value > bestValue) {
-                    bestValue = result.value;
                     bestMove = state.lastMove;
+                    bestValue = result.value;
                     if (lastDepth) {
+                        // if (result.value - bestValue > 3)
                         bestMoves.clear();
                         bestMoves.add(bestMove);
                     }
-                } else if (lastDepth && result.value == bestValue && (!bestMoves.contains(result.move))) {
-                    bestMoves.add(bestMove);
+                } else if (lastDepth && result.value == bestValue && (!alreadyAdded(result.move))) {
+                    // bestMoves.add(bestMove);
+                    // System.out.println(bestMove);
                 }
                 alpha = Math.max(alpha, bestValue);
                 if (beta <= alpha) {
@@ -112,6 +121,14 @@ public class Minimax {
 //        transpositionTable.put(zobristHash, depth, bestValue, bestMove);
 
         return new MinimaxResult(bestMove, bestValue);
+    }
+
+    private static boolean alreadyAdded(BitMove move) {
+        for (BitMove bitMove : bestMoves) {
+            if (bitMove.toString().equals(move.toString())) return true;
+            // System.out.println("compared " + bitMove + " to " + move);
+        }
+        return false;
     }
 
     private static class MinimaxResult {

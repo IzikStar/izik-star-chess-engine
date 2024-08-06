@@ -671,9 +671,10 @@ public class BitBoard {
         if (nextStates.isEmpty()) {
             if (isCheckOn(0)) return Integer.MIN_VALUE;
             if (isCheckOn(1)) return Integer.MAX_VALUE;
-            System.out.println("staleMate!!!!!!!!!!!");
+            // System.out.println("staleMate!!!!!!!!!!!");
             return 0;
         }
+        if (numOfTurnsWithoutCaptureOrPawnMove >= 50) return 0;
         return 1;
     }
 

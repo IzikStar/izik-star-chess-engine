@@ -6,6 +6,7 @@ import GUI.ChessAnimation;
 import ai.BoardState;
 import main.savedGames.SavedGamesPanel;
 import main.savedGames.SavedStatesForDraws;
+import main.savedGames.ShowCurrentGame;
 import main.setting.ChoosePlayFormat;
 import main.setting.SettingPanel;
 import pieces.*;
@@ -281,7 +282,7 @@ public class Board extends JPanel {
             audioPlayer.playMovingPieceSound();
         }
 
-        SavedStatesForDraws.addState(state.convertPiecesToFEN());
+        SavedStatesForDraws.addState(state.convertPiecesToDrawFEN());
         updateGameState(true);
 
         savedGamesPanel.addMove(move.getRepresentation());
@@ -444,6 +445,8 @@ public class Board extends JPanel {
             state.fenCurrentPosition = savedStates.pop();
             //System.out.println("changing position to: " + fenCurrentPosition);
             input.engine.stopEngine();
+            ShowCurrentGame.movesStack.pop();
+            ShowCurrentGame.movesStack.pop();
             state.setLastMove(null);
             input.selectedX = input.selectedY = -1;
             selectedPiece = null;
@@ -466,6 +469,7 @@ public class Board extends JPanel {
         fromC = -1; fromR = -1; toC = -1; toR = -1;
         hintFromC = -1; hintFromR = -1; hintToC = -1; hintToR = -1;
         savedStates.clear();
+        SavedStatesForDraws.clear();
         savedGamesPanel.newGame();
         Main.updateScores(0, 0);
         audioPlayer.playHintSound();
@@ -495,11 +499,12 @@ public class Board extends JPanel {
 
     public void updateGameState(boolean isRealBoard) {
         Piece king = state.findKing(state.getIsWhiteToMove());
-        if (SavedStatesForDraws.isRepetition()) {
+        if (SavedStatesForDraws.isRepetition() || state.numOfTurnWithoutCaptureOrPawnMove >= 50) {
             if (isRealBoard){
                 input.isStatusChanged = true;
                 input.isCheckMate = false;
-                input.isStaleMate = true;
+                input.isStaleMate = false;
+                input.isRepetition = true;
                 input.isWhiteTurn = state.getIsWhiteToMove();
                 audioPlayer.playDrawSound();
             }
