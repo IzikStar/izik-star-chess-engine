@@ -29,4 +29,8 @@ public class SavedStatesForDraws {
         return false;
     }
 
+    public static void removeLastState() {
+        states.removeLast();
+    }
+
 }

@@ -62,21 +62,10 @@ public class BitBoardEvaluate {
 //            BoardParts.Tile.G7.position,
 //            BoardParts.Tile.B7.position
 //    };
-//
-//    private static final long[] BEST_TILES_FOR_WHITE_KNIGHT_IN_OPENING = {
-//            BoardParts.Tile.G1.position,
-//            BoardParts.Tile.B1.position,
-//            BoardParts.Tile.F3.position,
-//            BoardParts.Tile.C3.position
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_BLACK_KNIGHT_IN_OPENING = {
-//            BoardParts.Tile.G8.position,
-//            BoardParts.Tile.B8.position,
-//            BoardParts.Tile.F6.position,
-//            BoardParts.Tile.C6.position
-//    };
-//
+
+    private static final long BEST_TILES_FOR_WHITE_KNIGHT_IN_OPENING = (BoardParts.Tile.F3.position | BoardParts.Tile.C3.position);
+    private static final long BEST_TILES_FOR_BLACK_KNIGHT_IN_OPENING = (BoardParts.Tile.F6.position | BoardParts.Tile.C6.position);
+
 //    private static final long[] BEST_TILES_FOR_WHITE_PAWN_IN_OPENING = {
 //            BoardParts.SECOND_RANK,
 //            BoardParts.THIRD_RANK,
@@ -400,8 +389,10 @@ public class BitBoardEvaluate {
         int castles = 0;
         castles -= board.canWhiteCastleKingSide ? 0 : -6;
         castles -= board.canWhiteCastleQueenSide ? 0 : -4;
+        castles -= board.hasWhiteCastled ? 16 : 0;
         castles += board.canBlackCastleKingSide ? 0 : -6;
         castles += board.canBlackCastleQueenSide ? 0 : -4;
+        castles += board.hasBlackCastled ? 16 : 0;
         return castles;
     }
 
@@ -426,12 +417,14 @@ public class BitBoardEvaluate {
         for (int i = 0; i < BEST_TILES_FOR_BLACK_PAWN_IN_END_GAME.length; i++) {
             pawnProgress += BitOperations.countSetBits((board.blackPawns & BEST_TILES_FOR_BLACK_PAWN_IN_END_GAME[i])) * (10 - i * 2 - 1);
         }
+        pawnProgress -= BitOperations.countSetBits(board.whitePawns & BoardParts.CENTER) * 5;
+        pawnProgress += BitOperations.countSetBits(board.blackPawns & BoardParts.CENTER) * 5;
         return pawnProgress;
     }
 
     private static int getPassedPawnsAndBlockedPawns(BitBoard board) {
         int passedPawnsAndBlockedPawns = 0;
-
+        
         return passedPawnsAndBlockedPawns;
     }
 
@@ -447,8 +440,15 @@ public class BitBoardEvaluate {
 
     private static int getKnightsDevelopment(BitBoard board) {
         int knightsDevelopment = 0;
-        knightsDevelopment -= (board.whiteKnights & BoardParts.FIRST_RANK) != 0 ? -15 : 0;
-        knightsDevelopment += (board.blackKnights & BoardParts.EIGHTH_RANK) != 0 ? -15 : 0;
+        knightsDevelopment -= (board.whiteKnights & BoardParts.FIRST_RANK) != 0 ? -12 : 0;
+        knightsDevelopment += (board.blackKnights & BoardParts.EIGHTH_RANK) != 0 ? -12 : 0;
+
+        knightsDevelopment -= BitOperations.countSetBits(board.whiteKnights & BEST_TILES_FOR_WHITE_KNIGHT_IN_OPENING) * 2;
+        knightsDevelopment += BitOperations.countSetBits(board.blackKnights & BEST_TILES_FOR_BLACK_KNIGHT_IN_OPENING) * 2;
+
+
+        knightsDevelopment -= (board.whiteKnights & BoardParts.BACK_FIVE_RANKS) != 0 && board.numOfTurns < 9 ? -5 : 0;
+        knightsDevelopment += (board.blackKnights & BoardParts.FIRST_FIVE_RANKS) != 0 && board.numOfTurns < 9 ? -5 : 0;
         return knightsDevelopment;
     }
 

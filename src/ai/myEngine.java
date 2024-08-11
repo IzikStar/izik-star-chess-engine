@@ -81,10 +81,7 @@ public class myEngine {
                         SwingUtilities.invokeLater(() -> {
                             JFrame frame = new JFrame("Game Over");
                             realBoard.updateGameState(true);
-                            Main.showEndGameMessage(frame, (realBoard.input.isCheckMate ?
-                                    (realBoard.input.isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח!") :
-                                    (realBoard.input.isStaleMate ? "פת. ליריב אין מהלכים חוקיים. המשחק נגמר בתיקו" :
-                                            "המשחק נגמר בתיקו.")));
+                            Main.showEndGameMessage(frame, (realBoard.input.isCheckMate ? (realBoard.input.isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח!") : (realBoard.input.isStaleMate ? "פת. ליריב אין מהלכים חוקיים. המשחק נגמר בתיקו" : "המשחק נגמר בתיקו.")));
                         });
                     }
                     alreadyChecked.clear();
@@ -116,6 +113,40 @@ public class myEngine {
                     alreadyChecked.clear();
                     waitTime = 1000;
                     SettingPanel.skillLevel = temp;
+                }
+            } catch (InterruptedException e) {
+                // Handle interruption
+            }
+            return null;
+        };
+
+        return executor.submit(task);
+    }
+
+    public Future<Void> giveHint(String fen, Board realBoard) {
+        Callable<Void> task = () -> {
+            try {
+                if (SettingPanel.skillLevel == 0) {
+                    Thread.sleep(waitTime);
+                }
+                if (Thread.currentThread().isInterrupted()) {
+                    return null;
+                }
+
+                this.fen = fen;
+                Move move = chooseMethod(board);
+                while (move == null) {
+                    move = chooseMethod(board);
+                }
+                Move tempMove = move;
+                if (board.makeMoveToCheckIt(tempMove)) {
+                    realBoard.hintToC = tempMove.newCol;
+                    realBoard.hintToR = tempMove.newRow;
+                    realBoard.hintFromC = tempMove.piece.col;
+                    realBoard.hintFromR = tempMove.piece.row;
+                    alreadyChecked.clear();
+                } else {
+                    System.out.println("no hint found");
                 }
             } catch (InterruptedException e) {
                 // Handle interruption
@@ -216,7 +247,9 @@ public class myEngine {
         // בדיקת מצב המשחק והשפעתו על העומק המקסימלי של האלגוריתם
         if (board.getGameState() == 10) {
             Minimax.maxDepth = SettingPanel.skillLevel / 2 + 2;
+            System.out.println("+2 depth");
         } else if (board.getGameState() == 2) {
+            System.out.println("+1 depth");
             Minimax.maxDepth = SettingPanel.skillLevel / 2 + 1;
         } else {
             Minimax.maxDepth = SettingPanel.skillLevel / 2;
@@ -236,7 +269,7 @@ public class myEngine {
 //        }
 
         // אם אין מהלך בספר הפתיחות, המנוע יחשב מהלך רגיל
-        System.out.println("Calculating engine move. Depth: " + Minimax.maxDepth);
+        // System.out.println("Calculating engine move. Depth: " + Minimax.maxDepth);
         BitMove move = Minimax.getBestMove(board);
         promotionChoice = String.valueOf(move.promotionChoice);
         return move;

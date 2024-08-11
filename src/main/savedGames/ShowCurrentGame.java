@@ -33,7 +33,7 @@ public class ShowCurrentGame extends JPanel {
         updateMovesPanel();
     }
 
-    private void updateMovesPanel() {
+    public void updateMovesPanel() {
         movesTextArea.setText("");  // נקה את הטקסט הקודם
 
         for (String move : movesStack) {
@@ -42,4 +42,6 @@ public class ShowCurrentGame extends JPanel {
 
         movesTextArea.setCaretPosition(movesTextArea.getDocument().getLength());  // גלול למטה בסיום
     }
+
+
 }

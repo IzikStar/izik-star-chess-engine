@@ -40,6 +40,9 @@ public class BoardParts {
     public static final long RIGHT_HALF = 0x0F0F0F0F0F0F0F0FL;         // חצי ימני של הלוח
     public static final long BACK_HALF = 0xFFFFFFFF00000000L;          // חצי אחורי של הלוח
     public static final long FRONT_HALF = 0x00000000FFFFFFFFL;         // חצי קדמי של הלוח
+    public static final long CENTER = 0x0000001818000000L;
+    public static final long FIRST_FIVE_RANKS = 0xFFFFFFFFFF000000L;
+    public static final long BACK_FIVE_RANKS = 0x000000FFFFFFFFFFL;
 
     // starting positions:
     public static final long WHITE_START_POSITION = FIRST_RANK | SECOND_RANK;
@@ -47,6 +50,7 @@ public class BoardParts {
 
     public static final long WHITE_PROMOTION_ROW = EIGHTH_RANK;
     public static final long BLACK_PROMOTION_ROW = FIRST_RANK;
+
     public static long getPromotionRow(int color) {
         return color == 1 ? WHITE_PROMOTION_ROW : BLACK_PROMOTION_ROW;
     }
@@ -181,7 +185,8 @@ public class BoardParts {
 //        System.out.println(BitOperations.printBitboard(G_FILE));
 //        System.out.println(BitOperations.printBitboard(H_FILE));
 
-        printAllTiles();
+        // printAllTiles();
+        // System.out.println(CENTER == (Tile.E4.position | Tile.D4.position | Tile.E5.position | Tile.D5.position));
     }
 
 }

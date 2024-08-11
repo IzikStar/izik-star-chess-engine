@@ -29,7 +29,7 @@ public class Input extends MouseAdapter {
     myEngine myEngine;
 
     public boolean isDraggingMove = false;
-    public int switchToStockFish = 11;
+    public int switchToStockFish = 13;
 
     public Input(Board board) {
         this.board = board;
@@ -98,8 +98,10 @@ public class Input extends MouseAdapter {
 
                     if (!moveFound) {
                         int temp = SettingPanel.skillLevel;
-                        SettingPanel.skillLevel = 2;
+                        SettingPanel.skillLevel = 3;
+                        ChoosePlayFormat.isPlayingWhite = !ChoosePlayFormat.isPlayingWhite;
                         myEngine.makeMove(board.state.convertPiecesToFEN(), board);
+                        ChoosePlayFormat.isPlayingWhite = !ChoosePlayFormat.isPlayingWhite;
                         SettingPanel.skillLevel = temp;
                     }
 
@@ -167,7 +169,13 @@ public class Input extends MouseAdapter {
             }
                 // System.out.println(endTime - startTime);
                 if (!moveFound) {
-                    System.out.println("taking to long, doing nothing");
+                    System.out.println("taking to long");
+                    int temp = SettingPanel.skillLevel;
+                    SettingPanel.skillLevel = 10;
+                    ChoosePlayFormat.isPlayingWhite = !ChoosePlayFormat.isPlayingWhite;
+                    myEngine.giveHint(board.state.convertPiecesToFEN(), board);
+                    ChoosePlayFormat.isPlayingWhite = !ChoosePlayFormat.isPlayingWhite;
+                    SettingPanel.skillLevel = temp;
                 }
             SwingUtilities.invokeLater(() -> {
                 board.repaint();
@@ -197,13 +205,8 @@ public class Input extends MouseAdapter {
             if (pieceXY != null && pieceXY.isWhite == board.state.getIsWhiteToMove() && (!ChoosePlayFormat.isOnePlayer || ChoosePlayFormat.isPlayingWhite == board.state.getIsWhiteToMove())) {
                 audioPlayer.playSelectPieceSound();
                 Board.selectedPiece = pieceXY;
-                if (ChoosePlayFormat.isPlayingWhite) {
-                    selectedX = e.getX() - Board.tileSize / 2;
-                    selectedY = e.getY() - Board.tileSize / 2;
-                } else {
-                    selectedX = (Board.cols - 1) - (e.getX() - Board.tileSize) / 2;
-                    selectedY = (Board.rows - 1) - (e.getY() - Board.tileSize) / 2;
-                }
+                selectedX = board.getColFromX(e.getX());
+                selectedY = board.getRowFromY(e.getY());
             } else {
                 selectedX = -1;
                 selectedY = -1;
@@ -211,13 +214,8 @@ public class Input extends MouseAdapter {
             board.repaint();
         } else {
             // הזזת כלי
-            if (ChoosePlayFormat.isPlayingWhite) {
-                col = e.getX() / Board.tileSize;
-                row = e.getY() / Board.tileSize;
-            } else {
-                col = (Board.cols - 1) - (e.getX() / Board.tileSize);
-                row = (Board.rows - 1) - (e.getY() / Board.tileSize);
-            }
+            col = board.getColFromX(e.getX());
+            row = board.getRowFromY(e.getY());
 
             if (Board.selectedPiece != null) {
                 Move move = new Move(board.state, Board.selectedPiece, col, row);
@@ -263,14 +261,8 @@ public class Input extends MouseAdapter {
                     if (pieceXY != null && pieceXY.isWhite == board.state.getIsWhiteToMove()) {
                         audioPlayer.playSelectPieceSound();
                         Board.selectedPiece = pieceXY;
-                        if (ChoosePlayFormat.isPlayingWhite) {
-                            selectedX = e.getX() - Board.tileSize / 2;
-                            selectedY = e.getY() - Board.tileSize / 2;
-                        }
-                        else {
-                            selectedX = (8 * Board.tileSize) - e.getX() - Board.tileSize / 2;
-                            selectedY = (8 * Board.tileSize) - e.getY() - Board.tileSize / 2;
-                        }
+                        selectedX = board.getColFromX(e.getX());
+                        selectedY = board.getRowFromY(e.getY());
                     } else {
                         audioPlayer.playInvalidMoveSound();
                         selectedX = -1;
@@ -287,7 +279,7 @@ public class Input extends MouseAdapter {
     @Override
     public void mouseDragged(MouseEvent e) {
         if (Board.selectedPiece != null) {
-            Board.selectedPiece.xPos = e.getX() - Board.tileSize / 2;
+            Board.selectedPiece.xPos = e.getX() -Board.tileSize / 2;
             Board.selectedPiece.yPos = e.getY() - Board.tileSize / 2;
             board.repaint();
             isDragged = true;
@@ -297,9 +289,9 @@ public class Input extends MouseAdapter {
     @Override
     public void mouseReleased(MouseEvent e) {
         if (isDragged) {
-            if (Math.abs(selectedX - Board.selectedPiece.xPos) > Board.tileSize / 2 || Math.abs(selectedY - board.selectedPiece.yPos) > Board.tileSize / 2) {
-                int col = board.getColFromX(e.getX());
-                int row = board.getRowFromY(e.getY());
+            if (Math.abs(selectedX - Board.selectedPiece.xPos) > Board.tileSize / 2 || Math.abs(selectedY - Board.selectedPiece.yPos) > Board.tileSize / 2) {
+                col = board.getColFromX(e.getX());
+                row = board.getRowFromY(e.getY());
                 Move move = new Move(board.state, Board.selectedPiece, col, row);
                 if (board.state.isValidMove(move)) {
                     isDraggingMove = true;
@@ -335,7 +327,8 @@ public class Input extends MouseAdapter {
                             }).start();
                         }
                     }
-                } else {
+                }
+                else {
                     Board.selectedPiece.xPos = board.getXFromCol(Board.selectedPiece.col);
                     Board.selectedPiece.yPos = board.getYFromRow(Board.selectedPiece.row);
                     audioPlayer.playInvalidMoveSound();
@@ -344,7 +337,8 @@ public class Input extends MouseAdapter {
                 board.repaint();
                 selectedX = -1;
                 selectedY = -1;
-            } else {
+            }
+            else {
                 Board.selectedPiece.xPos = board.getXFromCol(Board.selectedPiece.col);
                 Board.selectedPiece.yPos = board.getYFromRow(Board.selectedPiece.row);
                 board.repaint();

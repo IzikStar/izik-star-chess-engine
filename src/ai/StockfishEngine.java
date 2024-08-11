@@ -119,7 +119,7 @@ public class StockfishEngine {
 
     public static void main(String[] args) {
         StockfishEngine engine = new StockfishEngine();
-        if (engine.startEngine("D:\\Desktop\\סיכומים קורס תכנות\\אורט סינגאלובסקי\\java-projects\\chessGame_3\\src\\res\\stockfish\\stockfish-windows-x86-64.exe")) {
+        if (engine.startEngine("D:\\Desktop\\programing\\java-projects\\chessGame_3\\src\\res\\stockfish\\stockfish-windows-x86-64.exe")) {
             engine.setSkillLevel(5); // רמה 5 לדוגמה
 
             String fen = "rnbqkbnr/ppppppPp/8/8/8/8/PPPPPP1P/RNBQKBNR w KQkq - 0 1";

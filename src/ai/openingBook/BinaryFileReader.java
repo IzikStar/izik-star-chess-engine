@@ -1,12 +1,20 @@
 package ai.openingBook;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 
 public class BinaryFileReader {
 
     public static void main(String[] args) {
-        String filePath = "D:\\Desktop\\סיכומים קורס תכנות\\אורט סינגאלובסקי\\java-projects\\chessGame_3\\src\\res\\opening_book\\M11.2_bin";
+        String filePath = "D:\\Desktop\\M11.2.bin";
+        File file = new File(filePath);
+
+        if (file.exists()) {
+            System.out.println("File exists!");
+        } else {
+            System.out.println("File does not exist!");
+        }
 
         try (FileInputStream fis = new FileInputStream(filePath)) {
             int byteContent;
@@ -17,5 +25,6 @@ public class BinaryFileReader {
             e.printStackTrace();
         }
     }
+
 }
 

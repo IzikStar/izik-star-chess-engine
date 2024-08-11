@@ -2,33 +2,34 @@ package ai.openingBook;
 
 import java.io.*;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-public class OpeningBook implements Serializable {
-    private Map<String, List<String>> book;
+public class OpeningBook {
+    private final Map<String, String> bookData = new HashMap<>();
 
-    public OpeningBook() {
-        book = new HashMap<>();
-    }
-
-    public void addOpening(String fen, List<String> moves) {
-        book.put(fen, moves);
-    }
-
-    public List<String> getMoves(String fen) {
-        return book.get(fen);
-    }
-
-    public void saveToFile(String filename) throws IOException {
-        try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(filename))) {
-            out.writeObject(this);
+    public void loadFromFile(String filePath) throws IOException {
+        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(":", 2);
+                if (parts.length == 2) {
+                    bookData.put(parts[0], parts[1]);
+                }
+            }
         }
     }
 
-    public static OpeningBook loadFromFile(String filename) throws IOException, ClassNotFoundException {
-        try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(filename))) {
-            return (OpeningBook) in.readObject();
+    public void saveToFile(String filePath) throws IOException {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath))) {
+            for (Map.Entry<String, String> entry : bookData.entrySet()) {
+                writer.write(entry.getKey() + ":" + entry.getValue());
+                writer.newLine();
+            }
         }
+    }
+
+    public String getMoves(String positionHash) {
+        return bookData.get(positionHash);
     }
 }
+

@@ -15,12 +15,20 @@ public class Minimax {
     private static final Random random = new Random();
     public static ArrayList<BitMove> bestMoves;
     public static int maxDepth;
+    public static int prunings = 0;
+    public static int nodesChecked = 0;
+    public static int nodesInMaxDepth = 0;
 
     public static BitMove getBestMove(BoardState board) {
+        prunings = 0;
+        nodesChecked = 0;
+        nodesInMaxDepth = 0;
         BitBoard bitboard = new BitBoard(board);
+        System.out.println("sortes: " + bitboard.getSortedNextStates().size() + " unsorted: " + bitboard.getNextStates().size());
+        getNumOfNodes(bitboard, maxDepth);
         BitMove bestMove = null;
         Instant start, end;
-        long timeElapsed;
+        long timeElapsed = 0;
 
         // יצירת מופע של BoardStateTracker וטבלת טרנספוזיציות
         BoardStateTracker boardStateTracker = new BoardStateTracker();
@@ -45,7 +53,19 @@ public class Minimax {
                 bestMove = result.move;
             }
         }
+        System.out.println("time: " + timeElapsed);
+        // System.out.println("prunings: " + prunings);
+        System.out.println("num of nodes: " + nodesInMaxDepth);
+        System.out.println("nodes checked: " + nodesChecked);
         return bestMove;
+    }
+
+    private static void getNumOfNodes(BitBoard board, int depth) {
+        nodesInMaxDepth += board.getNextStates().size();
+        if (depth == 1) return;
+        for (BitBoard bitBoard : board.getNextStates()) {
+            getNumOfNodes(board, depth - 1);
+        }
     }
 
     private static MinimaxResult minimax(BitBoard board, int depth, boolean isMaximizingPlayer, int alpha, int beta, BoardStateTracker boardStateTracker, TranspositionTable transpositionTable) {
@@ -59,9 +79,9 @@ public class Minimax {
 //        }
 
         boardStateTracker.addBoardState(board);
-
         if (depth == 0 || board.getStatus() != 1) {
             boardStateTracker.removeLastBoardState();
+            nodesChecked++;
             return new MinimaxResult(board.lastMove, BitBoardEvaluate.evaluate(board));
         }
 
@@ -79,7 +99,7 @@ public class Minimax {
 
         if (isMaximizingPlayer) {
             bestValue = Integer.MIN_VALUE;
-            for (BitBoard state : board.getNextStates()) {
+            for (BitBoard state : board.getSortedNextStates()) {
                 MinimaxResult result = minimax(state, depth - 1, false, alpha, beta, boardStateTracker, transpositionTable);
 
                 if (result.value > bestValue) {
@@ -96,12 +116,13 @@ public class Minimax {
                 }
                 alpha = Math.max(alpha, bestValue);
                 if (beta <= alpha) {
+                    // prunings += 1 * (maxDepth - depth);
                     break; // אלפא-בטא גיזום
                 }
             }
         } else {
             bestValue = Integer.MAX_VALUE;
-            for (BitBoard state : board.getNextStates()) {
+            for (BitBoard state : board.getSortedNextStates()) {
                 MinimaxResult result = minimax(state, depth - 1, true, alpha, beta, boardStateTracker, transpositionTable);
 
                 if (result.value < bestValue) {
@@ -110,6 +131,7 @@ public class Minimax {
                 }
                 beta = Math.min(beta, bestValue);
                 if (beta <= alpha) {
+                    // prunings += 1 * (maxDepth - depth);
                     break; // אלפא-בטא גיזום
                 }
             }
@@ -142,9 +164,13 @@ public class Minimax {
     }
 
     public static void main(String[] args) {
-        maxDepth = 2;
-        String fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1";
+        maxDepth = 5;
+        String fen = "rk6/p1p5/B4p2/1q2bP2/3N4/2K5/8/1R6 b - - 0 1";
         BoardState boardState = new BoardState(fen, null);
-        System.out.println("best move final: " + getBestMove(boardState));
+        BitBoard bitBoard = new BitBoard(boardState);
+        System.out.println("sortes: " + bitBoard.getSortedNextStates().size() + " unsorted: " + bitBoard.getNextStates().size());
+        // System.out.println("best move final: " + getBestMove(boardState));
+        getBestMove(boardState);
     }
+
 }

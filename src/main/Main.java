@@ -136,19 +136,21 @@ public class Main {
                 board.input = new Input(board, latch);
                 while (!board.input.isStatusChanged && computerGame) {
                     if (board.state.getIsWhiteToMove()) {
-                        SettingPanel.skillLevel = 20;
-                        board.input.engine.skillLevel = 20;
-                        board.input.makeEngineMove();
-                        // Wait for a specific time or until the next move
-                        Thread.sleep(2500);
+//                        SettingPanel.skillLevel = 20;
+//                        board.input.engine.skillLevel = 20;
+//                        board.input.makeEngineMove();
+//                        // Wait for a specific time or until the next move
+//                        Thread.sleep(2500);
                         if (board.state.getIsWhiteToMove()) {
+                            board.input.myEngine.stop();
                             ChoosePlayFormat.isPlayingWhite = false;
-                            SettingPanel.skillLevel = 8;
+                            SettingPanel.skillLevel = 10;
                             board.input.makeEngineMove();
                             board.input.latch.await();
                             ChoosePlayFormat.isPlayingWhite = true;
                         }
                     } else {
+                        board.input.myEngine.stop();
                         SettingPanel.skillLevel = 8;
                         board.input.makeEngineMove();
                         board.input.latch.await(); // Wait for the engine move to complete

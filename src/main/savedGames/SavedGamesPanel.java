@@ -34,6 +34,11 @@ public class SavedGamesPanel extends JPanel {
         currentGamePanel.updateMoves(moves);
     }
 
+    public void removeMove() {
+        moves.pop();
+        currentGamePanel.updateMoves(moves);
+    }
+
     public void newGame() {
         moves.clear();
         currentGamePanel.updateMoves(moves);

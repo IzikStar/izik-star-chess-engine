@@ -1,6 +1,7 @@
 package ai.BitBoard;
 
 import ai.BitBoard.BitPiece.BitPiece;
+import ai.openingBook.OpeningEntry;
 import main.Move;
 
 public class BitMove {

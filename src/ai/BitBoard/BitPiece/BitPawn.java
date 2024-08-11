@@ -158,6 +158,9 @@ public class BitPawn extends BitPiece {
         rookPromotion.setPromotionChoice('r');
         bishopPromotion.setPromotionChoice('b');
 
+        queenPromotion.setMoveValue(queenPromotion.getMoveValue() + 70);
+        knightPromotion.setMoveValue(knightPromotion.getMoveValue() + 30);
+
         promotions.add(queenPromotion);
         promotions.add(knightPromotion);
         promotions.add(rookPromotion);

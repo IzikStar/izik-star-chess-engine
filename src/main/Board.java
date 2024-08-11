@@ -6,7 +6,6 @@ import GUI.ChessAnimation;
 import ai.BoardState;
 import main.savedGames.SavedGamesPanel;
 import main.savedGames.SavedStatesForDraws;
-import main.savedGames.ShowCurrentGame;
 import main.setting.ChoosePlayFormat;
 import main.setting.SettingPanel;
 import pieces.*;
@@ -25,6 +24,7 @@ public class Board extends JPanel {
     JFrame parentFrame;
     SavedGamesPanel savedGamesPanel;
     public static final String fenStartingPosition = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    // public static final String fenStartingPosition = "2k4r/1pq1pp2/p1p2bp1/3p4/3P1P2/2N1P1Q1/PPP5/2K4R w - - 1 20";
     public static int tileSize = 85;
     public static int cols = 8;
     public static int rows = 8;
@@ -47,7 +47,7 @@ public class Board extends JPanel {
     ShowScore showScore = new ShowScore(this);
 
     // הצגת רמזים
-    int hintFromC = -1, hintFromR = -1, hintToC = -1, hintToR = -1;
+    public int hintFromC = -1, hintFromR = -1, hintToC = -1, hintToR = -1;
     int fromC = -1, fromR = -1, toC = -1, toR = -1;
     public String promotionChoice;
 
@@ -210,6 +210,14 @@ public class Board extends JPanel {
         else {
             return (rows - 1) - y / tileSize;
         }
+    }
+    public int getXFromX(int x) {
+        if (ChoosePlayFormat.isPlayingWhite) return x;
+        return x - tileSize / 2;
+    }
+    public int getYFromY(int y) {
+        if (ChoosePlayFormat.isPlayingWhite) return y;
+        return y - tileSize / 2;
     }
 
 
@@ -445,8 +453,10 @@ public class Board extends JPanel {
             state.fenCurrentPosition = savedStates.pop();
             //System.out.println("changing position to: " + fenCurrentPosition);
             input.engine.stopEngine();
-            ShowCurrentGame.movesStack.pop();
-            ShowCurrentGame.movesStack.pop();
+            savedGamesPanel.removeMove();
+            savedGamesPanel.removeMove();
+            SavedStatesForDraws.removeLastState();
+            SavedStatesForDraws.removeLastState();
             state.setLastMove(null);
             input.selectedX = input.selectedY = -1;
             selectedPiece = null;
@@ -552,6 +562,8 @@ public class Board extends JPanel {
             repaint();
         }
     }
+
+
 
 }
 
