@@ -1,0 +1,20 @@
+[Event "Import"]
+[Site "https://lichess.org/pwWT8qqv"]
+[Date "2024.08.05"]
+[White "?"]
+[Black "?"]
+[Result "0-1"]
+[UTCDate "2024.08.05"]
+[UTCTime "13:58:14"]
+[WhiteElo "?"]
+[BlackElo "?"]
+[Variant "Standard"]
+[TimeControl "-"]
+[ECO "C23"]
+[Opening "Bishop's Opening"]
+[Termination "Unknown"]
+[Annotator "lichess.org"]
+
+1. e4 e5 2. Bc4 { C23 Bishop's Opening } Nh6 3. d3 Nc6 4. Nf3 d5 5. exd5 Bb4+ 6. c3 Bg4 7. dxc6 Bc5 8. cxb7 Rb8 9. Qa4+ Bd7 10. Qa6 Ng4 11. O-O Bxf2+ 12. Rxf2 Nxf2 13. Kxf2 Bg4 14. Nxe5 Qh4+ 15. g3 Qxh2+ 16. Ke3 Qxg3+ 17. Kd4 Qf2+ 18. Be3 Rd8+ 19. Bd5 c5+ 20. Ke4 Qf5# { Black wins. } 0-1
+
+

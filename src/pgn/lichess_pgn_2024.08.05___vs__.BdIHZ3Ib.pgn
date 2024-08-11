@@ -1,0 +1,20 @@
+[Event "Import"]
+[Site "https://lichess.org/BdIHZ3Ib"]
+[Date "2024.08.05"]
+[White "?"]
+[Black "?"]
+[Result "1-0"]
+[UTCDate "2024.08.05"]
+[UTCTime "12:22:49"]
+[WhiteElo "?"]
+[BlackElo "?"]
+[Variant "Standard"]
+[TimeControl "-"]
+[ECO "B00"]
+[Opening "Carr Defense"]
+[Termination "Unknown"]
+[Annotator "lichess.org"]
+
+1. e4 h6 { B00 Carr Defense } 2. Bc4 b6 3. Nf3 g6 4. O-O Nf6 5. d4 Na6 6. Nbd2 b5 7. Bxb5 Bg7 8. h4 Nh5 9. g4 Nb8 10. gxh5 a6 11. hxg6 Nc6 12. e5 e6 13. gxf7+ Kxf7 14. Ne4 Bxe5 15. Nfg5+ Qxg5+ 16. hxg5 d6 17. gxh6 Bd7 18. Qf3+ Kg8 19. Qg4+ Kf8 20. Nf6 d5 21. Qg7# { White wins. } 1-0
+
+

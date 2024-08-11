@@ -1,0 +1,20 @@
+[Event "Import"]
+[Site "https://lichess.org/UhGFPTS9"]
+[Date "2024.08.03"]
+[White "?"]
+[Black "?"]
+[Result "1-0"]
+[UTCDate "2024.08.03"]
+[UTCTime "19:58:53"]
+[WhiteElo "?"]
+[BlackElo "?"]
+[Variant "Standard"]
+[TimeControl "-"]
+[ECO "C23"]
+[Opening "Bishop's Opening"]
+[Termination "Unknown"]
+[Annotator "lichess.org"]
+
+1. e4 { [%eval 0.15] } 1... e5 { [%eval 0.21] } 2. Bc4 { [%eval 0.05] } { C23 Bishop's Opening } 2... a5 { [%eval 0.57] } 3. Nf3 { [%eval 0.56] } 3... Nf6?! { (0.56 → 1.65) Inaccuracy. d6 was best. } { [%eval 1.65] } (3... d6 4. d4 exd4 5. c3 d3 6. Qxd3 Nc6 7. Bf4 Be7 8. Na3) 4. O-O { [%eval 1.38] } 4... Nxe4? { (1.38 → 3.06) Mistake. d6 was best. } { [%eval 3.06] } (4... d6 5. d4) 5. d3?? { (3.06 → -0.42) Blunder. Nxe5 was best. } { [%eval -0.42] } (5. Nxe5 Nd6 6. Qh5 Qf6 7. Re1 Be7 8. Nc3 c6 9. d4 Nxc4 10. Ne4 Qe6) 5... Nd6?! { (-0.42 → 0.30) Inaccuracy. Nf6 was best. } { [%eval 0.3] } (5... Nf6 6. Nc3) 6. Nxe5 { [%eval 0.22] } 6... Qf6?? { (0.22 → 3.66) Blunder. Be7 was best. } { [%eval 3.66] } (6... Be7) 7. Re1 { [%eval 3.71] } 7... Kd8 { [%eval 4.15] } 8. Nc3 { [%eval 3.97] } 8... c5? { (3.97 → 6.59) Mistake. c6 was best. } { [%eval 6.59] } (8... c6 9. d4 Kc7 10. Ng4 Qd8 11. Bf4 Kb6 12. d5 Ka7 13. Ne3 Qf6 14. Qf3) 9. Nd5 { [%eval 6.49] } 9... Qf5 { [%eval 6.83] } 10. c3?! { (6.83 → 5.18) Inaccuracy. Bf4 was best. } { [%eval 5.18] } (10. Bf4 h6 11. d4 Na6 12. Bd3 Qe6 13. Nb6 Ra7 14. Ng4 cxd4 15. Rxe6 dxe6) 10... h5?! { (5.18 → 6.92) Inaccuracy. Nc6 was best. } { [%eval 6.92] } (10... Nc6 11. d4 Nxc4 12. Bg5+ Be7 13. g4 Qxe5 14. Bxe7+ Qxe7 15. Nxe7 Nxe7 16. Qe2) 11. d4 { [%eval 6.85] } 11... Nxc4?! { (6.85 → 10.73) Inaccuracy. f6 was best. } { [%eval 10.73] } (11... f6 12. Bd3 Qe6 13. Nb6 fxe5 14. Rxe5 c4 15. Bg5+ Be7 16. Bxe7+ Kxe7 17. Nxa8) 12. Nxc4?? { (10.73 → 4.07) Blunder. Bg5+ was best. } { [%eval 4.07] } (12. Bg5+ Be7 13. Bxe7+ Ke8 14. Nxc4 Qxd5 15. Bxc5+ Qe6 16. d5 Nc6 17. dxe6 dxe6) 12... Qxd5 { [%eval 3.93] } 13. Nb6 { [%eval 4.02] } 13... Qf5?! { (4.02 → 5.36) Inaccuracy. Qc6 was best. } { [%eval 5.36] } (13... Qc6 14. Nxa8 b5 15. a4 Qxa8 16. axb5 c4 17. Qe2 Bd6 18. Qxc4 Bb7 19. d5) 14. Nxa8 { [%eval 5.19] } 14... Bd6 { [%eval 6.26] } 15. Nb6?! { (6.26 → 4.54) Inaccuracy. Qb3 was best. } { [%eval 4.54] } (15. Qb3 Bc7 16. Nxc7 Kxc7 17. Re5 Qf6 18. Bg5 a4 19. Qxa4 Qg6 20. Bf4 Kd8) 15... cxd4 { [%eval 5.12] } 16. Qxd4 { [%eval 4.54] } 16... Bf8? { (4.54 → 10.43) Mistake. Bc5 was best. } { [%eval 10.43] } (16... Bc5 17. Qh4+ f6 18. Be3 Nc6 19. Qg3 g5 20. Bxc5 Qxc5 21. Qe3 Qxe3 22. Rxe3) 17. Bf4 { [%eval 7.63] } 17... Bc5 { [%eval 9.0] } 18. Qxg7 { [%eval 8.89] } 18... Bxf2+ { [%eval 10.03] } 19. Kxf2? { (10.03 → 4.94) Mistake. Kh1 was best. } { [%eval 4.94] } (19. Kh1 d6 20. Qxh8+ Kc7 21. Na8+ Kc6 22. Qe8+ Qd7 23. Qe2 Bc5 24. b4 b5) 19... Qb5?? { (4.94 → Mate in 1) Checkmate is now unavoidable. Qxf4+ was best. } { [%eval #1] } (19... Qxf4+ 20. Kg1 Qh6 21. Qxh6 Rxh6 22. Nxc8 Kxc8 23. Rf1 Nc6 24. Rxf7 Ne5 25. Re7) 20. Qxh8# { White wins. } 1-0
+
+

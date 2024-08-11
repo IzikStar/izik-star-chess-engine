@@ -1,0 +1,20 @@
+[Event "Import"]
+[Site "https://lichess.org/6XBKVOKn"]
+[Date "2024.08.03"]
+[White "?"]
+[Black "?"]
+[Result "1-0"]
+[UTCDate "2024.08.03"]
+[UTCTime "20:08:45"]
+[WhiteElo "?"]
+[BlackElo "?"]
+[Variant "Standard"]
+[TimeControl "-"]
+[ECO "A40"]
+[Opening "Horwitz Defense"]
+[Termination "Unknown"]
+[Annotator "lichess.org"]
+
+1. d4 e6 { A40 Horwitz Defense } 2. Bf4 g5 3. Bg3 h5 4. h4 gxh4 5. Bxh4 f6 6. Nf3 c6 7. e4 Qb6 8. Qc1 Bh6 9. Nbd2 Bxd2+ 10. Nxd2 Qxd4 11. c3 Qa4 12. Bc4 d5 13. exd5 cxd5 14. Bb3 Qf4 15. O-O Qxh4 16. Ba4+ Qxa4 17. Nb3 Qb5 18. Qf4 e5 19. Qd2 a5 20. a4 Qxb3 21. Ra3 Qc4 22. Rd1 d4 23. cxd4 exd4 24. Qxd4 b5 25. Qd8+ Kf7 26. Rc3 Qe2 27. Rxc8 Ne7 28. Qxh8 Qxd1+ 29. Kh2 Qd6+ 30. g3 Nxc8 31. Qxc8 bxa4 32. Qb7+ Kg8 33. Qxa8 h4 34. Qxa5 Qd4 35. Qc7 Qxf2+ 36. Kh3 Qf1+ 37. Kxh4 Qf5 38. Qxb8+ Kg7 39. Qc7+ Kg8 40. g4 Qe5 41. Qxe5 fxe5 42. g5 e4 43. Kg4 Kh8 44. Kf4 Kg7 45. Kxe4 Kg8 46. Kf5 Kh8 47. g6 Kg7 48. Kg5 Kh8 49. Kf6 Kg8 50. g7 Kh7 51. Kf7 Kh6 52. g8=Q Kh5 53. Kf6 Kh4 54. Kf5 Kh3 55. Kf4 Kh4 56. Qg4# { White wins. } 1-0
+
+

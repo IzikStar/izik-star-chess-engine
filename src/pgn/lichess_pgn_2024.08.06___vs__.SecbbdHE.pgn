@@ -1,0 +1,20 @@
+[Event "Import"]
+[Site "https://lichess.org/SecbbdHE"]
+[Date "2024.08.06"]
+[White "?"]
+[Black "?"]
+[Result "0-1"]
+[UTCDate "2024.08.06"]
+[UTCTime "14:14:59"]
+[WhiteElo "?"]
+[BlackElo "?"]
+[Variant "Standard"]
+[TimeControl "-"]
+[ECO "A40"]
+[Opening "Englund Gambit: Soller Gambit"]
+[Termination "Unknown"]
+[Annotator "lichess.org"]
+
+1. d4 e5 2. dxe5 f6 { A40 Englund Gambit: Soller Gambit } 3. exf6 Nxf6 4. e4 Nc6 5. Nc3 Bb4 6. Bc4 Nxe4 7. Qh5+ g6 8. Qe2 d5 9. Bxd5 Qxd5 10. Bd2 Qxd2+ 11. Qxd2 Nxd2 12. O-O-O Bf5 13. Re1+ Ne4 14. Rxe4+ Bxe4 15. Nxe4 O-O 16. Nf3 Rae8 17. Neg5 Re2 18. Nh3 Rd8 19. Rd1 Rxd1+ 20. Kxd1 Re8 21. c3 Ba5 22. Kc2 Re2+ 23. Kb3 Kg7 24. Nf4 Rxf2 25. Ne6+ Kf6 26. Nc5 Rxg2 27. Nxb7 Bb6 28. a4 Rf2 29. Nd4 Nxd4+ 30. cxd4 Bxd4 31. Kc4 Bxb2 32. Kb3 Be5 33. Nc5 Rb2+ 34. Kc4 Rc2+ 35. Kd5 Kf5 36. Nd7 c6# { Black wins. } 0-1
+
+

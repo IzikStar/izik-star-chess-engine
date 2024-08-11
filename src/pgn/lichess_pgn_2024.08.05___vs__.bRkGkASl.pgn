@@ -1,0 +1,20 @@
+[Event "Import"]
+[Site "https://lichess.org/bRkGkASl"]
+[Date "2024.08.05"]
+[White "?"]
+[Black "?"]
+[Result "1-0"]
+[UTCDate "2024.08.05"]
+[UTCTime "16:42:54"]
+[WhiteElo "?"]
+[BlackElo "?"]
+[Variant "Standard"]
+[TimeControl "-"]
+[ECO "B00"]
+[Opening "Nimzowitsch Defense"]
+[Termination "Unknown"]
+[Annotator "lichess.org"]
+
+1. d4 Nc6 2. e4 { B00 Nimzowitsch Defense } Nf6 3. Bd3 Nb4 4. Be2 Nxe4 5. c3 Nd5 6. Bf3 Nxf2 7. Kxf2 e6 8. Nd2 Qf6 9. h4 Be7 10. Qe2 O-O 11. a4 Nb6 12. Ke1 Qf5 13. Be4 Bxh4+ 14. Rxh4 g5 15. Rh3 Qf4 16. Nf1 Qf6 17. a5 h5 18. Ng3 g4 19. Bh7+ Kxh7 20. Qd3+ Kg8 21. Nxh5 Qh8 22. Rh4 f5 23. Bf4 Nd5 24. Bg5 Qh7 25. Nf6+ Rxf6 26. Bxf6 Nb4 27. Qe2 Nd3+ 28. Kd2 Nf4 29. Qf1 Nh5 30. Be5 Qh6+ 31. Ke1 d6 32. Rd1 Bd7 33. Bf4 Qxf4 34. Rxh5 Qe3+ 35. Ne2 Bc6 36. a6 Ba4 37. Rd2 Re8 38. axb7 Rb8 39. b3 Bxb3 40. Qf4 Qxf4 41. Nxf4 Rxb7 42. Rb2 Kg7 43. c4 Kf6 44. c5 Kg7 45. g3 Rb8 46. Rhh2 Kf6 47. d5 Ke5 48. Rbe2+ Kd4 49. cxd6 Bxd5 50. dxc7 Rb1+ 51. Kf2 Rc1 52. Rh4 Rxc7 53. Rh5 a5 54. Nxe6+ Bxe6 55. Rh6 Bd5 56. Rh8 Rb7 57. Rd8 a4 58. Rd2+ Ke4 59. Re8+ Be6 60. Rxe6# { White wins. } 1-0
+
+
