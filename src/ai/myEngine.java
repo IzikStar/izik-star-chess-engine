@@ -85,15 +85,15 @@ public class myEngine {
                         });
                     }
                     alreadyChecked.clear();
-                } else {
+                }
+                else {
                     System.out.println("retrying...");
                     int temp = SettingPanel.skillLevel;
                     SettingPanel.skillLevel = 0;
                     waitTime = 0;
-                    move = chooseMethod(board);
-                    while (move == null) {
+                    do {
                         move = chooseMethod(board);
-                    }
+                    } while (move == null);
                     tempMove = move;
                     if (board.makeMoveToCheckIt(tempMove)) {
                         realBoard.makeMove(move);
@@ -105,8 +105,7 @@ public class myEngine {
                                 realBoard.updateGameState(true);
                                 Main.showEndGameMessage(frame, (realBoard.input.isCheckMate ?
                                         (realBoard.input.isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח!") :
-                                        (realBoard.input.isStaleMate ? "פת. ליריב אין מהלכים חוקיים. המשחק נגמר בתיקו" :
-                                                "אין חומר מספיק. המשחק נגמר בתיקו.")));
+                                        (realBoard.input.isStaleMate ? "פת. ליריב אין מהלכים חוקיים. המשחק נגמר בתיקו" : "אין חומר מספיק. המשחק נגמר בתיקו.")));
                             });
                         }
                     }
@@ -119,7 +118,6 @@ public class myEngine {
             }
             return null;
         };
-
         return executor.submit(task);
     }
 
