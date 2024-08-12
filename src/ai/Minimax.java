@@ -1,85 +1,176 @@
 package ai;
 
-import main.Move;
+import ai.BitBoard.BitBoard;
+import ai.BitBoard.BitBoardEvaluate;
+import ai.BitBoard.BitMove;
+import ai.BitBoard.ZobristHashing;
 import main.setting.ChoosePlayFormat;
-import pieces.Piece;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Random;
 
 public class Minimax {
+    private static final Random random = new Random();
+    public static ArrayList<BitMove> bestMoves;
+    public static int maxDepth;
+    public static int prunings = 0;
+    public static int nodesChecked = 0;
+    public static int nodesInMaxDepth = 0;
 
-    public static Move getBestMove(BoardState board, int depth) {
-        BoardState.numOfNodes = 1;
-        Move bestMove = null;
-        double bestValue = Double.NEGATIVE_INFINITY;
-        double alpha = Double.NEGATIVE_INFINITY;
-        double beta = Double.POSITIVE_INFINITY;
-        BoardState cloneBoard = board;
-        String fen = cloneBoard.convertPiecesToFEN();
+    public static BitMove getBestMove(BoardState board) {
+        prunings = 0;
+        nodesChecked = 0;
+        nodesInMaxDepth = 0;
+        BitBoard bitboard = new BitBoard(board);
+        System.out.println("sortes: " + bitboard.getSortedNextStates().size() + " unsorted: " + bitboard.getNextStates().size());
+        getNumOfNodes(bitboard, maxDepth);
+        BitMove bestMove = null;
+        Instant start, end;
+        long timeElapsed = 0;
 
-        for (Move move : cloneBoard.getAllPossibleMoves()) {
-            if (!(cloneBoard.getPiece(move.piece.col, move.piece.row) == null)) {
-                cloneBoard.makeMove(move);
-                double boardValue = minimax(cloneBoard, depth - 1, false, alpha, beta);
-                cloneBoard.loadPiecesFromFen(fen);
-                System.out.printf("Move: %d, %d to %d, %d, Value: %.2f, Alpha: %.2f, Beta: %.2f", move.piece.col, move.piece.row, move.newCol, move.newRow, boardValue, alpha, beta); // בדיקת ערכים
-                if (boardValue > bestValue) {
-                    bestValue = boardValue;
-                    bestMove = move;
+        // יצירת מופע של BoardStateTracker וטבלת טרנספוזיציות
+        BoardStateTracker boardStateTracker = new BoardStateTracker();
+        TranspositionTable transpositionTable = new TranspositionTable();
+
+        for (int depth = maxDepth; depth <= maxDepth; depth++) {
+            start = Instant.now();
+            MinimaxResult result = minimax(bitboard, depth, true, Integer.MIN_VALUE, Integer.MAX_VALUE, boardStateTracker, transpositionTable);
+            end = Instant.now();
+            timeElapsed = Duration.between(start, end).toMillis();
+
+            if (depth == maxDepth) {
+                if (!bestMoves.isEmpty()) {
+                    System.out.println("best moves size: " + bestMoves.size());
+                    // System.out.println("best moves: " + bestMoves);
+                    int randomIndex = random.nextInt(bestMoves.size());
+                    result.move = bestMoves.get(randomIndex);
                 }
             }
-        }
 
-        System.out.printf("Best Move: %s, Best Value: %.2f\n", bestMove, bestValue); // בדיקת המהלך הטוב ביותר
+            if (result.move != null) {
+                bestMove = result.move;
+            }
+        }
+        System.out.println("time: " + timeElapsed);
+        // System.out.println("prunings: " + prunings);
+        System.out.println("num of nodes: " + nodesInMaxDepth);
+        System.out.println("nodes checked: " + nodesChecked);
         return bestMove;
     }
 
-    private static double minimax(BoardState board, int depth, boolean isMaximizingPlayer, double alpha, double beta) {
-        if (depth == 0) {
-            return EvaluationLevel2.evaluate(board);
+    private static void getNumOfNodes(BitBoard board, int depth) {
+        nodesInMaxDepth += board.getNextStates().size();
+        if (depth == 1) return;
+        for (BitBoard bitBoard : board.getNextStates()) {
+            getNumOfNodes(board, depth - 1);
         }
-        String fen = board.convertPiecesToFEN();
+    }
+
+    private static MinimaxResult minimax(BitBoard board, int depth, boolean isMaximizingPlayer, int alpha, int beta, BoardStateTracker boardStateTracker, TranspositionTable transpositionTable) {
+        // long zobristHash = ZobristHashing.computeHash(board);
+
+        // בדיקה אם המצב כבר קיים בטבלת טרנספוזיציות
+//        TranspositionTable.TranspositionTableEntry entry = transpositionTable.get(zobristHash);
+//        if (entry != null && entry.depth >= depth) {
+//            System.out.println("this state has already been checked. returning saved result");
+//            return new MinimaxResult(entry.bestMove, entry.value);
+//        }
+
+        boardStateTracker.addBoardState(board);
+        if (depth == 0 || board.getStatus() != 1) {
+            boardStateTracker.removeLastBoardState();
+            nodesChecked++;
+            return new MinimaxResult(board.lastMove, BitBoardEvaluate.evaluate(board));
+        }
+
+        if (boardStateTracker.isThreefoldRepetition()) {
+            boardStateTracker.removeLastBoardState();
+            return new MinimaxResult(board.lastMove, 0);
+        }
+
+        BitMove bestMove = board.getRandomPossibleMove();
+        boolean lastDepth = (depth == maxDepth && ChoosePlayFormat.isPlayingWhite) == (!board.getIsWhiteToMove());
+        if (lastDepth) {
+            bestMoves = new ArrayList<>();
+        }
+        int bestValue;
+
         if (isMaximizingPlayer) {
-            double bestValue = Double.NEGATIVE_INFINITY;
-            for (Piece piece : board.getAllPieces()) {
-                if (piece.isWhite != ChoosePlayFormat.isPlayingWhite) {
-                    ArrayList<Move> validMoves = piece.getValidMoves(board);
-                    for (Move move : validMoves) {
-                        board.makeMove(move);
-                        double boardValue = minimax(board, depth - 1, false, alpha, beta);
-                        board.loadPiecesFromFen(fen);
-                        System.out.printf("Maximizing: %d, %d to %d, %d, Value: %.2f, Alpha: %.2f, Beta: %.2f", move.piece.col, move.piece.row, move.newCol, move.newRow, boardValue, alpha, beta); // בדיקת ערכים
-                        bestValue = Math.max(bestValue, boardValue);
-                        alpha = Math.max(alpha, boardValue);
-                        if (alpha >= beta) {
-                            System.out.printf("Pruning at move: %d, %d to %d, %d, Alpha: %.2f, Beta: %.2f", move.piece.col, move.piece.row, move.newCol, move.newRow, alpha, beta); // בדיקת גיזום
-                            break; // אלפא-בטא גיזום
-                        }
+            bestValue = Integer.MIN_VALUE;
+            for (BitBoard state : board.getSortedNextStates()) {
+                MinimaxResult result = minimax(state, depth - 1, false, alpha, beta, boardStateTracker, transpositionTable);
+
+                if (result.value > bestValue) {
+                    bestMove = state.lastMove;
+                    bestValue = result.value;
+                    if (lastDepth) {
+                        // if (result.value - bestValue > 3)
+                        bestMoves.clear();
+                        bestMoves.add(bestMove);
                     }
+                } else if (lastDepth && result.value == bestValue && (!alreadyAdded(result.move))) {
+                    // bestMoves.add(bestMove);
+                    // System.out.println(bestMove);
+                }
+                alpha = Math.max(alpha, bestValue);
+                if (beta <= alpha) {
+                    // prunings += 1 * (maxDepth - depth);
+                    break; // אלפא-בטא גיזום
                 }
             }
-            return bestValue;
         } else {
-            double bestValue = Double.POSITIVE_INFINITY;
-            for (Piece piece : board.getAllPieces()) {
-                if (piece.isWhite == ChoosePlayFormat.isPlayingWhite) {
-                    ArrayList<Move> validMoves = piece.getValidMoves(board);
-                    for (Move move : validMoves) {
-                        board.makeMove(move);
-                        double boardValue = minimax(board, depth - 1, true, alpha, beta);
-                        board.loadPiecesFromFen(fen);
-                        System.out.printf("Minimizing: %d, %d to %d, %d, Value: %.2f, Alpha: %.2f, Beta: %.2f", move.piece.col, move.piece.row, move.newCol, move.newRow, boardValue, alpha, beta); // בדיקת ערכים
-                        bestValue = Math.min(bestValue, boardValue);
-                        beta = Math.min(beta, boardValue);
-                        if (alpha >= beta) {
-                            System.out.printf("Pruning at %d, %d to %d, %d, Value: %.2f, Alpha: %.2f, Beta: %.2f", move.piece.col, move.piece.row, move.newCol, move.newRow, alpha, beta); // בדיקת גיזום
-                            break; // אלפא-בטא גיזום
-                        }
-                    }
+            bestValue = Integer.MAX_VALUE;
+            for (BitBoard state : board.getSortedNextStates()) {
+                MinimaxResult result = minimax(state, depth - 1, true, alpha, beta, boardStateTracker, transpositionTable);
+
+                if (result.value < bestValue) {
+                    bestValue = result.value;
+                    bestMove = state.lastMove;
+                }
+                beta = Math.min(beta, bestValue);
+                if (beta <= alpha) {
+                    // prunings += 1 * (maxDepth - depth);
+                    break; // אלפא-בטא גיזום
                 }
             }
-            return bestValue;
         }
+
+        boardStateTracker.removeLastBoardState();
+//
+//        // שמירת התוצאה בטבלת טרנספוזיציות
+//        transpositionTable.put(zobristHash, depth, bestValue, bestMove);
+
+        return new MinimaxResult(bestMove, bestValue);
+    }
+
+    private static boolean alreadyAdded(BitMove move) {
+        for (BitMove bitMove : bestMoves) {
+            if (bitMove.toString().equals(move.toString())) return true;
+            // System.out.println("compared " + bitMove + " to " + move);
+        }
+        return false;
+    }
+
+    private static class MinimaxResult {
+        BitMove move;
+        int value;
+
+        MinimaxResult(BitMove move, int value) {
+            this.move = move;
+            this.value = value;
+        }
+    }
+
+    public static void main(String[] args) {
+        maxDepth = 5;
+        String fen = "rk6/p1p5/B4p2/1q2bP2/3N4/2K5/8/1R6 b - - 0 1";
+        BoardState boardState = new BoardState(fen, null);
+        BitBoard bitBoard = new BitBoard(boardState);
+        System.out.println("sortes: " + bitBoard.getSortedNextStates().size() + " unsorted: " + bitBoard.getNextStates().size());
+        // System.out.println("best move final: " + getBestMove(boardState));
+        getBestMove(boardState);
     }
 
 }

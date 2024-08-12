@@ -2,9 +2,11 @@ package pieces;
 
 import ai.BoardState;
 import main.Board;
+import main.Move;
 import main.setting.ChoosePlayFormat;
 
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
 
 public class Pawn extends Piece{
 
@@ -55,5 +57,26 @@ public class Pawn extends Piece{
         return false;
     }
 
+    @Override
+    public ArrayList<Move> getValidMoves(BoardState board) {
+        ArrayList<Move> validMoves = new ArrayList<>();
+        int colorIndex = isWhite ? -1 : 1;
+        int promotionRow = isWhite ? 0 : 7;
+        for (int i = col - 1; i <= col + 1; i++) {
+            //System.out.println("c: " + c + " r: " + r);
+            if (row + colorIndex >= 0 && row + colorIndex <= 7 && i >= 0 && i <= 7) {
+                Move move = new Move(board, this, i, row + colorIndex);
+                if (board.isValidMove(move)) {
+                    if (row + colorIndex != promotionRow) {
+                        validMoves.add(move);
+                    }
+                    else {
+                        validMoves.add(move);
+                    }
+                }
+            }
+        }
+        return validMoves;
+    }
 
 }

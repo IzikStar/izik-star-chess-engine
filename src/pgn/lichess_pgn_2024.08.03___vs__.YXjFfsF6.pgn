@@ -1,0 +1,20 @@
+[Event "Import"]
+[Site "https://lichess.org/YXjFfsF6"]
+[Date "2024.08.03"]
+[White "?"]
+[Black "?"]
+[Result "0-1"]
+[UTCDate "2024.08.03"]
+[UTCTime "21:12:44"]
+[WhiteElo "?"]
+[BlackElo "?"]
+[Variant "Standard"]
+[TimeControl "-"]
+[ECO "A06"]
+[Opening "Zukertort Opening: Reversed Mexican Defense"]
+[Termination "Unknown"]
+[Annotator "lichess.org"]
+
+1. Nc3 d5 2. Nf3 { A06 Zukertort Opening: Reversed Mexican Defense } Nc6 3. d3 e5 4. Bg5 Be7 5. Bxe7 Ncxe7 6. h3 { Black wins. } 0-1
+
+

@@ -1,0 +1,20 @@
+[Event "Import"]
+[Site "https://lichess.org/k2IJqmWT"]
+[Date "2024.08.04"]
+[White "?"]
+[Black "?"]
+[Result "1-0"]
+[UTCDate "2024.08.04"]
+[UTCTime "06:16:04"]
+[WhiteElo "?"]
+[BlackElo "?"]
+[Variant "Standard"]
+[TimeControl "-"]
+[ECO "D00"]
+[Opening "Queen's Pawn Game: Accelerated London System"]
+[Termination "Unknown"]
+[Annotator "lichess.org"]
+
+1. d4 d5 2. Bf4 { D00 Queen's Pawn Game: Accelerated London System } Nc6 3. e3 e5 4. Bxe5 Bb4+ 5. c3 Bg4 6. Qxg4 Nh6 7. Qxg7 Rg8 8. Qxh6 Nxe5 9. cxb4 Ng4 10. Qxh7 Kf8 11. Nf3 Nxf2 12. Kxf2 Qd6 13. Bd3 Qb6 14. Rf1 Rxg2+ 15. Kxg2 a5 16. Qh8+ Ke7 17. Qxa8 Qe6 18. Qxb7 Qxe3 19. Qxc7+ Kf8 20. Ne5 axb4 21. Qxf7# { White wins. } 1-0
+
+

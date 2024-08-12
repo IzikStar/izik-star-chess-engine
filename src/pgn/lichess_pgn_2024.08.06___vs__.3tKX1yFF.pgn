@@ -1,0 +1,20 @@
+[Event "Import"]
+[Site "https://lichess.org/3tKX1yFF"]
+[Date "2024.08.06"]
+[White "?"]
+[Black "?"]
+[Result "0-1"]
+[UTCDate "2024.08.06"]
+[UTCTime "12:51:04"]
+[WhiteElo "?"]
+[BlackElo "?"]
+[Variant "Standard"]
+[TimeControl "-"]
+[ECO "C23"]
+[Opening "Bishop's Opening"]
+[Termination "Unknown"]
+[Annotator "lichess.org"]
+
+1. e4 e5 2. Bc4 { C23 Bishop's Opening } Nh6 3. d3 Nc6 4. f3 Nd4 5. Ne2 Nxe2 6. Qxe2 Qf6 7. O-O Bc5+ 8. Be3 b5 9. Bxb5 a6 10. Bxc5 axb5 11. Nc3 Bb7 12. Nxb5 Qc6 13. Nxc7+ Qxc7 14. Be3 d5 15. exd5 Bxd5 16. Bxh6 gxh6 17. Rfe1 Qb6+ 18. Kh1 Qd4 19. Qxe5+ Qxe5 20. Rxe5+ Be6 21. d4 O-O-O 22. Rc5+ Kb7 23. Rd1 Rhg8 24. d5 Bd7 25. d6 Rc8 26. Rxc8 Rxc8 27. c3 Kc6 28. g4 Ra8 29. a3 Re8 30. h3 Re2 31. f4 Rc2 32. Rb1 Rd2 33. g5 Bxh3 34. gxh6 Rxd6 35. Kh2 Rxh6 36. Kg3 Be6 37. Kf3 Rh3+ 38. Ke4 Kb6 39. f5 Bb3 40. Ke5 Kb7 41. Kf6 Rh2 42. Kg7 Ba2 43. Re1 Rxb2 44. Re7+ Kb6 45. Kxh7 Rh2+ 46. Kg7 Bd5 47. f6 Be6 48. Kf8 Rh3 49. Ke8 Rh8# { Black wins. } 0-1
+
+

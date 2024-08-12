@@ -1,0 +1,20 @@
+[Event "Import"]
+[Site "https://lichess.org/vCLpvLl7"]
+[Date "2024.08.07"]
+[White "?"]
+[Black "?"]
+[Result "1-0"]
+[UTCDate "2024.08.07"]
+[UTCTime "06:33:48"]
+[WhiteElo "?"]
+[BlackElo "?"]
+[Variant "Standard"]
+[TimeControl "-"]
+[ECO "A40"]
+[Opening "Englund Gambit: Soller Gambit"]
+[Termination "Unknown"]
+[Annotator "lichess.org"]
+
+1. d4 e5 2. dxe5 f6 { A40 Englund Gambit: Soller Gambit } 3. e4 fxe5 4. Qh5+ Ke7 5. Qxe5+ Kf7 6. Bc4+ d5 7. Bxd5+ Kg6 8. Nf3 Bd6 9. Qg5+ Qxg5 10. Nxg5 Nf6 11. O-O Nxd5 12. exd5 Bf5 13. c3 h6 14. Ne6 Kh7 15. Be3 Kg8 16. Re1 Nd7 17. Nd2 Bd3 18. Rad1 Nf6 19. Nb3 Bc2 20. Rd2 Bf5 21. Bc5 g6 22. a4 b6 23. Bxd6 cxd6 24. Nc7 Rc8 25. Nb5 Ne4 26. Nxa7 Nxd2 27. Nxc8 Nxb3 28. Nxd6 Bd7 29. Re7 Rh7 30. Re3 Bxa4 31. Nc8 Rb7 32. h3 Kh7 33. Re6 Nc5 34. Rxb6 Rxb6 35. Nxb6 Bb5 36. d6 Ne4 37. d7 Bxd7 38. Nxd7 Kg7 39. c4 Nd6 40. c5 Nb7 41. c6 Nd8 42. c7 Nf7 43. c8=Q Nd6 44. Qf8+ Kh7 45. Nf6# { White wins. } 1-0
+
+

@@ -11,7 +11,7 @@ public class StockfishEngine {
     private boolean isEngineRunning;
     public String promotionChoice = null;
 
-    private int skillLevel = SettingPanel.skillLevel;
+    public int skillLevel = SettingPanel.skillLevel;
 
     public boolean startEngine(String path) {
         try {
@@ -74,6 +74,8 @@ public class StockfishEngine {
     }
 
     public String getBestMove(String fen) {
+        System.out.println("stocfish move. skill level: " + SettingPanel.skillLevel);
+        skillLevel = SettingPanel.skillLevel;
         sendCommand("uci");
         waitForOutput("uciok", 10);
 
@@ -117,7 +119,7 @@ public class StockfishEngine {
 
     public static void main(String[] args) {
         StockfishEngine engine = new StockfishEngine();
-        if (engine.startEngine("D:\\Desktop\\סיכומים קורס תכנות\\אורט סינגאלובסקי\\java-projects\\chessGame_3\\src\\res\\stockfish\\stockfish-windows-x86-64.exe")) {
+        if (engine.startEngine("D:\\Desktop\\programing\\java-projects\\chessGame_3\\src\\res\\stockfish\\stockfish-windows-x86-64.exe")) {
             engine.setSkillLevel(5); // רמה 5 לדוגמה
 
             String fen = "rnbqkbnr/ppppppPp/8/8/8/8/PPPPPP1P/RNBQKBNR w KQkq - 0 1";
@@ -134,4 +136,5 @@ public class StockfishEngine {
             System.out.println("Failed to start the engine.");
         }
     }
+
 }

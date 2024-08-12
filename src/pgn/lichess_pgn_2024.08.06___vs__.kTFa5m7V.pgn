@@ -1,0 +1,20 @@
+[Event "Import"]
+[Site "https://lichess.org/kTFa5m7V"]
+[Date "2024.08.06"]
+[White "?"]
+[Black "?"]
+[Result "1-0"]
+[UTCDate "2024.08.06"]
+[UTCTime "16:00:37"]
+[WhiteElo "?"]
+[BlackElo "?"]
+[Variant "Standard"]
+[TimeControl "-"]
+[ECO "A40"]
+[Opening "Englund Gambit Declined: Reversed Alekhine"]
+[Termination "Unknown"]
+[Annotator "lichess.org"]
+
+1. d4 e5 2. Nf3 { A40 Englund Gambit Declined: Reversed Alekhine } exd4 3. Nxd4 c5 4. Nb3 c4 5. Nd4 Nc6 6. Nc3 Qa5 7. e4 Nf6 8. Bxc4 Ne5 9. Bb3 Nxe4 10. Bd2 Nxd2 11. Qxd2 Bc5 12. O-O O-O 13. Rfe1 Nc6 14. Nxc6 bxc6 15. Rad1 Ba6 16. Qxd7 Bxf2+ 17. Kxf2 Qc5+ 18. Re3 Kh8 19. Re1 Rad8 20. Qg4 f5 21. Qg5 h6 22. Qe7 Qxe7 23. Rxe7 Rd2+ 24. Kg1 Ra8 25. Re8+ Rxe8 26. Rxe8+ Kh7 27. Bg8+ Kg6 28. Re6+ Kg5 29. Rxc6 Bb7 30. Rc7 Rxg2+ 31. Kf1 g6 32. Rxb7 Rxc2 33. Nd5 Rc1+ 34. Ke2 Rc8 35. Bf7 Rc2+ 36. Kd3 Rxh2 37. Re7 Rxb2 38. Re6 Kh4 39. Rxg6 Rxa2 40. Rxh6+ Kg3 41. Rg6+ Kh4 42. Ke3 Ra4 43. Kf3 Ra3+ 44. Kf4 Kh3 45. Rh6+ Kg2 46. Ne3+ Kf2 47. Rh2+ Kg1 48. Rg2+ Kh1 49. Bd5 Rd3 50. Bf3 Rxe3 51. Kxe3 a6 52. Rf2+ Kg1 53. Be2 a5 54. Kf3 a4 55. Kg3 Kh1 56. Rf1# { White wins. } 1-0
+
+

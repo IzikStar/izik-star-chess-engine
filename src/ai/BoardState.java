@@ -1,26 +1,29 @@
 package ai;
 
 
-import main.Board;
 import main.CheckScanner;
 import main.Move;
 import main.setting.ChoosePlayFormat;
-import main.setting.SettingPanel;
 import pieces.*;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 public class BoardState {
     public static int numOfNodes = 0;
 
-    int cols = 8;
-    int rows = 8;
+    public static final int COLS = 8;
+    public static final int ROWS = 8;
     // board state
     public String fenCurrentPosition;
     ArrayList<Piece> pieceList = new ArrayList<>();
     Move lastMove;
-    int fromC = -1, fromR = -1, toC = -1, toR = -1;
+    public int fromC = -1, fromR = -1, toC = -1, toR = -1;
+    public boolean isLastMoveCastling = false;
+    public boolean canWhiteCastleKingSide, canWhiteCastleQueenSide, canBlackCastleKingSide, canBlackCastleQueenSide;
+    public boolean isLastMovePawn = false;
     public Piece lastToMove;
     ArrayList<BoardState> childNodes;
 
@@ -39,7 +42,7 @@ public class BoardState {
         this.fenCurrentPosition = fenCurrentPosition;
         loadPiecesFromFen(fenCurrentPosition);
         setLastMove(lastMove);
-        System.out.println(BoardState.numOfNodes);
+        // System.out.println(BoardState.numOfNodes);
         ++BoardState.numOfNodes;
     }
 
@@ -92,54 +95,65 @@ public class BoardState {
         isWhiteToMove = parts[1].equals("w");
 
         // castling
+        canWhiteCastleKingSide = canWhiteCastleQueenSide = canBlackCastleKingSide = canBlackCastleQueenSide = false;
         Piece bqr = getPiece(0, 0);
         if (bqr instanceof Rook) {
             bqr.isFirstMove = parts[2].contains("q");
+            canBlackCastleQueenSide = parts[2].contains("q");
         }
         Piece bkr = getPiece(7, 0);
         if (bkr instanceof Rook) {
             bkr.isFirstMove = parts[2].contains("k");
+            canBlackCastleKingSide = parts[2].contains("k");
         }
         Piece wqr = getPiece(0, 7);
         if (wqr instanceof Rook) {
             wqr.isFirstMove = parts[2].contains("Q");
+            canWhiteCastleQueenSide = parts[2].contains("Q");
         }
         Piece wkr = getPiece(7, 7);
         if (wkr instanceof Rook) {
             wkr.isFirstMove = parts[2].contains("K");
+            canWhiteCastleKingSide = parts[2].contains("K");
         }
 
         // en passant
         if (parts[3].equals("-")) {
             enPassantTile = -1;
-        }
-        else {
+        } else {
             enPassantTile = (7 - (parts[3].charAt(1) - '1')) * 8 + (parts[3].charAt(0) - 'a');
         }
 
-        // num Of Turn Without Capture Or Pawn Move
+        // name Of Turn Without Capture Or Pawn Move
         numOfTurnWithoutCaptureOrPawnMove = Character.getNumericValue(parts[4].charAt(0));
 
-        // num of turns
-        numOfTurns = Character.getNumericValue(parts[5].charAt(0));
+        // name of turns
+        numOfTurns = Integer.parseInt(parts[5]);
     }
 
     public void setLastMove(Move lastMove) {
         this.lastMove = lastMove;
     }
+
     public Move getLastMove() {
         return lastMove;
     }
-    private void setChildNodes() {
-        if (childNodes != null) {
-            childNodes.clear();
+
+    public Move[] getAllPossibleMovesForASide() {
+        ArrayList<Move> possibleMoves = new ArrayList<>();
+        for (Piece piece : pieceList) {
+            if (piece.isWhite == isWhiteToMove) {
+                for (Move move : piece.getValidMoves(this)) {
+                    if (makeMoveToCheckIt(move)) {
+                        possibleMoves.add(move);
+                    }
+                }
+            }
         }
-        for (Move move : getAllPossibleMoves()) {
-            BoardState boardState = new BoardState(makeMoveAndGetFen(move), move);
-            childNodes.add(boardState);
-        }
+        return possibleMoves.toArray(new Move[0]);
     }
-    public Move[] getAllPossibleMoves() {
+
+    private Move[] getAllPossibleMoves() {
         ArrayList<Move> possibleMoves = new ArrayList<>();
         for (Piece piece : pieceList) {
             for (Move move : piece.getValidMoves(this)) {
@@ -150,6 +164,7 @@ public class BoardState {
         }
         return possibleMoves.toArray(new Move[0]);
     }
+
 
 
 
@@ -195,7 +210,7 @@ public class BoardState {
 
     public Piece findKing(boolean isWhite) {
         for (Piece piece : pieceList) {
-            if (piece.isWhite == isWhite && piece.name.equals("King")) {
+            if (piece.isWhite == isWhite && piece instanceof King) {
                 return piece;
             }
         }
@@ -232,14 +247,13 @@ public class BoardState {
     }
 
     public boolean sameTeam(Piece p1, Piece p2) {
-        if (p1 == null || p2 == null) {
-            return false;
-        }
+        assert (p1 != null && p2 != null) : "pieces are null";
+        if (p1 == null || p2 == null) return false;
         return p1.isWhite == p2.isWhite;
     }
 
     public int getTileNum(int col, int row) {
-        return rows * row + col;
+        return COLS * row + col;
     }
 
     public boolean insufficientMaterial(boolean isWhite) {
@@ -300,7 +314,7 @@ public class BoardState {
         if (wkr instanceof Rook && wkr.isFirstMove && wKing instanceof King && wKing.isFirstMove) {
             fen.append("K");
         }
-        if ((!(bqr instanceof Rook && bqr.isFirstMove && bKing instanceof King && bKing.isFirstMove) && !(bkr instanceof Rook && bkr.isFirstMove && bKing instanceof King && bKing.isFirstMove)) || !((wqr instanceof Rook && wqr.isFirstMove && wKing instanceof King && wKing.isFirstMove) || !(wkr instanceof Rook && wkr.isFirstMove && wKing instanceof King && wKing.isFirstMove))){
+        if ((!(bqr instanceof Rook && bqr.isFirstMove && bKing instanceof King && bKing.isFirstMove) && !(bkr instanceof Rook && bkr.isFirstMove && bKing instanceof King && bKing.isFirstMove)) || !((wqr instanceof Rook && wqr.isFirstMove && wKing instanceof King && wKing.isFirstMove) || !(wkr instanceof Rook && wkr.isFirstMove && wKing instanceof King && wKing.isFirstMove))) {
             fen.append('-');
         }
         fen.append(" ");
@@ -309,11 +323,10 @@ public class BoardState {
         int colorIndex = isWhiteToMove ? 1 : -1;
         // System.out.println(lastToMove + " " + );
         if (lastToMove instanceof Pawn && Math.abs(toR - fromR) == 2) {
-            int col = fromC;
-            int row = fromR + colorIndex;
+            int col = fromC % 8; // נועד למנוע שגיאות
+            int row = fromR + colorIndex % 8; // כנ"ל
             fen.append(squareToLetters(col, row));
-        }
-        else {
+        } else {
             fen.append('-');
         }
 
@@ -329,12 +342,84 @@ public class BoardState {
         return fen.toString();
     }
 
+    public String convertPiecesToDrawFEN() {
+        StringBuilder fen = new StringBuilder();
+        for (int row = 0; row < 8; row++) {
+            int emptySquares = 0;
+            for (int col = 0; col < 8; col++) {
+                Piece piece = getPiece(col, row);
+                if (piece == null) {
+                    emptySquares++;
+                } else {
+                    if (emptySquares > 0) {
+                        fen.append(emptySquares);
+                        emptySquares = 0;
+                    }
+                    fen.append(piece.getRepresentation());
+                }
+            }
+            if (emptySquares > 0) {
+                fen.append(emptySquares);
+            }
+            if (row < 7) {
+                fen.append('/');
+            }
+        }
+        fen.append(isWhiteToMove ? " w " : " b "); // תור השחקן הבא
+
+        // castling
+        Piece wKing = getPiece(4, 7);
+        Piece bKing = getPiece(4, 0);
+
+        Piece bqr = getPiece(0, 0);
+        if (bqr instanceof Rook && bqr.isFirstMove && bKing instanceof King && bKing.isFirstMove) {
+            fen.append("q");
+        }
+        Piece bkr = getPiece(7, 0);
+        if (bkr instanceof Rook && bkr.isFirstMove && bKing instanceof King && bKing.isFirstMove) {
+            fen.append("k");
+        }
+        Piece wqr = getPiece(0, 7);
+        if (wqr instanceof Rook && wqr.isFirstMove && wKing instanceof King && wKing.isFirstMove) {
+            fen.append("Q");
+        }
+        Piece wkr = getPiece(7, 7);
+        if (wkr instanceof Rook && wkr.isFirstMove && wKing instanceof King && wKing.isFirstMove) {
+            fen.append("K");
+        }
+        if ((!(bqr instanceof Rook && bqr.isFirstMove && bKing instanceof King && bKing.isFirstMove) && !(bkr instanceof Rook && bkr.isFirstMove && bKing instanceof King && bKing.isFirstMove)) || !((wqr instanceof Rook && wqr.isFirstMove && wKing instanceof King && wKing.isFirstMove) || !(wkr instanceof Rook && wkr.isFirstMove && wKing instanceof King && wKing.isFirstMove))) {
+            fen.append('-');
+        }
+        fen.append(" ");
+
+        // en passant
+        int colorIndex = isWhiteToMove ? 1 : -1;
+        // System.out.println(lastToMove + " " + );
+        if (lastToMove instanceof Pawn && Math.abs(toR - fromR) == 2) {
+            int col = fromC % 8; // נועד למנוע שגיאות
+            int row = fromR + colorIndex % 8; // כנ"ל
+            fen.append(squareToLetters(col, row));
+        } else {
+            fen.append('-');
+        }
+
+        // System.out.println(fen);
+        return fen.toString();
+    }
+
     public String squareToLetters(int col, int row) {
         String namesOfRows = "87654321";
-        String namesOfCols = "abcdefgh";
         // System.out.println(col + " " + row + " " + squareName);
-        return String.valueOf(namesOfCols.charAt(col)) +
-                namesOfRows.charAt(row);
+        return colToLetter(col) + namesOfRows.charAt(row);
+    }
+
+    public String colToLetter(int col) {
+        String namesOfCols = "abcdefgh";
+        return Character.toString(namesOfCols.charAt(col));
+    }
+
+    public BoardState cloneBoard() {
+        return new BoardState(this.convertPiecesToFEN(), null);
     }
 
     // סטרים
@@ -378,8 +463,12 @@ public class BoardState {
             if (!checkScanner.isCheckingForClone(this)) {
                 success = true;
             }
-
-            // cancel move
+//        makeMove(move);
+//        if (!checkScanner.isCheckingForClone(this)) {
+//                success = true;
+//        }
+//        cancelMove();
+//          cancel move
             piece.col = tempMovePC;
             piece.row = tempMovePR;
             isWhiteToMove = !isWhiteToMove;
@@ -387,6 +476,67 @@ public class BoardState {
             //System.out.println(tempFen);
         }
         return success;
+    }
+
+    public int makeMoveAndGetStatus(Move move) {
+        int status = 1;
+        String tempFen = convertPiecesToFEN();
+        Piece piece = getPiece(move.piece.col, move.piece.row);
+        boolean pawnMoveSuccess = true;
+        if (piece.name.equals("Pawn")) {
+            pawnMoveSuccess = movePawnForClone(move);
+        } else if (piece.name.equals("King")) {
+            moveKingForClone(move);
+        }
+
+        if (pawnMoveSuccess) {
+            if (!piece.name.equals("Pawn") || !(Math.abs(piece.row - move.newRow) == 2)) {
+                enPassantTile = -1;
+            }
+            if (move.captured != null && getPiece(move.captured.col, move.captured.row) != null) {
+                capture(getPiece(move.captured.col, move.captured.row));
+            }
+            int tempMovePC = piece.col;
+            int tempMovePR = piece.row;
+            piece.col = move.newCol;
+            piece.row = move.newRow;
+            isWhiteToMove = !isWhiteToMove;
+            if (isWhiteToMove) {
+                ++numOfTurns;
+            }
+            ++numOfTurnWithoutCaptureOrPawnMove;
+            status = getAccurateStatus();
+
+//            for (Piece p : pieceList) {
+//                System.out.println(piece.name + ": " + p.col + ", " + p.row);
+//            }
+//            System.out.println("Called from: " + Thread.currentThread().getStackTrace()[1]);
+//            System.out.println("move piece: " + move.piece.name + ": " + move.piece.col + ", " + move.piece.row);
+
+            // cancel move
+            piece.col = tempMovePC;
+            piece.row = tempMovePR;
+            isWhiteToMove = !isWhiteToMove;
+            loadPiecesFromFen(tempFen);
+        }
+        return status;
+    }
+
+    public int getAccurateStatus() {
+        if (checkScanner.isGameOver(findKing(isWhiteToMove))) {
+            if (getIsCheck()) {
+                return Integer.MAX_VALUE;
+            }
+            return 0;
+        }
+        return getIsCheck() ? 2 : 1;
+    }
+
+    public int getGameState() {
+        if (pieceList.size() <= 8) return 10;
+        if (pieceList.size() <= 12) return 2;
+        if (numOfTurns < 10) return 0;
+        return 1;
     }
 
     public int makeMoveAndGetValue(Move move) {
@@ -471,6 +621,8 @@ public class BoardState {
     private boolean movePawnForClone(Move move) {
         // en passant:
         int colorIndex = move.piece.isWhite ? 1 : -1;
+        fenCurrentPosition = convertPiecesToFEN();
+        isLastMovePawn = true;
 
         if (getTileNum(move.newCol, move.newRow) == enPassantTile) {
             move.captured = getPiece(move.newCol, move.newRow + colorIndex);
@@ -486,8 +638,7 @@ public class BoardState {
         if (move.newRow == colorIndex) {
             if (!ChoosePlayFormat.isOnePlayer || ChoosePlayFormat.isPlayingWhite == isWhiteToMove) { // כאן אמור להיות אם זה שני שחקנים
                 return false;
-            }
-            else {
+            } else {
                 String promotionChoice = "q"; // צריך לקבל את זה ממינימקס
                 promotePawnToForClone(move, promotionChoice);
                 pieceList.remove(move.piece);
@@ -495,19 +646,6 @@ public class BoardState {
         }
         numOfTurnWithoutCaptureOrPawnMove = -1;
         return true;
-    }
-
-    public void moveKingForClone(Move move) {
-        if (Math.abs(move.piece.col - move.newCol) == 2) {
-            Piece rook;
-            if (move.piece.col < move.newCol) {
-                rook = getPiece(7, move.piece.row);
-                rook.col = 5;
-            } else {
-                rook = getPiece(0, move.piece.row);
-                rook.col = 3;
-            }
-        }
     }
 
     private void promotePawnToForClone(Move move, String choice) {
@@ -528,6 +666,21 @@ public class BoardState {
         capture(move.piece);
     }
 
+    public void moveKingForClone(Move move) {
+        if (Math.abs(move.piece.col - move.newCol) == 2) {
+            fenCurrentPosition = convertPiecesToFEN();
+            Piece rook;
+            if (move.piece.col < move.newCol) {
+                rook = getPiece(7, move.piece.row);
+                rook.col = 5;
+            } else {
+                rook = getPiece(0, move.piece.row);
+                rook.col = 3;
+            }
+            isLastMoveCastling = true;
+        }
+    }
+
     public void setLastMove(int fromC, int fromR, int toC, int toR, Piece lastToMove) {
         this.fromC = fromC;
         this.fromR = fromR;
@@ -543,7 +696,9 @@ public class BoardState {
 
     // ביצוע מהלך אמיתי
     public void makeMove(Move move) {
-        System.out.printf("\nMove: %d, %d to %d, %d\n\n", move.piece.col, move.piece.row, move.newCol, move.newRow);
+        isLastMoveCastling = false;
+        isLastMovePawn = false;
+        // System.out.printf("\nMove: %d, %d to %d, %d\n\n", move.piece.col, move.piece.row, move.newCol, move.newRow);
         Piece piece = getPiece(move.piece.col, move.piece.row);
         if (piece == null) {
             return;
@@ -556,6 +711,10 @@ public class BoardState {
         }
 
         if (pawnMoveSuccess) {
+            fromC = piece.col;
+            fromR = piece.row;
+            toC = move.newCol;
+            toR = move.newRow;
             if (!piece.name.equals("Pawn") || !(Math.abs(piece.row - move.newRow) == 2)) {
                 enPassantTile = -1;
             }
@@ -573,4 +732,57 @@ public class BoardState {
         }
     }
 
+    public void cancelMove() {
+        //System.out.printf("\nMove: %d, %d to %d, %d\n\n", move.piece.col, move.piece.row, move.newCol, move.newRow);
+        Piece piece = lastToMove;
+        if (piece == null) {
+            return;
+        }
+        piece.col = fromC;
+        piece.row = fromR;
+        isWhiteToMove = !isWhiteToMove;
+        if (!isWhiteToMove) {
+            --numOfTurns;
+        }
+        --numOfTurnWithoutCaptureOrPawnMove;
+        if (isLastMoveCastling || isLastMovePawn) {
+            loadPiecesFromFen(fenCurrentPosition);
+        }
+        //setLastMove(move);
+
+    }
+
+
+    public int getStatus() {
+        if (checkScanner.isGameOver(findKing(isWhiteToMove))) {
+            return 0;
+        }
+        return 1;
+    }
+
+    public boolean getIsCheck() {
+        return checkScanner.isCheckingForEvaluation(this);
+    }
+
+
+    public static void main(String[] args) {
+        String fen = "1k4r1/7P/8/8/8/8/8/7K w - - 0 1";
+        BoardState boardState = new BoardState(fen, null);
+        long timeElapsed;
+        Instant start, end;
+        start = Instant.now(); // התחלת מדידת זמן
+
+        for (Move move :boardState.getAllPossibleMoves()) {
+            System.out.println(move);
+        }
+
+        end = Instant.now(); // סיום מדידת זמן
+        timeElapsed = Duration.between(start, end).toMillis(); // זמן במילישניות
+        System.out.println("time spend: " + timeElapsed);
+    }
+
 }
+
+
+
+

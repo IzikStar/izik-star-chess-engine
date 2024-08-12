@@ -1,11 +1,14 @@
 package main;
 
+import ai.myEngine;
 import com.formdev.flatlaf.FlatLightLaf;
 
 import javax.swing.*;
 import java.awt.*;
+import java.util.concurrent.CountDownLatch;
 
 import GUI.CustomButtonPanel;
+import main.savedGames.SavedGamesPanel;
 import main.setting.ChoosePlayFormat;
 import main.setting.SettingPanel;
 
@@ -13,8 +16,10 @@ public class Main {
     private static JLabel player1ScoreLabel;
     private static JLabel player2ScoreLabel;
     public static Board board;
+    private static final CountDownLatch latch = new CountDownLatch(1);
+    public static boolean computerGame = false;
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
         // Apply FlatLaf theme
         FlatLightLaf.install();
 
@@ -39,12 +44,16 @@ public class Main {
         tabConstraints.gridwidth = 2;
         frame.add(tabbedPane, tabConstraints);
 
-        board = new Board();
-        tabbedPane.addTab("Game", board);
 
-        JPanel savedGamesPanel = new JPanel();
+
+        // יצירת עמוד חדש להצגת המהלכים
+        SavedGamesPanel savedGamesPanel = new SavedGamesPanel();
         savedGamesPanel.setBackground(Color.white);
-        savedGamesPanel.add(new JLabel("Saved Games Panel"));
+        // savedGamesPanel.add(new JLabel("Saved Games Panel"));
+
+
+        board = new Board(savedGamesPanel);
+        tabbedPane.addTab("Game", board);
         tabbedPane.addTab("Saved Games", savedGamesPanel);
         frame.add(tabbedPane, tabConstraints);
 
@@ -66,12 +75,22 @@ public class Main {
         });
         styleButton(takeHintButton);
 
+        // Create custom button panel for "New Game"
+        CustomButtonPanel computerGameButton = new CustomButtonPanel(4, "New computer Game", (Integer id) -> {
+            restartGame();
+            computerGame = !computerGame;
+            System.out.println("click");
+            play();
+        });
+        styleButton(newGameButton);
+
         // Add buttons to a single row
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
         buttonPanel.setBackground(Color.gray);
         buttonPanel.add(goBackButton);
         buttonPanel.add(newGameButton);
         buttonPanel.add(takeHintButton);
+        buttonPanel.add(computerGameButton);
 
         GridBagConstraints buttonConstraints = new GridBagConstraints();
         buttonConstraints.gridx = 0;
@@ -109,6 +128,52 @@ public class Main {
         frame.setVisible(true);
     }
 
+    private static void play() {
+        new SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() throws InterruptedException {
+                Input temp = board.input;
+                board.input = new Input(board, latch);
+                while (!board.input.isStatusChanged && computerGame) {
+                    if (board.state.getIsWhiteToMove()) {
+//                        SettingPanel.skillLevel = 20;
+//                        board.input.engine.skillLevel = 20;
+//                        board.input.makeEngineMove();
+//                        // Wait for a specific time or until the next move
+//                        Thread.sleep(2500);
+                        if (board.state.getIsWhiteToMove()) {
+                            board.input.myEngine.stop();
+                            ChoosePlayFormat.isPlayingWhite = false;
+                            SettingPanel.skillLevel = 10;
+                            board.input.makeEngineMove();
+                            board.input.latch.await();
+                            ChoosePlayFormat.isPlayingWhite = true;
+                        }
+                    } else {
+                        board.input.myEngine.stop();
+                        SettingPanel.skillLevel = 8;
+                        board.input.makeEngineMove();
+                        board.input.latch.await(); // Wait for the engine move to complete
+                    }
+                }
+                board.input.myEngine.shutdown(); // Shut down the executor service when done
+                board.input = temp;
+                computerGame = false;
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                // Update the UI once the background task is finished
+                SwingUtilities.invokeLater(() -> {
+                    // any UI updates or cleanups
+                    // e.g., updateScores if needed
+                });
+            }
+        }.execute();
+    }
+
+
     public static void showEndGameMessage(JFrame frame, String message) {
         JOptionPane.showMessageDialog(frame, message, "End of Game", JOptionPane.INFORMATION_MESSAGE);
     }
@@ -143,6 +208,7 @@ public class Main {
 
     public static void restartGame() {
         board.restart();
+        computerGame = false;
     }
 
     private static void styleButton(CustomButtonPanel button) {

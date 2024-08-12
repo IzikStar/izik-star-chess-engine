@@ -1,0 +1,20 @@
+[Event "Import"]
+[Site "https://lichess.org/3yQndRg0"]
+[Date "2024.08.03"]
+[White "?"]
+[Black "?"]
+[Result "1-0"]
+[UTCDate "2024.08.03"]
+[UTCTime "19:36:40"]
+[WhiteElo "?"]
+[BlackElo "?"]
+[Variant "Standard"]
+[TimeControl "-"]
+[ECO "B06"]
+[Opening "Modern Defense"]
+[Termination "Unknown"]
+[Annotator "lichess.org"]
+
+1. e4 g6 { B06 Modern Defense } 2. Bc4 Bg7 3. d3 Bf6 4. Qf3 b6 5. Nh3 Na6 6. Bg5 Nh6 7. Bxh6 Bb7 8. Bg7 Rc8 9. Bxf6 h6 10. Bxh8 f6 11. Bxf6 Nc5 12. Bxe7 Kxe7 13. Qf7+ Kd6 14. Nf4 a6 15. e5+ Kxe5 16. Qxg6 Kd4 17. c3+ Ke5 18. Qh5+ Qg5 19. Qxg5+ hxg5 20. O-O Rh8 21. Re1+ Be4 22. Rxe4+ Nxe4 23. dxe4 Kxf4 24. Nd2 c6 25. Re1 Ke5 26. Re3 a5 27. Rf3 g4 28. Rf5+ Kd6 29. e5+ Ke7 30. Ne4 Kd8 31. Rf7 b5 32. Nd6 bxc4 33. e6 c5 34. e7+ Kc7 35. e8=Q a4 36. Qxd7+ Kb8 37. Qb7# { White wins. } 1-0
+
+
