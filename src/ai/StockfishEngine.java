@@ -42,7 +42,7 @@ public class StockfishEngine {
     public void sendCommand(String command) {
         try {
             if (!isEngineRunning) {
-                startEngine("D:\\Desktop\\סיכומים קורס תכנות\\אורט סינגאלובסקי\\java-projects\\chessGame_3\\src\\res\\stockfish\\stockfish-windows-x86-64.exe");
+                startEngine("src\\res\\stockfish\\stockfish-windows-x86-64.exe");
             }
             writer.write(command + "\n");
             writer.flush();
@@ -74,8 +74,8 @@ public class StockfishEngine {
     }
 
     public String getBestMove(String fen) {
-        System.out.println("stocfish move. skill level: " + SettingPanel.skillLevel);
-        skillLevel = SettingPanel.skillLevel;
+//        System.out.println("stocfish move. skill level: " + SettingPanel.skillLevel);
+//        skillLevel = SettingPanel.skillLevel;
         sendCommand("uci");
         waitForOutput("uciok", 10);
 
@@ -91,8 +91,8 @@ public class StockfishEngine {
         waitForOutput("readyok", 10);
 
         long startTime = System.currentTimeMillis();
-        sendCommand("go movetime 20 nodes 10000000"); // הגבלת זמן ומספר הצמתים
-        String output = getOutput(25);
+        sendCommand("go movetime 50 nodes 10000000"); // הגבלת זמן ומספר הצמתים
+        String output = getOutput(60);
         long endTime = System.currentTimeMillis();
         //System.out.println("Calculation time: " + (endTime - startTime) + " ms");
 
@@ -119,8 +119,8 @@ public class StockfishEngine {
 
     public static void main(String[] args) {
         StockfishEngine engine = new StockfishEngine();
-        if (engine.startEngine("D:\\Desktop\\programing\\java-projects\\chessGame_3\\src\\res\\stockfish\\stockfish-windows-x86-64.exe")) {
-            engine.setSkillLevel(5); // רמה 5 לדוגמה
+        if (engine.startEngine("src\\res\\stockfish\\stockfish-windows-x86-64.exe")) {
+            engine.setSkillLevel(10); // רמה 5 לדוגמה
 
             String fen = "rnbqkbnr/ppppppPp/8/8/8/8/PPPPPP1P/RNBQKBNR w KQkq - 0 1";
             String bestMove = engine.getBestMove(fen);
