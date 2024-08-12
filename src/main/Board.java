@@ -362,7 +362,7 @@ public class Board extends JPanel {
         // promotions:
         colorIndex = move.piece.isWhite ? 0 : 7;
         if (move.newRow == colorIndex) {
-            if (!ChoosePlayFormat.isOnePlayer || ChoosePlayFormat.isPlayingWhite == state.getIsWhiteToMove()) { // כאן אמור להיות אם זה שני שחקנים
+            if (!ChoosePlayFormat.isOnePlayer || (ChoosePlayFormat.isPlayingWhite == state.getIsWhiteToMove() && ChoosePlayFormat.isComputersGame == false)) { // כאן אמור להיות אם זה שני שחקנים
                 if(!promotePawn(move)) {
                     return false;
                 }

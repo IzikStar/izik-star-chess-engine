@@ -24,7 +24,7 @@ public class Minimax {
         nodesChecked = 0;
         nodesInMaxDepth = 0;
         BitBoard bitboard = new BitBoard(board);
-        System.out.println("sortes: " + bitboard.getSortedNextStates().size() + " unsorted: " + bitboard.getNextStates().size());
+        // System.out.println("sortes: " + bitboard.getSortedNextStates().size() + " unsorted: " + bitboard.getNextStates().size());
         getNumOfNodes(bitboard, maxDepth);
         BitMove bestMove = null;
         Instant start, end;
@@ -53,10 +53,10 @@ public class Minimax {
                 bestMove = result.move;
             }
         }
-        System.out.println("time: " + timeElapsed);
         // System.out.println("prunings: " + prunings);
         System.out.println("num of nodes: " + nodesInMaxDepth);
         System.out.println("nodes checked: " + nodesChecked);
+        System.out.println("time: " + timeElapsed);
         return bestMove;
     }
 

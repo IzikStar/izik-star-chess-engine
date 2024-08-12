@@ -129,6 +129,8 @@ public class Main {
     }
 
     private static void play() {
+        ChoosePlayFormat.isComputersGame = true;
+        // Create a new thread for the AI engine
         new SwingWorker<Void, Void>() {
             @Override
             protected Void doInBackground() throws InterruptedException {
@@ -136,20 +138,22 @@ public class Main {
                 board.input = new Input(board, latch);
                 while (!board.input.isStatusChanged && computerGame) {
                     if (board.state.getIsWhiteToMove()) {
-//                        SettingPanel.skillLevel = 20;
-//                        board.input.engine.skillLevel = 20;
-//                        board.input.makeEngineMove();
-//                        // Wait for a specific time or until the next move
-//                        Thread.sleep(2500);
+                        SettingPanel.skillLevel = 20;
+                        board.input.engine.skillLevel = 20;
+                        board.input.makeEngineMove();
+                        // Wait for a specific time or until the next move
+                        Thread.sleep(6000);
                         if (board.state.getIsWhiteToMove()) {
                             board.input.myEngine.stop();
-                            ChoosePlayFormat.isPlayingWhite = false;
-                            SettingPanel.skillLevel = 10;
-                            board.input.makeEngineMove();
-                            board.input.latch.await();
-                            ChoosePlayFormat.isPlayingWhite = true;
+                            ChoosePlayFormat.isComputersGame = false;
+                            while (board.state.getIsWhiteToMove()) {
+                                System.out.println("problem with stockfish engine. waiting for tou to play the move instead");
+                                Thread.sleep(6000);
+                            }
+                            ChoosePlayFormat.isComputersGame = true;
                         }
-                    } else {
+                    }
+                    else {
                         board.input.myEngine.stop();
                         SettingPanel.skillLevel = 8;
                         board.input.makeEngineMove();
@@ -159,6 +163,7 @@ public class Main {
                 board.input.myEngine.shutdown(); // Shut down the executor service when done
                 board.input = temp;
                 computerGame = false;
+                ChoosePlayFormat.isComputersGame = false;
                 return null;
             }
 
