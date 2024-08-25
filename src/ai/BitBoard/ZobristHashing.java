@@ -1,5 +1,7 @@
 package ai.BitBoard;
 
+import ai.BoardState;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -31,6 +33,18 @@ public class ZobristHashing {
         }
 
         return hash;
+    }
+
+    public static void main(String[] args) {
+        BitBoard board = new BitBoard(new BoardState("\"rnbqkbnr/1p1p1ppp/2p5/p3p3/2B1P3/3P4/PPP2PPP/RNBQK1NR w qkQK a6 0 3", null));
+        long hash = computeHash(board);
+        System.out.println(hash);
+        BitBoard board2 = new BitBoard(new BoardState("\"rnbqk1nr/1p1p1ppp/2p5/p3p3/2B1P3/3P4/PPP2PPP/RNBQK1NR w qkQK a6 0 3", null));
+        long hash2 = computeHash(board);
+        System.out.println(hash2);
+        BitBoard board3 = new BitBoard(new BoardState("\"rn4nr/1p1p1ppp/2p5/p3p3/2B1P3/3P4/PPP2PPP/RNBQK1NR w qkQK a6 0 3", null));
+        long hash3 = computeHash(board);
+        System.out.println(hash3);
     }
 }
 

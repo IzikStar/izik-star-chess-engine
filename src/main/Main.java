@@ -138,26 +138,41 @@ public class Main {
                 board.input = new Input(board, latch);
                 while (!board.input.isStatusChanged && computerGame) {
                     if (board.state.getIsWhiteToMove()) {
-                        SettingPanel.skillLevel = 20;
-                        board.input.engine.skillLevel = 20;
+//                        SettingPanel.skillLevel = 20;
+//                        board.input.engine.skillLevel = 20;
+//                        board.input.makeEngineMove();
+//                        // Wait for a specific time or until the next move
+//                        Thread.sleep(10000);
+                        ChoosePlayFormat.isEnginePlayingBlack = false;
+                        //board.input.myEngine.stop();
+                        SettingPanel.skillLevel = 6;
                         board.input.makeEngineMove();
-                        // Wait for a specific time or until the next move
-                        Thread.sleep(6000);
+                        board.input.latch.await();
                         if (board.state.getIsWhiteToMove()) {
                             board.input.myEngine.stop();
                             ChoosePlayFormat.isComputersGame = false;
                             while (board.state.getIsWhiteToMove()) {
-                                System.out.println("problem with stockfish engine. waiting for tou to play the move instead");
+                                System.out.println("problem with engine. waiting for tou to play the move instead");
                                 Thread.sleep(6000);
                             }
                             ChoosePlayFormat.isComputersGame = true;
                         }
                     }
                     else {
-                        board.input.myEngine.stop();
-                        SettingPanel.skillLevel = 8;
+                        ChoosePlayFormat.isEnginePlayingBlack = true;
+                        //board.input.myEngine.stop();
+                        SettingPanel.skillLevel = 6;
                         board.input.makeEngineMove();
                         board.input.latch.await(); // Wait for the engine move to complete
+                        if (!board.state.getIsWhiteToMove()) {
+                            board.input.myEngine.stop();
+                            ChoosePlayFormat.isComputersGame = false;
+                            while (board.state.getIsWhiteToMove()) {
+                                System.out.println("problem with engine. waiting for tou to play the move instead");
+                                Thread.sleep(6000);
+                            }
+                            ChoosePlayFormat.isComputersGame = true;
+                        }
                     }
                 }
                 board.input.myEngine.shutdown(); // Shut down the executor service when done

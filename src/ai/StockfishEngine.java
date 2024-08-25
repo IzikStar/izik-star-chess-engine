@@ -91,10 +91,10 @@ public class StockfishEngine {
         waitForOutput("readyok", 10);
 
         long startTime = System.currentTimeMillis();
-        sendCommand("go movetime 50 nodes 10000000"); // הגבלת זמן ומספר הצמתים
-        String output = getOutput(60);
+        sendCommand("go movetime 150 nodes 100000000"); // הגבלת זמן ומספר הצמתים
+        String output = getOutput(180);
         long endTime = System.currentTimeMillis();
-        //System.out.println("Calculation time: " + (endTime - startTime) + " ms");
+        System.out.println("Calculation time: " + (endTime - startTime) + " ms");
 
 
         String[] lines = output.split("\n");

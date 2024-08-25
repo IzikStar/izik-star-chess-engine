@@ -40,8 +40,10 @@ public class BoardStateTracker {
 
     // בדיקה אם המצב הנוכחי חזר 3 פעמים
     public boolean isThreefoldRepetition() {
+        System.out.println("currentBranchStack: " + currentBranchStack + " , " + "allBoardStates: " + allBoardStates);
         if (!currentBranchStack.isEmpty()) {
             long lastHash = currentBranchStack.peek();
+            //System.out.println("repetition: " + (allBoardStates.getOrDefault(lastHash, 0) >= 3));
             return allBoardStates.getOrDefault(lastHash, 0) >= 3;
         }
         return false;

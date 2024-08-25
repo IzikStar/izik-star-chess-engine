@@ -130,7 +130,6 @@ public class myEngine {
                 if (Thread.currentThread().isInterrupted()) {
                     return null;
                 }
-
                 this.fen = fen;
                 Move move = chooseMethod(board);
                 while (move == null) {
@@ -151,7 +150,6 @@ public class myEngine {
             }
             return null;
         };
-
         return executor.submit(task);
     }
 

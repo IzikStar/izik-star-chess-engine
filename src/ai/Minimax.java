@@ -3,7 +3,6 @@ package ai;
 import ai.BitBoard.BitBoard;
 import ai.BitBoard.BitBoardEvaluate;
 import ai.BitBoard.BitMove;
-import ai.BitBoard.ZobristHashing;
 import main.setting.ChoosePlayFormat;
 
 import java.time.Duration;
@@ -15,14 +14,15 @@ public class Minimax {
     private static final Random random = new Random();
     public static ArrayList<BitMove> bestMoves;
     public static int maxDepth;
-    public static int prunings = 0;
+    public static int pruning = 0;
     public static int nodesChecked = 0;
     public static int nodesInMaxDepth = 0;
 
     public static BitMove getBestMove(BoardState board) {
-        prunings = 0;
+        pruning = 0;
         nodesChecked = 0;
         nodesInMaxDepth = 0;
+        int bestValue = 1000000;
         BitBoard bitboard = new BitBoard(board);
         // System.out.println("sortes: " + bitboard.getSortedNextStates().size() + " unsorted: " + bitboard.getNextStates().size());
         getNumOfNodes(bitboard, maxDepth);
@@ -51,12 +51,14 @@ public class Minimax {
 
             if (result.move != null) {
                 bestMove = result.move;
+                bestValue = result.value;
             }
         }
         // System.out.println("prunings: " + prunings);
-        System.out.println("num of nodes: " + nodesInMaxDepth);
-        System.out.println("nodes checked: " + nodesChecked);
+        //System.out.println("num of nodes: " + nodesInMaxDepth);
+        //System.out.println("nodes checked: " + nodesChecked);
         System.out.println("time: " + timeElapsed);
+        System.out.println("Best value: " + bestValue);
         return bestMove;
     }
 
@@ -86,12 +88,13 @@ public class Minimax {
         }
 
         if (boardStateTracker.isThreefoldRepetition()) {
+            System.out.println("repetition!!! this is a stalemate!");
             boardStateTracker.removeLastBoardState();
-            return new MinimaxResult(board.lastMove, 0);
+            return new MinimaxResult(board.lastMove, -1111111);
         }
 
         BitMove bestMove = board.getRandomPossibleMove();
-        boolean lastDepth = (depth == maxDepth && ChoosePlayFormat.isPlayingWhite) == (!board.getIsWhiteToMove());
+        boolean lastDepth = depth == maxDepth && (ChoosePlayFormat.isComputersGame ? ChoosePlayFormat.isEnginePlayingBlack == (!board.getIsWhiteToMove()) : (ChoosePlayFormat.isPlayingWhite == (!board.getIsWhiteToMove())));
         if (lastDepth) {
             bestMoves = new ArrayList<>();
         }

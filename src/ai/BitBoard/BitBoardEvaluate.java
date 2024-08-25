@@ -250,7 +250,7 @@ public class BitBoardEvaluate {
 
 
     public static int evaluate(BitBoard board) {
-        boolean switchSides = (ChoosePlayFormat.isPlayingWhite);
+        boolean switchSides = ChoosePlayFormat.isComputersGame ? (ChoosePlayFormat.isEnginePlayingBlack) : ChoosePlayFormat.isPlayingWhite;
         int value;
         if (board.whiteKings == 0) return switchSides ? Integer.MAX_VALUE : Integer.MIN_VALUE;
         if (board.blackKings == 0) return switchSides ? Integer.MIN_VALUE : Integer.MAX_VALUE;
@@ -440,8 +440,8 @@ public class BitBoardEvaluate {
 
     private static int getKnightsDevelopment(BitBoard board) {
         int knightsDevelopment = 0;
-        knightsDevelopment -= (board.whiteKnights & BoardParts.FIRST_RANK) != 0 ? -12 : 0;
-        knightsDevelopment += (board.blackKnights & BoardParts.EIGHTH_RANK) != 0 ? -12 : 0;
+        knightsDevelopment -= (board.whiteKnights & BoardParts.FIRST_RANK) != 0 ? -10 : 0;
+        knightsDevelopment += (board.blackKnights & BoardParts.EIGHTH_RANK) != 0 ? -10 : 0;
 
         knightsDevelopment -= BitOperations.countSetBits(board.whiteKnights & BEST_TILES_FOR_WHITE_KNIGHT_IN_OPENING) * 2;
         knightsDevelopment += BitOperations.countSetBits(board.blackKnights & BEST_TILES_FOR_BLACK_KNIGHT_IN_OPENING) * 2;

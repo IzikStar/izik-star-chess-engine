@@ -738,7 +738,7 @@ public class BitBoard {
     }
 
     public BitMove getRandomPossibleMove() {
-        BitBoard state = getNextStates().getFirst();
+        BitBoard state = getSortedNextStates().getFirst();
         return state.lastMove;
     }
 

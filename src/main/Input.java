@@ -122,51 +122,58 @@ public class Input extends MouseAdapter {
         }
     }
 
-
-
-
     public void takeEngineHint() {
-        new Thread(() -> {
-            long startTime = System.currentTimeMillis();
-            boolean moveFound = false;
-            long endTime = System.currentTimeMillis();
-            while ((!moveFound) && endTime - startTime < 1500) {
-                engine.setSkillLevel(20);
-                String fen = board.state.convertPiecesToFEN();
-                // System.out.println("Current FEN: " + fen);
-                String bestMove = engine.getBestMove(fen);
-                // System.out.println("Best move: " + bestMove);
+        boolean takeMyEngineHints = false;
+        if (takeMyEngineHints) {
+            int temp = SettingPanel.skillLevel;
+            SettingPanel.skillLevel = 12;
+            ChoosePlayFormat.isPlayingWhite = !ChoosePlayFormat.isPlayingWhite;
+            myEngine.giveHint(board.state.convertPiecesToFEN(), board);
+            ChoosePlayFormat.isPlayingWhite = !ChoosePlayFormat.isPlayingWhite;
+            SettingPanel.skillLevel = temp;
+        }
+        else {
+            new Thread(() -> {
+                long startTime = System.currentTimeMillis();
+                boolean moveFound = false;
+                long endTime = System.currentTimeMillis();
+                while ((!moveFound) && endTime - startTime < 1500) {
+                    engine.setSkillLevel(20);
+                    String fen = board.state.convertPiecesToFEN();
+                    // System.out.println("Current FEN: " + fen);
+                    String bestMove = engine.getBestMove(fen);
+                    // System.out.println("Best move: " + bestMove);
 
-                if (bestMove != null && !bestMove.equals("unknown")) {
-                    int fromCol = bestMove.charAt(0) - 'a';
-                    int fromRow = 8 - (bestMove.charAt(1) - '0');
-                    int toCol = bestMove.charAt(2) - 'a';
-                    int toRow = 8 - (bestMove.charAt(3) - '0');
-                    if (bestMove.length() > 4) {
-                        engine.promotionChoice = String.valueOf(bestMove.charAt(4));
+                    if (bestMove != null && !bestMove.equals("unknown")) {
+                        int fromCol = bestMove.charAt(0) - 'a';
+                        int fromRow = 8 - (bestMove.charAt(1) - '0');
+                        int toCol = bestMove.charAt(2) - 'a';
+                        int toRow = 8 - (bestMove.charAt(3) - '0');
+                        if (bestMove.length() > 4) {
+                            engine.promotionChoice = String.valueOf(bestMove.charAt(4));
+                        } else {
+                            engine.promotionChoice = null;
+                        }
+                        // System.out.println("From: " + fromCol + "," + fromRow + " To: " + toCol + "," + toRow);
+
+                        Move move = new Move(board.state, board.state.getPiece(fromCol, fromRow), toCol, toRow);
+
+                        if (board.state.isValidMove(move)) {
+                            board.hintFromC = fromCol;
+                            board.hintFromR = fromRow;
+                            board.hintToC = toCol;
+                            board.hintToR = toRow;
+                            audioPlayer.playHintSound();
+                            board.repaint();
+                            engine.setSkillLevel(SettingPanel.skillLevel);
+                            moveFound = true; // מהלך חוקי נמצא, לצאת מהלולאה
+                            // System.out.println("Move found and made: " + bestMove);
+                        }
                     } else {
-                        engine.promotionChoice = null;
+                        // System.out.println("No valid move found, retrying...");
+                        endTime = System.currentTimeMillis();
                     }
-                    // System.out.println("From: " + fromCol + "," + fromRow + " To: " + toCol + "," + toRow);
-
-                    Move move = new Move(board.state, board.state.getPiece(fromCol, fromRow), toCol, toRow);
-
-                    if (board.state.isValidMove(move)) {
-                        board.hintFromC = fromCol;
-                        board.hintFromR = fromRow;
-                        board.hintToC = toCol;
-                        board.hintToR = toRow;
-                        audioPlayer.playHintSound();
-                        board.repaint();
-                        engine.setSkillLevel(SettingPanel.skillLevel);
-                        moveFound = true; // מהלך חוקי נמצא, לצאת מהלולאה
-                        // System.out.println("Move found and made: " + bestMove);
-                    }
-                } else {
-                    // System.out.println("No valid move found, retrying...");
-                    endTime = System.currentTimeMillis();
                 }
-            }
                 // System.out.println(endTime - startTime);
                 if (!moveFound) {
                     System.out.println("taking to long");
@@ -177,16 +184,17 @@ public class Input extends MouseAdapter {
                     ChoosePlayFormat.isPlayingWhite = !ChoosePlayFormat.isPlayingWhite;
                     SettingPanel.skillLevel = temp;
                 }
-            SwingUtilities.invokeLater(() -> {
-                board.repaint();
-                if (isStatusChanged) {
-                    Board.selectedPiece = null;
-                    JFrame frame = new JFrame("Game Over");
-                    board.updateGameState(true);
-                    Main.showEndGameMessage(frame, (isCheckMate ? (isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח") : "תיקו"));
-                }
-            });
-        }).start();
+                SwingUtilities.invokeLater(() -> {
+                    board.repaint();
+                    if (isStatusChanged) {
+                        Board.selectedPiece = null;
+                        JFrame frame = new JFrame("Game Over");
+                        board.updateGameState(true);
+                        Main.showEndGameMessage(frame, (isCheckMate ? (isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח") : "תיקו"));
+                    }
+                });
+            }).start();
+        }
     }
 
     @Override
