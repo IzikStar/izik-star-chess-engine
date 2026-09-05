@@ -65,7 +65,10 @@ just something held in your head):
 > locked: Maven + committed wrapper (not Gradle); standard `src/main/java` layout;
 > `--release 26` (installed JDK); vendored Stockfish source tree + Houdini PDF deleted;
 > known-bug tests quarantined behind the `known-bugs` profile.
-> **Still owed:** manual full-game smoke test of the packaged jar for parity with `master`.
+> **Owed manual smoke test — discharged in Phase 1** via a byte-level jar-vs-`master` diff, a
+> clean boot of the packaged jar, and a new `@Tag("smoke")` end-to-end suite
+> (`./mvnw test -Psmoke`: scripted game to mate + random bitboard game + save/load round-trip).
+> See phase-1-notes.md §6.
 
 **Goal.** Make it possible to verify chess-rules behavior without a human clicking through the
 Swing UI, and pin down what the engine currently does — bugs included — before anything is
@@ -123,6 +126,29 @@ silently skipped); a short written note records exactly which behaviors are lock
 
 ## Phase 1 — Remove dead and parallel code
 
+> **Status: DONE & verified 2026-09-05** on branch `phase-1-remove-dead-code`.
+> Deleted (all confirmed zero live references, no reflection, no build/IDE-config references):
+> the whole `player/` package (`Player`, `ai/MoveStrategy`, `ai/BoardEvaluator`, `ai/MiniMax`),
+> `pieces/Piece2`, `pieces/PieceUT`, `ai/EvaluationLevel2`, `ai/ChessMoveConverter`, and the
+> fully-commented-out `ChessServer/ChessServer.java`. ~250 lines, 2 packages removed.
+> `./mvnw test` → 23 green (unchanged); `-Pknown-bugs` → 4 red (unchanged); `./mvnw package`
+> → runnable jar. Heuristic ideas from `EvaluationLevel2` and the UCI-string→`Move` approach
+> from `ChessMoveConverter` were captured as design notes first. Full write-up:
+> [docs/phase-1-notes.md](docs/phase-1-notes.md).
+> **Parity with `master` proven** (this also clears the smoke test Phase 0 left owed):
+> extracted branch jar vs. `master` jar are byte-identical except the 8 deleted class files;
+> the jar boots clean; a new `@Tag("smoke")` end-to-end suite (`./mvnw test -Psmoke`, 3 green)
+> plays a full game to checkmate, a full random bitboard-engine game, and a save/load
+> round-trip — all headless. See phase-1-notes.md §6.
+> **Scope change vs. this guide's original text:** the `BoardState.getAllPossibleMoves()` /
+> `getAllPossibleMovesForASide()` methods were **NOT** deleted — Phase 0 made
+> `getAllPossibleMovesForASide()` a load-bearing anchor for the characterization suite (its
+> buggy output is pinned there). They are deferred to Phase 2, which already plans to replace
+> that move-gen family. See Phase 2's research section and phase-1-notes §4.
+> **Not automated** (unchanged by this deletion, deferred to Phase 3/4): the interactive Swing
+> paths — mouse-drag moves, the "New computer Game" self-running loop, the end-game dialog. A
+> human play-through is still worthwhile before a *release* but is not a Phase 1 blocker.
+
 **Goal.** Delete code that has no live call path, so every later phase's research is working
 against only the code that actually runs.
 
@@ -138,6 +164,12 @@ implementation under `player/`, the unused alternate `Piece` classes, the unrefe
 `BoardState` methods with no external callers. The opening-book/Lichess client is *not* in scope
 for deletion here even though it's currently unreachable — it's slated for completion in Phase 5,
 not removal.
+
+> **Amended after Phase 0/1:** the `BoardState.getAllPossibleMoves*` methods were removed from
+> this scope. Phase 0's characterization suite now calls `getAllPossibleMovesForASide()` and
+> pins its currently-buggy output; deleting it would break the safety net for no gain, since
+> Phase 2 already plans to replace this move generator. Deferred to Phase 2. Everything else in
+> the list above was deleted — see the Status block and phase-1-notes.md.
 
 **Research required before implementing.**
 - Re-run the call-site audit from ARCHITECTURE.md §3 against the current tree (not the snapshot
@@ -187,6 +219,13 @@ this guide is not making in advance — that's what the research step is for.
 - Full audit of every rule implemented in *only one* of the two board models (ARCHITECTURE.md
   §2.2 flags castling as one concrete example) so nothing gets silently dropped when one model is
   retired.
+- **Carried over from Phase 1:** `BoardState.getAllPossibleMoves()` /
+  `getAllPossibleMovesForASide()` and `BoardState.main()` are dead-except-for-tests and were
+  left in place for this phase to delete together with the move-generator rewrite. The Phase 0
+  characterization tests (`CheckmateStalemateTest`, `SpecialMovesTest`, `StartingPositionTest`,
+  `CharacterizationTestBase`) currently pin `getAllPossibleMovesForASide()`'s buggy output
+  (12 moves from the start; CME when a capture exists) — those assertions must be re-pointed at
+  the unified generator and flipped from "characterized bug" to "correct" as part of this phase.
 - A genuine, written-out comparison of the options for the canonical representation (keep
   bitboard only and make everything else a derived view; keep the object model and rebuild its
   correctness; introduce a third, clean representation designed for this specifically) with

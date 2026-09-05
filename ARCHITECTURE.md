@@ -28,13 +28,16 @@ src/
 │   ├── savedGames/       FEN-list persistence + a move-list side panel
 │   └── Board.java        Swing JPanel that ALSO owns rules/state (see §4)
 ├── GUI/                  audio, sprite animation, a custom Swing button
-├── pieces/               Piece, King/Queen/Rook/Bishop/Knight/Pawn, +2 unused variants
+├── pieces/               Piece, King/Queen/Rook/Bishop/Knight/Pawn
 ├── ai/                   the "real" engine: BoardState, Minimax, StockfishEngine, myEngine
 │   ├── BitBoard/         a second, independent board representation + move generator
 │   └── openingBook/      Retrofit/Lichess client wiring — built but never called
-├── player/ai/            a second, entirely separate, unused minimax implementation
-└── ChessServer/          a REST server stub — 100% commented out
 ```
+
+> **Updated after Phase 1 (2026-09-05):** the `player/` package (a second, unused minimax
+> implementation), `ChessServer/` (a 100%-commented-out REST stub), and the two unused
+> `pieces/` variants (`Piece2`, `PieceUT`) were deleted. See §3 and
+> [docs/phase-1-notes.md](docs/phase-1-notes.md).
 
 Nothing in the tree marks any of this as legacy — dead and live code sit side by side with the
 same visibility as the code that actually runs, which is itself one of the flaws below.
@@ -178,18 +181,22 @@ runs.
 
 ## 3. Dead and parallel code left in the tree
 
-These don't affect runtime behavior but they actively mislead anyone reading the codebase,
-since nothing distinguishes them from live code:
+> **Updated after Phase 1 (2026-09-05):** the whole `player/` package, `pieces/Piece2`,
+> `pieces/PieceUT`, `ai/EvaluationLevel2`, `ai/ChessMoveConverter`, and `ChessServer/ChessServer.java`
+> have been **deleted** (branch `phase-1-remove-dead-code`; see
+> [docs/phase-1-notes.md](docs/phase-1-notes.md)). The rows below are struck through where the
+> code is gone. What remains is deliberately deferred: the opening book to Phase 5, the
+> `BoardState` move-gen methods and the transposition/Zobrist classes to Phase 2.
 
 | Path | Status |
 |---|---|
-| `player/ai/MoveStrategy.java`, `MiniMax.java`, `BoardEvaluator.java`, `player/Player.java` | A second, complete, unused minimax/evaluator abstraction (interface-based `MoveStrategy`) that nothing constructs or calls. Its class name (`MiniMax`) differs from the live one (`Minimax`) only by capitalization. |
-| `pieces/Piece2.java`, `pieces/PieceUT.java` | Unreferenced alternate `Piece` classes. |
-| `ai/EvaluationLevel2.java`, `ai/ChessMoveConverter.java` | Unreferenced. |
-| `ai/BoardState.getAllPossibleMoves()` / `getAllPossibleMovesForASide()` | Private/public methods with zero call sites outside their own class. |
-| `ChessServer/ChessServer.java` | Entirely commented out (a Spark REST stub). |
-| `ai/openingBook/*` (Retrofit/Lichess client, binary book reader) | Fully implemented but never invoked. |
-| `ai/TranspositionTable.java`, `ai/BitBoard/ZobristHashing.java` | Implemented but wired into `Minimax` only as commented-out lines. |
+| ~~`player/ai/MoveStrategy.java`, `MiniMax.java`, `BoardEvaluator.java`, `player/Player.java`~~ | **DELETED in Phase 1.** Was a second, unused, interface-based minimax/evaluator abstraction that nothing constructed or called; `MiniMax` differed from the live `Minimax` only by capitalization. |
+| ~~`pieces/Piece2.java`, `pieces/PieceUT.java`~~ | **DELETED in Phase 1.** Were empty unreferenced classes. |
+| ~~`ai/EvaluationLevel2.java`, `ai/ChessMoveConverter.java`~~ | **DELETED in Phase 1** (heuristic / UCI-conversion ideas captured in phase-1-notes §3 first). Were unreferenced. |
+| `ai/BoardState.getAllPossibleMoves()` / `getAllPossibleMovesForASide()` | Dead in production, but `getAllPossibleMovesForASide()` is now called by the Phase 0 characterization suite (its buggy output is pinned there). **Deferred to Phase 2** to delete with the move-generator rewrite. |
+| ~~`ChessServer/ChessServer.java`~~ | **DELETED in Phase 1.** Was entirely commented out (a Spark REST stub); `spark` was never even a declared dependency. |
+| `ai/openingBook/*` (Retrofit/Lichess client, binary book reader) | Fully implemented but never invoked. **Deferred to Phase 5** (completion, not removal). |
+| `ai/TranspositionTable.java`, `ai/BitBoard/ZobristHashing.java` | Implemented but wired into `Minimax` only as commented-out lines. Left for Phase 2/4 to decide (not in Phase 1's scope). |
 
 ## 4. How the pieces actually interact today
 
@@ -245,7 +252,7 @@ engine's move is re-validated through the slower, brute-force legality path.
 1. **UI and domain/engine logic are the same objects, not merely "coupled".**
    `Board extends JPanel` *is* the rules engine, the animation host, the audio trigger, and the
    dialog launcher all at once (§2.6). There is no `Game`/`Rules` class you could run headless,
-   write a unit test against, or reuse for the (currently dead) `ChessServer`. Any change to
+   write a unit test against, or reuse for a server/CLI front end. Any change to
    how a move is applied risks breaking painting, sound, and engine turn-taking simultaneously,
    because they're all the same method (`Board.makeMove`).
 
@@ -300,10 +307,12 @@ engine's move is re-validated through the slower, brute-force legality path.
    booting Swing and wiring up sound/animation collaborators.
 
 9. **Dead and parallel implementations inflate the codebase with no signal for which path is
-   live** (§3): a second minimax engine, two extra `Piece` variants, an unused evaluator
-   abstraction, a commented-out server, and a fully-built-but-never-called opening-book/Lichess
-   client. Anyone changing "the" engine has to first determine, by grep, that `ai.Minimax` (not
-   `player.ai.MiniMax`) is the one actually reachable from the UI.
+   live** (§3). ~~a second minimax engine, two extra `Piece` variants, an unused evaluator
+   abstraction, a commented-out server~~ — **all deleted in Phase 1**. What remains:
+   a fully-built-but-never-called opening-book/Lichess client (kept for Phase 5), the
+   transposition/Zobrist classes wired in only as comments, and `BoardState`'s
+   test-only move-gen methods (kept for Phase 2). The naming trap that forced anyone changing
+   "the" engine to grep for `ai.Minimax` vs. `player.ai.MiniMax` is now gone.
 
 10. **No structured persistence despite that being a stated goal.** Saved games are flat FEN
     text files (§2.7); there is no schema that could support the "database of past games to
@@ -315,8 +324,9 @@ engine's move is re-validated through the slower, brute-force legality path.
 The engine that actually runs today is: `Board` (Swing) → `Input` (Swing) → either
 `StockfishEngine` (process-per-call UCI) or `myEngine` → `Minimax` (bitboard alpha-beta) →
 `Move` (translated back to the object model) → `Board.makeMove` (mutates `BoardState`, which
-also drives painting/sound/notation). Running in parallel, unreachable, sit a second engine
-(`player/ai`), a second piece hierarchy, a REST server, and an opening-book client. Meanwhile
+also drives painting/sound/notation). Running in parallel and unreachable, an opening-book
+client still sits in the tree (kept for Phase 5); the second engine (`player/ai`), the extra
+piece variants, and the REST-server stub were removed in Phase 1. Meanwhile
 three separate pieces of code — `CheckScanner`, `BitBoard`'s bitwise attack tables, and a
 simulate-and-revert triggered from PGN formatting — each independently decide whether a king is
 in check, and nothing keeps them in agreement. Any redesign should prioritize collapsing these

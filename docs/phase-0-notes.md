@@ -210,6 +210,7 @@ Anywhere with a JDK 22+ (JDK 26 used here). The wrapper fetches Maven on first u
 ```
 ./mvnw test                 # "do not regress" suite — must be GREEN (23 tests)
 ./mvnw test -Pknown-bugs    # documented known bugs — 4 RED, build still SUCCESS
+./mvnw test -Psmoke         # end-to-end game + save/load smoke — must be GREEN (3 tests; added Phase 1)
 ./mvnw package              # build target/izikstar-chess-3.1.0.jar
 java -jar target/izikstar-chess-3.1.0.jar        # run the game
 ./mvnw exec:java                                  # or run it via Maven
@@ -219,10 +220,14 @@ java -jar target/izikstar-chess-3.1.0.jar        # run the game
 In IntelliJ: the `pom.xml` is auto-imported; run the `characterization` package from the test
 tool window, or use the Maven tool window (`-Pknown-bugs` is a profile checkbox).
 
-**Still owed:** a manual full-game smoke test of the packaged jar (human vs computer,
-computer vs computer, save/load) to confirm parity with `master`. The app compiled and
-launched from the Maven module in IntelliJ during this work, but a full play-through was not
-done here.
+**Owed manual smoke test — discharged in Phase 1** (2026-09-05). For that phase (a pure
+deletion) parity with `master` was proven three ways: the extracted branch jar is
+byte-identical to `master`'s except the deleted classes; the packaged jar boots clean; and a
+new headless `@Tag("smoke")` suite (`./mvnw test -Psmoke`) plays a full game to checkmate, a
+full random bitboard-engine game, and a `SaveGame`/`LoadGame` round-trip. See
+[phase-1-notes.md](phase-1-notes.md) §6. The interactive Swing paths (mouse-drag moves, the
+computer-vs-computer self-loop, the end-game dialog) are still only manually testable — a full
+human play-through remains worthwhile before a release.
 
 ---
 

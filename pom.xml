@@ -20,9 +20,10 @@
         <main.class>main.Main</main.class>
 
         <!-- Surefire test selection. Defaults run the "do not regress" suite and skip
-             the known-bug tests; the `known-bugs` profile flips these. -->
+             both the known-bug tests and the slower end-to-end smoke tests; the
+             `known-bugs` and `smoke` profiles flip these. -->
         <surefire.groups></surefire.groups>
-        <surefire.excludedGroups>known-bug</surefire.excludedGroups>
+        <surefire.excludedGroups>known-bug,smoke</surefire.excludedGroups>
         <surefire.testFailureIgnore>false</surefire.testFailureIgnore>
 
         <!-- Dependency versions: pinned to match the jars previously checked into libs/
@@ -173,8 +174,22 @@
             <id>known-bugs</id>
             <properties>
                 <surefire.groups>known-bug</surefire.groups>
-                <surefire.excludedGroups></surefire.excludedGroups>
+                <surefire.excludedGroups>smoke</surefire.excludedGroups>
                 <surefire.testFailureIgnore>true</surefire.testFailureIgnore>
+            </properties>
+        </profile>
+
+        <!-- mvn test -Psmoke
+             Runs ONLY the @Tag("smoke") end-to-end tests (AppSmokeTest): a full scripted
+             game to checkmate through the OO rules path, a full random game in the bitboard
+             engine, and a SaveGame/LoadGame round-trip. These MUST pass; they are the
+             automated stand-in for the manual play-through the refactor guide left owed. -->
+        <profile>
+            <id>smoke</id>
+            <properties>
+                <surefire.groups>smoke</surefire.groups>
+                <surefire.excludedGroups></surefire.excludedGroups>
+                <surefire.testFailureIgnore>false</surefire.testFailureIgnore>
             </properties>
         </profile>
     </profiles>
