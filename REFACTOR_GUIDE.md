@@ -205,8 +205,14 @@ works exactly as before.
 > Phase 3; (3) **draw-rule correctness is in scope** — the unified `status()` fixes the 50-move
 > threshold, threefold repetition and insufficient material, and the 4 `-Pknown-bugs` reds are
 > expected to go green; (4) the rules module ships with no `main.*`/`GUI`/Swing/AWT imports.
-> Landing in 7 increments (see the research doc); increment 1 (the new `rules` package as a
-> working slice, nothing re-pointed yet) is on the branch.
+> Landing in 7 increments (see the research doc). **Increments 1–2 done** on the branch: the new
+> headless `rules` package (`Square`/`ChessMove`/`Position`/`GameStatus`/`Rules`/`Game` + an
+> `ai.BitBoard.BitBoardRules` bridge) as a working FEN/UCI slice with 19 tests, plus two real
+> bitboard bug fixes it surfaced — `BitQueen.getAttackedTiles()` missed the up-left diagonal
+> (Scholar's-Mate check went undetected) and `BitPawn.getEnPassantMoves()` dropped the capturing
+> pawn. Nothing in the running app calls `rules` yet; `./mvnw test` 42 green, `-Psmoke` 3 green,
+> `-Pknown-bugs` 4 red (unchanged). Increment 3 (re-point OO `isValidMove` + `Board`/`Input`
+> status at the facade, delete `CheckScanner`) is next.
 
 **Goal.** Collapse the two independent board models and the three independent
 check/checkmate/draw implementations (ARCHITECTURE.md §2.1, §2.3) into one canonical
