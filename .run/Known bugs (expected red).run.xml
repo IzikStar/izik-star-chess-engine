@@ -1,0 +1,14 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Known bugs (expected red)" type="JUnit" factoryName="JUnit">
+    <module name="izikstar-chess" />
+    <option name="PACKAGE_NAME" value="characterization" />
+    <!-- Only @Tag("known-bug"): asserts the CORRECT behavior, so all 4 fail today.
+         Each is a "is this fixed yet" signal for a later phase. Mirrors `mvn test -Pknown-bugs`. -->
+    <option name="TEST_OBJECT" value="tags" />
+    <option name="TAGS" value="known-bug" />
+    <option name="VM_PARAMETERS" value="-da -Djava.awt.headless=true" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
