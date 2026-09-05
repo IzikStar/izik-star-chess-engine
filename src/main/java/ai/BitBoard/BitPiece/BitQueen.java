@@ -187,7 +187,7 @@ public class BitQueen extends BitPiece{
                     attackedTile |= downMove;
                     if (isSelfCapturing(downMove) || isCapturing(downMove)) break;
                 }
-
+                counter = 1;
                 // checking if up left move is possible:
                 for (int r = row, c = col; r > 0 && c > 0; r--, c--) {
                     long upMove = upLeftMove(i, counter);

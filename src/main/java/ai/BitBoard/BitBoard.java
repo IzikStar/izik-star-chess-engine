@@ -725,6 +725,11 @@ public class BitBoard {
         return 0;
     }
 
+    /** Package-visible for the Phase 2 {@code rules} adapter: is the side to move in check? */
+    public boolean isSideToMoveInCheck() {
+        return isCheckOn(isWhiteToMove ? 1 : 0);
+    }
+
     public int getStatus() {
         if (nextStates == null) getNextStates();
         if (nextStates.isEmpty()) {

@@ -194,6 +194,20 @@ works exactly as before.
 
 ## Phase 2 — Unify the board representation and the rules engine
 
+> **Status: IN PROGRESS — research done, design forks decided 2026-09-05** on branch
+> `phase-2-unify-rules-engine`. Full research artifact:
+> [docs/phase-2-research.md](docs/phase-2-research.md). Locked decisions:
+> (1) the **bitboard becomes the single rules authority**, wrapped behind a new Swing-free
+> `rules` package speaking **FEN in / FEN + status + legal-move-list out, moves as UCI**;
+> (2) the OO `BoardState`/`Piece` become a delegating render-only view-model — `CheckScanner`,
+> the PGN simulate-and-revert path, and the dead `BoardState.makeMoveAndGet*` / `getAllPossibleMoves*`
+> / `cancelMove` / `main()` are deleted this phase, but full OO removal + the UI type switch stay
+> Phase 3; (3) **draw-rule correctness is in scope** — the unified `status()` fixes the 50-move
+> threshold, threefold repetition and insufficient material, and the 4 `-Pknown-bugs` reds are
+> expected to go green; (4) the rules module ships with no `main.*`/`GUI`/Swing/AWT imports.
+> Landing in 7 increments (see the research doc); increment 1 (the new `rules` package as a
+> working slice, nothing re-pointed yet) is on the branch.
+
 **Goal.** Collapse the two independent board models and the three independent
 check/checkmate/draw implementations (ARCHITECTURE.md §2.1, §2.3) into one canonical
 representation and one rules engine that everything else consults.
