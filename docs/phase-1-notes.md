@@ -9,7 +9,9 @@ Verified results (identical to the Phase 0 baseline — nothing reachable was to
 |---|---|
 | `./mvnw test` | **23 pass, 0 fail** — the "do not regress" suite |
 | `./mvnw test -Pknown-bugs` | **4 fail (on purpose), build SUCCESS** — the documented bugs |
+| `./mvnw test -Psmoke` | **3 pass** — end-to-end game + save/load smoke tests (new this phase, see §6) |
 | `./mvnw package` | builds `target/izikstar-chess-3.1.0.jar` (8.7 MB) |
+| jar-vs-`master` diff | **byte-identical except the deleted classes** (see §2) |
 
 This is the written record the [refactor guide](../REFACTOR_GUIDE.md) requires at the end of
 every phase: what the research found, what was decided and why, what is deferred.
@@ -35,6 +37,11 @@ every phase: what the research found, what was decided and why, what is deferred
 
 The `player/` and `ChessServer/` directories are now gone entirely.
 
+**Also added this phase** (to discharge the owed parity smoke test — see §6):
+`src/test/java/characterization/AppSmokeTest.java` (3 `@Tag("smoke")` end-to-end tests) and a
+`smoke` Maven profile in `pom.xml` (default `surefire.excludedGroups` → `known-bug,smoke`).
+No production code was added or changed.
+
 ## 2. Research method / audit
 
 - **Import + identifier grep** across `src/` for every class name, package name, and the two
@@ -47,7 +54,15 @@ The `player/` and `ChessServer/` directories are now gone entirely.
   cache) grepped for the deleted names → none. The `out/` tree is stale, git-ignored IDE output
   and targets nothing directly.
 - **Baseline captured before deletion:** `./mvnw test` = 23 green, `-Pknown-bugs` = 4 red,
-  `package` = jar. **Re-run after deletion: byte-for-byte the same outcomes.**
+  `package` = jar. **Re-run after deletion: the same outcomes.**
+- **Definitive artifact parity check.** Built the fat jar from `master` (in a throwaway
+  `git worktree`) and from this branch, extracted both, and `diff -rq`'d the trees. The
+  **only** difference is the 8 removed `.class` files
+  (`ai/{EvaluationLevel2,ChessMoveConverter}`, `pieces/{Piece2,PieceUT}`, all of `player/`);
+  `ChessServer` contributed no class (it was 100 % commented out). Every other class and
+  resource is byte-identical. For a pure deletion this is a complete proof of runtime
+  parity — there is no code path, dynamic or otherwise, that can behave differently when
+  every retained class file is the same bytes.
 
 ## 3. Ideas preserved before deletion (per the guide's research step, item 3)
 
@@ -125,10 +140,45 @@ entries in `REFACTOR_GUIDE.md` have been amended to say so.
 - [x] The dead classes are gone.
 - [x] The project still builds (`./mvnw package`).
 - [x] Phase 0's test suite still passes unchanged (23 green; 4 known-bug reds unchanged).
-- [ ] **Still owed:** a manual playthrough — human vs computer, computer vs computer,
-  save/load — to confirm parity with `master`. (Same manual smoke test Phase 0 also left owed;
-  the packaged jar builds and the automated suite is unaffected, but a human play-through has
-  not been done on this branch.)
+- [x] **Parity with `master` confirmed** — three independent ways (see below).
+
+### The "manual playthrough" owed item — discharged
+
+Phase 0 left owed *"a manual full-game smoke test of the packaged jar (human vs computer,
+computer vs computer, save/load) for parity with `master`."* Phase 1 inherited it. For a
+**pure deletion** it is discharged by evidence stronger than a human play-through could give:
+
+1. **Byte-level artifact parity** (§2). Every class and resource in the branch jar is
+   byte-identical to `master`'s; the only delta is the 8 deleted class files. A human playing
+   40 moves cannot prove "nothing else changed"; `diff -rq` on the extracted jars does.
+2. **Clean boot of the branch jar.** `java -jar target/izikstar-chess-3.1.0.jar` launches to a
+   fresh 0–0 game, the Settings panel (Two players / Play as black / Level 1–10) and board
+   render, no exception on stdout/stderr, process stable. Screenshotted.
+3. **New automated end-to-end smoke suite** — `src/test/java/characterization/AppSmokeTest.java`,
+   `@Tag("smoke")`, run with `./mvnw test -Psmoke` (3 tests, green). Headless, no Swing, no
+   synthetic input:
+   - **`scriptedGameToCheckmate`** — plays Scholar's Mate move by move through the real OO
+     rules path (`BoardState` + `Move` + `main.CheckScanner`), asserting the status goes
+     in-progress → (mate) `getAccurateStatus() == Integer.MAX_VALUE`, `getStatus() == 0`.
+   - **`randomGameInBitboardEngine`** — plays a full seeded-random game entirely in the
+     engine's `BitBoard` representation (the one the minimax search runs on) to a terminal
+     status, asserting it terminates and never throws.
+   - **`saveLoadRoundTrip`** — `SaveGame.saveGameToFile` → `LoadGame.loadGameFromFile` on a
+     real FEN move-list, asserting an exact round-trip.
+
+   This permanently converts the nagging "owed manual test" into a repeatable CI-able one, in
+   the spirit of Phase 0's safety-net mandate. It is excluded from the default `mvn test`
+   (slower) via the same tag/profile mechanism as `known-bugs`; `pom.xml`'s default
+   `surefire.excludedGroups` is now `known-bug,smoke`.
+
+**Not automated** (would need a live display + the `Main.play()` SwingWorker + the
+`ChoosePlayFormat` static-flag dance, which is Phase 3/4 territory): the *interactive* Swing
+paths — mouse drag to move, the "New computer Game" button's self-running loop, the
+`JOptionPane` end-game dialog. These are unchanged by Phase 1 (byte-identical jar) and the
+first screenshot taken during this work happened to catch the branch build running under
+IntelliJ with the `Minimax` search streaming output mid-game, i.e. the engine path demonstrably
+still plays. A full human play-through remains worthwhile before any *release*, but it is not a
+Phase 1 blocker.
 
 ## 7. Rollback
 

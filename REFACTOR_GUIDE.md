@@ -65,7 +65,10 @@ just something held in your head):
 > locked: Maven + committed wrapper (not Gradle); standard `src/main/java` layout;
 > `--release 26` (installed JDK); vendored Stockfish source tree + Houdini PDF deleted;
 > known-bug tests quarantined behind the `known-bugs` profile.
-> **Still owed:** manual full-game smoke test of the packaged jar for parity with `master`.
+> **Owed manual smoke test — discharged in Phase 1** via a byte-level jar-vs-`master` diff, a
+> clean boot of the packaged jar, and a new `@Tag("smoke")` end-to-end suite
+> (`./mvnw test -Psmoke`: scripted game to mate + random bitboard game + save/load round-trip).
+> See phase-1-notes.md §6.
 
 **Goal.** Make it possible to verify chess-rules behavior without a human clicking through the
 Swing UI, and pin down what the engine currently does — bugs included — before anything is
@@ -132,13 +135,19 @@ silently skipped); a short written note records exactly which behaviors are lock
 > → runnable jar. Heuristic ideas from `EvaluationLevel2` and the UCI-string→`Move` approach
 > from `ChessMoveConverter` were captured as design notes first. Full write-up:
 > [docs/phase-1-notes.md](docs/phase-1-notes.md).
+> **Parity with `master` proven** (this also clears the smoke test Phase 0 left owed):
+> extracted branch jar vs. `master` jar are byte-identical except the 8 deleted class files;
+> the jar boots clean; a new `@Tag("smoke")` end-to-end suite (`./mvnw test -Psmoke`, 3 green)
+> plays a full game to checkmate, a full random bitboard-engine game, and a save/load
+> round-trip — all headless. See phase-1-notes.md §6.
 > **Scope change vs. this guide's original text:** the `BoardState.getAllPossibleMoves()` /
 > `getAllPossibleMovesForASide()` methods were **NOT** deleted — Phase 0 made
 > `getAllPossibleMovesForASide()` a load-bearing anchor for the characterization suite (its
 > buggy output is pinned there). They are deferred to Phase 2, which already plans to replace
 > that move-gen family. See Phase 2's research section and phase-1-notes §4.
-> **Still owed:** manual full-game smoke test (human vs computer, computer vs computer,
-> save/load) for parity with `master` — carried over from Phase 0.
+> **Not automated** (unchanged by this deletion, deferred to Phase 3/4): the interactive Swing
+> paths — mouse-drag moves, the "New computer Game" self-running loop, the end-game dialog. A
+> human play-through is still worthwhile before a *release* but is not a Phase 1 blocker.
 
 **Goal.** Delete code that has no live call path, so every later phase's research is working
 against only the code that actually runs.
