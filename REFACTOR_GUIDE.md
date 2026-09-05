@@ -194,9 +194,20 @@ works exactly as before.
 
 ## Phase 2 — Unify the board representation and the rules engine
 
-> **Status: IN PROGRESS — research done, design forks decided 2026-09-05** on branch
-> `phase-2-unify-rules-engine`. Full research artifact:
-> [docs/phase-2-research.md](docs/phase-2-research.md). Locked decisions:
+> **Status: DONE — merged to `master` 2026-09-06** (`--no-ff`, branch
+> `phase-2-unify-rules-engine`, 7 commits). Full research artifact + increment log:
+> [docs/phase-2-research.md](docs/phase-2-research.md). Result: one rules authority (the
+> bitboard, behind the new headless `rules` package), `CheckScanner` and the PGN
+> simulate-and-revert path deleted, all four `-Pknown-bugs` draw-detection reds fixed
+> (`-Pknown-bugs` now empty). `./mvnw test` **49 green**, `-Psmoke` **3 green**,
+> `./mvnw package` builds the jar. The hands-on play-through (increment 7) was **waived by the
+> project owner** in favour of the green `-Psmoke` end-to-end suite (the Phase 1 stand-in).
+> One reported gameplay bug — *the engine stops playing when it's losing / mate is near* — is
+> **documented, not fixed** (owner deferred it): root cause is the `ChoosePlayFormat` statics
+> flipped around an async search + a swallowed NPE; fix is Phase 3 (retire the statics) +
+> Phase 4 (one concurrency model). See [ARCHITECTURE.md](ARCHITECTURE.md) §2.4.
+>
+> Locked decisions (2026-09-05):
 > (1) the **bitboard becomes the single rules authority**, wrapped behind a new Swing-free
 > `rules` package speaking **FEN in / FEN + status + legal-move-list out, moves as UCI**;
 > (2) the OO `BoardState`/`Piece` become a delegating render-only view-model — `CheckScanner`,
@@ -230,9 +241,9 @@ works exactly as before.
 > (§2.1–2.4, §3, §4, §5 #2/#6 RESOLVED, §6). A reported gameplay bug — *the engine stops
 > playing when it's losing / mate is near* — is documented in ARCHITECTURE.md §2.4 with its
 > root cause (`ChoosePlayFormat` statics flipped around an async search + a swallowed NPE);
-> the fix belongs to Phase 3 (retire the statics) + Phase 4 (concurrency). Phase 2 exit
-> criteria are met except the **manual play-through (increment 7)**, owed before merge to
-> `master`.
+> the fix belongs to Phase 3 (retire the statics) + Phase 4 (concurrency).
+> **Increment 7: the hands-on play-through was waived by the project owner; Phase 2 merged to
+> `master` on the green `-Psmoke` suite.**
 
 **Goal.** Collapse the two independent board models and the three independent
 check/checkmate/draw implementations (ARCHITECTURE.md §2.1, §2.3) into one canonical

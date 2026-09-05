@@ -1,8 +1,13 @@
 # Phase 2 — Unify the board representation and the rules engine
 
-**Status: RESEARCH pass complete (2026-09-05). Awaiting design-fork decisions before implementation.**
-Branch not yet cut. Baseline: `master` @ `3a01bc8` (post Phase 1 merge). `./mvnw test` → 23 green,
-`-Psmoke` → 3 green, `-Pknown-bugs` → 4 red.
+**Status: COMPLETE — merged to `master` 2026-09-06.** All 7 increments landed on branch
+`phase-2-unify-rules-engine` (7 commits, `31c1ae2`..`612f2cf`), then merged `--no-ff`.
+Baseline was `master` @ `3a01bc8` (post Phase 1 merge): `./mvnw test` → 23 green, `-Psmoke` →
+3 green, `-Pknown-bugs` → 4 red. Final: `./mvnw test` → **49 green**, `-Psmoke` → **3 green**,
+`-Pknown-bugs` → **empty (all 4 fixed)**. The hands-on play-through (increment 7) was waived by
+the project owner in favour of the green `-Psmoke` end-to-end suite (same automated stand-in as
+Phase 1); see §8. One reported gameplay bug — the engine stops playing when losing / mate is
+near — is documented, not fixed; its fix is Phase 3 + Phase 4 (see §8 and `ARCHITECTURE.md` §2.4).
 
 This is the mandatory research artifact from [REFACTOR_GUIDE.md](../REFACTOR_GUIDE.md) — a full
 call-site audit, the behaviours that must be preserved, the open design forks, a rollback plan,
@@ -507,5 +512,21 @@ a wrong-position move → the exception is swallowed by `Input.makeEngineMove`'s
 non-swallowing concurrency model); a null-guard band-aid would spin `myEngine.makeMove`'s
 `while (move == null)` forever. See `ARCHITECTURE.md` §2.4.
 
-Increment 7 (manual play-through: human-v-computer, computer-v-computer, save/load) is owed
-before the branch merges to `master`.
+### Increment 7 — parity play-through (2026-09-06)
+
+The hands-on play-through (human-v-computer, computer-v-computer, save/load) was **waived by the
+project owner**, who chose to merge Phase 2 to `master` on the strength of the automated suites:
+`./mvnw test` 49 green, `-Psmoke` 3 green (the headless end-to-end game that Phase 1 established
+as the automated stand-in for a manual play-through), `-Pknown-bugs` empty, and `./mvnw package`
+building the runnable jar. GUI automation on the owner's live desktop was ruled out in Phase 1 as
+unsafe, so there is no scripted substitute for a human at the window; the risk of that gap is
+accepted and recorded here.
+
+Deferred, by the owner's explicit decision ("I will wait with the bug to the phase that solves
+them"): the reported **engine-stops-playing-when-losing** bug. Root cause is the
+`ChoosePlayFormat` static-flag channel torn by an async search + a swallowed NPE in
+`Input.makeEngineMove`; the real fix is Phase 3 (retire the statics) then Phase 4 (one
+non-swallowing concurrency model). Full write-up in increment 6 above and `ARCHITECTURE.md` §2.4.
+
+**Phase 2 done.** Merge commit on `master`; branch `phase-2-unify-rules-engine` retained.
+Next: Phase 3 — Swing-free rules API, `Board` as a pure renderer, retire the static-global channel.
