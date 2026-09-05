@@ -439,3 +439,18 @@ is covered by `CheckmateStalemateTest` / `SpecialMovesTest` / `StartingPositionT
 the now-delegating `getAccurateStatus` / `getIsCheck` / `isValidMove`) plus
 `AppSmokeTest.scriptedGameToCheckmate`. The Swing glue in `Board` is a mechanical translation of
 test-covered values; a human play-through is still owed at increment 7.
+
+### Increment 4 — SAN status suffix off the live-board simulate (2026-09-06)
+
+`Move.getStatusString()` (the `"+"` / `"#"` / `"1/2-1/2"` on a move string) was
+`board.makeMoveAndGetStatus(this)` — mutate the live `BoardState`, read `getAccurateStatus()`,
+`loadPiecesFromFen` to revert. It now computes `Rules.status(Rules.applyMove(board.toRulesFen(),
+move))` — no side effect on the board (ARCHITECTURE §5 flaw #6, "a formatting method has a
+game-logic side effect", is resolved).
+
+`BoardState.makeMoveAndGetStatus(Move)` **deleted** (last live piece of the triplicated
+"Path 3" status detection; its only caller was `getStatusString`). New
+`characterization.SanAnnotationTest` pins the `+` / `#` / quiet-move behaviour.
+
+Verification: `./mvnw test` → **49 green** (46 + 3 SAN); `-Psmoke` → 3 green; `./mvnw package`
+→ jar builds.

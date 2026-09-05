@@ -214,8 +214,12 @@ works exactly as before.
 > check/game-over display now delegate to the facade** (per-position cache). **All four
 > draw-detection bugs are fixed** — the `-Pknown-bugs` suite is empty, its tests are now green
 > in `characterization.DrawDetectionTest`. `./mvnw test` 46 green, `-Psmoke` 3 green.
-> `CheckScanner` still compiles (used by `makeMoveToCheckIt` + `myEngine`); deleted in
-> increment 5. Next: increment 4 (`Move` SAN → facade, drop the Path-3 simulate-and-revert).
+> Increment 4 done: `Move`'s SAN `+`/`#`/`1/2-1/2` suffix now queries `rules.Rules` about the
+> position after the move instead of mutating and reverting the live board;
+> `BoardState.makeMoveAndGetStatus` (the last of the triplicated "Path 3" status detection)
+> deleted. `./mvnw test` 49 green. `CheckScanner` still compiles (used by `makeMoveToCheckIt` +
+> `myEngine`); deleted in increment 5. Next: increment 5 (`myEngine` + `Minimax` entry → facade,
+> delete `CheckScanner` + the dead `BoardState` move-gen family).
 
 **Goal.** Collapse the two independent board models and the three independent
 check/checkmate/draw implementations (ARCHITECTURE.md §2.1, §2.3) into one canonical

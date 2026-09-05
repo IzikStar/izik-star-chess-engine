@@ -565,49 +565,9 @@ public class BoardState {
         return success;
     }
 
-    public int makeMoveAndGetStatus(Move move) {
-        int status = 1;
-        String tempFen = convertPiecesToFEN();
-        Piece piece = getPiece(move.piece.col, move.piece.row);
-        boolean pawnMoveSuccess = true;
-        if (piece.name.equals("Pawn")) {
-            pawnMoveSuccess = movePawnForClone(move);
-        } else if (piece.name.equals("King")) {
-            moveKingForClone(move);
-        }
-
-        if (pawnMoveSuccess) {
-            if (!piece.name.equals("Pawn") || !(Math.abs(piece.row - move.newRow) == 2)) {
-                enPassantTile = -1;
-            }
-            if (move.captured != null && getPiece(move.captured.col, move.captured.row) != null) {
-                capture(getPiece(move.captured.col, move.captured.row));
-            }
-            int tempMovePC = piece.col;
-            int tempMovePR = piece.row;
-            piece.col = move.newCol;
-            piece.row = move.newRow;
-            isWhiteToMove = !isWhiteToMove;
-            if (isWhiteToMove) {
-                ++numOfTurns;
-            }
-            ++numOfTurnWithoutCaptureOrPawnMove;
-            status = getAccurateStatus();
-
-//            for (Piece p : pieceList) {
-//                System.out.println(piece.name + ": " + p.col + ", " + p.row);
-//            }
-//            System.out.println("Called from: " + Thread.currentThread().getStackTrace()[1]);
-//            System.out.println("move piece: " + move.piece.name + ": " + move.piece.col + ", " + move.piece.row);
-
-            // cancel move
-            piece.col = tempMovePC;
-            piece.row = tempMovePR;
-            isWhiteToMove = !isWhiteToMove;
-            loadPiecesFromFen(tempFen);
-        }
-        return status;
-    }
+    // makeMoveAndGetStatus(Move) removed in Phase 2 increment 4 — its only caller,
+    // Move.getStatusString(), now asks rules.Rules about the position after the move instead
+    // of mutating and reverting the live board.
 
     public int getAccurateStatus() {
         return switch (getRulesStatus()) {
