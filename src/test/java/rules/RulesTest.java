@@ -69,15 +69,28 @@ class RulesTest {
     }
 
     @Test
-    @DisplayName("KNOWN GAP (bitboard e.p. bug — increment 2): e5xf6 e.p. is not generated yet")
-    void enPassantNotYetGenerated() {
-        // BitPawn.getEnPassantMoves drops the capturing pawn instead of moving it, so the
-        // adapter skips that malformed child (see BitBoardRules javadoc / research §2.4).
+    @DisplayName("en passant: e5xf6 e.p. is generated and applying it clears e5, f5 and the e.p. square")
+    void enPassant() {
         List<String> ucis = Rules.legalMoves(EN_PASSANT).stream().map(ChessMove::toUci).toList();
-        assertFalse(ucis.contains("e5f6"), "expected e.p. to be absent until increment 2: " + ucis);
-        for (String u : ucis) {
-            assertTrue(u.matches("[a-h][1-8][a-h][1-8][qrbn]?"), "malformed: " + u);
-        }
+        assertTrue(ucis.contains("e5f6"), ucis.toString());
+        Position p = Position.fromFen(Rules.applyMove(EN_PASSANT, ChessMove.fromUci("e5f6")));
+        assertEquals('P', p.pieceAt(Square.fromName("f6")), "capturing pawn moved to f6");
+        assertEquals(0, p.pieceAt(Square.fromName("f5")), "captured pawn removed from f5");
+        assertEquals(0, p.pieceAt(Square.fromName("e5")), "capturing pawn left e5");
+        assertEquals(Square.NONE, p.epSquare(), "no new e.p. square after an e.p. capture");
+    }
+
+    @Test
+    @DisplayName("en passant, black to move: d4xc3 e.p. after 1...c2-c4")
+    void enPassantBlack() {
+        // White just played c2-c4; Black's d4 pawn can take c3 e.p.
+        String fen = "4k3/8/8/8/2Pp4/8/8/4K3 b - c3 0 1";
+        List<String> ucis = Rules.legalMoves(fen).stream().map(ChessMove::toUci).toList();
+        assertTrue(ucis.contains("d4c3"), ucis.toString());
+        Position p = Position.fromFen(Rules.applyMove(fen, ChessMove.fromUci("d4c3")));
+        assertEquals('p', p.pieceAt(Square.fromName("c3")));
+        assertEquals(0, p.pieceAt(Square.fromName("c4")));
+        assertEquals(0, p.pieceAt(Square.fromName("d4")));
     }
 
     // ---- status: check / mate / stalemate --------------------------------

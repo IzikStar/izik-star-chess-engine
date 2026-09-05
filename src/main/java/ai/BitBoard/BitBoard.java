@@ -95,7 +95,7 @@ public class BitBoard {
                         }
                         else {
                             if (!piece.isFirstMove) {
-                                canBlackCastleQueenSide = false;
+                                canBlackCastleKingSide = false;
                             }
                         }
                         break;

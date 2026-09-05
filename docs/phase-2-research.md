@@ -168,19 +168,27 @@ flipped from 'characterized bug' to 'correct' as part of this phase."
 - Threefold repetition at the top level: only `SavedStatesForDraws` (UI, keyed on
   `convertPiecesToDrawFEN`) and `BoardStateTracker` (search, keyed on Zobrist) track it, with
   different keys and neither wired into a `status()` the app trusts.
-- **`BitPawn.getEnPassantMoves()` drops the capturing pawn** — CONFIRMED during increment 1.
-  It returns `position & ~capturingPawnBit` (the pawn removed) with nothing added on the e.p.
-  target, so `getNewBoardFromMove` produces a child with one square vacated and none filled —
-  the capturing pawn vanishes and, via the follow-up `setPawns`, so does the captured pawn.
-  The increment-1 adapter skips these malformed children (e.p. is simply absent from the move
-  list for now); pinned by `rules.RulesTest.enPassantNotYetGenerated`. **Fix in increment 2.**
+- **`BitPawn.getEnPassantMoves()` dropped the capturing pawn** — CONFIRMED increment 1, **FIXED
+  increment 2.** It returned `position & ~capturingPawnBit` (the pawn removed) with nothing added
+  on the e.p. target, so `getNewBoardFromMove` produced a child with one square vacated and none
+  filled — the capturing pawn vanished and, via the follow-up `setPawns`, so did the captured
+  pawn. Fix: `(position & ~capturingPawnBit) | targetBit`, and the "no e.p." guard is now
+  `enPassantIndex >= 0` (was `!= 0`, which let the `-1` sentinel through). Pinned by
+  `rules.RulesTest.enPassant` / `enPassantBlack` (generate + apply, both colours).
 - Queenside castling through an attacked square, OO path (`King.canCastle` skips the check).
-- `BitBoard` constructor castling-rights bug: the black **king**-side rook branch also sets
-  `canBlackCastleQueenSide = false` ([BitBoard.java:94-99](../src/main/java/ai/BitBoard/BitBoard.java#L94)),
-  so a black kingside rook move never clears the kingside right. **Fix in increment 2.**
+  Still open — increment 3 (when the OO path is re-pointed at the facade).
+- `BitBoard(BoardState)` black-kingside-rook branch set `canBlackCastleQueenSide = false` instead
+  of `canBlackCastleKingSide` ([BitBoard.java:96-99](../src/main/java/ai/BitBoard/BitBoard.java#L96)).
+  **Corrected increment 2**, but note this is currently a *latent* typo: lines 119-122 of the same
+  constructor unconditionally copy `boardState.canWhite/BlackCastle*` afterwards, overriding the
+  whole per-piece castling block. No behavioural change today; the redundant per-piece block goes
+  when `BitBoard(BoardState)` is retired in Phase 3.
 - `BitMove(long, Move, int, int, boolean, boolean)` is an empty stub
   ([BitMove.java:39](../src/main/java/ai/BitBoard/BitMove.java#L39)); `new BitBoard(BoardState)`
-  builds `lastMove` from it, so a bitboard made from a real `BoardState` has an empty `lastMove`.
+  builds `lastMove` from it, so a bitboard made from a real `BoardState` has a hollow `lastMove`.
+  Currently benign — the search reads child `lastMove`s (set correctly by `getNewBoardFromMove`),
+  never the root's. Deferred to Phase 3 with the rest of the `BoardState → BitBoard` bridge; the
+  `rules` adapter never creates the stub (it uses the 23-arg constructor with `lastMove = null`).
 - `Move.setRepresentation` mutating the live board (Path 3) can interleave with anything else
   holding that `BoardState`.
 
@@ -319,9 +327,10 @@ Recommendation: **A**.
    **Nothing re-pointed — the old suite is still 23 + 3 green, `-Pknown-bugs` still 4 red.**
    Two source changes outside the new files: `BitBoard.isSideToMoveInCheck()` (one public accessor
    for the adapter) and the `BitQueen.getAttackedTiles()` one-line fix (see §2.4). ✅ _done_
-2. Fix the remaining bitboard bugs the facade exposes: en-passant generation
-   (`BitPawn.getEnPassantMoves` drops the pawn), the castling-rights constructor bug, and the
-   `BitMove` empty-stub constructor — behind the new tests.
+2. Fix the bitboard bugs the facade exposes: en-passant generation
+   (`BitPawn.getEnPassantMoves` dropped the pawn) — **done**; the `BitBoard(BoardState)`
+   castling-rights typo corrected (latent); `BitMove` stub + queenside-castling-through-check
+   re-scoped (see §2.4). ✅ _done_
 3. Point OO `BoardState.isValidMove` + `Board`/`Input`/`King` status & legality calls at the
    facade (adapter shim). Delete `main.CheckScanner`.
 4. Point `Move` SAN generation at the facade; remove the live-board simulate-and-revert (Path 3).
@@ -371,3 +380,17 @@ What the new facade already gets right that neither legacy path does:
 
 Known gaps carried to increment 2: en-passant generation (bitboard bug — the capture is absent
 from `legalMoves` for now), the `BitBoard` castling-rights constructor bug.
+
+### Increment 2 — fix the bitboard bugs the facade exposed (2026-09-06)
+
+- `BitPawn.getEnPassantMoves()` — the capturing pawn now lands on the e.p. target instead of
+  vanishing; "no e.p." guard tightened to `>= 0`. The `rules` facade now generates and applies
+  e.p. for both colours (`rules.RulesTest.enPassant`, `enPassantBlack`). This also improves the
+  live search — `getNextStates()` now includes e.p. captures.
+- `BitBoard(BoardState)` — black-kingside-rook branch corrected
+  (`canBlackCastleKingSide`, was `...QueenSide`). Latent: overridden by the bulk copy at
+  lines 119-122; no behavioural change (see §2.4).
+
+Verification: `./mvnw test` → **42 green** (23 legacy + 19 new); `-Psmoke` → 3 green
+(`randomGameInBitboardEngine` still terminates cleanly with e.p. now in the move set);
+`-Pknown-bugs` → 4 red (unchanged); `./mvnw package` → jar builds.
