@@ -487,3 +487,25 @@ terminal test (`board.getStatus() != 1`) is `BitBoard.getStatus()` — the unifi
 
 Verification: `./mvnw test` → **49 green**; `-Psmoke` → 3 green; `-Pknown-bugs` → 0 tests;
 `./mvnw package` → jar builds. `CheckScanner` −213 lines, `BoardState` net ≈ −200 lines.
+
+### Increment 6 — re-sync `ARCHITECTURE.md` (2026-09-06)
+
+`ARCHITECTURE.md` updated to the unified state: §2.1 (one representation), §2.2 (one generator +
+the two bitboard bug fixes), §2.3 (one check/draw path; `CheckScanner` + the SAN
+simulate-and-revert deleted), §2.4 (search lightly touched; **the "engine stops playing when
+losing" bug documented** with its mechanism), §3 (dead-code table), §4.1 (dependency graph —
+`rules` has no `main.*`/Swing/AWT), §4.2 / §4.3 (walkthroughs), §5 flaws #2 and #6 marked
+RESOLVED, #8 "improving", §6 summary.
+
+**Bug filed, not fixed** — the engine sometimes stops making moves, most visibly when it is
+losing badly / a forced mate against it is within the horizon. Cause: `Minimax.bestMoves`
+(a `public static` list) is only re-initialised when `lastDepth` is true, and `lastDepth` reads
+the `ChoosePlayFormat` statics that `Input` / `myEngine` flip-and-restore *around an async
+engine call*; a torn read leaves `bestMoves` null/stale → `Minimax.getBestMove` NPEs or returns
+a wrong-position move → the exception is swallowed by `Input.makeEngineMove`'s
+`catch (Exception e) {}`. Proper fix needs Phase 3 (retire the statics) + Phase 4 (one
+non-swallowing concurrency model); a null-guard band-aid would spin `myEngine.makeMove`'s
+`while (move == null)` forever. See `ARCHITECTURE.md` §2.4.
+
+Increment 7 (manual play-through: human-v-computer, computer-v-computer, save/load) is owed
+before the branch merges to `master`.

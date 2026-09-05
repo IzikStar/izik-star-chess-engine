@@ -225,8 +225,14 @@ works exactly as before.
 > characterization is gone with the method). `Minimax` already ran on the canonical bitboard,
 > so nothing to re-point there. `./mvnw test` 49 green, `-Psmoke` 3 green.
 > Left for later: `Piece.isValidMovement` / `moveCollidesWithPiece` / `King.canCastle` are now
-> dead but still present — a Phase 3 `pieces`-restructure cleanup. Next: increment 6 (re-sync
-> [ARCHITECTURE.md](ARCHITECTURE.md)), then increment 7 (manual play-through) before merge.
+> dead but still present — a Phase 3 `pieces`-restructure cleanup.
+> **Increment 6 done: [ARCHITECTURE.md](ARCHITECTURE.md) re-synced** to the unified state
+> (§2.1–2.4, §3, §4, §5 #2/#6 RESOLVED, §6). A reported gameplay bug — *the engine stops
+> playing when it's losing / mate is near* — is documented in ARCHITECTURE.md §2.4 with its
+> root cause (`ChoosePlayFormat` statics flipped around an async search + a swallowed NPE);
+> the fix belongs to Phase 3 (retire the statics) + Phase 4 (concurrency). Phase 2 exit
+> criteria are met except the **manual play-through (increment 7)**, owed before merge to
+> `master`.
 
 **Goal.** Collapse the two independent board models and the three independent
 check/checkmate/draw implementations (ARCHITECTURE.md §2.1, §2.3) into one canonical
