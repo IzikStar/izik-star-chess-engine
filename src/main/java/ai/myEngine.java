@@ -73,7 +73,7 @@ public class myEngine {
                     move = chooseMethod(board);
                 }
                 Move tempMove = move;
-                if (board.makeMoveToCheckIt(tempMove)) {
+                if (board.isValidMove(tempMove)) {
                     realBoard.makeMove(move);
                     if (realBoard.input.isStatusChanged) {
                         Board.selectedPiece = null;
@@ -95,7 +95,7 @@ public class myEngine {
                         move = chooseMethod(board);
                     } while (move == null);
                     tempMove = move;
-                    if (board.makeMoveToCheckIt(tempMove)) {
+                    if (board.isValidMove(tempMove)) {
                         realBoard.makeMove(move);
                         if (realBoard.input.isStatusChanged) {
                             Board.selectedPiece = null;
@@ -136,7 +136,7 @@ public class myEngine {
                     move = chooseMethod(board);
                 }
                 Move tempMove = move;
-                if (board.makeMoveToCheckIt(tempMove)) {
+                if (board.isValidMove(tempMove)) {
                     realBoard.hintToC = tempMove.newCol;
                     realBoard.hintToR = tempMove.newRow;
                     realBoard.hintFromC = tempMove.piece.col;
@@ -179,7 +179,7 @@ public class myEngine {
             return null;
         }
 
-        if (!board.checkScanner.isChecking(board)) {
+        if (!board.getIsCheck()) {
             chosePiece();
         } else {
             for (int i = 0; i < board.getNumOfPieces(board.getIsWhiteToMove()); i++) {

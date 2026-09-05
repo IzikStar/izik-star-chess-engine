@@ -1,14 +1,17 @@
 package ai;
 
 
-import main.CheckScanner;
 import main.Move;
 import main.setting.ChoosePlayFormat;
 import pieces.*;
+import rules.ChessMove;
+import rules.GameStatus;
+import rules.Rules;
 
-import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class BoardState {
@@ -34,11 +37,8 @@ public class BoardState {
     public int numOfTurnWithoutCaptureOrPawnMove = 0;
     public boolean isGameOver = false;
 
-    public CheckScanner checkScanner;
-
     // constructor
     public BoardState(String fenCurrentPosition, Move lastMove) {
-        checkScanner = new CheckScanner(this);
         this.fenCurrentPosition = fenCurrentPosition;
         loadPiecesFromFen(fenCurrentPosition);
         setLastMove(lastMove);
@@ -124,11 +124,12 @@ public class BoardState {
             enPassantTile = (7 - (parts[3].charAt(1) - '1')) * 8 + (parts[3].charAt(0) - 'a');
         }
 
-        // name Of Turn Without Capture Or Pawn Move
-        numOfTurnWithoutCaptureOrPawnMove = Character.getNumericValue(parts[4].charAt(0));
+        // half-move clock (plies since the last capture or pawn move) — parse the whole
+        // number, not only its first digit (the old code read parts[4].charAt(0))
+        numOfTurnWithoutCaptureOrPawnMove = parts.length > 4 ? Integer.parseInt(parts[4]) : 0;
 
-        // name of turns
-        numOfTurns = Integer.parseInt(parts[5]);
+        // full-move number
+        numOfTurns = parts.length > 5 ? Integer.parseInt(parts[5]) : 1;
     }
 
     public void setLastMove(Move lastMove) {
@@ -139,30 +140,14 @@ public class BoardState {
         return lastMove;
     }
 
-    public Move[] getAllPossibleMovesForASide() {
-        ArrayList<Move> possibleMoves = new ArrayList<>();
-        for (Piece piece : pieceList) {
-            if (piece.isWhite == isWhiteToMove) {
-                for (Move move : piece.getValidMoves(this)) {
-                    if (makeMoveToCheckIt(move)) {
-                        possibleMoves.add(move);
-                    }
-                }
-            }
-        }
-        return possibleMoves.toArray(new Move[0]);
-    }
-
-    private Move[] getAllPossibleMoves() {
-        ArrayList<Move> possibleMoves = new ArrayList<>();
-        for (Piece piece : pieceList) {
-            for (Move move : piece.getValidMoves(this)) {
-                if (makeMoveToCheckIt(move)) {
-                    possibleMoves.add(move);
-                }
-            }
-        }
-        return possibleMoves.toArray(new Move[0]);
+    /**
+     * Legal moves for the side to move, via the unified rules authority. Replaces the old
+     * {@code getAllPossibleMovesForASide()} (list-based generator + {@code makeMoveToCheckIt},
+     * which missed the two-square pawn push and threw {@code ConcurrentModificationException}
+     * whenever a capture was available).
+     */
+    public List<ChessMove> getLegalMoves() {
+        return Rules.legalMoves(toRulesFen());
     }
 
 
@@ -217,33 +202,114 @@ public class BoardState {
         return null;
     }
 
+    /**
+     * Phase 2: delegates to the single rules authority ({@link rules.Rules}) instead of the
+     * old {@code isValidMovement} / {@code moveCollidesWithPiece} / {@code CheckScanner}
+     * pipeline. The legal-move set is cached per position (see {@link #ensureRulesCache()}) so
+     * the 64-square sweeps in {@code Board.paintComponent} cost one generation, not 64.
+     */
     public boolean isValidMove(Move move) {
         if (isGameOver) {
-            //if (isExecuting) System.out.println(1);
             return false;
         }
-        if (move.piece.isWhite != isWhiteToMove) {
-            //if (isExecuting) System.out.println(2);
+        if (move.piece == null || move.piece.isWhite != isWhiteToMove) {
             return false;
         }
-        if (sameTeam(move.piece, move.captured)) {
-            //if (isExecuting) System.out.println(3);
-            return false;
-        }
-        if (!move.piece.isValidMovement(move.newCol, move.newRow)) {
-            //if (isExecuting) System.out.println(4);
-            return false;
-        }
-        if (move.piece.moveCollidesWithPiece(move.newCol, move.newRow)) {
-            //if (isExecuting) System.out.println(5);
-            return false;
-        }
-        if (checkScanner.isMoveCausesCheck(move)) {
-            //if (isExecuting) System.out.println(6);
-            return false;
-        }
+        ensureRulesCache();
+        int from = move.piece.row * 8 + move.piece.col;
+        int to = move.newRow * 8 + move.newCol;
+        return legalFromToCache.contains(from * 64 + to);
+    }
 
-        return true;
+    // --- Phase 2: unified rules authority ------------------------------------
+
+    private String rulesFenCache;
+    private Set<Integer> legalFromToCache;
+    private GameStatus rulesStatusCache;
+
+    /**
+     * A FEN for {@link rules.Rules}, built from the live fields (piece positions, turn, the
+     * four castling first-move flags, {@code enPassantTile}, and the move clocks). Independent
+     * of {@code convertPiecesToFEN} / {@code loadPiecesFromFen} and their historical quirks.
+     */
+    public String toRulesFen() {
+        char[] sq = new char[64];
+        for (Piece p : pieceList) {
+            if (p.col >= 0 && p.col < 8 && p.row >= 0 && p.row < 8) {
+                sq[p.row * 8 + p.col] = p.getRepresentation();
+            }
+        }
+        StringBuilder fen = new StringBuilder();
+        for (int row = 0; row < 8; row++) {
+            int empty = 0;
+            for (int col = 0; col < 8; col++) {
+                char c = sq[row * 8 + col];
+                if (c == 0) {
+                    empty++;
+                    continue;
+                }
+                if (empty > 0) {
+                    fen.append(empty);
+                    empty = 0;
+                }
+                fen.append(c);
+            }
+            if (empty > 0) {
+                fen.append(empty);
+            }
+            if (row < 7) {
+                fen.append('/');
+            }
+        }
+        fen.append(isWhiteToMove ? " w " : " b ");
+
+        StringBuilder castle = new StringBuilder();
+        Piece wKing = getPiece(4, 7);
+        if (wKing instanceof King && wKing.isFirstMove) {
+            Piece r = getPiece(7, 7);
+            if (r instanceof Rook && r.isFirstMove) castle.append('K');
+            r = getPiece(0, 7);
+            if (r instanceof Rook && r.isFirstMove) castle.append('Q');
+        }
+        Piece bKing = getPiece(4, 0);
+        if (bKing instanceof King && bKing.isFirstMove) {
+            Piece r = getPiece(7, 0);
+            if (r instanceof Rook && r.isFirstMove) castle.append('k');
+            r = getPiece(0, 0);
+            if (r instanceof Rook && r.isFirstMove) castle.append('q');
+        }
+        fen.append(castle.length() == 0 ? "-" : castle.toString());
+
+        fen.append(' ');
+        if (enPassantTile >= 0 && enPassantTile < 64) {
+            fen.append(squareToLetters(enPassantTile % 8, enPassantTile / 8).toLowerCase());
+        } else {
+            fen.append('-');
+        }
+        fen.append(' ').append(Math.max(0, numOfTurnWithoutCaptureOrPawnMove));
+        fen.append(' ').append(Math.max(1, numOfTurns));
+        return fen.toString();
+    }
+
+    private void ensureRulesCache() {
+        String fen = toRulesFen();
+        if (fen.equals(rulesFenCache)) {
+            return;
+        }
+        Rules.Evaluation eval = Rules.evaluate(fen);
+        Set<Integer> set = new HashSet<>(eval.legalMoves.size() * 2);
+        for (ChessMove m : eval.legalMoves) {
+            set.add(m.from() * 64 + m.to());
+        }
+        rulesFenCache = fen;
+        legalFromToCache = set;
+        rulesStatusCache = eval.status;
+    }
+
+    /** The unified {@link rules.GameStatus} for the current position (threefold not included). */
+    public GameStatus getRulesStatus() {
+        ensureRulesCache();
+        return rulesStatusCache;
     }
 
     public boolean sameTeam(Piece p1, Piece p2) {
@@ -432,104 +498,18 @@ public class BoardState {
     }
 
 
-    // פונקציות לחישובים בלי פגיע אמיתית במצב הלוח
-    public boolean makeMoveToCheckIt(Move move) {
-        String tempFen = convertPiecesToFEN();
-        Piece piece = getPiece(move.piece.col, move.piece.row);
-        boolean success = false;
-        boolean pawnMoveSuccess = true;
-        if (piece.name.equals("Pawn")) {
-            pawnMoveSuccess = movePawnForClone(move);
-        } else if (piece.name.equals("King")) {
-            moveKingForClone(move);
-        }
-
-        if (pawnMoveSuccess) {
-            if (!piece.name.equals("Pawn") || !(Math.abs(piece.row - move.newRow) == 2)) {
-                enPassantTile = -1;
-            }
-            if (move.captured != null && getPiece(move.captured.col, move.captured.row) != null) {
-                capture(getPiece(move.captured.col, move.captured.row));
-            }
-            int tempMovePC = piece.col;
-            int tempMovePR = piece.row;
-            piece.col = move.newCol;
-            piece.row = move.newRow;
-            isWhiteToMove = !isWhiteToMove;
-            if (isWhiteToMove) {
-                ++numOfTurns;
-            }
-            ++numOfTurnWithoutCaptureOrPawnMove;
-            if (!checkScanner.isCheckingForClone(this)) {
-                success = true;
-            }
-//        makeMove(move);
-//        if (!checkScanner.isCheckingForClone(this)) {
-//                success = true;
-//        }
-//        cancelMove();
-//          cancel move
-            piece.col = tempMovePC;
-            piece.row = tempMovePR;
-            isWhiteToMove = !isWhiteToMove;
-            loadPiecesFromFen(tempFen);
-            //System.out.println(tempFen);
-        }
-        return success;
-    }
-
-    public int makeMoveAndGetStatus(Move move) {
-        int status = 1;
-        String tempFen = convertPiecesToFEN();
-        Piece piece = getPiece(move.piece.col, move.piece.row);
-        boolean pawnMoveSuccess = true;
-        if (piece.name.equals("Pawn")) {
-            pawnMoveSuccess = movePawnForClone(move);
-        } else if (piece.name.equals("King")) {
-            moveKingForClone(move);
-        }
-
-        if (pawnMoveSuccess) {
-            if (!piece.name.equals("Pawn") || !(Math.abs(piece.row - move.newRow) == 2)) {
-                enPassantTile = -1;
-            }
-            if (move.captured != null && getPiece(move.captured.col, move.captured.row) != null) {
-                capture(getPiece(move.captured.col, move.captured.row));
-            }
-            int tempMovePC = piece.col;
-            int tempMovePR = piece.row;
-            piece.col = move.newCol;
-            piece.row = move.newRow;
-            isWhiteToMove = !isWhiteToMove;
-            if (isWhiteToMove) {
-                ++numOfTurns;
-            }
-            ++numOfTurnWithoutCaptureOrPawnMove;
-            status = getAccurateStatus();
-
-//            for (Piece p : pieceList) {
-//                System.out.println(piece.name + ": " + p.col + ", " + p.row);
-//            }
-//            System.out.println("Called from: " + Thread.currentThread().getStackTrace()[1]);
-//            System.out.println("move piece: " + move.piece.name + ": " + move.piece.col + ", " + move.piece.row);
-
-            // cancel move
-            piece.col = tempMovePC;
-            piece.row = tempMovePR;
-            isWhiteToMove = !isWhiteToMove;
-            loadPiecesFromFen(tempFen);
-        }
-        return status;
-    }
+    // Phase 2: makeMoveToCheckIt / makeMoveAndGetStatus / makeMoveAndGetValue / makeMoveAndGetFen
+    // (mutate the live board, read a fact, loadPiecesFromFen to revert) and getAllPossibleMoves*
+    // are gone. Legality and status now come from rules.Rules (see isValidMove / getLegalMoves /
+    // getRulesStatus), which needs no simulate-and-revert.
 
     public int getAccurateStatus() {
-        if (checkScanner.isGameOver(findKing(isWhiteToMove))) {
-            if (getIsCheck()) {
-                return Integer.MAX_VALUE;
-            }
-            return 0;
-        }
-        return getIsCheck() ? 2 : 1;
+        return switch (getRulesStatus()) {
+            case CHECKMATE -> Integer.MAX_VALUE;
+            case STALEMATE, DRAW_FIFTY_MOVE, DRAW_THREEFOLD, DRAW_INSUFFICIENT_MATERIAL -> 0;
+            case CHECK -> 2;
+            case IN_PROGRESS -> 1;
+        };
     }
 
     public int getGameState() {
@@ -537,85 +517,6 @@ public class BoardState {
         if (pieceList.size() <= 12) return 2;
         if (numOfTurns < 10) return 0;
         return 1;
-    }
-
-    public int makeMoveAndGetValue(Move move) {
-        String tempFen = convertPiecesToFEN();
-        Piece piece = getPiece(move.piece.col, move.piece.row);
-        boolean success = false;
-        boolean pawnMoveSuccess = true;
-        if (piece.name.equals("Pawn")) {
-            pawnMoveSuccess = movePawnForClone(move);
-        } else if (piece.name.equals("King")) {
-            moveKingForClone(move);
-        }
-
-        if (pawnMoveSuccess) {
-            if (!piece.name.equals("Pawn") || !(Math.abs(piece.row - move.newRow) == 2)) {
-                enPassantTile = -1;
-            }
-            if (move.captured != null && getPiece(move.captured.col, move.captured.row) != null) {
-                capture(getPiece(move.captured.col, move.captured.row));
-            }
-            int tempMovePC = piece.col;
-            int tempMovePR = piece.row;
-            piece.col = move.newCol;
-            piece.row = move.newRow;
-            isWhiteToMove = !isWhiteToMove;
-            if (isWhiteToMove) {
-                ++numOfTurns;
-            }
-            ++numOfTurnWithoutCaptureOrPawnMove;
-
-            // cancel move
-            piece.col = tempMovePC;
-            piece.row = tempMovePR;
-            isWhiteToMove = !isWhiteToMove;
-            loadPiecesFromFen(tempFen);
-            //System.out.println(tempFen);
-        }
-        return 0;
-    }
-
-    public String makeMoveAndGetFen(Move move) {
-        String newFen = null;
-        String tempFen = convertPiecesToFEN();
-        Piece piece = getPiece(move.piece.col, move.piece.row);
-        boolean success = false;
-        boolean pawnMoveSuccess = true;
-        if (piece.name.equals("Pawn")) {
-            pawnMoveSuccess = movePawnForClone(move);
-        } else if (piece.name.equals("King")) {
-            moveKingForClone(move);
-        }
-
-        if (pawnMoveSuccess) {
-            if (!piece.name.equals("Pawn") || !(Math.abs(piece.row - move.newRow) == 2)) {
-                enPassantTile = -1;
-            }
-            if (move.captured != null && getPiece(move.captured.col, move.captured.row) != null) {
-                capture(getPiece(move.captured.col, move.captured.row));
-            }
-            int tempMovePC = piece.col;
-            int tempMovePR = piece.row;
-            piece.col = move.newCol;
-            piece.row = move.newRow;
-            isWhiteToMove = !isWhiteToMove;
-            if (isWhiteToMove) {
-                ++numOfTurns;
-            }
-            ++numOfTurnWithoutCaptureOrPawnMove;
-
-            newFen = convertPiecesToFEN();
-
-            // cancel move
-            piece.col = tempMovePC;
-            piece.row = tempMovePR;
-            isWhiteToMove = !isWhiteToMove;
-            loadPiecesFromFen(tempFen);
-            //System.out.println(tempFen);
-        }
-        return newFen;
     }
 
     private boolean movePawnForClone(Move move) {
@@ -732,55 +633,14 @@ public class BoardState {
         }
     }
 
-    public void cancelMove() {
-        //System.out.printf("\nMove: %d, %d to %d, %d\n\n", move.piece.col, move.piece.row, move.newCol, move.newRow);
-        Piece piece = lastToMove;
-        if (piece == null) {
-            return;
-        }
-        piece.col = fromC;
-        piece.row = fromR;
-        isWhiteToMove = !isWhiteToMove;
-        if (!isWhiteToMove) {
-            --numOfTurns;
-        }
-        --numOfTurnWithoutCaptureOrPawnMove;
-        if (isLastMoveCastling || isLastMovePawn) {
-            loadPiecesFromFen(fenCurrentPosition);
-        }
-        //setLastMove(move);
-
-    }
-
-
     public int getStatus() {
-        if (checkScanner.isGameOver(findKing(isWhiteToMove))) {
-            return 0;
-        }
-        return 1;
+        return getRulesStatus().isGameOver() ? 0 : 1;
     }
 
     public boolean getIsCheck() {
-        return checkScanner.isCheckingForEvaluation(this);
+        GameStatus s = getRulesStatus();
+        return s == GameStatus.CHECK || s == GameStatus.CHECKMATE;
     }
-
-
-    public static void main(String[] args) {
-        String fen = "1k4r1/7P/8/8/8/8/8/7K w - - 0 1";
-        BoardState boardState = new BoardState(fen, null);
-        long timeElapsed;
-        Instant start, end;
-        start = Instant.now(); // התחלת מדידת זמן
-
-        for (Move move :boardState.getAllPossibleMoves()) {
-            System.out.println(move);
-        }
-
-        end = Instant.now(); // סיום מדידת זמן
-        timeElapsed = Duration.between(start, end).toMillis(); // זמן במילישניות
-        System.out.println("time spend: " + timeElapsed);
-    }
-
 }
 
 

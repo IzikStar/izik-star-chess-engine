@@ -194,6 +194,57 @@ works exactly as before.
 
 ## Phase 2 — Unify the board representation and the rules engine
 
+> **Status: DONE — merged to `master` 2026-09-06** (`--no-ff`, branch
+> `phase-2-unify-rules-engine`, 7 commits). Full research artifact + increment log:
+> [docs/phase-2-research.md](docs/phase-2-research.md). Result: one rules authority (the
+> bitboard, behind the new headless `rules` package), `CheckScanner` and the PGN
+> simulate-and-revert path deleted, all four `-Pknown-bugs` draw-detection reds fixed
+> (`-Pknown-bugs` now empty). `./mvnw test` **49 green**, `-Psmoke` **3 green**,
+> `./mvnw package` builds the jar. The hands-on play-through (increment 7) was **waived by the
+> project owner** in favour of the green `-Psmoke` end-to-end suite (the Phase 1 stand-in).
+> One reported gameplay bug — *the engine stops playing when it's losing / mate is near* — is
+> **documented, not fixed** (owner deferred it): root cause is the `ChoosePlayFormat` statics
+> flipped around an async search + a swallowed NPE; fix is Phase 3 (retire the statics) +
+> Phase 4 (one concurrency model). See [ARCHITECTURE.md](ARCHITECTURE.md) §2.4.
+>
+> Locked decisions (2026-09-05):
+> (1) the **bitboard becomes the single rules authority**, wrapped behind a new Swing-free
+> `rules` package speaking **FEN in / FEN + status + legal-move-list out, moves as UCI**;
+> (2) the OO `BoardState`/`Piece` become a delegating render-only view-model — `CheckScanner`,
+> the PGN simulate-and-revert path, and the dead `BoardState.makeMoveAndGet*` / `getAllPossibleMoves*`
+> / `cancelMove` / `main()` are deleted this phase, but full OO removal + the UI type switch stay
+> Phase 3; (3) **draw-rule correctness is in scope** — the unified `status()` fixes the 50-move
+> threshold, threefold repetition and insufficient material, and the 4 `-Pknown-bugs` reds are
+> expected to go green; (4) the rules module ships with no `main.*`/`GUI`/Swing/AWT imports.
+> Landing in 7 increments (see the research doc). **Increments 1–3 done** on the branch:
+> the new headless `rules` package (`Square`/`ChessMove`/`Position`/`GameStatus`/`Rules`/`Game`
+> + an `ai.BitBoard.BitBoardRules` bridge) as a working FEN/UCI slice; three real bitboard bug
+> fixes it surfaced (`BitQueen.getAttackedTiles()` up-left diagonal → Scholar's-Mate check
+> undetected; `BitPawn.getEnPassantMoves()` dropped the capturing pawn; `BitBoard.getStatus()`
+> 50-move threshold per-ply); and **`BoardState`'s `isValidMove` / status API + `Board`'s
+> check/game-over display now delegate to the facade** (per-position cache). **All four
+> draw-detection bugs are fixed** — the `-Pknown-bugs` suite is empty, its tests are now green
+> in `characterization.DrawDetectionTest`. `./mvnw test` 46 green, `-Psmoke` 3 green.
+> Increment 4 done: `Move`'s SAN `+`/`#`/`1/2-1/2` suffix now queries `rules.Rules` about the
+> position after the move; `BoardState.makeMoveAndGetStatus` (last of the triplicated "Path 3")
+> deleted.
+> **Increment 5 done: `main.CheckScanner` deleted (−213 lines)** — `myEngine` uses
+> `isValidMove` / `getIsCheck`, `King.canCastle` is geometry-only. `BoardState` lost
+> `getAllPossibleMoves*`, `makeMoveToCheckIt`, `makeMoveAndGet*`, `cancelMove`, `main` (net
+> ≈ −200 lines); new `getLegalMoves()` → `rules.Rules`. The two "characterized bug" test
+> assertions are re-pointed (start move count now asserts the correct **20**; the CME
+> characterization is gone with the method). `Minimax` already ran on the canonical bitboard,
+> so nothing to re-point there. `./mvnw test` 49 green, `-Psmoke` 3 green.
+> Left for later: `Piece.isValidMovement` / `moveCollidesWithPiece` / `King.canCastle` are now
+> dead but still present — a Phase 3 `pieces`-restructure cleanup.
+> **Increment 6 done: [ARCHITECTURE.md](ARCHITECTURE.md) re-synced** to the unified state
+> (§2.1–2.4, §3, §4, §5 #2/#6 RESOLVED, §6). A reported gameplay bug — *the engine stops
+> playing when it's losing / mate is near* — is documented in ARCHITECTURE.md §2.4 with its
+> root cause (`ChoosePlayFormat` statics flipped around an async search + a swallowed NPE);
+> the fix belongs to Phase 3 (retire the statics) + Phase 4 (concurrency).
+> **Increment 7: the hands-on play-through was waived by the project owner; Phase 2 merged to
+> `master` on the green `-Psmoke` suite.**
+
 **Goal.** Collapse the two independent board models and the three independent
 check/checkmate/draw implementations (ARCHITECTURE.md §2.1, §2.3) into one canonical
 representation and one rules engine that everything else consults.

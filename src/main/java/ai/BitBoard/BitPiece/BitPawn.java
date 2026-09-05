@@ -60,15 +60,18 @@ public class BitPawn extends BitPiece {
 
     public long[] getEnPassantMoves(int enPassantIndex) {
         long[] movements = new long[2];
-        if (enPassantIndex != 0) {
+        if (enPassantIndex >= 0) {
+            // The capturing pawn must both leave its square AND land on the e.p. target;
+            // earlier this only cleared the source bit, so the pawn vanished off the board.
+            long target = BitOperations.setBit(0L, enPassantIndex);
             long enPassantToTheRight = getRightEnPassantTile(enPassantIndex) & position;
             long enPassantToTheLeft = getLeftEnPassantTile(enPassantIndex) & position;
             if (enPassantToTheLeft != 0) {
-                movements[0] = position & ~enPassantToTheLeft;
+                movements[0] = (position & ~enPassantToTheLeft) | target;
                 Debug.log("left en passant" + BitOperations.printBitboard(enPassantToTheLeft) + " position: " + BitOperations.printBitboard(position) + " sending: " + BitOperations.printBitboard(movements[0]));
             }
             if (enPassantToTheRight != 0) {
-                movements[1] = position & ~enPassantToTheRight;
+                movements[1] = (position & ~enPassantToTheRight) | target;
                 Debug.log("right en passant: " + BitOperations.printBitboard(enPassantToTheRight) + " position: " + BitOperations.printBitboard(position) + " sending: " + BitOperations.printBitboard(movements[1]));
             }
         }

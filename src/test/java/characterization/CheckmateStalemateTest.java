@@ -25,7 +25,7 @@ class CheckmateStalemateTest extends CharacterizationTestBase {
     @DisplayName("OO path: fool's mate is checkmate (no moves, in check)")
     void ooFoolsMate() {
         BoardState b = oo(FOOLS_MATE);
-        assertEquals(0, b.getAllPossibleMovesForASide().length, "no legal moves");
+        assertEquals(0, b.getLegalMoves().size(), "no legal moves");
         assertTrue(b.getIsCheck(), "side to move is in check");
         assertEquals(Integer.MAX_VALUE, b.getAccurateStatus(), "MAX_VALUE == checkmate");
         assertEquals(0, b.getStatus(), "0 == game over");
@@ -35,7 +35,7 @@ class CheckmateStalemateTest extends CharacterizationTestBase {
     @DisplayName("OO path: back-rank rook mate is checkmate")
     void ooBackRankMate() {
         BoardState b = oo(BACK_RANK_MATE);
-        assertEquals(0, b.getAllPossibleMovesForASide().length);
+        assertEquals(0, b.getLegalMoves().size());
         assertTrue(b.getIsCheck());
         assertEquals(Integer.MAX_VALUE, b.getAccurateStatus());
     }
@@ -62,7 +62,7 @@ class CheckmateStalemateTest extends CharacterizationTestBase {
     @DisplayName("OO path: K+Q vs K stalemate (game over, NOT check)")
     void ooStalemate() {
         BoardState b = oo(STALEMATE);
-        assertEquals(0, b.getAllPossibleMovesForASide().length, "no legal moves");
+        assertEquals(0, b.getLegalMoves().size(), "no legal moves");
         assertFalse(b.getIsCheck(), "not in check");
         assertEquals(0, b.getAccurateStatus(), "0 == stalemate (game over, not mate)");
         assertEquals(0, b.getStatus());
@@ -85,6 +85,6 @@ class CheckmateStalemateTest extends CharacterizationTestBase {
         BoardState b = oo("4r2k/8/8/8/8/8/8/4K3 w - - 0 1");
         assertTrue(b.getIsCheck());
         assertEquals(2, b.getAccurateStatus(), "2 == check, game continues");
-        assertTrue(b.getAllPossibleMovesForASide().length > 0);
+        assertTrue(b.getLegalMoves().size() > 0);
     }
 }

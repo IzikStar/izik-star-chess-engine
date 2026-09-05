@@ -1,11 +1,26 @@
 # Architecture of IzikStar Chess 3.1 (as-is)
 
-This document maps the *current* architecture of the codebase before any refactor. It is
-descriptive, not prescriptive: it explains how the pieces actually interact today (including
-the broken/duplicated parts), so that a redesign can be planned with full knowledge of what's
+This document maps the *current* architecture of the codebase. It is descriptive, not
+prescriptive: it explains how the pieces actually interact today (including the
+broken/duplicated parts), so that a redesign can be planned with full knowledge of what's
 really going on under the hood.
 
-No source files were modified to produce this document.
+> **Updated after Phase 2 (2026-09-06)** — branch `phase-2-unify-rules-engine`,
+> [docs/phase-2-research.md](docs/phase-2-research.md). The two board models and the three
+> check/mate/draw implementations are collapsed into **one rules authority**: a new headless
+> `rules` package (`rules.Rules` / `Game` / `Position` / `ChessMove`, FEN in / status + legal
+> moves out, moves as UCI) that wraps the **bitboard** engine. `main.CheckScanner` is deleted;
+> `Move`'s PGN suffix no longer simulates on the live board; `BoardState`'s
+> `getAllPossibleMoves*` / `makeMoveToCheckIt` / `makeMoveAndGet*` / `cancelMove` / `main` are
+> deleted. `BoardState` now *delegates* `isValidMove` / `getLegalMoves` / `getAccurateStatus` /
+> `getStatus` / `getIsCheck` to `rules.Rules` (per-position cache). All four draw-detection bugs
+> (FEN clock parse, 50-move on both paths, insufficient material) are fixed. The `pieces/*` OO
+> objects survive as render-only view-models (their `isValidMovement` / `moveCollidesWithPiece`
+> / `King.canCastle` are now dead — Phase 3 removes them with the UI decouple). Sections below
+> are annotated where Phase 2 changed them; the un-annotated parts still hold.
+
+No source files were modified to produce the original version of this document; Phase 0–2
+updates are marked inline.
 
 ## 1. Project shape
 
@@ -29,9 +44,11 @@ src/
 │   └── Board.java        Swing JPanel that ALSO owns rules/state (see §4)
 ├── GUI/                  audio, sprite animation, a custom Swing button
 ├── pieces/               Piece, King/Queen/Rook/Bishop/Knight/Pawn
-├── ai/                   the "real" engine: BoardState, Minimax, StockfishEngine, myEngine
-│   ├── BitBoard/         a second, independent board representation + move generator
+├── ai/                   the engine: BoardState, Minimax, StockfishEngine, myEngine
+│   ├── BitBoard/         the canonical board representation + move generator (since Phase 2)
 │   └── openingBook/      Retrofit/Lichess client wiring — built but never called
+├── rules/                Phase 2: the one headless rules authority (Rules/Game/Position/
+│                         ChessMove) — FEN in, status + legal UCI moves out, no Swing/AWT
 ```
 
 > **Updated after Phase 1 (2026-09-05):** the `player/` package (a second, unused minimax
@@ -44,9 +61,15 @@ same visibility as the code that actually runs, which is itself one of the flaws
 
 ## 2. Core components
 
-### 2.1 Board representation — there are two, independent, and out of sync
+### 2.1 Board representation
 
-**A. Object-oriented board (the one the UI and rules actually use):**
+> **Phase 2:** no longer "two, independent, and out of sync." The **bitboard (B)** is the one
+> rules authority, wrapped by `rules.Rules`. The **object model (A)** is kept as a mutable
+> container for the renderer and for move bookkeeping, but every legality/status question it is
+> asked it forwards to `rules.Rules` (which builds a `BitBoard` from a FEN). They can no longer
+> disagree about check / mate / draw. Merging A's *state* into B, and retiring A, is Phase 3.
+
+**A. Object-oriented board (kept as a render/bookkeeping container; delegates rules):**
 [`ai/BoardState.java`](src/ai/BoardState.java) holds an `ArrayList<Piece>`, current-turn flag,
 castling rights, en-passant square, etc. Pieces are polymorphic objects
 ([`pieces/Piece.java`](src/pieces/Piece.java) and its six subclasses) that carry their own
@@ -65,53 +88,76 @@ These never merge into one model. Instead, `Minimax.getBestMove(BoardState board
 converted back to a `Move` against the object-oriented board via
 [`main/Move.java:35`](src/main/Move.java#L35) (`new Move(BoardState board, BitMove move)`).
 Every legality/status check elsewhere in the app (UI move validation, drag-and-drop, "take a
-hint", the random-move engine, PGN notation) instead runs against representation **A** using a
-completely different rules implementation (§2.3). Two board models means two places piece
-values, move legality, and game-over conditions can be defined — and they already disagree in
-practice (see §5.3).
+hint", the random-move engine, PGN notation) ~~instead runs against representation **A** using a
+completely different rules implementation~~ **now delegates to `rules.Rules` → `BitBoard`
+(Phase 2)**. `BoardState.isValidMove` / `getLegalMoves` / `getAccurateStatus` / `getStatus` /
+`getIsCheck` build a FEN (`BoardState.toRulesFen()`), hand it to `rules.Rules`, and cache the
+result per position.
 
-### 2.2 Move generation — also duplicated, at different quality levels
+### 2.2 Move generation
 
-- **List-based generation** (`pieces/*.getValidMoves`): brute-forces the piece's mobility by
-  literally trying all 64 destination squares and asking `BoardState.isValidMove` to filter
-  them (e.g. [`pieces/Pawn.java:60-80`](src/pieces/Pawn.java#L60-L80),
-  [`pieces/Piece.java:49-62`](src/pieces/Piece.java#L49-L62) for the default/king-style
-  fallback). This is what the UI, the random-move ("skill 0") engine, and PGN disambiguation
-  use.
-- **Bitboard generation** (`BitBoard.getMovesForColor` and the `BitPiece` subclasses): proper
-  bitwise ray/attack generation, plus castling and en-passant handled as special cases
-  ([`ai/BitBoard/BitBoard.java:517-690`](src/ai/BitBoard/BitBoard.java#L517)). This is what
-  `Minimax` searches over.
+> **Phase 2:** one generator. `BitBoard.getMovesForColor` + the `BitPiece` subclasses (bitwise
+> ray/attack generation, castling and en-passant as special cases) is now the only source of
+> legal moves, reached through `rules.Rules.legalMoves` / `BoardState.getLegalMoves`. The
+> old list-based `pieces/*.getValidMoves` still exists and is still called by the skill-0
+> random engine and by SAN disambiguation, but it now brute-forces against the *delegating*
+> `BoardState.isValidMove`, so it returns the same set the bitboard does (it was previously
+> missing the two-square pawn push, among other things). `Piece.isValidMovement` /
+> `moveCollidesWithPiece` and `King.canCastle`'s check-safety terms are dead.
 
-They are not just two implementations of the same rules — they're the only two places some
-rules exist at all (e.g. castling legality is computed in `BitBoard.getCastles` but is
-absent from the object-oriented king's own move list; the object model instead special-cases
-castling execution later in `Board.moveKing`).
+Two bitboard move-generation bugs were fixed in Phase 2: `BitQueen.getAttackedTiles()` computed
+its up-left diagonal with a stale step counter (an adjacent up-left check — e.g. Scholar's Mate
+— went undetected), and `BitPawn.getEnPassantMoves()` removed the capturing pawn without placing
+it on the target square (the pawn vanished).
 
-### 2.3 Check / checkmate / stalemate detection — triplicated
+### 2.3 Check / checkmate / stalemate / draw detection
 
-1. [`main/CheckScanner.java`](src/main/CheckScanner.java) — ray-casts from the king's square
-   against `BoardState`, used by the UI (`isValidMove`, highlighting, "is this checkmate")
-   and by the random-move engine.
-2. `BitBoard.isCheckOn` / `getAllAttackedTiles` / `getStatus`
-   ([`ai/BitBoard/BitBoard.java:267-738`](src/ai/BitBoard/BitBoard.java#L267)) — a separate,
-   bitwise implementation used only inside the minimax search.
-3. A **third**, side-effecting path: producing algebraic notation for a move
-   (`Move.setRepresentation` → `getStatusString`,
-   [`main/Move.java:135-141`](src/main/Move.java#L135-L141)) calls
-   `board.makeMoveAndGetStatus(this)`, which **simulates the move on the live `BoardState`,
-   asks `CheckScanner` for the result, then reverts it** — meaning formatting a move's PGN
-   string as a side effect re-derives check/mate/stalemate a third time, using yet another
-   BoardState method (`BoardState.getAccurateStatus`,
-   [`ai/BoardState.java:525-533`](src/ai/BoardState.java#L525-L533)).
+> **Phase 2: one path.** `rules.Rules.status(fen)` / `evaluate(fen)` over a `BitBoard`:
+> `BitBoard.getNextStates().isEmpty()` + `BitBoard.isSideToMoveInCheck()` for
+> check/mate/stalemate, and `rules.Rules` for the draw rules (50-move at 100 plies, insufficient
+> material; threefold via `rules.Game`'s position history). `BoardState.getAccurateStatus` /
+> `getStatus` / `getIsCheck` and `Board.paintComponent` / `updateGameState` all read this.
 
-Three independent code paths computing the same fact, invoked from different layers, are a
-direct explanation for the symptoms in the last commit message ("Stockfish plays worse than it
-should", "my engine doesn't recognize draws", "sometimes avoids checkmate"): whichever of the
-three answers gets consulted for a given decision is a function of *which code path called it*,
-not of the actual position.
+Historically this was **triplicated** and the three answers could disagree depending on which
+call path asked — a direct explanation for "doesn't recognize draws" and "sometimes avoids
+checkmate":
+
+1. ~~[`main/CheckScanner.java`](src/main/CheckScanner.java) — ray-casts from the king's square
+   against `BoardState`~~ — **DELETED in Phase 2** (213 lines).
+2. `BitBoard.isCheckOn` / `getAllAttackedTiles` / `getStatus` — the bitwise implementation,
+   **now the one that everything uses** (via `rules.Rules`), not just the search.
+3. ~~The side-effecting path: `Move.setRepresentation` → `getStatusString` →
+   `board.makeMoveAndGetStatus(this)`, which simulated the move on the live `BoardState`, asked
+   `CheckScanner`, then reverted it~~ — **removed in Phase 2**; `getStatusString` now asks
+   `rules.Rules` about the position *after* the move (`Rules.status(Rules.applyMove(fen, mv))`),
+   with no effect on the live board. `makeMoveAndGetStatus` is deleted.
 
 ### 2.4 "Minimax Engine" (`ai.Minimax` / `ai.myEngine`)
+
+> **Phase 2 touched this only lightly:** the search already ran on the bitboard (now the
+> canonical representation), and its terminal test `BitBoard.getStatus()` is the unified status
+> (its 50-move threshold was `>= 50` on a per-ply counter — fixed to `>= 100`). `myEngine` no
+> longer calls the deleted `CheckScanner` / `makeMoveToCheckIt` — it uses
+> `BoardState.isValidMove` (delegating) and `getIsCheck()`. Everything below still holds; the
+> search's dependence on `ChoosePlayFormat` statics and its ad hoc concurrency are **Phase 3/4**.
+
+> **Known bug (reported, not yet fixed — Phase 3/4):** the engine sometimes *stops making
+> moves* — most visibly when it is losing badly / a forced mate against it is within the search
+> horizon. Mechanism: `Minimax.bestMoves` (a `public static` list) is only re-initialised when
+> `lastDepth` is true, and `lastDepth` is computed from the `ChoosePlayFormat.isPlayingWhite /
+> isEnginePlayingBlack / isComputersGame` statics ([`ai/Minimax.java:97`](src/ai/Minimax.java#L97)).
+> `Input.makeEngineMove` / `takeEngineHint` / the `myEngine` fallback **flip those statics and
+> flip them back around an *asynchronous* engine call** (`Input.java:100-106`,
+> `Input.java:130-133`, `Input.java:182-185`, `myEngine.java:91-114`). When the search's
+> `lastDepth` check runs while the flags are in the "flipped"/torn state, `bestMoves` stays
+> `null` or holds a *stale* list from the previous search → `Minimax.getBestMove` NPEs at
+> [`Minimax.java:44`](src/ai/Minimax.java#L44) (`bestMoves.isEmpty()`) or returns a move that
+> belongs to a different position. The exception propagates out of the `myEngine` `Callable`,
+> `Input.makeEngineMove`'s `catch (Exception e) {}` **swallows it silently**, `latch.countDown()`
+> runs, and the engine's turn ends with no move played. Fixing this properly needs the search to
+> take "who is the engine" as a parameter (Phase 3 retires the `ChoosePlayFormat` statics) and a
+> single, non-swallowing concurrency model (Phase 4). A band-aid null-guard risks an infinite
+> loop in `myEngine.makeMove`'s `while (move == null)` retry.
 
 [`ai/Minimax.java`](src/ai/Minimax.java) is alpha-beta over the bitboard model, with static
 mutable search state (`bestMoves`, `maxDepth`, `nodesChecked`, ... all `public static`, so the
@@ -181,59 +227,59 @@ runs.
 
 ## 3. Dead and parallel code left in the tree
 
-> **Updated after Phase 1 (2026-09-05):** the whole `player/` package, `pieces/Piece2`,
-> `pieces/PieceUT`, `ai/EvaluationLevel2`, `ai/ChessMoveConverter`, and `ChessServer/ChessServer.java`
-> have been **deleted** (branch `phase-1-remove-dead-code`; see
-> [docs/phase-1-notes.md](docs/phase-1-notes.md)). The rows below are struck through where the
-> code is gone. What remains is deliberately deferred: the opening book to Phase 5, the
-> `BoardState` move-gen methods and the transposition/Zobrist classes to Phase 2.
+> **Updated after Phase 1–2 (2026-09-06).** Phase 1 deleted the `player/` package, `pieces/Piece2`,
+> `pieces/PieceUT`, `ai/EvaluationLevel2`, `ai/ChessMoveConverter`, `ChessServer/ChessServer.java`.
+> Phase 2 deleted `main/CheckScanner.java` and the `BoardState` simulate-and-revert /
+> bulk-generator family. See [docs/phase-1-notes.md](docs/phase-1-notes.md) and
+> [docs/phase-2-research.md](docs/phase-2-research.md).
 
 | Path | Status |
 |---|---|
-| ~~`player/ai/MoveStrategy.java`, `MiniMax.java`, `BoardEvaluator.java`, `player/Player.java`~~ | **DELETED in Phase 1.** Was a second, unused, interface-based minimax/evaluator abstraction that nothing constructed or called; `MiniMax` differed from the live `Minimax` only by capitalization. |
-| ~~`pieces/Piece2.java`, `pieces/PieceUT.java`~~ | **DELETED in Phase 1.** Were empty unreferenced classes. |
-| ~~`ai/EvaluationLevel2.java`, `ai/ChessMoveConverter.java`~~ | **DELETED in Phase 1** (heuristic / UCI-conversion ideas captured in phase-1-notes §3 first). Were unreferenced. |
-| `ai/BoardState.getAllPossibleMoves()` / `getAllPossibleMovesForASide()` | Dead in production, but `getAllPossibleMovesForASide()` is now called by the Phase 0 characterization suite (its buggy output is pinned there). **Deferred to Phase 2** to delete with the move-generator rewrite. |
-| ~~`ChessServer/ChessServer.java`~~ | **DELETED in Phase 1.** Was entirely commented out (a Spark REST stub); `spark` was never even a declared dependency. |
+| ~~`player/ai/*`, `player/Player.java`~~ | **DELETED in Phase 1** — a second, unused minimax/evaluator abstraction. |
+| ~~`pieces/Piece2.java`, `pieces/PieceUT.java`~~ | **DELETED in Phase 1** — empty unreferenced classes. |
+| ~~`ai/EvaluationLevel2.java`, `ai/ChessMoveConverter.java`~~ | **DELETED in Phase 1** (ideas captured in phase-1-notes §3 first). |
+| ~~`ChessServer/ChessServer.java`~~ | **DELETED in Phase 1** — 100% commented-out Spark stub. |
+| ~~`main/CheckScanner.java`~~ | **DELETED in Phase 2** — one of the three check/mate impls; everything now uses `rules.Rules` → `BitBoard`. |
+| ~~`ai/BoardState.getAllPossibleMoves()` / `getAllPossibleMovesForASide()` / `makeMoveToCheckIt()` / `makeMoveAndGetStatus/Value/Fen()` / `cancelMove()` / `main()`~~ | **DELETED in Phase 2** — the mutate-a-fact-out-of-the-live-board family. Replaced by `BoardState.getLegalMoves()` → `rules.Rules`. |
+| `pieces/*.isValidMovement()` / `moveCollidesWithPiece()`, `King.canCastle()` | **Dead since Phase 2** (only `CheckScanner` and the old `isValidMove` pipeline called them). Left in place; removed in Phase 3 with the `pieces` / UI decouple. |
 | `ai/openingBook/*` (Retrofit/Lichess client, binary book reader) | Fully implemented but never invoked. **Deferred to Phase 5** (completion, not removal). |
-| `ai/TranspositionTable.java`, `ai/BitBoard/ZobristHashing.java` | Implemented but wired into `Minimax` only as commented-out lines. Left for Phase 2/4 to decide (not in Phase 1's scope). |
+| `ai/TranspositionTable.java`, `ai/BitBoard/ZobristHashing.java` | Implemented; wired into `Minimax` only as commented-out lines (`ZobristHashing` is used by `BoardStateTracker` for the search's own repetition check). Phase 4. |
+| `ai/BoardState.convertPiecesToFEN()` / `convertPiecesToDrawFEN()` | Still used by `Board` / `SavedStatesForDraws`, but the rules path now uses the cleaner `BoardState.toRulesFen()`. Consolidate in Phase 3. |
 
 ## 4. How the pieces actually interact today
 
 ### 4.1 Package dependency graph is circular, not layered
 
 A "clean" chess engine would layer roughly as `pieces/model → move-gen/rules → engine → UI`,
-each layer only depending on the ones below it. Here, every package imports every other
-package:
+each layer only depending on the ones below it. Here, `main ↔ ai ↔ pieces` still form one
+mutually-dependent cluster (Phase 3 is where that gets broken):
 
-- `pieces.*` imports `ai.BoardState` (its own container) **and** `main.Board`, `main.Move`,
-  `main.setting.ChoosePlayFormat` — i.e. a chess piece class depends on the Swing panel and on
+- `pieces.*` imports `ai.BoardState` (its own container) **and** `main.Board`,
+  `main.setting.ChoosePlayFormat` — a chess piece class depends on the Swing panel and on
   global UI settings just to compute its own pixel position at construction time
   (`Pawn`'s constructor reads `Board.tileSize` and `ChoosePlayFormat.isPlayingWhite` directly,
   [`pieces/Pawn.java:15-26`](src/pieces/Pawn.java#L15-L26)).
-- `ai.BoardState` imports `main.CheckScanner`, `main.Move`, `main.setting.ChoosePlayFormat`.
-- `main.CheckScanner` imports `ai.BoardState` back, and also reaches into `main.Board`'s
-  `public static Piece selectedPiece` field mid-algorithm
-  ([`main/CheckScanner.java:48, 64, 117`](src/main/CheckScanner.java#L48)) to skip a piece
-  that's mid-drag — rules logic reading live UI selection state.
+- `ai.BoardState` imports `main.Move`, `main.setting.ChoosePlayFormat`, and (Phase 2) the
+  `rules` package. ~~`main.CheckScanner`~~ — deleted.
+- ~~`main.CheckScanner` imports `ai.BoardState` back and reaches into `main.Board.selectedPiece`
+  mid-algorithm~~ — **gone in Phase 2**; no rules code reads `Board.selectedPiece` any more.
 - `ai.myEngine` imports `main.Board` and `main.Main` (to call `Main.showEndGameMessage`).
 - `ai.Minimax` and `ai.BitBoard.BitBoardEvaluate` import `main.setting.ChoosePlayFormat`.
-
-So `main ↔ ai ↔ pieces` form one mutually-dependent cluster — there is no package you could
-extract, unit-test, or reuse in isolation without dragging in the other two, and no compiler
-boundary is preventing any of this from getting worse.
+- **New in Phase 2:** the `rules` package depends only on `ai.BitBoard` (one bridge class,
+  `ai.BitBoard.BitBoardRules`) — **no `main.*`, `GUI`, `javax.swing` or `java.awt`**. It is the
+  first module that could be lifted into a headless service unchanged.
 
 ### 4.2 Walkthrough: a human dragging a piece
 
 1. `Input.mousePressed`/`mouseDragged`/`mouseReleased` (a `MouseAdapter` registered directly on
-   the `Board` panel) constructs a `Move` and asks `board.state.isValidMove(move)` — validated
-   via the **object-oriented** rules (§2.2/§2.3, path 1).
+   the `Board` panel) constructs a `Move` and asks `board.state.isValidMove(move)` — which
+   since Phase 2 delegates to `rules.Rules` (one legal-move set, cached per position).
 2. `Board.makeMove(move)` mutates `BoardState` fields directly, plays a sound
-   (`AudioPlayer`), starts a `ChessAnimation`, and — as part of building the move's PGN string
-   — triggers the **third** check-detection path (§2.3) as a side effect of formatting.
-3. `Board.updateGameState` re-derives game-over status **again**, independently, by calling
-   `CheckScanner` once more and consulting `SavedStatesForDraws` (a separate static repetition
-   tracker) and a 50-move counter kept on `BoardState`.
+   (`AudioPlayer`), starts a `ChessAnimation`, and builds the move's SAN string — whose
+   `+`/`#`/`1/2-1/2` suffix now asks `rules.Rules` about the position *after* the move
+   (Phase 2; no longer a simulate-and-revert on the live board).
+3. `Board.updateGameState` reads the **one** status (`state.getRulesStatus()`), plus
+   `SavedStatesForDraws` for threefold (position history, which the stateless status can't see).
 4. If it's the engine's turn next, `Input.makeEngineMove` spins up a raw `Thread` (Stockfish
    path) or delegates to `myEngine.makeMove` (its own `ExecutorService`), which **itself**
    calls back into `Board.makeMove`, closing a loop where the "AI" layer drives the UI layer
@@ -243,9 +289,9 @@ boundary is preventing any of this from getting worse.
 
 `Input.makeEngineMove` spins a new thread that busy-loops (up to 1200ms, `Thread.sleep`-free
 tight loop) calling `StockfishEngine.getBestMove`, which itself restarts the UCI handshake
-every call and polls output with `Thread.sleep(180)`. A returned move is validated **again**
-through the object-oriented `BoardState.isValidMove` before being applied — so even a trusted
-engine's move is re-validated through the slower, brute-force legality path.
+every call and polls output with `Thread.sleep(180)`. A returned move is validated through
+`BoardState.isValidMove` before being applied (Phase 2: that now means a `rules.Rules` legal-set
+lookup — cheap and cached — rather than the old brute-force path).
 
 ## 5. Biggest architectural flaws, ranked
 
@@ -256,12 +302,13 @@ engine's move is re-validated through the slower, brute-force legality path.
    how a move is applied risks breaking painting, sound, and engine turn-taking simultaneously,
    because they're all the same method (`Board.makeMove`).
 
-2. **Two board representations and three independent check/checkmate/stalemate
-   implementations, with no single source of truth** (§2.1, §2.3). This is the most direct
-   explanation for the bugs called out in the last commit ("doesn't recognize draws",
-   "sometimes avoids mate"): a fix applied to `CheckScanner` doesn't touch `BitBoard`'s
-   `isCheckOn`, and vice versa, so the UI and the engine can legitimately disagree about
-   whether a position is check, mate, or a draw.
+2. ~~**Two board representations and three independent check/checkmate/stalemate
+   implementations, with no single source of truth**~~ — **RESOLVED in Phase 2.** There is now
+   one rules authority (`rules.Rules` over `BitBoard`); `CheckScanner` and the SAN
+   simulate-and-revert are deleted, and the four draw-detection bugs are fixed. The object
+   model still holds a *copy* of the position for rendering/bookkeeping and could drift from the
+   FEN it hands the rules engine — collapsing that duplication of *state* (not of *rules*) is
+   Phase 3's job.
 
 3. **Circular package dependencies (`main ↔ ai ↔ pieces`)** with no compiler-enforced boundary
    (§4.1). A `Piece` needing `Board.tileSize` and `ChoosePlayFormat.isPlayingWhite` just to
@@ -288,10 +335,10 @@ engine's move is re-validated through the slower, brute-force legality path.
    (§2.4), which is a Swing thread-safety violation that can manifest as intermittent
    UI glitches or hangs.
 
-6. **A formatting method has a game-logic side effect.** `Move.setRepresentation()` — called
-   to build a PGN string — triggers a full simulate/check/revert cycle on the live board
-   (§2.3, path 3). Generating notation should never be able to affect (or be affected by) game
-   rules evaluation; here they're the same call chain.
+6. ~~**A formatting method has a game-logic side effect.**~~ — **RESOLVED in Phase 2.**
+   `Move.setRepresentation()` → `getStatusString()` now calls
+   `rules.Rules.status(rules.Rules.applyMove(fen, move))` — a pure query on a derived position,
+   no mutation of the live board.
 
 7. **Expensive resource loading tied to the domain model.** `pieces.Piece` decodes and
    rescales the sprite sheet image (`ImageIO.read` + `getScaledInstance`) in an **instance**
@@ -301,18 +348,17 @@ engine's move is re-validated through the slower, brute-force legality path.
    — redoes this work. A pure rules/model object is paying an image-decoding cost that only the
    renderer needs.
 
-8. **No layering means no testability.** Because `pieces`, `ai`, and `main` all depend on each
-   other, and the one class that holds "the rules" (`Board`) is a `JPanel`, there is currently
-   no way to write a headless unit test for "is this checkmate" or "is this move legal" without
-   booting Swing and wiring up sound/animation collaborators.
+8. **No layering means no testability** — *improving.* `pieces`, `ai`, and `main` still depend
+   on each other, but Phase 2's `rules` package is fully headless and directly unit-tested
+   (`rules.RulesTest`), and `BoardState`'s rules API is now exercised without Swing. The Swing
+   `Board` / `Input` glue and the `Minimax` search remain untested — Phase 3/4.
 
-9. **Dead and parallel implementations inflate the codebase with no signal for which path is
-   live** (§3). ~~a second minimax engine, two extra `Piece` variants, an unused evaluator
-   abstraction, a commented-out server~~ — **all deleted in Phase 1**. What remains:
-   a fully-built-but-never-called opening-book/Lichess client (kept for Phase 5), the
-   transposition/Zobrist classes wired in only as comments, and `BoardState`'s
-   test-only move-gen methods (kept for Phase 2). The naming trap that forced anyone changing
-   "the" engine to grep for `ai.Minimax` vs. `player.ai.MiniMax` is now gone.
+9. **Dead and parallel implementations** (§3) — mostly cleared. Phase 1 deleted the second
+   minimax engine, the extra `Piece` variants, the unused evaluator, the REST stub. Phase 2
+   deleted `CheckScanner` and the `BoardState` simulate-and-revert / bulk-generator family.
+   What remains: the opening-book/Lichess client (Phase 5), the transposition/Zobrist classes
+   wired in only as comments (Phase 4), the now-dead `pieces/*` movement predicates (Phase 3),
+   and the two FEN serializers on `BoardState` (Phase 3).
 
 10. **No structured persistence despite that being a stated goal.** Saved games are flat FEN
     text files (§2.7); there is no schema that could support the "database of past games to
@@ -321,14 +367,21 @@ engine's move is re-validated through the slower, brute-force legality path.
 
 ## 6. Summary
 
-The engine that actually runs today is: `Board` (Swing) → `Input` (Swing) → either
-`StockfishEngine` (process-per-call UCI) or `myEngine` → `Minimax` (bitboard alpha-beta) →
-`Move` (translated back to the object model) → `Board.makeMove` (mutates `BoardState`, which
-also drives painting/sound/notation). Running in parallel and unreachable, an opening-book
-client still sits in the tree (kept for Phase 5); the second engine (`player/ai`), the extra
-piece variants, and the REST-server stub were removed in Phase 1. Meanwhile
-three separate pieces of code — `CheckScanner`, `BitBoard`'s bitwise attack tables, and a
-simulate-and-revert triggered from PGN formatting — each independently decide whether a king is
-in check, and nothing keeps them in agreement. Any redesign should prioritize collapsing these
-into one board representation and one rules engine with a real API boundary, before touching UI
-or engine strength.
+The path that runs today: `Board` (Swing) → `Input` (Swing) → either `StockfishEngine`
+(process-per-call UCI) or `myEngine` → `Minimax` (alpha-beta over `BitBoard`) → `Move`
+(translated back to the object model) → `Board.makeMove` (mutates `BoardState`, which also
+drives painting / sound / notation).
+
+**After Phase 2**, "is this legal / check / mate / stalemate / draw" has exactly one answer:
+`rules.Rules` over `BitBoard`, reached by `BoardState.isValidMove` / `getLegalMoves` /
+`getAccurateStatus` / `getStatus` / `getIsCheck` (delegating, cached per position) and by
+`Board` / `Move`. `CheckScanner`, the SAN simulate-and-revert, and the `BoardState`
+bulk-generator family are gone; the four draw-detection bugs are fixed; two bitboard
+move-generation bugs (queen up-left attacks, en-passant) are fixed.
+
+**Still open:** the object model still keeps its *own* copy of the position (Phase 3 collapses
+that); `Board extends JPanel` is still the move-execution logic (Phase 3); the `Minimax` search
+still reads `ChoosePlayFormat` statics and there are still four ad hoc concurrency patterns,
+which together cause the "engine stops playing when it's losing" bug in §2.4 (Phase 3 removes
+the statics, Phase 4 unifies concurrency and the Stockfish session handling); persistence is
+still a flat FEN list (Phase 5).

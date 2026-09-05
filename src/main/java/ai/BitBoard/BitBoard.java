@@ -95,7 +95,7 @@ public class BitBoard {
                         }
                         else {
                             if (!piece.isFirstMove) {
-                                canBlackCastleQueenSide = false;
+                                canBlackCastleKingSide = false;
                             }
                         }
                         break;
@@ -725,6 +725,11 @@ public class BitBoard {
         return 0;
     }
 
+    /** Package-visible for the Phase 2 {@code rules} adapter: is the side to move in check? */
+    public boolean isSideToMoveInCheck() {
+        return isCheckOn(isWhiteToMove ? 1 : 0);
+    }
+
     public int getStatus() {
         if (nextStates == null) getNextStates();
         if (nextStates.isEmpty()) {
@@ -733,7 +738,9 @@ public class BitBoard {
             // System.out.println("staleMate!!!!!!!!!!!");
             return 0;
         }
-        if (numOfTurnsWithoutCaptureOrPawnMove >= 50) return 0;
+        // 50-move rule: 50 full moves without a capture or pawn move. The counter is
+        // incremented once per ply (getNewBoardFromMove), so the threshold is 100, not 50.
+        if (numOfTurnsWithoutCaptureOrPawnMove >= 100) return 0;
         return 1;
     }
 

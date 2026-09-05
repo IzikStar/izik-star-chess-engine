@@ -4,6 +4,8 @@ import ai.BitBoard.BitMove;
 import ai.BitBoard.BitOperations;
 import ai.BoardState;
 import pieces.*;
+import rules.ChessMove;
+import rules.Rules;
 
 import java.util.ArrayList;
 
@@ -132,12 +134,28 @@ public class Move {
         if (captured != null) return "x";
         return "";
     }
+    /**
+     * The "+", "#" or "1/2-1/2" suffix. Phase 2: computed from the position <em>after</em> the
+     * move via the rules engine, instead of mutating the live {@code BoardState} and reverting
+     * it (the old {@code board.makeMoveAndGetStatus(this)} — a game-logic side effect inside a
+     * formatting method).
+     */
     private String getStatusString() {
-        int status = board.makeMoveAndGetStatus(this);
-        if (status == 0) return "\n1/2-1/2";
-        if (status == Integer.MAX_VALUE) return "#" + (piece.isWhite ? "\n1-0" : "\n0-1");
-        if (status == 2) return "+";
-        return "";
+        int from = piece.row * 8 + piece.col;
+        int to = newRow * 8 + newCol;
+        String afterFen;
+        try {
+            afterFen = Rules.applyMove(board.toRulesFen(),
+                    new ChessMove(from, to, promotionChoice));
+        } catch (RuntimeException e) {
+            return ""; // engine rejects the move — no annotation
+        }
+        return switch (Rules.status(afterFen)) {
+            case CHECKMATE -> "#" + (piece.isWhite ? "\n1-0" : "\n0-1");
+            case STALEMATE, DRAW_FIFTY_MOVE, DRAW_INSUFFICIENT_MATERIAL, DRAW_THREEFOLD -> "\n1/2-1/2";
+            case CHECK -> "+";
+            case IN_PROGRESS -> "";
+        };
     }
     private String getCastlingString() {
         if (piece instanceof King && Math.abs(oldCol - newCol) == 2) {

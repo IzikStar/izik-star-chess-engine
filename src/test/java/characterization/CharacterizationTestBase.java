@@ -9,19 +9,16 @@ import main.savedGames.SavedStatesForDraws;
 import org.junit.jupiter.api.BeforeEach;
 
 /**
- * Phase 0 characterization tests — see docs/phase-0-notes.md.
+ * Characterization tests — see docs/phase-0-notes.md and docs/phase-2-research.md.
  *
- * <p>These tests pin down what the two rule engines actually do TODAY (bugs included).
- * They do not change production logic. Tests tagged {@code "known-bug"} assert the
- * <em>correct</em> chess answer and are expected to fail until a later phase fixes the
- * engine; run them with {@code mvn test -Pknown-bugs}.
- *
- * <p>Two independent rule paths are exercised:
+ * <p>Originally these pinned what two independent rule engines did (bugs included). Phase 2
+ * unified them: {@link BoardState}'s public rules API now delegates to {@code rules.Rules},
+ * which wraps the {@link BitBoard} engine. So the "OO path" and the "bitboard path" below are
+ * two entry points to the <em>same</em> authority; they must agree.
  * <ul>
- *   <li><b>OO path</b> — {@link BoardState} + {@code main.CheckScanner}
- *       ({@code getAllPossibleMovesForASide}, {@code getAccurateStatus}, {@code getIsCheck}).</li>
- *   <li><b>Bitboard path</b> — {@link BitBoard} ({@code getNextStates}, {@code getStatus}),
- *       the representation the minimax search runs on.</li>
+ *   <li><b>OO path</b> — {@link BoardState} ({@code getLegalMoves}, {@code getAccurateStatus},
+ *       {@code getIsCheck}, {@code isValidMove}), delegating to {@code rules.Rules}.</li>
+ *   <li><b>Bitboard path</b> — {@link BitBoard} ({@code getNextStates}, {@code getStatus}).</li>
  * </ul>
  */
 public abstract class CharacterizationTestBase {
@@ -58,10 +55,11 @@ public abstract class CharacterizationTestBase {
     // ---- Fixtures -----------------------------------------------------------
 
     /**
-     * The engines read mutable global UI settings ({@code ChoosePlayFormat},
+     * The legacy engine still reads mutable global UI settings ({@code ChoosePlayFormat},
      * {@code SettingPanel.skillLevel}) and a static repetition history
      * ({@code SavedStatesForDraws}). Reset them before every test so ordering
-     * cannot leak state between cases.
+     * cannot leak state between cases. (The unified {@code rules.Rules} path reads none of
+     * these — that is a Phase 2 goal — but the OO promotion clone path still does.)
      */
     @BeforeEach
     void resetGlobals() {
@@ -73,7 +71,7 @@ public abstract class CharacterizationTestBase {
         ChoosePlayFormat.setSkillLevel = 0;
         SettingPanel.skillLevel = 0;
         SavedStatesForDraws.clear();
-        Board.selectedPiece = null; // CheckScanner reads/writes this static mid-algorithm
+        Board.selectedPiece = null;
     }
 
     // ---- Helpers ----------------------------------------------------------
@@ -86,9 +84,9 @@ public abstract class CharacterizationTestBase {
         return new BitBoard(new BoardState(fen, null));
     }
 
-    /** Legal moves for the side to move, via the object-oriented rule path. */
+    /** Legal moves for the side to move, via the object-oriented entry point. */
     protected static int legalMovesOO(String fen) {
-        return oo(fen).getAllPossibleMovesForASide().length;
+        return oo(fen).getLegalMoves().size();
     }
 
     /** Legal moves for the side to move, via the bitboard rule path. */
