@@ -24,7 +24,7 @@ public class Input extends MouseAdapter {
     AudioPlayer audioPlayer = new AudioPlayer();
     CountDownLatch latch = new CountDownLatch(1);
 
-    String pathToStockfish = "src/res/stockfish/stockfish-windows-x86-64.exe";
+    String pathToStockfish = StockfishEngine.DEFAULT_ENGINE_PATH;
     StockfishEngine engine;
     myEngine myEngine;
 

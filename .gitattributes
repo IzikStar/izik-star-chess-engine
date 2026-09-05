@@ -1,0 +1,11 @@
+# The Maven wrapper scripts have fixed line endings regardless of platform.
+mvnw            text eol=lf
+mvnw.cmd        text eol=crlf
+
+# Never touch line endings on these.
+*.exe           binary
+*.jar           binary
+*.wav           binary
+*.png           binary
+*.pdf           binary
+*.docx          binary

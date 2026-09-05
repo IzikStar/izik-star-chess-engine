@@ -5,6 +5,14 @@ import main.setting.SettingPanel;
 import java.io.*;
 
 public class StockfishEngine {
+
+    /**
+     * Location of the Stockfish executable. Defaults to the copy kept under {@code engine/}
+     * at the project root; override with {@code -Dstockfish.path=/absolute/or/relative/path}.
+     */
+    public static final String DEFAULT_ENGINE_PATH =
+            System.getProperty("stockfish.path", "engine/stockfish-windows-x86-64.exe");
+
     private Process engineProcess;
     private BufferedReader reader;
     private BufferedWriter writer;
@@ -42,7 +50,7 @@ public class StockfishEngine {
     public void sendCommand(String command) {
         try {
             if (!isEngineRunning) {
-                startEngine("src\\res\\stockfish\\stockfish-windows-x86-64.exe");
+                startEngine(DEFAULT_ENGINE_PATH);
             }
             writer.write(command + "\n");
             writer.flush();
@@ -119,7 +127,7 @@ public class StockfishEngine {
 
     public static void main(String[] args) {
         StockfishEngine engine = new StockfishEngine();
-        if (engine.startEngine("src\\res\\stockfish\\stockfish-windows-x86-64.exe")) {
+        if (engine.startEngine(DEFAULT_ENGINE_PATH)) {
             engine.setSkillLevel(10); // רמה 5 לדוגמה
 
             String fen = "rnbqkbnr/ppppppPp/8/8/8/8/PPPPPP1P/RNBQKBNR w KQkq - 0 1";
