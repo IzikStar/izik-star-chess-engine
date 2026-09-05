@@ -331,13 +331,18 @@ Recommendation: **A**.
    (`BitPawn.getEnPassantMoves` dropped the pawn) — **done**; the `BitBoard(BoardState)`
    castling-rights typo corrected (latent); `BitMove` stub + queenside-castling-through-check
    re-scoped (see §2.4). ✅ _done_
-3. Point OO `BoardState.isValidMove` + `Board`/`Input`/`King` status & legality calls at the
-   facade (adapter shim). Delete `main.CheckScanner`.
+3. Route `BoardState`'s public rules API (`isValidMove`, `getAccurateStatus`, `getStatus`,
+   `getIsCheck`) and `Board`'s status/paint checks through `rules.Rules`, behind a per-position
+   cache. `CheckScanner` stays (now reached only by `makeMoveToCheckIt` + `myEngine` + a dead
+   `King.canCastle` fallback) — deleted in increment 5. ✅ _done_ — also fixed all four
+   draw-detection bugs early (the `-Pknown-bugs` suite is now empty; its tests moved to
+   `characterization.DrawDetectionTest`, green in the default run).
 4. Point `Move` SAN generation at the facade; remove the live-board simulate-and-revert (Path 3).
 5. Point `myEngine` (skill-0 random) + the `Minimax` entry at the facade's generator/status;
-   delete `BoardState.getAllPossibleMoves*`, `makeMoveAndGet*`, `cancelMove`, `BoardState.main`.
-6. Re-point the two "characterized bug" assertions at the unified generator; flip the 4
-   known-bug reds; add a fixture for every §2.4 divergence. Re-sync `ARCHITECTURE.md`.
+   delete `main.CheckScanner`, `BoardState.getAllPossibleMoves*`, `makeMoveAndGet*`,
+   `cancelMove`, `BoardState.main`.
+6. Re-point the two "characterized bug" assertions at the unified generator; add a fixture for
+   every remaining §2.4 divergence. Re-sync `ARCHITECTURE.md`.
 7. Manual play-through (human-v-computer, computer-v-computer, save/load) for parity.
 
 ---
@@ -394,3 +399,43 @@ from `legalMoves` for now), the `BitBoard` castling-rights constructor bug.
 Verification: `./mvnw test` → **42 green** (23 legacy + 19 new); `-Psmoke` → 3 green
 (`randomGameInBitboardEngine` still terminates cleanly with e.p. now in the move set);
 `-Pknown-bugs` → 4 red (unchanged); `./mvnw package` → jar builds.
+
+### Increment 3 — route the OO path through the facade + fix all draw detection (2026-09-06)
+
+`BoardState`'s public rules API now delegates to `rules.Rules`:
+- `toRulesFen()` — a correct FEN from the live fields (piece squares, turn, the four king/rook
+  first-move flags, `enPassantTile`, the clocks), independent of the quirky
+  `convertPiecesToFEN` / `loadPiecesFromFen`.
+- `ensureRulesCache()` — one `Rules.evaluate(fen)` per distinct position, memoised on the FEN
+  string, feeding both the legal-move set and the status. Keeps the 64-square
+  `Board.paintComponent` sweeps at one generation, not 64.
+- `isValidMove(Move)` → membership test in the cached legal-move set (`from*64+to`). The old
+  `isValidMovement` / `moveCollidesWithPiece` / `CheckScanner.isMoveCausesCheck` pipeline is
+  bypassed.
+- `getAccurateStatus()` / `getStatus()` / `getIsCheck()` → derived from the cached
+  `rules.GameStatus`. New `getRulesStatus()` exposes the enum.
+- `loadPiecesFromFen` — half-move clock and full-move number now `Integer.parseInt(parts[…])`
+  (were `Character.getNumericValue(parts[4].charAt(0))` — one digit only).
+
+`Board`:
+- `paintComponent` — `checkScanner.isChecking(state)` → `state.getIsCheck()` (2 sites).
+- `updateGameState` — the `CheckScanner.isGameOver` + `isChecking` + `insufficientMaterial`
+  ladder replaced by a `switch (state.getRulesStatus())`. Threefold still consulted via
+  `SavedStatesForDraws.isRepetition()` (position history, not in the stateless status).
+
+`BitBoard.getStatus()` — 50-move threshold `>= 50` → `>= 100` (the counter is per-ply).
+
+**All four draw-detection bugs are now fixed** (the "engine doesn't recognize draws" complaint):
+the `-Pknown-bugs` suite is empty; its four tests moved to
+`src/test/java/characterization/DrawDetectionTest.java`, asserting the correct answers, green in
+the default run.
+
+`CheckScanner` is still compiled and used by `makeMoveToCheckIt` (→ `getAllPossibleMovesForASide`
+and `myEngine`) and a now-unreachable `King.canCastle` fallback — deleted in increment 5.
+
+Verification: `./mvnw test` → **46 green** (was 42 + the 4 ex-known-bug tests); `-Psmoke` → 3
+green; `-Pknown-bugs` → 0 tests, BUILD SUCCESS; `./mvnw package` → jar builds. The rules routing
+is covered by `CheckmateStalemateTest` / `SpecialMovesTest` / `StartingPositionTest` (which call
+the now-delegating `getAccurateStatus` / `getIsCheck` / `isValidMove`) plus
+`AppSmokeTest.scriptedGameToCheckmate`. The Swing glue in `Board` is a mechanical translation of
+test-covered values; a human play-through is still owed at increment 7.

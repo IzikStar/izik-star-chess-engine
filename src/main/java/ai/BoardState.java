@@ -5,10 +5,15 @@ import main.CheckScanner;
 import main.Move;
 import main.setting.ChoosePlayFormat;
 import pieces.*;
+import rules.ChessMove;
+import rules.GameStatus;
+import rules.Rules;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class BoardState {
@@ -124,11 +129,12 @@ public class BoardState {
             enPassantTile = (7 - (parts[3].charAt(1) - '1')) * 8 + (parts[3].charAt(0) - 'a');
         }
 
-        // name Of Turn Without Capture Or Pawn Move
-        numOfTurnWithoutCaptureOrPawnMove = Character.getNumericValue(parts[4].charAt(0));
+        // half-move clock (plies since the last capture or pawn move) — parse the whole
+        // number, not only its first digit (the old code read parts[4].charAt(0))
+        numOfTurnWithoutCaptureOrPawnMove = parts.length > 4 ? Integer.parseInt(parts[4]) : 0;
 
-        // name of turns
-        numOfTurns = Integer.parseInt(parts[5]);
+        // full-move number
+        numOfTurns = parts.length > 5 ? Integer.parseInt(parts[5]) : 1;
     }
 
     public void setLastMove(Move lastMove) {
@@ -217,33 +223,114 @@ public class BoardState {
         return null;
     }
 
+    /**
+     * Phase 2: delegates to the single rules authority ({@link rules.Rules}) instead of the
+     * old {@code isValidMovement} / {@code moveCollidesWithPiece} / {@code CheckScanner}
+     * pipeline. The legal-move set is cached per position (see {@link #ensureRulesCache()}) so
+     * the 64-square sweeps in {@code Board.paintComponent} cost one generation, not 64.
+     */
     public boolean isValidMove(Move move) {
         if (isGameOver) {
-            //if (isExecuting) System.out.println(1);
             return false;
         }
-        if (move.piece.isWhite != isWhiteToMove) {
-            //if (isExecuting) System.out.println(2);
+        if (move.piece == null || move.piece.isWhite != isWhiteToMove) {
             return false;
         }
-        if (sameTeam(move.piece, move.captured)) {
-            //if (isExecuting) System.out.println(3);
-            return false;
-        }
-        if (!move.piece.isValidMovement(move.newCol, move.newRow)) {
-            //if (isExecuting) System.out.println(4);
-            return false;
-        }
-        if (move.piece.moveCollidesWithPiece(move.newCol, move.newRow)) {
-            //if (isExecuting) System.out.println(5);
-            return false;
-        }
-        if (checkScanner.isMoveCausesCheck(move)) {
-            //if (isExecuting) System.out.println(6);
-            return false;
-        }
+        ensureRulesCache();
+        int from = move.piece.row * 8 + move.piece.col;
+        int to = move.newRow * 8 + move.newCol;
+        return legalFromToCache.contains(from * 64 + to);
+    }
 
-        return true;
+    // --- Phase 2: unified rules authority ------------------------------------
+
+    private String rulesFenCache;
+    private Set<Integer> legalFromToCache;
+    private GameStatus rulesStatusCache;
+
+    /**
+     * A FEN for {@link rules.Rules}, built from the live fields (piece positions, turn, the
+     * four castling first-move flags, {@code enPassantTile}, and the move clocks). Independent
+     * of {@code convertPiecesToFEN} / {@code loadPiecesFromFen} and their historical quirks.
+     */
+    public String toRulesFen() {
+        char[] sq = new char[64];
+        for (Piece p : pieceList) {
+            if (p.col >= 0 && p.col < 8 && p.row >= 0 && p.row < 8) {
+                sq[p.row * 8 + p.col] = p.getRepresentation();
+            }
+        }
+        StringBuilder fen = new StringBuilder();
+        for (int row = 0; row < 8; row++) {
+            int empty = 0;
+            for (int col = 0; col < 8; col++) {
+                char c = sq[row * 8 + col];
+                if (c == 0) {
+                    empty++;
+                    continue;
+                }
+                if (empty > 0) {
+                    fen.append(empty);
+                    empty = 0;
+                }
+                fen.append(c);
+            }
+            if (empty > 0) {
+                fen.append(empty);
+            }
+            if (row < 7) {
+                fen.append('/');
+            }
+        }
+        fen.append(isWhiteToMove ? " w " : " b ");
+
+        StringBuilder castle = new StringBuilder();
+        Piece wKing = getPiece(4, 7);
+        if (wKing instanceof King && wKing.isFirstMove) {
+            Piece r = getPiece(7, 7);
+            if (r instanceof Rook && r.isFirstMove) castle.append('K');
+            r = getPiece(0, 7);
+            if (r instanceof Rook && r.isFirstMove) castle.append('Q');
+        }
+        Piece bKing = getPiece(4, 0);
+        if (bKing instanceof King && bKing.isFirstMove) {
+            Piece r = getPiece(7, 0);
+            if (r instanceof Rook && r.isFirstMove) castle.append('k');
+            r = getPiece(0, 0);
+            if (r instanceof Rook && r.isFirstMove) castle.append('q');
+        }
+        fen.append(castle.length() == 0 ? "-" : castle.toString());
+
+        fen.append(' ');
+        if (enPassantTile >= 0 && enPassantTile < 64) {
+            fen.append(squareToLetters(enPassantTile % 8, enPassantTile / 8).toLowerCase());
+        } else {
+            fen.append('-');
+        }
+        fen.append(' ').append(Math.max(0, numOfTurnWithoutCaptureOrPawnMove));
+        fen.append(' ').append(Math.max(1, numOfTurns));
+        return fen.toString();
+    }
+
+    private void ensureRulesCache() {
+        String fen = toRulesFen();
+        if (fen.equals(rulesFenCache)) {
+            return;
+        }
+        Rules.Evaluation eval = Rules.evaluate(fen);
+        Set<Integer> set = new HashSet<>(eval.legalMoves.size() * 2);
+        for (ChessMove m : eval.legalMoves) {
+            set.add(m.from() * 64 + m.to());
+        }
+        rulesFenCache = fen;
+        legalFromToCache = set;
+        rulesStatusCache = eval.status;
+    }
+
+    /** The unified {@link rules.GameStatus} for the current position (threefold not included). */
+    public GameStatus getRulesStatus() {
+        ensureRulesCache();
+        return rulesStatusCache;
     }
 
     public boolean sameTeam(Piece p1, Piece p2) {
@@ -523,13 +610,12 @@ public class BoardState {
     }
 
     public int getAccurateStatus() {
-        if (checkScanner.isGameOver(findKing(isWhiteToMove))) {
-            if (getIsCheck()) {
-                return Integer.MAX_VALUE;
-            }
-            return 0;
-        }
-        return getIsCheck() ? 2 : 1;
+        return switch (getRulesStatus()) {
+            case CHECKMATE -> Integer.MAX_VALUE;
+            case STALEMATE, DRAW_FIFTY_MOVE, DRAW_THREEFOLD, DRAW_INSUFFICIENT_MATERIAL -> 0;
+            case CHECK -> 2;
+            case IN_PROGRESS -> 1;
+        };
     }
 
     public int getGameState() {
@@ -754,14 +840,12 @@ public class BoardState {
 
 
     public int getStatus() {
-        if (checkScanner.isGameOver(findKing(isWhiteToMove))) {
-            return 0;
-        }
-        return 1;
+        return getRulesStatus().isGameOver() ? 0 : 1;
     }
 
     public boolean getIsCheck() {
-        return checkScanner.isCheckingForEvaluation(this);
+        GameStatus s = getRulesStatus();
+        return s == GameStatus.CHECK || s == GameStatus.CHECKMATE;
     }
 
 

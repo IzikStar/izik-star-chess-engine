@@ -31,6 +31,40 @@ public final class Rules {
         return out;
     }
 
+    /** Legal moves + status from a single bitboard pass — for callers that need both. */
+    public static Evaluation evaluate(String fen) {
+        Position pos = Position.fromFen(fen);
+        BitBoard b = BitBoardRules.fromFen(fen);
+        List<int[]> raw = BitBoardRules.legalMoves(b);
+        List<ChessMove> moves = new ArrayList<>(raw.size());
+        for (int[] m : raw) {
+            moves.add(new ChessMove(m[0], m[1], (char) m[2]));
+        }
+        boolean check = BitBoardRules.sideToMoveInCheck(b);
+        GameStatus status;
+        if (moves.isEmpty()) {
+            status = check ? GameStatus.CHECKMATE : GameStatus.STALEMATE;
+        } else if (isInsufficientMaterial(pos)) {
+            status = GameStatus.DRAW_INSUFFICIENT_MATERIAL;
+        } else if (pos.halfmoveClock() >= 100) {
+            status = GameStatus.DRAW_FIFTY_MOVE;
+        } else {
+            status = check ? GameStatus.CHECK : GameStatus.IN_PROGRESS;
+        }
+        return new Evaluation(moves, status);
+    }
+
+    /** Immutable pair returned by {@link #evaluate(String)}. */
+    public static final class Evaluation {
+        public final List<ChessMove> legalMoves;
+        public final GameStatus status;
+
+        Evaluation(List<ChessMove> legalMoves, GameStatus status) {
+            this.legalMoves = legalMoves;
+            this.status = status;
+        }
+    }
+
     public static boolean isLegal(String fen, ChessMove move) {
         for (ChessMove m : legalMoves(fen)) {
             if (m.from() == move.from() && m.to() == move.to()

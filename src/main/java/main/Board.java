@@ -9,6 +9,7 @@ import main.savedGames.SavedStatesForDraws;
 import main.setting.ChoosePlayFormat;
 import main.setting.SettingPanel;
 import pieces.*;
+import rules.GameStatus;
 // מחלקות של ג'אווה
 import javax.swing.*;
 import java.awt.*;
@@ -102,7 +103,7 @@ public class Board extends JPanel {
         g.fillRect(getXFromCol(hintToC), getYFromRow(hintToR), tileSize, tileSize);
 
         // paint the border of the king red if it's under attack
-        if (state.findKing(state.getIsWhiteToMove()) != null && state.checkScanner.isChecking(state)) {
+        if (state.findKing(state.getIsWhiteToMove()) != null && state.getIsCheck()) {
             Piece king = state.findKing(state.getIsWhiteToMove());
             drawSquareWithCircle(g ,getXFromCol(king.col) / tileSize, getYFromRow(king.row) / tileSize);
         }
@@ -117,7 +118,7 @@ public class Board extends JPanel {
                 else {
                     g2d.fillRect((cols - 1 - selectedPiece.col) * tileSize, (rows - 1 - selectedPiece.row) * tileSize, tileSize, tileSize);
                 }
-                if (state.checkScanner.isChecking(state)) {
+                if (state.getIsCheck()) {
                     Piece king = state.findKing(state.getIsWhiteToMove());
                     //g2d.setColor(new Color(255, 0, 0, 237)); // אדום חצי שקוף
                     //g2d.fillRect(king.col * tileSize, king.row * tileSize, tileSize, tileSize);
@@ -509,35 +510,38 @@ public class Board extends JPanel {
 
     public void updateGameState(boolean isRealBoard) {
         Piece king = state.findKing(state.getIsWhiteToMove());
-        if (SavedStatesForDraws.isRepetition() || state.numOfTurnWithoutCaptureOrPawnMove >= 50) {
-            if (isRealBoard){
-                input.isStatusChanged = true;
-                input.isCheckMate = false;
-                input.isStaleMate = false;
-                input.isRepetition = true;
-                input.isWhiteTurn = state.getIsWhiteToMove();
-                audioPlayer.playDrawSound();
-            }
+        GameStatus status = state.getRulesStatus();
+
+        // Threefold repetition is tracked separately (position history), not by the
+        // stateless rules status.
+        if (SavedStatesForDraws.isRepetition() && isRealBoard) {
+            input.isStatusChanged = true;
+            input.isCheckMate = false;
+            input.isStaleMate = false;
+            input.isRepetition = true;
+            input.isWhiteTurn = state.getIsWhiteToMove();
+            audioPlayer.playDrawSound();
         }
-        if (state.checkScanner.isGameOver(king)) {
-            if (state.checkScanner.isChecking(state)) {
-                // System.out.println(isWhiteToMove ? "black wins!" : "white wins!");
-                if (isRealBoard){
+
+        switch (status) {
+            case CHECKMATE -> {
+                if (isRealBoard) {
                     input.isStatusChanged = true;
                     input.isCheckMate = true;
                     input.isStaleMate = false;
                     input.isWhiteTurn = state.getIsWhiteToMove();
                     if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite == state.getIsWhiteToMove()) {
                         audioPlayer.playLosingSound();
-                    }
-                    else {
+                    } else {
                         audioPlayer.playCheckMateSound();
                     }
-                    animation = new ChessAnimation(king, king.xPos, king.yPos, king.xPos, king.yPos, 500);
+                    if (king != null) {
+                        animation = new ChessAnimation(king, king.xPos, king.yPos, king.xPos, king.yPos, 500);
+                    }
                 }
-            } else {
-                // System.out.println("stale mate! draw!");
-                if (isRealBoard){
+            }
+            case STALEMATE -> {
+                if (isRealBoard) {
                     input.isStatusChanged = true;
                     input.isCheckMate = false;
                     input.isStaleMate = true;
@@ -545,21 +549,20 @@ public class Board extends JPanel {
                     audioPlayer.playDrawSound();
                 }
             }
-//            isGameOver = true;
-        } else if (state.insufficientMaterial(true) && state.insufficientMaterial(false)) {
-            // System.out.println("insufficientMaterial! draw!");
-//            isGameOver = true;
-            if (isRealBoard){
-                input.isStatusChanged = true;
-                input.isCheckMate = false;
-                input.isStaleMate = false;
-                input.isWhiteTurn = state.getIsWhiteToMove();
-                audioPlayer.playDrawSound();
+            case DRAW_FIFTY_MOVE, DRAW_INSUFFICIENT_MATERIAL, DRAW_THREEFOLD -> {
+                if (isRealBoard) {
+                    input.isStatusChanged = true;
+                    input.isCheckMate = false;
+                    input.isStaleMate = false;
+                    input.isWhiteTurn = state.getIsWhiteToMove();
+                    audioPlayer.playDrawSound();
+                }
             }
-        }
-        else if (state.checkScanner.isChecking(state)) {
-            audioPlayer.playCheckSound();
-            repaint();
+            case CHECK -> {
+                audioPlayer.playCheckSound();
+                repaint();
+            }
+            case IN_PROGRESS -> { }
         }
     }
 
