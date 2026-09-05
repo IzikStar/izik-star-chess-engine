@@ -6,17 +6,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import pieces.Piece;
 
-import java.util.ConcurrentModificationException;
-
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Castling, en passant and promotion as seen by the object-oriented rule path.
+ * Castling, en passant and promotion through the object-oriented entry point
+ * ({@code BoardState.isValidMove} / {@code getLegalMoves}), which since Phase 2 delegates to
+ * the unified {@code rules.Rules} authority.
  *
- * <p>The reliable OO entry point is {@code BoardState.isValidMove}. The bulk generator
- * {@code getAllPossibleMovesForASide()} is dead code (no live callers) and is
- * characterized here as broken, not used to assert anything.
+ * <p>The old characterized bug here — {@code getAllPossibleMovesForASide()} throwing
+ * {@code ConcurrentModificationException} whenever a capture was available — is gone with that
+ * method (Phase 2 increment 5); nothing to assert.
  */
 class SpecialMovesTest extends CharacterizationTestBase {
 
@@ -46,12 +45,11 @@ class SpecialMovesTest extends CharacterizationTestBase {
     }
 
     @Test
-    @DisplayName("CHARACTERIZED BUG: getAllPossibleMovesForASide() throws CME when a capture exists")
-    void bulkGeneratorThrowsOnCapture() {
-        // makeMoveToCheckIt() calls capture()/loadPiecesFromFen(), which structurally
-        // mutate pieceList while getAllPossibleMovesForASide() is iterating it. Any
-        // position where the side to move has a capture available triggers this.
-        assertThrows(ConcurrentModificationException.class,
-                () -> oo(CASTLING_OPEN).getAllPossibleMovesForASide());
+    @DisplayName("Castling and en passant appear in the OO legal-move list")
+    void specialMovesInLegalMoveList() {
+        assertTrue(oo(CASTLING_OPEN).getLegalMoves().stream()
+                .anyMatch(m -> m.toUci().equals("e1g1")), "O-O in the list");
+        assertTrue(oo(EN_PASSANT).getLegalMoves().stream()
+                .anyMatch(m -> m.toUci().equals("e5f6")), "e.p. in the list");
     }
 }

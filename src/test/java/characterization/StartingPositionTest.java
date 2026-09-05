@@ -14,13 +14,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 class StartingPositionTest extends CharacterizationTestBase {
 
     @Test
-    @DisplayName("CHARACTERIZED: OO getAllPossibleMovesForASide() yields 12 (not 20) from the start")
-    void ooStartingMoveCountIsWrong() {
-        // The correct answer is 20. Pawn.getValidMoves() only ever generates the
-        // one-square push (8 pawn + 4 knight = 12); the two-square opening push is
-        // missing. getAllPossibleMovesForASide() has no live callers and is slated to
-        // be replaced by the unified move generator in Phase 2 — pinned, not "fixed".
-        assertEquals(12, legalMovesOO(START));
+    @DisplayName("OO entry point: 20 legal moves from the initial position")
+    void ooStartingMoveCount() {
+        // Was a characterized bug: the old list-based getAllPossibleMovesForASide()
+        // returned 12 (one-square pawn pushes + knights, no two-square push). Phase 2
+        // routed BoardState.getLegalMoves() through the unified generator, so the OO and
+        // bitboard entry points now agree.
+        assertEquals(20, legalMovesOO(START));
+        assertEquals(legalMovesBit(START), legalMovesOO(START));
     }
 
     @Test

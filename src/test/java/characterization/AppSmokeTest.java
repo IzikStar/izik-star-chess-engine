@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * manual play-through the refactor guide left owed after Phase 0 / Phase 1.
  *
  * <p>Headless, no Swing, no synthetic input. It drives the real rules core
- * ({@code BoardState} + {@code Move} + {@code main.CheckScanner}), the real engine board
+ * ({@code BoardState} + {@code Move}, delegating to {@code rules.Rules}), the real engine board
  * representation ({@code BitBoard}, which the minimax search runs on), and the real
  * persistence classes ({@code SaveGame} / {@code LoadGame}) through complete games.
  *

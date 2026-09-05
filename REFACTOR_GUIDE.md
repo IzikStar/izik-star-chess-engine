@@ -215,11 +215,18 @@ works exactly as before.
 > draw-detection bugs are fixed** — the `-Pknown-bugs` suite is empty, its tests are now green
 > in `characterization.DrawDetectionTest`. `./mvnw test` 46 green, `-Psmoke` 3 green.
 > Increment 4 done: `Move`'s SAN `+`/`#`/`1/2-1/2` suffix now queries `rules.Rules` about the
-> position after the move instead of mutating and reverting the live board;
-> `BoardState.makeMoveAndGetStatus` (the last of the triplicated "Path 3" status detection)
-> deleted. `./mvnw test` 49 green. `CheckScanner` still compiles (used by `makeMoveToCheckIt` +
-> `myEngine`); deleted in increment 5. Next: increment 5 (`myEngine` + `Minimax` entry → facade,
-> delete `CheckScanner` + the dead `BoardState` move-gen family).
+> position after the move; `BoardState.makeMoveAndGetStatus` (last of the triplicated "Path 3")
+> deleted.
+> **Increment 5 done: `main.CheckScanner` deleted (−213 lines)** — `myEngine` uses
+> `isValidMove` / `getIsCheck`, `King.canCastle` is geometry-only. `BoardState` lost
+> `getAllPossibleMoves*`, `makeMoveToCheckIt`, `makeMoveAndGet*`, `cancelMove`, `main` (net
+> ≈ −200 lines); new `getLegalMoves()` → `rules.Rules`. The two "characterized bug" test
+> assertions are re-pointed (start move count now asserts the correct **20**; the CME
+> characterization is gone with the method). `Minimax` already ran on the canonical bitboard,
+> so nothing to re-point there. `./mvnw test` 49 green, `-Psmoke` 3 green.
+> Left for later: `Piece.isValidMovement` / `moveCollidesWithPiece` / `King.canCastle` are now
+> dead but still present — a Phase 3 `pieces`-restructure cleanup. Next: increment 6 (re-sync
+> [ARCHITECTURE.md](ARCHITECTURE.md)), then increment 7 (manual play-through) before merge.
 
 **Goal.** Collapse the two independent board models and the three independent
 check/checkmate/draw implementations (ARCHITECTURE.md §2.1, §2.3) into one canonical

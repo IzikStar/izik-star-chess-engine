@@ -2,7 +2,6 @@ package pieces;
 
 import ai.BoardState;
 import main.Board;
-import main.Move;
 import main.setting.ChoosePlayFormat;
 
 import java.awt.image.BufferedImage;
@@ -37,21 +36,22 @@ public class King extends Piece{
         if (board.getIsWhiteToMove() ? this.row != 7 : this.row != 0) {
             return false;
         }
+        // Phase 2: "not castling through / out of check" is enforced by the rules engine
+        // (rules.Rules, via BoardState.isValidMove). Here we only report the geometry —
+        // king/rook unmoved and the squares between them empty.
         if (this.row == row) {
             if (col == 6) {
                 Piece rook = board.getPiece(7, row);
                 if (rook != null && rook.isFirstMove && isFirstMove && rook.name.equals("Rook")) {
                     return  board.getPiece(5, row) == null &&
-                            board.getPiece(6, row) == null &&
-                            !board.checkScanner.isMoveCausesCheck(new Move(board,this, 5, row)) && !board.checkScanner.isChecking(board);
+                            board.getPiece(6, row) == null;
                 }
             } else if (col == 2) {
                 Piece rook = board.getPiece(0, row);
                 if (rook != null && rook.isFirstMove && isFirstMove && rook.name.equals("Rook")) {
                     return  board.getPiece(3, row) == null &&
                             board.getPiece(2, row) == null &&
-                            board.getPiece(1, row) == null &&
-                            !board.checkScanner.isMoveCausesCheck(new Move(board,this, 3, row));
+                            board.getPiece(1, row) == null;
                 }
             }
         }

@@ -338,11 +338,13 @@ Recommendation: **A**.
    draw-detection bugs early (the `-Pknown-bugs` suite is now empty; its tests moved to
    `characterization.DrawDetectionTest`, green in the default run).
 4. Point `Move` SAN generation at the facade; remove the live-board simulate-and-revert (Path 3).
-5. Point `myEngine` (skill-0 random) + the `Minimax` entry at the facade's generator/status;
-   delete `main.CheckScanner`, `BoardState.getAllPossibleMoves*`, `makeMoveAndGet*`,
-   `cancelMove`, `BoardState.main`.
-6. Re-point the two "characterized bug" assertions at the unified generator; add a fixture for
-   every remaining §2.4 divergence. Re-sync `ARCHITECTURE.md`.
+5. Point `myEngine` (skill-0 random + hint + move) at the facade; delete `main.CheckScanner`,
+   `BoardState.getAllPossibleMoves*`, `makeMoveToCheckIt`, `makeMoveAndGet*`, `cancelMove`,
+   `BoardState.main`. (The `Minimax` entry already runs on the canonical bitboard —
+   `BitBoard.getStatus()` is the unified status — so nothing to re-point there.) ✅ _done_ —
+   also re-pointed the two "characterized bug" test assertions (`ooStartingMoveCount` now
+   asserts 20; the CME test is gone with the method).
+6. Re-sync `ARCHITECTURE.md` to the unified state; sweep any leftover fixtures.
 7. Manual play-through (human-v-computer, computer-v-computer, save/load) for parity.
 
 ---
@@ -454,3 +456,34 @@ game-logic side effect", is resolved).
 
 Verification: `./mvnw test` → **49 green** (46 + 3 SAN); `-Psmoke` → 3 green; `./mvnw package`
 → jar builds.
+
+### Increment 5 — delete `CheckScanner` + the dead `BoardState` family (2026-09-06)
+
+`main/CheckScanner.java` (213 lines) **deleted.** Its last callers replaced:
+- `myEngine.getRandomMove` — `board.checkScanner.isChecking(board)` → `board.getIsCheck()`.
+- `myEngine.makeMove` / `giveHint` — `board.makeMoveToCheckIt(move)` → `board.isValidMove(move)`
+  (a full legality check, strictly stronger than the old king-safety-only test).
+- `King.canCastle` — dropped the `checkScanner.isMoveCausesCheck` / `isChecking` terms; it now
+  reports only castling geometry (king/rook unmoved, squares between them empty). "Not through
+  check" is enforced by the rules engine. (`King.isValidMovement` / `canCastle` are now dead —
+  nothing calls them — left for the Phase 3 `pieces` restructure.)
+
+`BoardState` — deleted `getAllPossibleMovesForASide()`, `getAllPossibleMoves()`,
+`makeMoveToCheckIt()`, `makeMoveAndGetValue()`, `makeMoveAndGetFen()`, `cancelMove()`,
+`main()`, and the `checkScanner` field. New `getLegalMoves()` returns
+`Rules.legalMoves(toRulesFen())`.
+
+Tests re-pointed off the deleted generator:
+- `CharacterizationTestBase.legalMovesOO` → `oo(fen).getLegalMoves().size()`.
+- `StartingPositionTest` — `ooStartingMoveCountIsWrong` (asserted the buggy **12**) →
+  `ooStartingMoveCount` (asserts **20**, and `== legalMovesBit(START)`).
+- `SpecialMovesTest` — the `ConcurrentModificationException` characterization deleted (the
+  buggy bulk generator is gone); added "castling + e.p. appear in the OO legal-move list".
+- `CheckmateStalemateTest` — `getAllPossibleMovesForASide().length` → `getLegalMoves().size()`.
+
+`Minimax` untouched: it already searches on `BitBoard`, the canonical representation, and its
+terminal test (`board.getStatus() != 1`) is `BitBoard.getStatus()` — the unified status
+(threshold fixed in increment 3).
+
+Verification: `./mvnw test` → **49 green**; `-Psmoke` → 3 green; `-Pknown-bugs` → 0 tests;
+`./mvnw package` → jar builds. `CheckScanner` −213 lines, `BoardState` net ≈ −200 lines.
