@@ -14,7 +14,7 @@ public class PromotionDialog extends JDialog {
     BufferedImage sheet;
     {
         try {
-            sheet = ImageIO.read(ClassLoader.getSystemResourceAsStream("pieces.png"));
+            sheet = ImageIO.read(PromotionDialog.class.getResourceAsStream("/pieces.png"));
         } catch (IOException e) {
             e.printStackTrace();
         }

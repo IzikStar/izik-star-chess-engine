@@ -1,23 +1,42 @@
 package GUI;
 
 import javax.sound.sampled.*;
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 
 public class AudioPlayer {
 
     private Clip audioClip;
 
+    /**
+     * Resolves a sound either from the classpath (the packaged location, e.g.
+     * {@code sounds/moveSound1.wav}) or, as a fallback, from a plain file on disk.
+     * The historic call sites pass paths like {@code "src/res/sounds/x.wav"}; that
+     * prefix is stripped so the same string resolves against src/main/resources.
+     */
+    private static AudioInputStream openAudioStream(String path)
+            throws UnsupportedAudioFileException, IOException {
+        String classpathName = path.startsWith("src/res/") ? path.substring("src/res/".length()) : path;
+        InputStream in = AudioPlayer.class.getClassLoader().getResourceAsStream(classpathName);
+        if (in != null) {
+            return AudioSystem.getAudioInputStream(new BufferedInputStream(in));
+        }
+        File audioFile = new File(path);
+        if (audioFile.exists()) {
+            return AudioSystem.getAudioInputStream(audioFile);
+        }
+        return null;
+    }
 
     public void playAudio(String audioFilePath) {
         try {
-            File audioFile = new File(audioFilePath);
-            if (!audioFile.exists()) {
+            AudioInputStream audioStream = openAudioStream(audioFilePath);
+            if (audioStream == null) {
                 System.out.println("Audio file not found: " + audioFilePath);
                 return;
             }
-
-            AudioInputStream audioStream = AudioSystem.getAudioInputStream(audioFile);
             audioClip = AudioSystem.getClip();
             audioClip.open(audioStream);
             audioClip.start();

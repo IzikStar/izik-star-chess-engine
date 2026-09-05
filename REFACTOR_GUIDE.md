@@ -1,0 +1,360 @@
+# Refactor Guide — IzikStar Chess 3.1
+
+This is the macro-level plan for turning the current codebase (mapped in
+[ARCHITECTURE.md](ARCHITECTURE.md)) into something with a real architecture. It is intentionally
+written at the **phase** level, not the task/PR level — each phase covers weeks of the project's
+attention, not a single sitting, and is expected to fill its own large context window once it's
+actually being executed. Do not try to plan phase 3's implementation details while phase 0 is
+still running; re-derive each phase's concrete plan at the time you start it, using the research
+step below.
+
+This document should be treated as living: update it (and re-sync ARCHITECTURE.md) at the end of
+every phase, because finishing a phase changes the facts the next phase's research will start
+from.
+
+## How to use this guide
+
+- **Work one phase at a time, in order.** Each phase assumes the previous ones are done. Skipping
+  ahead (e.g. touching the board representation before there's a test suite to catch
+  regressions) is how a legacy-but-working app becomes a broken one.
+- **The app must stay runnable and playable at the end of every phase.** This is a strangler-fig
+  refactor, not a rewrite: nothing here proposes throwing the project away and starting over. If
+  a phase's plan would leave the game unplayable for an extended stretch, the phase is scoped
+  too large — split it.
+- **Every phase begins with a dedicated research pass, before any code is written.** This guide
+  deliberately does not specify class names, method signatures, file layouts, or library choices
+  for work that hasn't started yet — those decisions need fresh, deep investigation of the
+  *current* state of the code at the time the phase begins (which will have changed since this
+  guide was written, because earlier phases will have altered it). Treat the "Research required"
+  section of each phase as a mandatory gate, not a suggestion. A phase that starts implementing
+  before its research is done is the same mistake that produced the current codebase (see
+  ARCHITECTURE.md §3 and §5.9 — most of today's mess is exactly this: code written without first
+  fully accounting for what already existed).
+- **Each phase ends with characterization tests passing and a short written record** of what was
+  found during research, what was decided and why, and what was deliberately deferred. That
+  record is what makes the *next* phase's research fast instead of starting from zero.
+
+### The research step, generically
+
+Before writing any implementation code for a phase, produce (as a short written artifact, not
+just something held in your head):
+
+1. **A full call-site audit** of every class/method the phase will touch or replace — not just
+   the ones already named in ARCHITECTURE.md, which was a survey pass, not an exhaustive one.
+   Assume ARCHITECTURE.md missed things and re-verify against the actual tree at that moment.
+2. **The exact set of behaviors that must be preserved**, expressed as test cases where possible
+   (see Phase 0) — including the currently-*buggy* behaviors, so you can tell "changed on
+   purpose" from "regressed."
+3. **The design forks that are genuinely open**, listed as explicit questions with the
+   trade-offs of each option, for anyone directing the work to decide before implementation
+   starts. Do not silently pick a library, data format, or pattern for a decision that has more
+   than one reasonable answer — that habit is exactly how this project ended up with two
+   competing minimax engines and two competing piece hierarchies (ARCHITECTURE.md §3).
+4. **A rollback plan** — confirm the phase can be done on a branch and is revertable as a unit if
+   it turns out worse than the status quo.
+5. **A definition of done** restated in concrete, checkable terms (tests passing, specific dead
+   code removed, specific coupling removed) — not "cleaner code."
+
+---
+
+## Phase 0 — Safety net: build tooling + characterization tests
+
+> **Status: DONE & verified 2026-09-05** on branch `phase-0-maven-and-characterization-tests`.
+> `./mvnw test` → 23 green; `./mvnw test -Pknown-bugs` → 4 red (documented); `./mvnw package`
+> → runnable jar. Full write-up: [docs/phase-0-notes.md](docs/phase-0-notes.md). Decisions
+> locked: Maven + committed wrapper (not Gradle); standard `src/main/java` layout;
+> `--release 26` (installed JDK); vendored Stockfish source tree + Houdini PDF deleted;
+> known-bug tests quarantined behind the `known-bugs` profile.
+> **Still owed:** manual full-game smoke test of the packaged jar for parity with `master`.
+
+**Goal.** Make it possible to verify chess-rules behavior without a human clicking through the
+Swing UI, and pin down what the engine currently does — bugs included — before anything is
+changed.
+
+**Why this first.** Nothing in this codebase can be safely touched right now because there is no
+way to know if a change broke something short of manually playing games (ARCHITECTURE.md §5.8).
+Every later phase depends on this safety net to know whether it succeeded.
+
+**Scope.**
+- Introduce a real build tool (Maven or Gradle) to replace the hand-managed jars in `libs/` and
+  the IDE-only project file, enough to support a test runner and dependency management going
+  forward.
+- Introduce a test suite (JUnit or equivalent) exercising the chess rules — legal move
+  generation, check detection, checkmate, stalemate, the 50-move rule, threefold repetition,
+  castling, en passant, promotion — against both existing rule paths (the object-oriented
+  `CheckScanner`/`BoardState` path and the bitboard path) using known FEN positions with known
+  correct answers, run headlessly with no Swing involved.
+- Explicitly write tests that capture the *currently broken* behaviors described in the
+  project's own history (draw detection failures, checkmate-avoidance) so that later phases have
+  a concrete, automatable "is this fixed yet" signal, and a concrete "did I just fix it" moment
+  to record.
+- Do **not** yet change any production logic to make tests pass — this phase is about
+  observation and infrastructure, not fixes. A test is allowed to start out red.
+
+**Research required before implementing.**
+- Survey what, if anything, in the current tree can already run headlessly (several classes have
+  `public static void main` smoke tests — e.g. `Minimax.main`, `BoardState.main`,
+  `BitBoard.main` — check whether these can inform starting fixtures, and confirm they have no
+  hidden dependency on Swing/static UI state before relying on them).
+  Confirm whether any of these currently even run to completion, given the deep dependence on
+  `main.setting.ChoosePlayFormat` statics documented in ARCHITECTURE.md §4.1.
+- Decide Maven vs. Gradle vs. another option — this is a genuine open fork; write down the
+  trade-off (ecosystem familiarity, IDE support, migration effort for the existing jars in
+  `libs/`, the Kotlin stdlib dependency pulled in transitively by Retrofit) rather than defaulting
+  silently.
+- Inventory every third-party jar currently sitted in `libs/` and confirm the equivalent
+  Maven/Gradle coordinates and versions exist and match, so the migration doesn't silently change
+  a dependency version.
+- Build the list of "known-correct" chess test positions and expected results (a well-known
+  public perft/EPD test suite is worth evaluating here rather than hand-authoring everything).
+
+**Risks.**
+- Build-tool migration can silently change classpath order or dependency versions in ways that
+  affect runtime behavior (particularly around Swing/AWT and the Stockfish process launch) —
+  verify the app still launches and plays a full game manually after the migration, before
+  trusting the new build for anything else.
+
+**Exit criteria.** The project builds and runs via the new build tool; a test suite exists and
+runs headlessly in CI-able form; it has documented, named failures for the known bugs (not
+silently skipped); a short written note records exactly which behaviors are locked in as
+"currently correct, do not regress" vs. "currently broken, tracked for a later phase to fix."
+
+---
+
+## Phase 1 — Remove dead and parallel code
+
+**Goal.** Delete code that has no live call path, so every later phase's research is working
+against only the code that actually runs.
+
+**Why this order.** This is the lowest-risk phase in the entire plan (nothing calls this code,
+by construction — see ARCHITECTURE.md §3) and it materially shrinks the surface area every
+subsequent phase's research has to account for. It's sequenced after Phase 0 rather than before
+it only so the test suite exists to prove nothing was actually reachable through some path the
+research missed.
+
+**Scope.** Candidates identified in ARCHITECTURE.md §3: the second minimax/evaluator
+implementation under `player/`, the unused alternate `Piece` classes, the unreferenced
+`EvaluationLevel2`/`ChessMoveConverter`, the fully commented-out `ChessServer`, and the unused
+`BoardState` methods with no external callers. The opening-book/Lichess client is *not* in scope
+for deletion here even though it's currently unreachable — it's slated for completion in Phase 5,
+not removal.
+
+**Research required before implementing.**
+- Re-run the call-site audit from ARCHITECTURE.md §3 against the current tree (not the snapshot
+  in that document) — confirm each candidate is still genuinely dead, including reflection-based
+  or string-based references (e.g. anything loaded by class name) that a plain import grep would
+  miss.
+- Check the build output/artifacts (`out/artifacts/`) and any run configurations for references
+  to the classes slated for deletion, in case something outside `src/` targets them directly.
+- Confirm with whoever is directing the work whether any of the "dead" code (particularly the
+  second minimax engine under `player/`) contains an idea worth preserving in a design note
+  before the code itself is deleted — deleting code is easy to reverse via git, but the *reason*
+  a parallel implementation was started is not always captured in the code itself.
+
+**Risks.** Low. Primary risk is deleting something with a non-obvious dynamic call path; the
+Phase 0 test suite plus a full manual smoke-test of the app after deletion is the mitigation.
+
+**Exit criteria.** The dead classes are gone, the project still builds and passes Phase 0's test
+suite, and a manual playthrough (human vs. computer, computer vs. computer, save/load) still
+works exactly as before.
+
+---
+
+## Phase 2 — Unify the board representation and the rules engine
+
+**Goal.** Collapse the two independent board models and the three independent
+check/checkmate/draw implementations (ARCHITECTURE.md §2.1, §2.3) into one canonical
+representation and one rules engine that everything else consults.
+
+**Why this matters most.** This phase directly targets the root cause of the reported gameplay
+bugs — the engine and the UI can currently disagree about whether a position is check, mate, or a
+draw because they compute it independently (ARCHITECTURE.md §5.2). This is very likely the single
+highest-value phase in the whole plan; it's also the riskiest and most invasive, which is why it
+only happens once Phases 0–1 have de-risked the ground under it.
+
+**Scope.** This phase does not yet touch the UI layer's *structure* (that's Phase 3) — its job is
+purely to make there be one rules authority, which the existing UI code can be pointed at with
+targeted, mechanical call-site updates. Whether that authority ends up being the current bitboard
+engine, the current object model, or a new representation entirely is exactly the kind of decision
+this guide is not making in advance — that's what the research step is for.
+
+**Research required before implementing.**
+- Full audit of every place any of the three check/status paths (`CheckScanner`,
+  `BitBoard.isCheckOn`/`getStatus`, and the `Move.getStatusString`/`BoardState.makeMoveAndGetStatus`
+  simulate-and-revert path) is invoked, with the actual current behavior of each documented
+  side-by-side against the Phase 0 test fixtures — including the specific positions where they're
+  suspected (or, after Phase 0, proven) to disagree.
+- Full audit of every rule implemented in *only one* of the two board models (ARCHITECTURE.md
+  §2.2 flags castling as one concrete example) so nothing gets silently dropped when one model is
+  retired.
+- A genuine, written-out comparison of the options for the canonical representation (keep
+  bitboard only and make everything else a derived view; keep the object model and rebuild its
+  correctness; introduce a third, clean representation designed for this specifically) with
+  performance, correctness, and migration-cost trade-offs for each — this is a real design fork,
+  not a foregone conclusion, even though the bitboard is the more likely candidate given
+  ARCHITECTURE.md's findings.
+- Confirm how deeply the object-model `Piece` objects are relied on for rendering (sprite,
+  position, animation state) versus rules, since ARCHITECTURE.md §5.7 notes they currently carry
+  both — untangling that is part of this phase's research, not an afterthought.
+
+**Risks.** This is the highest-risk phase in the plan: it touches the code every other feature
+depends on. Mitigations: do it entirely behind the Phase 0 test suite, expand that suite further
+as edge cases surface during research, and land it in reviewable increments behind a branch
+rather than as one large change, keeping the app playable (even if temporarily slower or missing
+a nice-to-have) at each landing point.
+
+**Exit criteria.** There is exactly one code path that answers "is this legal / is this check /
+is this mate / is this a draw," it is covered by the Phase 0 test suite (expanded to cover every
+divergence found during research), and the previously-triplicated logic has been deleted, not
+just deprecated.
+
+---
+
+## Phase 3 — Extract a headless rules API and decouple the UI
+
+**Goal.** Give the unified rules engine from Phase 2 a real, Swing-free interface, and turn
+`Board`/`Input`/`Main` into consumers of that interface instead of being the rules engine
+themselves (ARCHITECTURE.md §2.6, §4.1, §5.1).
+
+**Why this order.** This only becomes tractable once Phase 2 has produced one rules engine to put
+behind an interface — doing this before Phase 2 would mean building a clean API in front of two
+still-disagreeing implementations.
+
+**Scope.** Define and introduce a headless API surface for the game (making a move, querying
+legal moves, querying game status, serializing/deserializing position) with no `javax.swing`/
+`java.awt` imports anywhere in its implementation. Migrate `Board` to a pure renderer driven by
+that API and by game-state-change notifications, rather than a class that mutates board state
+directly. Retire the `main.setting.ChoosePlayFormat`/`SettingPanel` static-global pattern
+(ARCHITECTURE.md §5.4) in favor of explicit configuration passed into the API, including inside
+the search — since ARCHITECTURE.md documents the search itself currently reading those statics
+mid-recursion.
+
+**Research required before implementing.**
+- Full audit of every read and write of `ChoosePlayFormat.*` and `SettingPanel.skillLevel`
+  (ARCHITECTURE.md §5.4 lists examples, not an exhaustive list) to design what explicit
+  configuration needs to replace them, including the "flip a static flag, do work, flip it back"
+  hack pattern used to reuse hint/opponent-move logic — that pattern needs a real, non-hacky
+  replacement, not just a relocation of the same flag.
+- Full audit of every place `Board`'s fields (e.g. `Board.selectedPiece`, referenced from deep
+  inside `CheckScanner` per ARCHITECTURE.md §4.1) or methods are reached into from outside the UI
+  package, since those are exactly the seams this phase needs to sever.
+- Decide how animation and audio should be triggered under the new structure (an event/listener
+  model reacting to state changes is the likely direction, but confirm this against how
+  `ChessAnimation` and `AudioPlayer` are actually invoked today before assuming it).
+- Confirm what, if anything, outside `main` currently needs direct UI access (e.g. the engine
+  layer calling back into `Board.repaint()`/showing dialogs per ARCHITECTURE.md §2.4) and design
+  the inverted, event-driven replacement for those call sites specifically.
+
+**Risks.** Behavioral regressions in UI responsiveness/feel (animation timing, hint highlighting,
+board-flip-on-color-switch) are easy to introduce when the state that drives them moves from
+ad hoc field mutation to an explicit API — cover these with manual test scripts even where
+automated UI testing isn't practical.
+
+**Exit criteria.** `pieces`, and the rules engine underneath it, no longer import anything from
+`main` or `GUI`; the `main ↔ ai ↔ pieces` circular dependency documented in ARCHITECTURE.md §4.1
+is gone; `Board` contains no chess-rules logic; the app is playable with feature parity.
+
+---
+
+## Phase 4 — Fix concurrency and the Stockfish integration
+
+**Goal.** Replace the four coexisting ad hoc concurrency patterns (ARCHITECTURE.md §5.5) with one
+consistent approach, and fix Stockfish's process/session handling so it stops restarting its UCI
+handshake every move (ARCHITECTURE.md §2.5) — very likely the actual cause of "Stockfish plays
+badly," as opposed to engine strength.
+
+**Why this order.** This is scoped after Phase 3 because a clean, event-driven headless API makes
+"engine computes a move, then hands it back" a natural single seam to thread correctly — trying
+to fix concurrency while the engine layer still reaches directly into Swing components would mean
+solving this twice.
+
+**Scope.** One coherent threading model for "compute a move off the UI thread, then apply it,"
+replacing the raw `Thread`, `ExecutorService`+`Future`, `SwingWorker`+`CountDownLatch`+polling,
+and inline sleep-sequenced-sound patterns identified in ARCHITECTURE.md §2.6 and §5.5. A
+persistent Stockfish process per game with an asynchronous output reader (rather than
+sleep-then-poll), proper position tracking (incremental `position ... moves ...` rather than
+resending full FEN and restarting UCI negotiation every call), and a real time-management policy
+replacing the current fixed-150ms-plus-retry-loop approach (ARCHITECTURE.md §2.5).
+
+**Research required before implementing.**
+- Full trace of every current caller of `StockfishEngine` and `myEngine` to enumerate every
+  behavior the new engine-orchestration layer needs to reproduce (hints, forced/auto-play modes,
+  computer-vs-computer mode, skill-level-based engine selection) — ARCHITECTURE.md §2.4–§2.6
+  covers the main ones but this needs to be exhaustive before the old paths are removed.
+  Note the "compute a move" module now imports the interface from Phase 3, so also confirm the
+  Phase 3 API expresses everything the engine side needs (e.g. FEN export, legality checks for a
+  proposed UCI move) before assuming it does.
+- Investigate what time controls / strength behavior is actually desired per skill level (this is
+  a product decision, not purely technical — write it down explicitly rather than inheriting the
+  current ad hoc thresholds unexamined).
+- Decide the concurrency primitive to standardize on (a single background executor with
+  callback-based completion is a reasonable default to evaluate, but treat this as an open
+  question to research against the specific needs surfaced above, not a foregone conclusion).
+
+**Risks.** Getting engine/UI thread-safety subtly wrong is a classic source of intermittent,
+hard-to-reproduce bugs — budget real testing time (including stress-testing computer-vs-computer
+mode, which most aggressively exercises the concurrency) rather than treating "it played a few
+games fine" as sufficient proof.
+
+**Exit criteria.** One documented concurrency pattern is used everywhere an engine move is
+computed; Stockfish keeps one process/session per game; no Swing component is touched off the
+EDT; computer-vs-computer mode can run unattended for many games without hanging or crashing.
+
+---
+
+## Phase 5 — Build the originally-requested features
+
+**Goal.** Now that there's a clean, tested, headless rules/engine core, deliver the two
+capabilities that motivated this project in the first place: real opening-book integration and a
+structured game database that can eventually support learning from past games.
+
+**Why last.** Both of these are additive features layered on top of the engine API from Phase 3;
+building them earlier would mean building them against the unstable, duplicated foundation this
+whole plan exists to remove, and likely re-doing the work.
+
+**Scope.**
+- Finish wiring the existing `ai/openingBook` Retrofit/Lichess client and binary opening-book
+  format (currently fully built but never called, per ARCHITECTURE.md §2.7/§3) into the engine's
+  move-selection path from Phase 4, or replace it if research finds a better-fitting approach.
+- Design and introduce real structured persistence for games (metadata: opponents, result, date,
+  time control, move list; not just a flat FEN list per ARCHITECTURE.md §2.7) sufficient to
+  support future learning/analysis work, replacing `SaveGame`/`LoadGame`'s flat-file approach.
+
+**Research required before implementing.**
+- Re-evaluate the existing `ai/openingBook` code against current Lichess API documentation before
+  reusing it as-is — it was written against some prior state of that API and may need updates;
+  confirm rate limits, licensing/attribution requirements, and offline-fallback behavior (what
+  happens with no network) before wiring it into the live move path.
+- A genuine evaluation of persistence options for the game database (embedded SQL like SQLite,
+  a structured file format, or something else) against the actual future "learn from past games"
+  goal — this determines the schema, so it's worth deliberately researching rather than defaulting
+  to whatever's fastest to bolt on.
+- Define, concretely, what "learning from past games" is expected to mean (statistics/analysis
+  tooling? feeding an opening-book generator? training a position evaluator?) before designing the
+  schema — the schema needed differs a lot depending on the answer, and this is a product question
+  the earlier phases haven't needed to resolve.
+
+**Risks.** Scope creep — "a database for learning from games" can expand arbitrarily. Keep this
+phase's first landing scoped to "structured storage of completed games," and treat any actual
+learning/ML component as a follow-on phase of its own once this guide's core refactor is
+finished.
+
+**Exit criteria.** Games are recorded in structured, queryable storage; the opening book is
+consulted during real move selection (with a documented fallback when it has no data for a
+position); both features are covered by tests in the Phase 0 suite's style.
+
+---
+
+## Cross-phase notes
+
+- **Do not parallelize phases 2–4.** They each assume the previous phase's exit criteria are
+  actually met, not just started. Phase 0 (tests) and Phase 1 (dead code removal) are the
+  exception — Phase 1 can start as soon as Phase 0's test suite exists, since it doesn't depend on
+  Phase 0 being "complete" in every other sense.
+- **Re-sync ARCHITECTURE.md after Phase 2 and again after Phase 3.** Those two phases change the
+  actual structure the document describes; leaving it stale defeats its purpose for anyone
+  planning the next phase.
+- **If a phase's research turns up something that invalidates this guide's assumptions**
+  (e.g. Phase 2's research finds the object model is load-bearing in a way that makes retiring it
+  much more expensive than expected), that's a reason to update this guide's plan for that phase,
+  not a reason to route around the research step.
