@@ -1,0 +1,14 @@
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "?"]
+[Black "?"]
+[Result "1-0"]
+[Annotator "Converted from samples/pgn/1.docx"]
+
+1. d4 Nf6 2. Nc3 Nc6 3. e4 Nb4 4. a3 Nxc2+ 5. Qxc2 c6 6. Bc4 Qb6 7. Nf3 d5
+8. exd5 cxd5 9. Nxd5 Nxd5 10. Bxd5 Qa5+ 11. Bd2 Qxd5 12. O-O e6 13. Rfe1 Bd6
+14. Rac1 Bd7 15. h3 O-O 16. Ne5 Bxe5 17. dxe5 Rac8 18. Qe4 Qxd2 19. Qe3 Qxb2
+20. Rxc8 Rxc8 21. Re2 Qb5 22. Qxa7 Qxe2 23. Qxb7 Rc1+ 24. Kh2 Qxf2 25. Qxd7 Qf4+
+26. g3 Qe4 27. Qd8# 1-0

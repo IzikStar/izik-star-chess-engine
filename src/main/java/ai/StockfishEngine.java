@@ -7,16 +7,30 @@ import java.io.*;
 public class StockfishEngine {
 
     /**
-     * Location of the Stockfish executable. Defaults to the copy kept under {@code engine/}
-     * at the project root; override with {@code -Dstockfish.path=/absolute/or/relative/path}.
+     * Location of the Stockfish executable. Stockfish is not shipped with the repository; see
+     * the README. Resolution order: the {@code -Dstockfish.path=...} system property, then the
+     * {@code STOCKFISH_PATH} environment variable, then {@code engine/stockfish-windows-x86-64.exe}
+     * relative to the working directory.
      */
-    public static final String DEFAULT_ENGINE_PATH =
-            System.getProperty("stockfish.path", "engine/stockfish-windows-x86-64.exe");
+    public static final String DEFAULT_ENGINE_PATH = resolveEnginePath();
+
+    private static String resolveEnginePath() {
+        String path = System.getProperty("stockfish.path");
+        if (path == null || path.isBlank()) {
+            path = System.getenv("STOCKFISH_PATH");
+        }
+        if (path == null || path.isBlank()) {
+            path = "engine/stockfish-windows-x86-64.exe";
+        }
+        return path;
+    }
 
     private Process engineProcess;
     private BufferedReader reader;
     private BufferedWriter writer;
     private boolean isEngineRunning;
+    /** Set once the executable could not be launched; we then stop retrying and report unavailable. */
+    private boolean startFailed;
     public String promotionChoice = null;
 
     public int skillLevel = SettingPanel.skillLevel;
@@ -29,13 +43,27 @@ public class StockfishEngine {
             isEngineRunning = true;
             return true;
         } catch (IOException e) {
-            e.printStackTrace();
+            System.err.println("Stockfish not available at '" + path + "' (" + e.getMessage()
+                    + "). Falling back to the built-in engine; see README to install Stockfish.");
             isEngineRunning = false;
+            startFailed = true;
             return false;
         }
     }
 
+    /** False once launching the Stockfish executable has failed (e.g. it was not downloaded). */
+    public boolean isAvailable() {
+        return !startFailed;
+    }
+
+    private boolean ensureRunning() {
+        if (isEngineRunning) return true;
+        if (startFailed) return false;
+        return startEngine(DEFAULT_ENGINE_PATH);
+    }
+
     public void stopEngine() {
+        if (!isEngineRunning) return;
         try {
             sendCommand("quit");
             reader.close();
@@ -49,8 +77,8 @@ public class StockfishEngine {
 
     public void sendCommand(String command) {
         try {
-            if (!isEngineRunning) {
-                startEngine(DEFAULT_ENGINE_PATH);
+            if (!ensureRunning()) {
+                return;
             }
             writer.write(command + "\n");
             writer.flush();
@@ -63,7 +91,7 @@ public class StockfishEngine {
         StringBuilder output = new StringBuilder();
         try {
             Thread.sleep(waitTime);
-            while (reader.ready()) {
+            while (reader != null && reader.ready()) {
                 String line = reader.readLine();
                 if (line != null) {
                     output.append(line).append("\n");
@@ -84,6 +112,9 @@ public class StockfishEngine {
     public String getBestMove(String fen) {
 //        System.out.println("stocfish move. skill level: " + SettingPanel.skillLevel);
 //        skillLevel = SettingPanel.skillLevel;
+        if (!ensureRunning()) {
+            return "unknown";
+        }
         sendCommand("uci");
         waitForOutput("uciok", 10);
 

@@ -9,6 +9,7 @@ import java.io.InputStream;
 public class AudioPlayer {
 
     private Clip audioClip;
+    private static boolean warnedNoAudioDevice = false;
 
     /**
      * Resolves a sound either from the classpath (the packaged location, e.g.
@@ -49,6 +50,13 @@ public class AudioPlayer {
         } catch (IOException e) {
             System.out.println("Error playing the audio file.");
             e.printStackTrace();
+        } catch (IllegalArgumentException e) {
+            // No output line can play this clip (e.g. a machine with no sound device). Sound is
+            // cosmetic: carry on silently rather than aborting the mouse/move handler that called us.
+            if (!warnedNoAudioDevice) {
+                warnedNoAudioDevice = true;
+                System.out.println("No usable audio output device; sounds are disabled.");
+            }
         }
     }
 
