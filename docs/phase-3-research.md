@@ -1,6 +1,6 @@
 # Phase 3 — Extract a headless rules API and decouple the UI
 
-**Status: RESEARCH — awaiting the owner's decisions in §4 before any production code changes.**
+**Status: IN PROGRESS — decisions locked 2026-10-01 (§8); implementing on branch `phase-3-decouple-ui`.**
 Baseline: `master` @ `5d3d3bd` (Phase 2 merge). `mvn test` → **49 green** (built with
 `-Dmaven.compiler.release=21`, see §4 Fork 0). No production code has been touched.
 
@@ -79,12 +79,12 @@ swallowed exception / concurrency is Phase 4, but nothing will be throwing it an
 
 **Bug B — new: when the engine plays White it cannot deliver checkmate.** In
 `7k/1R6/6K1/8/8/8/8/R7 w - - 0 1` (Ra8# and Rb8# both mate in one) the engine as White plays
-**Kf7, stalemating Black**, at depth 2 and depth 4. The mirrored position with the engine as
+**Kf7 (no mate)** at depth 2 and depth 4. The mirrored position with the engine as
 Black (`r7/8/8/8/8/6k1/1r6/7K b`) finds the mate. Cause: `BitBoard.getStatus()` returns
 `Integer.MIN_VALUE` when Black is mated (black-positive scale), and `BitBoardEvaluate.evaluate`
 returns `switchSides ? value : -value`. For a White engine that is `-Integer.MIN_VALUE`, which
 **overflows back to `Integer.MIN_VALUE`** — the search scores "I deliver mate" as the worst
-possible outcome and prefers a draw. This only shows when the human plays Black (or in
+possible outcome and avoids it. This only shows when the human plays Black (or in
 computer-vs-computer), which is likely why it went unnoticed. It lives in the exact lines this
 phase rewrites (the `switchSides` read of `ChoosePlayFormat`), so the fix (mate scores as
 `±MATE` constants well inside `int` range, never negating `MIN_VALUE`) belongs here — see Fork 5.
@@ -314,6 +314,26 @@ Constraint carried forward: **`rules`, the session and the engines ship with zer
    `BoardState`, `pieces/*`, `main.Move`, and the `BitBoard(BoardState)` adapter.
 6. **Boundary test + `ARCHITECTURE.md` re-sync + manual play-through.**
 
-## 8. Decisions
+## 8. Decisions (locked 2026-10-01, project owner)
 
-_Pending the project owner._
+All recommendations accepted: Fork 0 A (`showcase-polish` merged to `master` first, Java 21),
+Fork 1 A (`rules.Game` + `GameSession`), Fork 2 A (retire `BoardState` / `pieces/*`), Fork 3 A
+(immutable `GameConfig`; orientation is UI state), Fork 4 A (`Engine` interface, threading stays
+Phase 4), Fork 5 A (fix Bug B here), Fork 6 A (Stockfish gets the real skill level).
+
+## 9. Increment log
+
+### Increment 0 — `showcase-polish` merged to `master` (2026-10-01)
+
+`master` now targets Java 21; `mvn test` 49 green, `-Psmoke` 3 green on the merge.
+
+### Increment 1 — search safety net (2026-10-01)
+
+`characterization.SearchTest` (3 green): Black engine mates in one; legal move from the opening
+for Black; legal move for a White engine when the human plays Black.
+`characterization.SearchKnownBugsTest` (`-Pknown-bugs`, 2 red as intended): White engine mates in
+one (Bug B — plays `g6f7`); search for White under stock settings from a fresh JVM state throws
+the `Minimax.bestMoves` NPE (Bug A). While writing it: across a single test run the static
+`bestMoves` also leaks between searches, so a stale list from a *different position* can be
+returned instead of the NPE — the same bug's other face.
+`mvn test` 52 green.
