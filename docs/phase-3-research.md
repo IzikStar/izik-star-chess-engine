@@ -143,7 +143,7 @@ condition at 383 and an en-passant field derived from "last mover" bookkeeping, 
   Created from `Board.makeMove` (264-270), `moveKing` (331-333), `movePawn`/`promotePawn` (380,
   400), `updateGameState` (539, a zero-distance "pulse" on the mated king). A 1 ms Swing `Timer`
   (`Board` 68-77) repaints continuously. Drag-and-drop bypasses the animation via
-  `input.isDraggingMove` (a flag set around the `makeMove` call, `Input` 299-301).
+  `input.isDraggingMove` (a flag set around the `makeMove` call, `Input` 305-307).
 - **Audio**: `GUI.AudioPlayer` instances in `Board`, `Input`; 20 call sites, all synchronous in
   the move path, plus three `new Thread(() -> { sleep(500); play…(); })` sequencers
   (`Board` 381, 401; `Input` 249, 322) to sound *after* an animation.
