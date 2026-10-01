@@ -70,7 +70,7 @@ public class Input extends MouseAdapter {
                     engine.setSkillLevel(SettingPanel.skillLevel - 1);
                     boolean moveFound = false;
                     long endTime = System.currentTimeMillis();
-                    while (!(moveFound) && endTime - startTime < 1200) {
+                    while (!(moveFound) && engine.isAvailable() && endTime - startTime < 1200) {
                         engine.setSkillLevel(ChoosePlayFormat.setSkillLevel);
                         String fen = board.state.convertPiecesToFEN();
                         String bestMove = engine.getBestMove(fen);
@@ -137,7 +137,7 @@ public class Input extends MouseAdapter {
                 long startTime = System.currentTimeMillis();
                 boolean moveFound = false;
                 long endTime = System.currentTimeMillis();
-                while ((!moveFound) && endTime - startTime < 1500) {
+                while ((!moveFound) && engine.isAvailable() && endTime - startTime < 1500) {
                     engine.setSkillLevel(20);
                     String fen = board.state.convertPiecesToFEN();
                     // System.out.println("Current FEN: " + fen);
