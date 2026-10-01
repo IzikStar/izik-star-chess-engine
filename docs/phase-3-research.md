@@ -382,3 +382,18 @@ returned instead of the NPE — the same bug's other face.
   Swing app under Xvfb (scratch driver dispatching mouse events): human moves at levels 0, 6, 16
   (Stockfish missing → fallback) and 2 each got an engine reply; a hint appeared (built-in
   fallback at depth 5 took ~6.6 s, same depth as before).
+
+### Increment 4a — headless `GameSession`, `GameConfig`, events; `Game` grows up (2026-10-01)
+
+Added alongside the UI (not wired yet), so this commit changes no behaviour:
+- `rules.Game.play` returns a `MoveResult` (move, SAN, moving / captured piece, castling and
+  en-passant flags, move number, FEN before / after, status incl. threefold); `undo()`,
+  `plyCount()`, `moves()`, `position()`. A promotion without a piece promotes to a queen.
+- `rules.San`: standard algebraic notation with disambiguation, `+` / `#`.
+- New package `game`: `GameConfig` (immutable record — mode, human colour, level; replaces the
+  `ChoosePlayFormat` statics + `SettingPanel.skillLevel`), `GameListener` (move made, game over,
+  position reset, config changed, hint), and `GameSession` (turn-taking between humans and the
+  engine, take-back to the human's turn, hints, engine-vs-engine; engine results handed back to a
+  dispatcher thread and dropped if stale).
+- Tests: `rules.GameAndSanTest` (6), `game.GameSessionTest` (8, incl. engine-vs-engine on real
+  threads). `mvn test` **75 green**.
