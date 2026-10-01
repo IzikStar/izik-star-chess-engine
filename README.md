@@ -154,8 +154,7 @@ Phase 2 is a good example of the approach:
 
 ## Build and run
 
-You need a JDK. The project is configured for **Java 26** (`maven.compiler.release` in
-`pom.xml`). The Maven wrapper is included, so you do not need to install Maven.
+You need JDK 21 or newer (`maven.compiler.release` in `pom.xml`). The Maven wrapper is included, so you do not need to install Maven.
 
 ```bash
 ./mvnw package                            # build target/izikstar-chess-3.1.0.jar (runs the tests)
@@ -164,12 +163,7 @@ java -jar target/izikstar-chess-3.1.0.jar # play
 ./mvnw exec:java
 ```
 
-On Windows use `mvnw.cmd`. The code doesn't use anything newer than Java 21. If you have an
-older JDK, override the release level:
-
-```bash
-./mvnw -Dmaven.compiler.release=21 package
-```
+On Windows use `mvnw.cmd`.
 
 Run the jar from the repository root if you want it to find Stockfish at the default path.
 
