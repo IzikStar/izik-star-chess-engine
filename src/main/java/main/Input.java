@@ -10,6 +10,7 @@ import javax.swing.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
 import ai.StockfishEngine;
@@ -100,7 +101,8 @@ public class Input extends MouseAdapter {
                         int temp = SettingPanel.skillLevel;
                         SettingPanel.skillLevel = 3;
                         ChoosePlayFormat.isPlayingWhite = !ChoosePlayFormat.isPlayingWhite;
-                        myEngine.makeMove(board.state.convertPiecesToFEN(), board);
+                        // Wait for the task: it reads the globals set above, so they must not be restored first.
+                        awaitEngine(myEngine.makeMove(board.state.convertPiecesToFEN(), board));
                         ChoosePlayFormat.isPlayingWhite = !ChoosePlayFormat.isPlayingWhite;
                         SettingPanel.skillLevel = temp;
                     }
@@ -180,7 +182,7 @@ public class Input extends MouseAdapter {
                     int temp = SettingPanel.skillLevel;
                     SettingPanel.skillLevel = 10;
                     ChoosePlayFormat.isPlayingWhite = !ChoosePlayFormat.isPlayingWhite;
-                    myEngine.giveHint(board.state.convertPiecesToFEN(), board);
+                    awaitEngine(myEngine.giveHint(board.state.convertPiecesToFEN(), board));
                     ChoosePlayFormat.isPlayingWhite = !ChoosePlayFormat.isPlayingWhite;
                     SettingPanel.skillLevel = temp;
                 }
@@ -355,4 +357,14 @@ public class Input extends MouseAdapter {
         isDragged = false;
     }
 
+
+    private static void awaitEngine(Future<?> task) {
+        try {
+            task.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException e) {
+            System.err.println("Built-in engine failed: " + e.getCause());
+        }
+    }
 }
