@@ -302,6 +302,16 @@ just deprecated.
 
 ## Phase 3 — Extract a headless rules API and decouple the UI
 
+> **Status: DONE on branch `phase-3-decouple-ui` (2026-10-01), pending merge** (PR #2). Decisions
+> and the per-increment log are in [docs/phase-3-research.md](docs/phase-3-research.md) §8–§9.
+> Exit criteria met: `pieces` is deleted, `rules`/`ai`/`engine`/`game` import nothing from
+> `main`/`GUI`/Swing/AWT (enforced by `architecture.LayeringTest`), `Board` is a renderer with no
+> rules logic, the static settings are replaced by an immutable `GameConfig`, and the app was
+> driven under Xvfb with the engine answering at several levels, go back, play-as-black and
+> two-player flip all working. Engine bugs A/B/C and a false-repetition bug in the search hash are
+> fixed. Owed: a manual play-through by the owner on a real screen (animation feel, sounds).
+> Moved to Phase 4: search speed at levels ≥ 10 (see the research doc's last log entry).
+
 **Goal.** Give the unified rules engine from Phase 2 a real, Swing-free interface, and turn
 `Board`/`Input`/`Main` into consumers of that interface instead of being the rules engine
 themselves (ARCHITECTURE.md §2.6, §4.1, §5.1).

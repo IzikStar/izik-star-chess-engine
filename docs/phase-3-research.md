@@ -443,3 +443,11 @@ this container, level 10 (depth 5) took 7.5 s → 20.4 s for Black's reply to 1.
 9.8 s in an Italian-game position; level 12 (depth 6) takes minutes both before and after.
 Search speed (move ordering, the transposition table that is wired in only as comments,
 iterative deepening with a time limit) is Phase 4.
+
+### Increment 6 — layering test and docs (2026-10-01)
+
+`architecture.LayeringTest` scans the sources of `rules`, `ai`, `engine` and `game` and fails on
+any import of `javax.swing`, `java.awt`, `main.*` or `GUI.*`, or of a higher layer (`rules`/`ai`
+may not import `engine`/`game`; `engine` may not import `game`), and asserts the deleted legacy
+classes stay deleted. ARCHITECTURE.md (banner, §5, §6) and REFACTOR_GUIDE.md (Phase 3 status)
+re-synced. `mvn test` **78 green**, `-Psmoke` 3 green.
