@@ -358,3 +358,27 @@ returned instead of the NPE — the same bug's other face.
 - Tests: `SearchKnownBugsTest` folded into `SearchTest` (5 green). `mvn test` **54 green**,
   `-Psmoke` 3 green, `-Pknown-bugs` empty. Headless engine-vs-engine sanity run (depth 2 for 60
   plies, depth 3 to checkmate) played only legal moves.
+
+### Increment 3 — one `Engine` interface; engines stop driving the UI (2026-10-01)
+
+- New headless package `engine`: `Engine` (`ChessMove bestMove(String fen, int skillLevel)`),
+  `MinimaxEngine` (level 0 = uniform random legal move, else `Minimax` at the old depth formula,
+  now computed from the FEN), `StockfishEngine` (moved from `ai`, implements `Engine`; the
+  1200 ms legality retry loop moved inside it from `Input`), and `EngineSelector` (levels ≥ 13 →
+  Stockfish with built-in fallback at 3; hints → Stockfish at full strength, fallback at 10).
+- **Fork 6 applied:** Stockfish now plays at Skill Level `level - 1` (13/15/17 for the UI's
+  levels 8-10) instead of the never-written `ChoosePlayFormat.setSkillLevel` (always 0).
+- `ai.myEngine` **deleted** (with its random-move code on the `Piece` model, its
+  `Board`/`Main`/`JOptionPane` calls, and its own executor). `ai.*` no longer imports `main.Board`
+  or `main.Main`.
+- `main.Input` owns one daemon "engine" executor: the engine picks a move off the EDT, the move
+  is applied **on the EDT** (`invokeAndWait`), and a result for a position that changed meanwhile
+  (go back / new game) is dropped. Exceptions are printed, never swallowed. Promotion travels in
+  the returned `ChessMove` (`Input.enginePromotion`), not via `engine.promotionChoice` side
+  channels. Engines receive `BoardState.toRulesFen()`, not the buggy `convertPiecesToFEN()`.
+- Search quality: mate scores now include the remaining depth, so the engine prefers the
+  quickest mate (before, mate-in-1 and mate-in-3 tied and the engine could wander).
+- Tests: `engine.EngineTest` (7). `mvn test` **61 green**, `-Psmoke` 3 green. Driven the real
+  Swing app under Xvfb (scratch driver dispatching mouse events): human moves at levels 0, 6, 16
+  (Stockfish missing → fallback) and 2 each got an engine reply; a hint appeared (built-in
+  fallback at depth 5 took ~6.6 s, same depth as before).

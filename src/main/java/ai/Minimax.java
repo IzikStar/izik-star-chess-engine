@@ -39,7 +39,10 @@ public class Minimax {
     }
 
     public static BitMove getBestMove(BoardState board, int depth) {
-        BitBoard bitboard = new BitBoard(board);
+        return getBestMove(new BitBoard(board), depth);
+    }
+
+    public static BitMove getBestMove(BitBoard bitboard, int depth) {
         return new Minimax(depth, !bitboard.getIsWhiteToMove()).search(bitboard);
     }
 
@@ -106,7 +109,15 @@ public class Minimax {
         if (depth == 0 || board.getStatus() != 1) {
             boardStateTracker.removeLastBoardState();
             nodesChecked++;
-            return new MinimaxResult(board.lastMove, BitBoardEvaluate.evaluate(board, rootIsBlack));
+            int value = BitBoardEvaluate.evaluate(board, rootIsBlack);
+            // Prefer the quickest mate (and the slowest loss): a mate found with more depth
+            // still to go is closer to the root. Without this, mate-in-1 and mate-in-3 tie.
+            if (value >= BitBoardEvaluate.MATE) {
+                value += depth;
+            } else if (value <= -BitBoardEvaluate.MATE) {
+                value -= depth;
+            }
+            return new MinimaxResult(board.lastMove, value);
         }
 
         if (boardStateTracker.isThreefoldRepetition()) {

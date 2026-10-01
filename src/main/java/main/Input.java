@@ -1,19 +1,21 @@
 package main;
 
 import GUI.AudioPlayer;
-import ai.myEngine;
+import engine.EngineSelector;
+import engine.MinimaxEngine;
+import engine.StockfishEngine;
 import main.setting.ChoosePlayFormat;
 import main.setting.SettingPanel;
 import pieces.Piece;
+import rules.ChessMove;
 
 import javax.swing.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-
-import ai.StockfishEngine;
 
 public class Input extends MouseAdapter {
 
@@ -25,163 +27,124 @@ public class Input extends MouseAdapter {
     AudioPlayer audioPlayer = new AudioPlayer();
     CountDownLatch latch = new CountDownLatch(1);
 
-    String pathToStockfish = StockfishEngine.DEFAULT_ENGINE_PATH;
-    StockfishEngine engine;
-    myEngine myEngine;
+    /** Engines only pick moves; this class applies them on the Swing thread (Phase 3). */
+    private final EngineSelector engines = new EngineSelector(new MinimaxEngine(), new StockfishEngine());
+    /** One engine job at a time: Stockfish is a single process and the search is not reentrant. */
+    private final ExecutorService engineExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "engine");
+        t.setDaemon(true);
+        return t;
+    });
+    private Future<?> pendingEngineJob;
+    /** Pause before a level-0 (random) move, so it doesn't appear instantly. */
+    private static final long RANDOM_MOVE_DELAY_MS = 1000;
+    /** The promotion piece of the engine move being applied; read by {@link Board#movePawn}. */
+    String enginePromotion = "q";
 
     public boolean isDraggingMove = false;
-    public int switchToStockFish = 13;
 
     public Input(Board board) {
         this.board = board;
-        engine = new StockfishEngine();
-        myEngine = new myEngine(board.state);
         if (!ChoosePlayFormat.isPlayingWhite) {
             makeEngineMove();
         }
     }
 
     public Input(Board board, CountDownLatch latch) {
-        this.board = board;
-        engine = new StockfishEngine();
-        myEngine = new myEngine(board.state, latch);
-        if (!ChoosePlayFormat.isPlayingWhite) {
-            makeEngineMove();
-        }
+        this(board);
     }
 
+    /** Lets the engine choose a move for the side to move, then plays it on the Swing thread. */
     public void makeEngineMove() {
-        if (SettingPanel.skillLevel < switchToStockFish) {
-            latch = new CountDownLatch(1);
-            Future<Void> future = myEngine.makeMove(board.state.convertPiecesToFEN(), board, SettingPanel.skillLevel);
-            new Thread(() -> {
-                try {
-                    future.get(); // Wait for the task to complete
-                } catch (Exception e) {
-                    // Handle exceptions
-                } finally {
-                    latch.countDown(); // Release the latch
+        latch = new CountDownLatch(1);
+        CountDownLatch done = latch;
+        String fen = board.state.toRulesFen();
+        int level = SettingPanel.skillLevel;
+        pendingEngineJob = engineExecutor.submit(() -> {
+            try {
+                if (level == 0) {
+                    Thread.sleep(RANDOM_MOVE_DELAY_MS);
                 }
-            }).start();
-        }
-        else {
-            new Thread(() -> {
-                try {
-                    long startTime = System.currentTimeMillis();
-                    engine.setSkillLevel(SettingPanel.skillLevel - 1);
-                    boolean moveFound = false;
-                    long endTime = System.currentTimeMillis();
-                    while (!(moveFound) && engine.isAvailable() && endTime - startTime < 1200) {
-                        engine.setSkillLevel(ChoosePlayFormat.setSkillLevel);
-                        String fen = board.state.convertPiecesToFEN();
-                        String bestMove = engine.getBestMove(fen);
-
-                        if (bestMove != null && !bestMove.equals("unknown")) {
-                            int fromCol = bestMove.charAt(0) - 'a';
-                            int fromRow = 8 - (bestMove.charAt(1) - '0');
-                            int toCol = bestMove.charAt(2) - 'a';
-                            int toRow = 8 - (bestMove.charAt(3) - '0');
-                            if (bestMove.length() > 4) {
-                                engine.promotionChoice = String.valueOf(bestMove.charAt(4));
-                            } else {
-                                engine.promotionChoice = null;
-                            }
-
-                            Move move = new Move(board.state, board.state.getPiece(fromCol, fromRow), toCol, toRow);
-
-                            if (board.state.isValidMove(move)) {
-                                board.makeMove(move);
-                                moveFound = true; // Move found, exit the loop
-                            }
-                        }
-                        endTime = System.currentTimeMillis();
-                    }
-
-                    if (!moveFound) {
-                        // Stockfish gave no legal move: fall back to our own engine at level 3.
-                        awaitEngine(myEngine.makeMove(board.state.convertPiecesToFEN(), board, 3));
-                    }
-
-                    SwingUtilities.invokeLater(() -> {
-                        board.repaint();
-                        if (isStatusChanged) {
-                            Board.selectedPiece = null;
-                            JFrame frame = new JFrame("Game Over");
-                            board.updateGameState(true);
-                            Main.showEndGameMessage(frame, (isCheckMate ? (isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח") : "תיקו"));
-                        }
-                    });
-
-                } finally {
-                    latch.countDown(); // Release the latch when done
+                ChessMove move = engines.move(fen, level);
+                if (move == null) {
+                    System.err.println("Engine found no move in " + fen);
+                } else {
+                    SwingUtilities.invokeAndWait(() -> playEngineMove(fen, move));
                 }
-            }).start();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (Exception e) {
+                // never swallow: this is how "the engine stops playing" used to hide
+                e.printStackTrace();
+            } finally {
+                done.countDown();
+            }
+        });
+    }
+
+    /** Shows the engine's suggestion for the side to move. */
+    public void takeEngineHint() {
+        String fen = board.state.toRulesFen();
+        engineExecutor.submit(() -> {
+            try {
+                ChessMove move = engines.hint(fen);
+                if (move != null) {
+                    SwingUtilities.invokeLater(() -> showHint(fen, move));
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
+    /** Cancels a pending engine move or hint (go back / new game). */
+    public void cancelEngine() {
+        if (pendingEngineJob != null) {
+            pendingEngineJob.cancel(true);
         }
     }
 
-    public void takeEngineHint() {
-        boolean takeMyEngineHints = false;
-        if (takeMyEngineHints) {
-            myEngine.giveHint(board.state.convertPiecesToFEN(), board, 12);
+    public void shutdown() {
+        cancelEngine();
+        engineExecutor.shutdownNow();
+        engines.close();
+    }
+
+    private void playEngineMove(String fen, ChessMove chosen) {
+        if (!fen.equals(board.state.toRulesFen())) {
+            return; // the position changed while the engine was thinking (go back / new game)
         }
-        else {
-            new Thread(() -> {
-                long startTime = System.currentTimeMillis();
-                boolean moveFound = false;
-                long endTime = System.currentTimeMillis();
-                while ((!moveFound) && engine.isAvailable() && endTime - startTime < 1500) {
-                    engine.setSkillLevel(20);
-                    String fen = board.state.convertPiecesToFEN();
-                    // System.out.println("Current FEN: " + fen);
-                    String bestMove = engine.getBestMove(fen);
-                    // System.out.println("Best move: " + bestMove);
-
-                    if (bestMove != null && !bestMove.equals("unknown")) {
-                        int fromCol = bestMove.charAt(0) - 'a';
-                        int fromRow = 8 - (bestMove.charAt(1) - '0');
-                        int toCol = bestMove.charAt(2) - 'a';
-                        int toRow = 8 - (bestMove.charAt(3) - '0');
-                        if (bestMove.length() > 4) {
-                            engine.promotionChoice = String.valueOf(bestMove.charAt(4));
-                        } else {
-                            engine.promotionChoice = null;
-                        }
-                        // System.out.println("From: " + fromCol + "," + fromRow + " To: " + toCol + "," + toRow);
-
-                        Move move = new Move(board.state, board.state.getPiece(fromCol, fromRow), toCol, toRow);
-
-                        if (board.state.isValidMove(move)) {
-                            board.hintFromC = fromCol;
-                            board.hintFromR = fromRow;
-                            board.hintToC = toCol;
-                            board.hintToR = toRow;
-                            audioPlayer.playHintSound();
-                            board.repaint();
-                            engine.setSkillLevel(SettingPanel.skillLevel);
-                            moveFound = true; // מהלך חוקי נמצא, לצאת מהלולאה
-                            // System.out.println("Move found and made: " + bestMove);
-                        }
-                    } else {
-                        // System.out.println("No valid move found, retrying...");
-                        endTime = System.currentTimeMillis();
-                    }
-                }
-                // System.out.println(endTime - startTime);
-                if (!moveFound) {
-                    System.out.println("taking to long");
-                    awaitEngine(myEngine.giveHint(board.state.convertPiecesToFEN(), board, 10));
-                }
-                SwingUtilities.invokeLater(() -> {
-                    board.repaint();
-                    if (isStatusChanged) {
-                        Board.selectedPiece = null;
-                        JFrame frame = new JFrame("Game Over");
-                        board.updateGameState(true);
-                        Main.showEndGameMessage(frame, (isCheckMate ? (isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח") : "תיקו"));
-                    }
-                });
-            }).start();
+        Piece piece = board.state.getPiece(chosen.from() % 8, chosen.from() / 8);
+        Move move = new Move(board.state, piece, chosen.to() % 8, chosen.to() / 8);
+        if (!board.state.isValidMove(move)) {
+            System.err.println("Engine move " + chosen.toUci() + " rejected in " + fen);
+            return;
         }
+        enginePromotion = chosen.isPromotion() ? String.valueOf(chosen.promotion()) : "q";
+        board.makeMove(move);
+        board.repaint();
+        if (isStatusChanged) {
+            Board.selectedPiece = null;
+            SwingUtilities.invokeLater(this::showGameOver);
+        }
+    }
+
+    private void showHint(String fen, ChessMove move) {
+        if (!fen.equals(board.state.toRulesFen())) {
+            return;
+        }
+        board.hintFromC = move.from() % 8;
+        board.hintFromR = move.from() / 8;
+        board.hintToC = move.to() % 8;
+        board.hintToR = move.to() / 8;
+        audioPlayer.playHintSound();
+        board.repaint();
+    }
+
+    private void showGameOver() {
+        JFrame frame = new JFrame("Game Over");
+        board.updateGameState(true);
+        Main.showEndGameMessage(frame, (isCheckMate ? (isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח!") : (isStaleMate ? "פת. ליריב אין מהלכים חוקיים. המשחק נגמר בתיקו" : "המשחק נגמר בתיקו.")));
     }
 
     @Override
@@ -223,11 +186,7 @@ public class Input extends MouseAdapter {
                     if (isStatusChanged) {
                         Board.selectedPiece = null;
                         board.repaint();
-                        SwingUtilities.invokeLater(() -> {
-                            JFrame frame = new JFrame("Game Over");
-                            board.updateGameState(true);
-                            Main.showEndGameMessage(frame, (isCheckMate ? (isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח!") : (isStaleMate ? "פת. ליריב אין מהלכים חוקיים. המשחק נגמר בתיקו" : "המשחק נגמר בתיקו.")));
-                        });
+                        SwingUtilities.invokeLater(this::showGameOver);
                     } else {
                         if ((ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != board.state.getIsWhiteToMove())) {
                             makeEngineMove();
@@ -295,11 +254,7 @@ public class Input extends MouseAdapter {
                     if (isStatusChanged) {
                         Board.selectedPiece = null;
                         board.repaint();
-                        SwingUtilities.invokeLater(() -> {
-                            JFrame frame = new JFrame("Game Over");
-                            board.updateGameState(true);
-                            Main.showEndGameMessage(frame, (isCheckMate ? (isWhiteTurn ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח!") : (isStaleMate ? "פת. ליריב אין מהלכים חוקיים. המשחק נגמר בתיקו" : "המשחק נגמר בתיקו.")));
-                        });
+                        SwingUtilities.invokeLater(this::showGameOver);
                     } else {
                         board.repaint();
                         if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != board.state.getIsWhiteToMove()) {
@@ -342,14 +297,4 @@ public class Input extends MouseAdapter {
         isDragged = false;
     }
 
-
-    private static void awaitEngine(Future<?> task) {
-        try {
-            task.get();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        } catch (ExecutionException e) {
-            System.err.println("Built-in engine failed: " + e.getCause());
-        }
-    }
 }

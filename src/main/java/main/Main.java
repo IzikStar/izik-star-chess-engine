@@ -1,6 +1,5 @@
 package main;
 
-import ai.myEngine;
 import com.formdev.flatlaf.FlatLightLaf;
 
 import javax.swing.*;
@@ -144,12 +143,12 @@ public class Main {
 //                        // Wait for a specific time or until the next move
 //                        Thread.sleep(10000);
                         ChoosePlayFormat.isEnginePlayingBlack = false;
-                        //board.input.myEngine.stop();
+                        //board.input.cancelEngine();
                         SettingPanel.skillLevel = 6;
                         board.input.makeEngineMove();
                         board.input.latch.await();
                         if (board.state.getIsWhiteToMove()) {
-                            board.input.myEngine.stop();
+                            board.input.cancelEngine();
                             ChoosePlayFormat.isComputersGame = false;
                             while (board.state.getIsWhiteToMove()) {
                                 System.out.println("problem with engine. waiting for tou to play the move instead");
@@ -160,12 +159,12 @@ public class Main {
                     }
                     else {
                         ChoosePlayFormat.isEnginePlayingBlack = true;
-                        //board.input.myEngine.stop();
+                        //board.input.cancelEngine();
                         SettingPanel.skillLevel = 6;
                         board.input.makeEngineMove();
                         board.input.latch.await(); // Wait for the engine move to complete
                         if (!board.state.getIsWhiteToMove()) {
-                            board.input.myEngine.stop();
+                            board.input.cancelEngine();
                             ChoosePlayFormat.isComputersGame = false;
                             while (board.state.getIsWhiteToMove()) {
                                 System.out.println("problem with engine. waiting for tou to play the move instead");
@@ -175,7 +174,7 @@ public class Main {
                         }
                     }
                 }
-                board.input.myEngine.shutdown(); // Shut down the executor service when done
+                board.input.shutdown(); // Shut down the engine thread and Stockfish when done
                 board.input = temp;
                 computerGame = false;
                 ChoosePlayFormat.isComputersGame = false;

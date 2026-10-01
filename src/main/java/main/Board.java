@@ -62,7 +62,6 @@ public class Board extends JPanel {
         this.savedStates.push(fenStartingPosition);
 
         this.state = new BoardState(fenStartingPosition, null);
-        this.input.myEngine.setBoard(state);
         loadPiecesFromFen(state.fenCurrentPosition);
 
         Timer animationTimer = new Timer(1, new ActionListener() {
@@ -369,13 +368,7 @@ public class Board extends JPanel {
                 }
             }
             else {
-                if (SettingPanel.skillLevel > input.switchToStockFish) {
-                    promotePawnTo(move, input.engine.promotionChoice);
-                }
-                else {
-                    System.out.println(move + input.myEngine.promotionChoice);
-                    promotePawnTo(move, input.myEngine.promotionChoice);
-                }
+                promotePawnTo(move, input.enginePromotion);
                 state.capture(move.piece);
                 animation = new ChessAnimation(move.piece, move.piece.xPos, move.piece.yPos, move.piece.xPos, move.piece.yPos, 500);
                 new Thread(() -> {
@@ -453,7 +446,7 @@ public class Board extends JPanel {
             //System.out.println("current position: " + fenCurrentPosition);
             state.fenCurrentPosition = savedStates.pop();
             //System.out.println("changing position to: " + fenCurrentPosition);
-            input.engine.stopEngine();
+            input.cancelEngine();
             savedGamesPanel.removeMove();
             savedGamesPanel.removeMove();
             SavedStatesForDraws.removeLastState();
@@ -473,7 +466,7 @@ public class Board extends JPanel {
     }
 
     public void restart() {
-        input.myEngine.stop();
+        input.cancelEngine();
         isGameOver = false;
         input.isStatusChanged = false;
         state.setLastMove(null);
@@ -502,7 +495,6 @@ public class Board extends JPanel {
         savedStates.push(state.fenCurrentPosition);
         state.fenCurrentPosition = state.convertPiecesToFEN();
         loadPiecesFromFen(state.fenCurrentPosition);
-        input.engine.skillLevel = SettingPanel.skillLevel;
         if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != state.getIsWhiteToMove()) {
             input.makeEngineMove();
         }
