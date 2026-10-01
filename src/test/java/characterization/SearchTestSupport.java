@@ -22,8 +22,7 @@ final class SearchTestSupport {
     /** Runs the engine's search on {@code fen} at {@code depth} and returns its move. */
     static ChessMove bestMove(String fen, int depth) {
         BoardState state = new BoardState(fen, null);
-        Minimax.maxDepth = depth;
-        BitMove bitMove = Minimax.getBestMove(state);
+        BitMove bitMove = Minimax.getBestMove(state, depth);
         Move move = new Move(state, bitMove);
         int from = move.piece.row * 8 + move.piece.col;
         int to = move.newRow * 8 + move.newCol;

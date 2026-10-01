@@ -5,7 +5,6 @@ import ai.openingBook.OpeningBook;
 import main.Board;
 import main.Main;
 import main.Move;
-import main.setting.SettingPanel;
 import pieces.Piece;
 
 import javax.swing.*;
@@ -57,10 +56,11 @@ public class myEngine {
     // making move methods
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
-    public Future<Void> makeMove(String fen, Board realBoard) {
+    /** Plays a move for the side to move, chosen at {@code skillLevel} (0 = random move). */
+    public Future<Void> makeMove(String fen, Board realBoard, int skillLevel) {
         Callable<Void> task = () -> {
             try {
-                if (SettingPanel.skillLevel == 0) {
+                if (skillLevel == 0) {
                     Thread.sleep(waitTime);
                 }
                 if (Thread.currentThread().isInterrupted()) {
@@ -68,9 +68,9 @@ public class myEngine {
                 }
 
                 this.fen = fen;
-                Move move = chooseMethod(board);
+                Move move = chooseMethod(board, skillLevel);
                 while (move == null) {
-                    move = chooseMethod(board);
+                    move = chooseMethod(board, skillLevel);
                 }
                 Move tempMove = move;
                 if (board.isValidMove(tempMove)) {
@@ -87,12 +87,9 @@ public class myEngine {
                     alreadyChecked.clear();
                 }
                 else {
-                    System.out.println("retrying...");
-                    int temp = SettingPanel.skillLevel;
-                    SettingPanel.skillLevel = 0;
-                    waitTime = 0;
+                    System.out.println("retrying with a random move...");
                     do {
-                        move = chooseMethod(board);
+                        move = chooseMethod(board, 0);
                     } while (move == null);
                     tempMove = move;
                     if (board.isValidMove(tempMove)) {
@@ -110,8 +107,6 @@ public class myEngine {
                         }
                     }
                     alreadyChecked.clear();
-                    waitTime = 1000;
-                    SettingPanel.skillLevel = temp;
                 }
             } catch (InterruptedException e) {
                 // Handle interruption
@@ -121,19 +116,20 @@ public class myEngine {
         return executor.submit(task);
     }
 
-    public Future<Void> giveHint(String fen, Board realBoard) {
+    /** Shows a hint for the side to move, chosen at {@code skillLevel}. */
+    public Future<Void> giveHint(String fen, Board realBoard, int skillLevel) {
         Callable<Void> task = () -> {
             try {
-                if (SettingPanel.skillLevel == 0) {
+                if (skillLevel == 0) {
                     Thread.sleep(waitTime);
                 }
                 if (Thread.currentThread().isInterrupted()) {
                     return null;
                 }
                 this.fen = fen;
-                Move move = chooseMethod(board);
+                Move move = chooseMethod(board, skillLevel);
                 while (move == null) {
-                    move = chooseMethod(board);
+                    move = chooseMethod(board, skillLevel);
                 }
                 Move tempMove = move;
                 if (board.isValidMove(tempMove)) {
@@ -157,12 +153,11 @@ public class myEngine {
         executor.shutdown();
     }
 
-    private Move chooseMethod(BoardState board) {
-        int skillLevel = SettingPanel.skillLevel;
+    private Move chooseMethod(BoardState board, int skillLevel) {
         if (skillLevel == 0) {
             return getRandomMove();
         } else {
-            return new Move(board, getBestMove());
+            return new Move(board, getBestMove(skillLevel));
         }
     }
 
@@ -239,16 +234,17 @@ public class myEngine {
     }
 
     // other engine methods
-    private BitMove getBestMove() {
+    private BitMove getBestMove(int skillLevel) {
         // בדיקת מצב המשחק והשפעתו על העומק המקסימלי של האלגוריתם
+        int depth;
         if (board.getGameState() == 10) {
-            Minimax.maxDepth = SettingPanel.skillLevel / 2 + 2;
+            depth = skillLevel / 2 + 2;
             System.out.println("+2 depth");
         } else if (board.getGameState() == 2) {
             System.out.println("+1 depth");
-            Minimax.maxDepth = SettingPanel.skillLevel / 2 + 1;
+            depth = skillLevel / 2 + 1;
         } else {
-            Minimax.maxDepth = SettingPanel.skillLevel / 2;
+            depth = skillLevel / 2;
         }
 
         // בדיקת רמת המיומנות לשימוש בספר הפתיחות
@@ -265,8 +261,8 @@ public class myEngine {
 //        }
 
         // אם אין מהלך בספר הפתיחות, המנוע יחשב מהלך רגיל
-        // System.out.println("Calculating engine move. Depth: " + Minimax.maxDepth);
-        BitMove move = Minimax.getBestMove(board);
+        // System.out.println("Calculating engine move. Depth: " + depth);
+        BitMove move = Minimax.getBestMove(board, depth);
         promotionChoice = String.valueOf(move.promotionChoice);
         return move;
     }

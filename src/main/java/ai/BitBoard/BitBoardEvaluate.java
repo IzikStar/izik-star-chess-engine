@@ -1,7 +1,6 @@
 package ai.BitBoard;
 
 
-import main.setting.ChoosePlayFormat;
 
 
 public class BitBoardEvaluate {
@@ -249,13 +248,28 @@ public class BitBoardEvaluate {
     };
 
 
-    public static int evaluate(BitBoard board) {
-        boolean switchSides = ChoosePlayFormat.isComputersGame ? (ChoosePlayFormat.isEnginePlayingBlack) : ChoosePlayFormat.isPlayingWhite;
+    /**
+     * Score of a mated side, from the winner's point of view. Kept well inside {@code int} range
+     * so it can be negated: the old code returned {@code -Integer.MIN_VALUE}, which overflows back
+     * to {@code MIN_VALUE}, so an engine playing White scored "I deliver mate" as its worst outcome.
+     */
+    public static final int MATE = 100_000_000;
+
+    /**
+     * Static evaluation of {@code board} from the point of view of the side choosing the move at
+     * the search root ({@code rootIsBlack}). Internally the terms are computed Black-positive.
+     */
+    public static int evaluate(BitBoard board, boolean rootIsBlack) {
+        boolean switchSides = rootIsBlack;
         int value;
-        if (board.whiteKings == 0) return switchSides ? Integer.MAX_VALUE : Integer.MIN_VALUE;
-        if (board.blackKings == 0) return switchSides ? Integer.MIN_VALUE : Integer.MAX_VALUE;
+        if (board.whiteKings == 0) return switchSides ? MATE : -MATE;
+        if (board.blackKings == 0) return switchSides ? -MATE : MATE;
         value = board.getStatus();
-        if (value != 1) return switchSides ? value : -value;
+        if (value != 1) {
+            // getStatus(): MIN_VALUE = Black is mated, MAX_VALUE = White is mated, 0 = draw.
+            value = value == Integer.MIN_VALUE ? -MATE : value == Integer.MAX_VALUE ? MATE : 0;
+            return switchSides ? value : -value;
+        }
         value = 0;
         gameStage = getGameStage(board);
         value += getPiecesPureValue(board);

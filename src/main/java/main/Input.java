@@ -53,7 +53,7 @@ public class Input extends MouseAdapter {
     public void makeEngineMove() {
         if (SettingPanel.skillLevel < switchToStockFish) {
             latch = new CountDownLatch(1);
-            Future<Void> future = myEngine.makeMove(board.state.convertPiecesToFEN(), board);
+            Future<Void> future = myEngine.makeMove(board.state.convertPiecesToFEN(), board, SettingPanel.skillLevel);
             new Thread(() -> {
                 try {
                     future.get(); // Wait for the task to complete
@@ -98,13 +98,8 @@ public class Input extends MouseAdapter {
                     }
 
                     if (!moveFound) {
-                        int temp = SettingPanel.skillLevel;
-                        SettingPanel.skillLevel = 3;
-                        ChoosePlayFormat.isPlayingWhite = !ChoosePlayFormat.isPlayingWhite;
-                        // Wait for the task: it reads the globals set above, so they must not be restored first.
-                        awaitEngine(myEngine.makeMove(board.state.convertPiecesToFEN(), board));
-                        ChoosePlayFormat.isPlayingWhite = !ChoosePlayFormat.isPlayingWhite;
-                        SettingPanel.skillLevel = temp;
+                        // Stockfish gave no legal move: fall back to our own engine at level 3.
+                        awaitEngine(myEngine.makeMove(board.state.convertPiecesToFEN(), board, 3));
                     }
 
                     SwingUtilities.invokeLater(() -> {
@@ -127,12 +122,7 @@ public class Input extends MouseAdapter {
     public void takeEngineHint() {
         boolean takeMyEngineHints = false;
         if (takeMyEngineHints) {
-            int temp = SettingPanel.skillLevel;
-            SettingPanel.skillLevel = 12;
-            ChoosePlayFormat.isPlayingWhite = !ChoosePlayFormat.isPlayingWhite;
-            myEngine.giveHint(board.state.convertPiecesToFEN(), board);
-            ChoosePlayFormat.isPlayingWhite = !ChoosePlayFormat.isPlayingWhite;
-            SettingPanel.skillLevel = temp;
+            myEngine.giveHint(board.state.convertPiecesToFEN(), board, 12);
         }
         else {
             new Thread(() -> {
@@ -179,12 +169,7 @@ public class Input extends MouseAdapter {
                 // System.out.println(endTime - startTime);
                 if (!moveFound) {
                     System.out.println("taking to long");
-                    int temp = SettingPanel.skillLevel;
-                    SettingPanel.skillLevel = 10;
-                    ChoosePlayFormat.isPlayingWhite = !ChoosePlayFormat.isPlayingWhite;
-                    awaitEngine(myEngine.giveHint(board.state.convertPiecesToFEN(), board));
-                    ChoosePlayFormat.isPlayingWhite = !ChoosePlayFormat.isPlayingWhite;
-                    SettingPanel.skillLevel = temp;
+                    awaitEngine(myEngine.giveHint(board.state.convertPiecesToFEN(), board, 10));
                 }
                 SwingUtilities.invokeLater(() -> {
                     board.repaint();

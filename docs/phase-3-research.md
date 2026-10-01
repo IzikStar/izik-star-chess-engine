@@ -337,3 +337,24 @@ the `Minimax.bestMoves` NPE (Bug A). While writing it: across a single test run 
 `bestMoves` also leaks between searches, so a stale list from a *different position* can be
 returned instead of the NPE — the same bug's other face.
 `mvn test` 52 green.
+
+### Increment 2 — the search takes no UI state (2026-10-01)
+
+- `ai.Minimax`: each search runs on its own instance (`bestMoves`, counters, root side are
+  per-search fields; the `public static bestMoves` is gone). The root is simply
+  `depth == searchDepth`; the side choosing the move is the side to move at the root. New
+  `getBestMove(BoardState, int depth)`; the old `getBestMove(BoardState)` + `static maxDepth` stay
+  as a shim until increment 3. The dead `main()` is removed.
+- `BitBoardEvaluate.evaluate(board, rootIsBlack)`: no `ChoosePlayFormat` read; mates score
+  `±MATE` (100,000,000), never `±Integer.MIN/MAX_VALUE`, so negation cannot overflow. **Bug B fixed.**
+- `ai.myEngine.makeMove` / `giveHint` take the skill level as a parameter; the random-move retry
+  passes 0 instead of overwriting `SettingPanel.skillLevel`.
+- `main.Input`: the three flip-and-restore blocks are now plain calls (`makeMove(…, 3)`,
+  `giveHint(…, 12)`, `giveHint(…, 10)`). The fourth (in `myEngine`) is gone with the parameter.
+  **Bug A's cause removed** — no code flips `ChoosePlayFormat.isPlayingWhite` around an engine call
+  any more (`Main.play` still writes `skillLevel` / `isEnginePlayingBlack`; nothing in `ai.*` reads
+  them; deleted in increment 4).
+- `ai.*` no longer imports `main.setting.*` (except `StockfishEngine`, increment 3).
+- Tests: `SearchKnownBugsTest` folded into `SearchTest` (5 green). `mvn test` **54 green**,
+  `-Psmoke` 3 green, `-Pknown-bugs` empty. Headless engine-vs-engine sanity run (depth 2 for 60
+  plies, depth 3 to checkmate) played only legal moves.
