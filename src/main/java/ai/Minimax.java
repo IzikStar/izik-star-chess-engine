@@ -110,9 +110,9 @@ public class Minimax {
         }
 
         if (boardStateTracker.isThreefoldRepetition()) {
-            System.out.println("repetition!!! this is a stalemate!");
+            // a draw, worth 0 to both sides (was -1111111 whoever was to move)
             boardStateTracker.removeLastBoardState();
-            return new MinimaxResult(board.lastMove, -1111111);
+            return new MinimaxResult(board.lastMove, 0);
         }
 
         BitMove bestMove = board.getRandomPossibleMove();

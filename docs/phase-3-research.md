@@ -427,3 +427,19 @@ Done as one step: once `Board` stopped applying moves itself there was nothing l
   board and the engine opens; two-player mode flips the board to the side to move.
 - Found while driving it (pre-existing, fixed in the next commit): the search's repetition
   tracker hashes pawns as "no piece", so any two pawn moves look like a threefold repetition.
+
+### Fix — false repetitions inside the search (2026-10-01)
+
+Pre-existing bug surfaced while driving the app: `BitBoard.getPieceAt` returned 0 ("empty") for
+pawns and `ZobristHashing` ignored the side to move, so the search's `BoardStateTracker` saw a
+"threefold repetition" after any two pawn moves in a line and scored it `-1111111` regardless of
+whose turn it was (and printed a debug line per node). Now pawns hash as kind 6, the side to move
+is hashed, a real repetition inside the search scores as a draw (0), and the per-node printing
+is gone. Pinned by `SearchTest.searchHashSeesPawnsAndSideToMove` (red before, green after).
+`mvn test` **76 green**, `-Psmoke` 3 green.
+
+Cost: those fake repetitions were also cutting branches, so some searches now do more work. On
+this container, level 10 (depth 5) took 7.5 s → 20.4 s for Black's reply to 1.e4 and 11.9 s →
+9.8 s in an Italian-game position; level 12 (depth 6) takes minutes both before and after.
+Search speed (move ordering, the transposition table that is wired in only as comments,
+iterative deepening with a time limit) is Phase 4.

@@ -592,6 +592,7 @@ public class BitBoard {
         return king.getAttackedTiles() | queen.getAttackedTiles() | rook.getAttackedTiles() | bishop.getAttackedTiles() | knight.getAttackedTiles() | pawn.getAttackedTiles();
     }
 
+    /** Piece kind on {@code square}: 1 K, 2 Q, 3 R, 4 B, 5 N, 6 P, or 0 for an empty square. */
     public int getPieceAt(int square) {
         long tile = BitOperations.setBit(0L, square);
         if ((tile & (whiteKings | blackKings)) != 0) return 1;
@@ -599,7 +600,7 @@ public class BitBoard {
         if ((tile & (whiteRooks | blackRooks)) != 0) return 3;
         if ((tile & (whiteBishops | blackBishops)) != 0) return 4;
         if ((tile & (whiteKnights | blackKnights)) != 0) return 5;
-        if ((tile & (whitePawns | blackPawns)) != 0) return 0;
+        if ((tile & (whitePawns | blackPawns)) != 0) return 6; // was 0, i.e. pawns invisible to the hash
         return 0;
     }
 

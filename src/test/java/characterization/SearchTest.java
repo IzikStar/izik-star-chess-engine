@@ -67,4 +67,20 @@ class SearchTest extends CharacterizationTestBase {
         assertEquals(GameStatus.CHECKMATE, statusAfter(WHITE_MATES_IN_ONE, move),
                 "engine played " + move.toUci());
     }
+
+    /**
+     * The search's repetition check hashes positions. Pawns used to hash as empty squares (and
+     * the side to move was ignored), so two pawn pushes looked like a threefold repetition.
+     */
+    @Test
+    @DisplayName("Search position hash sees pawns and the side to move")
+    void searchHashSeesPawnsAndSideToMove() {
+        long start = ai.BitBoard.ZobristHashing.computeHash(bit(START));
+        long afterE4Placement = ai.BitBoard.ZobristHashing.computeHash(
+                bit("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 1"));
+        long blackToMove = ai.BitBoard.ZobristHashing.computeHash(
+                bit("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1"));
+        assertTrue(start != afterE4Placement, "a pawn move changes the hash");
+        assertTrue(start != blackToMove, "the side to move changes the hash");
+    }
 }
