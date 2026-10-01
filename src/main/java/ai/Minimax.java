@@ -19,9 +19,6 @@ import java.util.Random;
 public class Minimax {
     private static final Random random = new Random();
 
-    /** Search depth used by {@link #getBestMove(BoardState)}; set by the caller before searching. */
-    public static int maxDepth;
-
     private final int searchDepth;
     /** True when the side choosing the move (the side to move at the root) is Black. */
     private final boolean rootIsBlack;
@@ -32,14 +29,6 @@ public class Minimax {
     private Minimax(int searchDepth, boolean rootIsBlack) {
         this.searchDepth = searchDepth;
         this.rootIsBlack = rootIsBlack;
-    }
-
-    public static BitMove getBestMove(BoardState board) {
-        return getBestMove(board, maxDepth);
-    }
-
-    public static BitMove getBestMove(BoardState board, int depth) {
-        return getBestMove(new BitBoard(board), depth);
     }
 
     public static BitMove getBestMove(BitBoard bitboard, int depth) {

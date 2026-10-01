@@ -1,9 +1,6 @@
 package characterization;
 
-import ai.BoardState;
-import ai.Minimax;
-import ai.BitBoard.BitMove;
-import main.Move;
+import engine.MinimaxEngine;
 import rules.ChessMove;
 import rules.GameStatus;
 import rules.Rules;
@@ -19,14 +16,9 @@ final class SearchTestSupport {
     /** The colour-mirror of {@link #WHITE_MATES_IN_ONE}: Ra1# (Rb1# also mates) for Black. */
     static final String BLACK_MATES_IN_ONE = "r7/8/8/8/8/6k1/1r6/7K b - - 0 1";
 
-    /** Runs the engine's search on {@code fen} at {@code depth} and returns its move. */
+    /** Runs the engine's minimax search on {@code fen} at {@code depth} and returns its move. */
     static ChessMove bestMove(String fen, int depth) {
-        BoardState state = new BoardState(fen, null);
-        BitMove bitMove = Minimax.getBestMove(state, depth);
-        Move move = new Move(state, bitMove);
-        int from = move.piece.row * 8 + move.piece.col;
-        int to = move.newRow * 8 + move.newCol;
-        return new ChessMove(from, to, (char) 0);
+        return MinimaxEngine.searchAtDepth(fen, depth);
     }
 
     static GameStatus statusAfter(String fen, ChessMove move) {

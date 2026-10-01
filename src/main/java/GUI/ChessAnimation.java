@@ -1,48 +1,46 @@
 package GUI;
 
-import pieces.Piece;
-
-import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 
+/** A piece image sliding from one pixel position to another over {@code duration} ms. */
 public class ChessAnimation {
-    private Piece piece;
-    private int startX, startY, endX, endY, duration;
-    private long startTime;
+    private final Image sprite;
+    /** Board square (0..63) the piece is travelling to; the board skips drawing it meanwhile. */
+    private final int targetSquare;
+    private final int startX, startY, endX, endY, duration;
+    private final long startTime;
     private boolean finished;
 
-    public ChessAnimation(Piece piece, int startX, int startY, int endX, int endY, int duration) {
-        this.piece = piece;
+    public ChessAnimation(Image sprite, int targetSquare, int startX, int startY, int endX, int endY, int duration) {
+        this.sprite = sprite;
+        this.targetSquare = targetSquare;
         this.startX = startX;
         this.startY = startY;
         this.endX = endX;
         this.endY = endY;
         this.duration = duration;
         this.startTime = System.currentTimeMillis();
-        this.finished = false;
     }
 
     public void paint(Graphics2D g2d) {
         long elapsed = System.currentTimeMillis() - startTime;
+        int x = endX;
+        int y = endY;
         if (elapsed >= duration) {
-            piece.xPos = endX;
-            piece.yPos = endY;
             finished = true;
         } else {
             float progress = (float) elapsed / duration;
-            int x = startX + Math.round((endX - startX) * progress);
-            int y = startY + Math.round((endY - startY) * progress);
-            piece.xPos = x;
-            piece.yPos = y;
+            x = startX + Math.round((endX - startX) * progress);
+            y = startY + Math.round((endY - startY) * progress);
         }
-        piece.paint(g2d);
+        g2d.drawImage(sprite, x, y, null);
+    }
+
+    public int targetSquare() {
+        return targetSquare;
     }
 
     public boolean isFinished() {
-        return finished;
+        return finished || System.currentTimeMillis() - startTime >= duration;
     }
-
-
 }

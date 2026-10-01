@@ -1,15 +1,14 @@
 package characterization;
 
 import ai.BitBoard.BitBoard;
-import ai.BoardState;
-import main.Move;
 import main.savedGames.LoadGame;
 import main.savedGames.SaveGame;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import pieces.Piece;
+import rules.Game;
+import rules.GameStatus;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -27,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * manual play-through the refactor guide left owed after Phase 0 / Phase 1.
  *
  * <p>Headless, no Swing, no synthetic input. It drives the real rules core
- * ({@code BoardState} + {@code Move}, delegating to {@code rules.Rules}), the real engine board
+ * ({@code rules.Game}, the API the UI's game session drives), the real engine board
  * representation ({@code BitBoard}, which the minimax search runs on), and the real
  * persistence classes ({@code SaveGame} / {@code LoadGame}) through complete games.
  *
@@ -42,29 +41,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class AppSmokeTest extends CharacterizationTestBase {
 
     /**
-     * Play Scholar's Mate move by move through the object-oriented path a human move would
-     * take, asserting the status transitions in-progress -> check -> checkmate. Exercises
-     * move execution, capture, and the check/mate detection the UI consults.
+     * Play Scholar's Mate move by move through the game API a human move takes, asserting the
+     * status transitions in-progress -> checkmate. Exercises move execution, capture, and the
+     * check/mate detection the UI consults.
      */
     @Test
-    @DisplayName("A full scripted game reaches checkmate through the OO rules path")
+    @DisplayName("A full scripted game reaches checkmate through the game API")
     void scriptedGameToCheckmate() {
-        BoardState b = oo(START);
+        Game g = new Game(START);
+        for (String m : new String[]{"e2e4", "e7e5", "f1c4", "f8c5", "d1h5"}) {
+            g.play(m);
+        }
+        assertEquals(GameStatus.IN_PROGRESS, g.status(), "still in progress before the mate");
+        g.play("b8c6");
+        var mate = g.play("h5f7"); // Qxf7#  (captures the f7 pawn)
 
-        // 1. e4 e5  2. Bc4 Bc5  3. Qh5 Nc6  4. Qxf7#
-        // cols: a..h = 0..7 ; rows: rank 8..1 = 0..7 ; White home rows 6-7.
-        applyMove(b, 4, 6, 4, 4); // e2-e4
-        applyMove(b, 4, 1, 4, 3); // e7-e5
-        applyMove(b, 5, 7, 2, 4); // Bf1-c4
-        applyMove(b, 5, 0, 2, 3); // Bf8-c5
-        applyMove(b, 3, 7, 7, 3); // Qd1-h5
-        assertEquals(1, b.getAccurateStatus(), "still in progress before the mate");
-        applyMove(b, 1, 0, 2, 2); // Nb8-c6
-        applyMove(b, 7, 3, 5, 1); // Qh5xf7#  (captures the f7 pawn)
-
-        assertEquals(Integer.MAX_VALUE, b.getAccurateStatus(),
-                "Qxf7 is checkmate -> getAccurateStatus() == Integer.MAX_VALUE");
-        assertEquals(0, b.getStatus(), "game is over -> getStatus() == 0");
+        assertEquals(GameStatus.CHECKMATE, g.status());
+        assertEquals("Qxf7#", mate.san());
+        assertEquals('p', mate.captured());
+        assertTrue(g.status().isGameOver());
     }
 
     /**
@@ -100,13 +95,10 @@ class AppSmokeTest extends CharacterizationTestBase {
     @Test
     @DisplayName("SaveGame / LoadGame round-trips a game's FEN list unchanged")
     void saveLoadRoundTrip(@TempDir Path dir) throws IOException {
-        List<String> fens = new ArrayList<>();
-        fens.add(START);
-        BoardState b = oo(START);
-        applyMove(b, 4, 6, 4, 4);
-        fens.add(b.convertPiecesToFEN());
-        applyMove(b, 4, 1, 4, 3);
-        fens.add(b.convertPiecesToFEN());
+        Game g = new Game(START);
+        g.play("e2e4");
+        g.play("e7e5");
+        List<String> fens = new ArrayList<>(g.history());
 
         Path file = dir.resolve("game.txt");
         new SaveGame().saveGameToFile(fens, file.toString());
@@ -115,16 +107,5 @@ class AppSmokeTest extends CharacterizationTestBase {
         List<String> loaded = new LoadGame().loadGameFromFile(file.toString());
         assertEquals(fens, loaded, "loaded FEN list equals the saved one");
         assertNotEquals(loaded.get(0), loaded.get(1), "the game actually advanced between saved states");
-    }
-
-    // ---- helpers ----------------------------------------------------------
-
-    private static void applyMove(BoardState b, int fromCol, int fromRow, int toCol, int toRow) {
-        Piece p = b.getPiece(fromCol, fromRow);
-        assertTrue(p != null, "no piece at (" + fromCol + "," + fromRow + ")");
-        Move m = new Move(b, p, toCol, toRow);
-        assertTrue(b.isValidMove(m),
-                "move (" + fromCol + "," + fromRow + ")->(" + toCol + "," + toRow + ") should be legal");
-        b.makeMove(m);
     }
 }

@@ -1,11 +1,7 @@
 package ai.BitBoard;
 
 import ai.BitBoard.BitPiece.*;
-import ai.BoardState;
-import ai.Minimax;
-import main.Move;
-import pieces.*;
-import main.Debug;
+import ai.Debug;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -28,117 +24,6 @@ public class BitBoard {
     private int moveValue = 0; // ערך ברירת מחדל הוא 0
 
     // constructors
-    public BitBoard(BoardState boardState) {
-        for (Piece piece : boardState.getAllPieces()) {
-            int tile = boardState.getTileNum(piece.col, piece.row);
-            long tileNum = 0x1;
-            tileNum <<= tile;
-            if (piece.isWhite) {
-                switch (piece.name.charAt(0)) {
-                    case 'K' :
-                        if (piece.name.equals("King")) {
-                            whiteKings = whiteKings | tileNum;
-                            if (!piece.isFirstMove) {
-                                canWhiteCastleQueenSide = false;
-                                canWhiteCastleKingSide = false;
-                            }
-                        }
-                        else whiteKnights = whiteKnights | tileNum;
-                        break;
-                    case 'Q' :
-                        whiteQueens = whiteQueens | tileNum;
-                        break;
-                    case 'R' :
-                        whiteRooks = whiteRooks | tileNum;
-                        if (piece.col == 0) {
-                            if (!piece.isFirstMove) {
-                                canWhiteCastleQueenSide = false;
-                            }
-                        }
-                        else {
-                            if (!piece.isFirstMove) {
-                                canWhiteCastleKingSide = false;
-                            }
-                        }
-                        break;
-                    case 'B' :
-                        whiteBishops = whiteBishops | tileNum;
-                        break;
-                    case 'P' :
-                        whitePawns = whitePawns | tileNum;
-                        break;
-                    default: Debug.log("unfamiliar piece.");
-                    break;
-                }
-            }
-            else {
-                switch (piece.name.charAt(0)) {
-                    case 'K' :
-                        if (piece.name.equals("King")) {
-                            blackKings = blackKings | tileNum;
-                            if (!piece.isFirstMove) {
-                                canBlackCastleQueenSide = false;
-                                canBlackCastleKingSide = false;
-                            }
-                        }
-                        else blackKnights = blackKnights | tileNum;
-                        break;
-                    case 'Q' :
-                        blackQueens = blackQueens | tileNum;
-                        break;
-                    case 'R' :
-                        blackRooks = blackRooks | tileNum;
-                        if (piece.col == 0) {
-                            if (!piece.isFirstMove) {
-                                canBlackCastleQueenSide = false;
-                            }
-                        }
-                        else {
-                            if (!piece.isFirstMove) {
-                                canBlackCastleKingSide = false;
-                            }
-                        }
-                        break;
-                    case 'B' :
-                        blackBishops = blackBishops | tileNum;
-                        break;
-                    case 'P' :
-                        blackPawns = blackPawns | tileNum;
-                        break;
-                    default: Debug.log("unfamiliar piece.");
-                        break;
-                }
-            }
-        }
-        whitePieces = whiteKings | whiteQueens | whiteRooks | whiteBishops | whiteKnights | whitePawns;
-        blackPieces = blackKings | blackQueens | blackRooks | blackBishops | blackKnights | blackPawns;
-        isWhiteToMove = boardState.getIsWhiteToMove();
-        numOfTurns = boardState.numOfTurns;
-        numOfTurnsWithoutCaptureOrPawnMove = boardState.numOfTurnWithoutCaptureOrPawnMove;
-        enPassantTile = boardState.enPassantTile;
-        canWhiteCastleKingSide = boardState.canWhiteCastleKingSide;
-        canWhiteCastleQueenSide = boardState.canWhiteCastleQueenSide;
-        canBlackCastleKingSide = boardState.canBlackCastleKingSide;
-        canBlackCastleQueenSide = boardState.canBlackCastleQueenSide;
-        if (boardState.getLastMove() != null) {
-            long prevPosition = switch (boardState.getLastMove().piece.type) {
-                case 'K' -> whiteKings;
-                case 'Q' -> whiteQueens;
-                case 'R' -> whiteRooks;
-                case 'B' -> whiteBishops;
-                case 'N' -> whiteKnights;
-                case 'P' -> whitePawns;
-                case 'k' -> blackKings;
-                case 'q' -> blackQueens;
-                case 'r' -> blackRooks;
-                case 'b' -> blackBishops;
-                case 'n' -> blackKnights;
-                case 'p' -> blackPawns;
-                default -> 0L;
-            };
-            this.lastMove = new BitMove(prevPosition, boardState.getLastMove(), boardState.fromC, boardState.fromR, boardState.isLastMoveCastling, boardState.isLastMovePawn);
-        }
-    }
     public BitBoard(long whiteKings, long whiteQueens, long whiteRooks, long whiteBishops, long whiteKnights, long whitePawns,
                     long blackKings, long blackQueens, long blackRooks, long blackBishops, long blackKnights, long blackPawns,
                     boolean isWhiteToMove,
@@ -756,42 +641,6 @@ public class BitBoard {
     @Override
     public String toString() {
         return BitBoardOperations.printBitBoard(this);
-    }
-
-    // main for debugging
-    public static void main(String[] args) {
-        //Debug.debugging = true;
-        // String fen = "rnbqkbn1/8/8/8/6r1/p5pP/8/RNBQK2R w KQkq - 0 1";
-        //String fen = "rnbqkb1r/pppppppp/5n2/8/8/5N2/PPPPPPPP/RNBQKB1R b KQkq - 0 1";
-        String prev = "rnbqkbnr/1p1p1ppp/2p5/p3p3/2B1P3/3P4/PPP2PPP/RNBQK1NR w qkQK a6 0 3";
-        String fen = "rnbqkbnr/1p1p1ppp/2p5/p3p3/P1B1P3/3P4/1PP2PPP/RNBQK1NR b qkQK a3 0 4";
-        // String fen = "r3k2r/8/8/8/8/8/8/R3K2R b KQkq - 0 1";
-        //String fen = "rk6/p1p5/B4p2/1q2bP2/3N4/2K5/8/1R6 b - - 0 1";
-        //String fen = "1k4r1/7P/8/8/8/8/8/7K w - - 0 1";
-        BoardState tempState = new BoardState(prev, null);
-        BoardState boardState = new BoardState(fen, new Move(tempState, tempState.getPiece(0,6), 0, 4));
-        BitBoard board = new BitBoard(boardState);
-        long timeElapsed;
-        Instant start, end;
-        start = Instant.now(); // התחלת מדידת זמן
-
-        System.out.println("Initial Board:");
-        System.out.println(BitBoardOperations.printBitBoard(board));
-
-
-        // ArrayList<BitBoard> states = board.getMovesForColor(1);
-        ArrayList<BitBoard> states = board.getNextStates();
-        System.out.println("Moves:");
-        System.out.println("size:" + states.size());
-        for (BitBoard move : states) {
-            System.out.println(BitBoardOperations.printBitBoard(move));
-        }
-        // checking minimax:
-        Minimax.maxDepth = 4;
-        System.out.println(Minimax.getBestMove(boardState));
-        end = Instant.now(); // סיום מדידת זמן
-        timeElapsed = Duration.between(start, end).toMillis(); // זמן במילישניות
-        System.out.println("time spend: " + timeElapsed);
     }
 
 }

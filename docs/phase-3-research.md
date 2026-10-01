@@ -397,3 +397,33 @@ Added alongside the UI (not wired yet), so this commit changes no behaviour:
   dispatcher thread and dropped if stale).
 - Tests: `rules.GameAndSanTest` (6), `game.GameSessionTest` (8, incl. engine-vs-engine on real
   threads). `mvn test` **75 green**.
+
+### Increment 4b + 5 — the UI becomes a client of the session; the object model is gone (2026-10-01)
+
+Done as one step: once `Board` stopped applying moves itself there was nothing left for
+`BoardState` to do.
+- `main.Board` is a renderer + `GameListener`: it paints `session.position()` with view-only
+  state (selection, drag, hint, last move, animations, orientation) and turns events into
+  animation, sounds, the move list, the score and the game-over dialog. No chess rules left in it.
+- `main.Input` only tracks the click / drag gesture and calls `Board.tryMove` →
+  `session.playHumanMove` (promotion dialog first when needed).
+- `GUI.PieceSprites` decodes `pieces.png` once (ARCHITECTURE §5.7 resolved);
+  `GUI.ChessAnimation` slides an image, not a model object.
+- `SettingPanel` edits the session's `GameConfig`; `Main` builds the session with
+  `SwingUtilities::invokeLater` as its dispatcher, and "New computer Game" switches the session to
+  engine-vs-engine (replacing `Main.play()`'s `SwingWorker` + `CountDownLatch` + `sleep(6000)`
+  loop). Board orientation is view state: human's colour, or the side to move in two-player mode.
+- **Deleted:** `ai.BoardState`, `pieces/*`, `main.Move`, `main.setting.ChoosePlayFormat`,
+  `main.savedGames.SavedStatesForDraws`, `BitBoard(BoardState)`, `BitMove(Move…)`, the
+  `BitBoard` / `ZobristHashing` debug `main()`s, `Minimax.getBestMove(BoardState…)` and its static
+  `maxDepth`, and the dead `main.GoBack` / `GUI.SoundPlayer`. `main.Debug` moved to `ai.Debug`.
+- `rules`, `engine`, `game` and `ai` import nothing from `javax.swing`, `java.awt`, `main.*` or
+  `GUI.*`; the `main ↔ ai ↔ pieces` cycle is gone.
+- Tests: the characterization suite's "OO path" assertions re-pointed at the game API
+  (`rules.Rules` / `rules.Game`), same scenarios, same expected answers; the bitboard-path
+  assertions are unchanged. `mvn test` **75 green**, `-Psmoke` 3 green.
+- Driven the real app under Xvfb: click and drag moves at levels 0 / 6 / 16 (Stockfish missing →
+  fallback) / 2 all answered by the engine; go back took back two plies; "play as black" flips the
+  board and the engine opens; two-player mode flips the board to the side to move.
+- Found while driving it (pre-existing, fixed in the next commit): the search's repetition
+  tracker hashes pawns as "no piece", so any two pawn moves look like a threefold repetition.

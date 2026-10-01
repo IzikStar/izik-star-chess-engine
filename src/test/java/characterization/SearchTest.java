@@ -37,9 +37,8 @@ class SearchTest extends CharacterizationTestBase {
     }
 
     @Test
-    @DisplayName("Engine as White returns a legal move when the settings say the human is Black")
+    @DisplayName("Engine as White returns a legal move from the opening")
     void whiteEngineLegalMoveWhenHumanIsBlack() {
-        main.setting.ChoosePlayFormat.isPlayingWhite = false;
         ChessMove move = bestMove(START, 2);
         assertTrue(Rules.isLegal(START, move), "engine played " + move.toUci());
     }
@@ -51,7 +50,6 @@ class SearchTest extends CharacterizationTestBase {
     @Test
     @DisplayName("Engine as White finds a mate in one (depth 2)")
     void whiteEngineMatesInOne() {
-        main.setting.ChoosePlayFormat.isPlayingWhite = false; // human Black, engine White
         ChessMove move = bestMove(WHITE_MATES_IN_ONE, 2);
         assertEquals(GameStatus.CHECKMATE, statusAfter(WHITE_MATES_IN_ONE, move),
                 "engine played " + move.toUci());
@@ -60,12 +58,11 @@ class SearchTest extends CharacterizationTestBase {
     /**
      * Was Bug A ("the engine stops playing"): the search decided whether it was at its root by
      * reading UI flags, and threw a NullPointerException when they disagreed with the side to
-     * move. It now always searches for the side to move, whatever the UI settings say.
+     * move. It now always searches for the side to move; Phase 3 deleted those flags entirely.
      */
     @Test
     @DisplayName("Search for the side to move does not depend on the UI's idea of who the human is")
     void searchIgnoresUiFlags() {
-        // stock settings: human White. Ask for a White move anyway, as a hint or fallback does.
         ChessMove move = assertDoesNotThrow(() -> bestMove(WHITE_MATES_IN_ONE, 2));
         assertEquals(GameStatus.CHECKMATE, statusAfter(WHITE_MATES_IN_ONE, move),
                 "engine played " + move.toUci());

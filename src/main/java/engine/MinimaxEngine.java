@@ -35,7 +35,15 @@ public final class MinimaxEngine implements Engine {
         if (skillLevel <= 0) {
             return legal.get(random.nextInt(legal.size()));
         }
-        int depth = Math.max(1, searchDepth(Position.fromFen(fen), skillLevel));
+        return searchAtDepth(fen, Math.max(1, searchDepth(Position.fromFen(fen), skillLevel)));
+    }
+
+    /** The minimax search's move at an explicit depth, or {@code null} if there is no legal move. */
+    public static ChessMove searchAtDepth(String fen, int depth) {
+        List<ChessMove> legal = Rules.legalMoves(fen);
+        if (legal.isEmpty()) {
+            return null;
+        }
         BitMove bitMove = Minimax.getBestMove(BitBoardRules.fromFen(fen), depth);
         return toLegalMove(bitMove, legal);
     }

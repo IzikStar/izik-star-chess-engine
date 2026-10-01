@@ -3,82 +3,82 @@ package main;
 // מחלקות שלי
 import GUI.AudioPlayer;
 import GUI.ChessAnimation;
-import ai.BoardState;
+import GUI.PieceSprites;
+import game.GameConfig;
+import game.GameListener;
+import game.GameSession;
 import main.savedGames.SavedGamesPanel;
-import main.savedGames.SavedStatesForDraws;
-import main.setting.ChoosePlayFormat;
-import main.setting.SettingPanel;
-import pieces.*;
+import rules.ChessMove;
+import rules.Game;
 import rules.GameStatus;
+import rules.MoveResult;
+import rules.Position;
+import rules.Square;
 // מחלקות של ג'אווה
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.Stack;
+import java.util.List;
 
-public class Board extends JPanel {
+/**
+ * The chess board widget. Since Phase 3 it holds no chess rules and no game state of its own: it
+ * paints the {@link GameSession}'s current {@link Position}, keeps only view state (selection,
+ * drag, hint, last move, animations, orientation), and turns the session's events into
+ * animation, sound and the game-over dialog. Moves go in through {@link #tryMove}.
+ */
+public class Board extends JPanel implements GameListener {
 
     // משתנים לציור הלוח
-    JFrame parentFrame;
-    SavedGamesPanel savedGamesPanel;
-    public static final String fenStartingPosition = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-    // public static final String fenStartingPosition = "2k4r/1pq1pp2/p1p2bp1/3p4/3P1P2/2N1P1Q1/PPP5/2K4R w - - 1 20";
-    public static int tileSize = 85;
-    public static int cols = 8;
-    public static int rows = 8;
+    public static final int tileSize = 85;
+    public static final int cols = 8;
+    public static final int rows = 8;
+    private static final int ANIMATION_MS = 500;
 
+    final GameSession session;
+    private final SavedGamesPanel savedGamesPanel;
+    private final PieceSprites sprites = new PieceSprites(tileSize);
+    private final AudioPlayer audioPlayer = new AudioPlayer();
+    private final List<ChessAnimation> animations = new ArrayList<>();
+    final Input input;
 
-    BoardState state;
-    // משתנים של מצב הלוח
-    public static Piece selectedPiece;
+    // מצב התצוגה בלבד
+    /** True when White is drawn at the bottom. */
+    private boolean whiteAtBottom = true;
+    int selectedSquare = -1;
+    /** While dragging: the square being dragged from, and the sprite's top-left pixel. */
+    int dragSquare = -1, dragX, dragY;
+    private int hintFrom = -1, hintTo = -1;
+    private int lastFrom = -1, lastTo = -1;
+    /** Set while a dragged move is being played, so it is not also animated. */
+    private boolean moveWasDragged;
+    private Timer flipTimer;
 
-    public boolean isGameOver = false;
-    // כללי יותר
-    public Stack<String> savedStates = new Stack<>();
-    public Stack<String> savedMoves = new Stack<>();
-
-    // משתנים לטיפול באינפוט וGUI
-    public Input input = new Input(this);
-    AudioPlayer audioPlayer = new AudioPlayer();
-    private ChessAnimation animation;
-    private final java.util.List<ChessAnimation> animations = new ArrayList<>();
-    ShowScore showScore = new ShowScore(this);
-
-    // הצגת רמזים
-    public int hintFromC = -1, hintFromR = -1, hintToC = -1, hintToR = -1;
-    int fromC = -1, fromR = -1, toC = -1, toR = -1;
-    public String promotionChoice;
-
-    // constructor
-    public Board(SavedGamesPanel savedGamesPanel) {
+    public Board(GameSession session, SavedGamesPanel savedGamesPanel) {
+        this.session = session;
         this.savedGamesPanel = savedGamesPanel;
         this.setPreferredSize(new Dimension(cols * tileSize, rows * tileSize));
+        this.input = new Input(this);
         this.addMouseListener(input);
         this.addMouseMotionListener(input);
+        session.addListener(this);
+        updateOrientation();
 
-        this.savedStates.push(fenStartingPosition);
-
-        this.state = new BoardState(fenStartingPosition, null);
-        loadPiecesFromFen(state.fenCurrentPosition);
-
-        Timer animationTimer = new Timer(1, new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (animation != null && animation.isFinished()) {
-                    animation = null;
-                }
+        Timer animationTimer = new Timer(15, e -> {
+            if (!animations.isEmpty()) {
                 repaint();
             }
         });
         animationTimer.start();
     }
 
-    // פונקציות צביעה
+    // ---- painting -----------------------------------------------------------
+
+    @Override
     public void paintComponent(Graphics g) {
+        super.paintComponent(g);
         Graphics2D g2d = (Graphics2D) g;
+        Position position = session.position();
 
         // paint board
         for (int r = 0; r < rows; r++) {
@@ -89,87 +89,84 @@ public class Board extends JPanel {
         }
 
         // paint last move
-        // System.out.println(fromC + " ," + fromR + " : " + toC + " ," + toR);
-        g.setColor(new Color(72, 255, 0, 158));
-        g.fillRect(getXFromCol(fromC), getYFromRow(fromR), tileSize, tileSize);
-        g.setColor(new Color(55, 255, 0, 186));
-        g.fillRect(getXFromCol(toC), getYFromRow(toR), tileSize, tileSize);
+        fillSquare(g2d, lastFrom, new Color(72, 255, 0, 158));
+        fillSquare(g2d, lastTo, new Color(55, 255, 0, 186));
 
         // paint engine hint
-        g.setColor(new Color(0, 255, 215, 158));
-        g.fillRect(getXFromCol(hintFromC), getYFromRow(hintFromR), tileSize, tileSize);
-        g.setColor(new Color(47, 206, 255, 237));
-        g.fillRect(getXFromCol(hintToC), getYFromRow(hintToR), tileSize, tileSize);
+        fillSquare(g2d, hintFrom, new Color(0, 255, 215, 158));
+        fillSquare(g2d, hintTo, new Color(47, 206, 255, 237));
 
         // paint the border of the king red if it's under attack
-        if (state.findKing(state.getIsWhiteToMove()) != null && state.getIsCheck()) {
-            Piece king = state.findKing(state.getIsWhiteToMove());
-            drawSquareWithCircle(g ,getXFromCol(king.col) / tileSize, getYFromRow(king.row) / tileSize);
+        GameStatus status = session.status();
+        if (status == GameStatus.CHECK || status == GameStatus.CHECKMATE) {
+            int king = findKing(position, position.whiteToMove());
+            if (king >= 0) {
+                drawRedBorder(g2d, king);
+            }
         }
 
-        // paint highLights
-        if (selectedPiece != null) {
-            if (selectedPiece.isWhite == state.getIsWhiteToMove()) {
-                g2d.setColor(new Color(0, 0, 255, 128)); // כחול חצי שקוף
-                if (ChoosePlayFormat.isPlayingWhite) {
-                    g2d.fillRect(selectedPiece.col * tileSize, selectedPiece.row * tileSize, tileSize, tileSize);
+        // paint highlights: the selected piece and where it can go
+        if (selectedSquare >= 0) {
+            fillSquare(g2d, selectedSquare, new Color(0, 0, 255, 128)); // כחול חצי שקוף
+            for (ChessMove move : session.legalMoves()) {
+                if (move.from() != selectedSquare) {
+                    continue;
                 }
-                else {
-                    g2d.fillRect((cols - 1 - selectedPiece.col) * tileSize, (rows - 1 - selectedPiece.row) * tileSize, tileSize, tileSize);
-                }
-                if (state.getIsCheck()) {
-                    Piece king = state.findKing(state.getIsWhiteToMove());
-                    //g2d.setColor(new Color(255, 0, 0, 237)); // אדום חצי שקוף
-                    //g2d.fillRect(king.col * tileSize, king.row * tileSize, tileSize, tileSize);
-                    drawSquareWithCircle(g ,getXFromCol(king.col) / tileSize, getYFromRow(king.row) / tileSize);
+                if (position.pieceAt(move.to()) == 0) {
+                    // ציור עיגול במרכז הריבוע
+                    g2d.setColor(new Color(72, 255, 0, 158));
+                    int diameter = tileSize / 3;
+                    g2d.fillOval(xOf(move.to()) + (tileSize - diameter) / 2,
+                            yOf(move.to()) + (tileSize - diameter) / 2, diameter, diameter);
+                } else {
+                    drawRedBorder(g2d, move.to());
                 }
             }
+        }
 
-            for (int c = 0; c < cols; c++) {
-                for (int r = 0; r < rows; r++) {
-                    if (state.isValidMove(new Move(state, selectedPiece, c, r))) {
-                        if (state.getPiece(c, r) == null) {
-                            // ציור עיגול במרכז הריבוע
-                            g.setColor(new Color(72, 255, 0, 158));
-                            int diameter = tileSize / 3;
-                            int circleX;
-                            int circleY;
-                            if (ChoosePlayFormat.isPlayingWhite) {
-                                circleX = c * tileSize + (tileSize - diameter) / 2;
-                                circleY = r * tileSize + (tileSize - diameter) / 2;
-                            }
-                            else {
-                                circleX = (cols - 1 - c) * tileSize + (tileSize - diameter) / 2;
-                                circleY = (rows - 1 - r) * tileSize + (tileSize - diameter) / 2;
-                            }
-                            g.fillOval(circleX, circleY, diameter, diameter);
-                        } else {
-                            drawSquareWithCircle(g, getXFromCol(c) / tileSize, getYFromRow(r) / tileSize);
-                        }
-                    }
-                }
+        // paint pieces (except those still sliding in, and the one being dragged)
+        for (int sq = 0; sq < 64; sq++) {
+            char piece = position.pieceAt(sq);
+            if (piece == 0 || sq == dragSquare || isAnimatingTo(sq)) {
+                continue;
             }
+            g2d.drawImage(sprites.get(piece), xOf(sq), yOf(sq), null);
         }
 
         Iterator<ChessAnimation> it = animations.iterator();
         while (it.hasNext()) {
             ChessAnimation animation = it.next();
-            if (!animation.isFinished()) {
-                animation.paint(g2d);
-            } else {
+            animation.paint(g2d);
+            if (animation.isFinished()) {
                 it.remove();
             }
         }
 
-        // paint pieces
-        for (Piece piece : state.getAllPieces()) {
-            piece.paint(g2d);
+        if (dragSquare >= 0 && position.pieceAt(dragSquare) != 0) {
+            g2d.drawImage(sprites.get(position.pieceAt(dragSquare)), dragX, dragY, null);
         }
     }
 
-    private void drawSquareWithCircle(Graphics g, int col, int row) {
-        int x = col * tileSize;
-        int y = row * tileSize;
+    private boolean isAnimatingTo(int square) {
+        for (ChessAnimation a : animations) {
+            if (a.targetSquare() == square && !a.isFinished()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void fillSquare(Graphics2D g, int square, Color color) {
+        if (square < 0) {
+            return;
+        }
+        g.setColor(color);
+        g.fillRect(xOf(square), yOf(square), tileSize, tileSize);
+    }
+
+    private void drawRedBorder(Graphics g, int square) {
+        int x = xOf(square);
+        int y = yOf(square);
         int borderThickness = 5;
 
         g.setColor(Color.RED);
@@ -178,387 +175,270 @@ public class Board extends JPanel {
         g.fillRect(x + tileSize - borderThickness, y, borderThickness, tileSize); // Right
         g.fillRect(x, y + tileSize - borderThickness, tileSize, borderThickness); // Bottom
     }
-    // טיפול בהפיכת הלוח
-    public int getXFromCol(int col){
-        if (ChoosePlayFormat.isPlayingWhite) {
-            return col * tileSize;
-        }
-        else {
-            return (cols - 1 - col) * tileSize;
-        }
-    }
-    public int getYFromRow(int row){
-        if (ChoosePlayFormat.isPlayingWhite) {
-            return row * tileSize;
-        }
-        else {
-            return (rows - 1 - row) * tileSize;
-        }
-    }
-    public int getColFromX(int x){
-        if (ChoosePlayFormat.isPlayingWhite) {
-            return x / tileSize;
-        }
-        else {
-            return (cols - 1) - x / tileSize;
-        }
-    }
-    public int getRowFromY(int y){
-        if (ChoosePlayFormat.isPlayingWhite) {
-            return y / tileSize;
-        }
-        else {
-            return (rows - 1) - y / tileSize;
-        }
-    }
-    public int getXFromX(int x) {
-        if (ChoosePlayFormat.isPlayingWhite) return x;
-        return x - tileSize / 2;
-    }
-    public int getYFromY(int y) {
-        if (ChoosePlayFormat.isPlayingWhite) return y;
-        return y - tileSize / 2;
-    }
 
-
-    // פונקציות לשינוי מצב הלוח וביצוע מהלכים
-    public void loadPiecesFromFen(String fenCurrentPosition) {
-        state.loadPiecesFromFen(fenCurrentPosition);
-        repaint();
-    }
-
-    public void makeMove(Move move) {
-        move.setRepresentation();
-        Piece piece = state.getPiece(move.piece.col, move.piece.row);
-        boolean pawnMoveSuccess = true;
-        if (piece.name.equals("Pawn")) {
-            pawnMoveSuccess = movePawn(move);
-        } else if (piece.name.equals("King")) {
-            moveKing(move);
-        }
-
-        if (pawnMoveSuccess) {
-            fromC = piece.col;
-            state.fromC = piece.col;
-            fromR = piece.row;
-            state.fromR = piece.row;
-            toC = move.newCol;
-            state.toC = move.newCol;
-            toR = move.newRow;
-            state.toR = move.newRow;
-            if (!piece.name.equals("Pawn") || !(Math.abs(piece.row - move.newRow) == 2)) {
-                state.enPassantTile = -1;
-            }
-            if (move.captured != null && state.getPiece(move.captured.col, move.captured.row) != null) {
-                state.capture(state.getPiece(move.captured.col, move.captured.row));
-            }
-            state.setLastMove(piece.col, piece.row, move.newCol, move.newRow, move.piece);
-
-            if (!input.isDraggingMove) {
-                piece.xPos = -10000;
-                piece.yPos = -10000;
-                ChessAnimation moveAnimation;
-                if (ChoosePlayFormat.isPlayingWhite) {
-                    //System.out.println(piece + ", " + piece.col + ", " + piece.row  + ", " + move.newCol + ", " + move.newRow);
-                    moveAnimation = new ChessAnimation(piece, piece.col * tileSize, piece.row * tileSize,
-                            move.newCol * tileSize, move.newRow * tileSize, 500);
-                } else {
-                    moveAnimation = new ChessAnimation(piece, (cols - 1 - piece.col) * tileSize, (rows - 1 - piece.row) * tileSize,
-                            (cols - 1 - move.newCol) * tileSize, (rows - 1 - move.newRow) * tileSize, 500);
-                }
-                animations.add(moveAnimation);
-            }
-            else {
-                piece.xPos = getXFromCol(move.newCol);
-                piece.yPos = getYFromRow(move.newRow);
-            }
-
-            piece.col = move.newCol;
-            piece.row = move.newRow;
-            piece.isFirstMove = false;
-            state.setIsWhiteToMove(!state.getIsWhiteToMove());
-            if (state.getIsWhiteToMove()) {
-                ++state.numOfTurns;
-                // System.out.println(state.numOfTurns);
-            }
-            ++state.numOfTurnWithoutCaptureOrPawnMove;
-        }
-
-        if (move.captured != null && state.getPiece(move.captured.col, move.captured.row) != null) {
-            audioPlayer.playCaptureSound();
-        } else {
-            audioPlayer.playMovingPieceSound();
-        }
-
-        SavedStatesForDraws.addState(state.convertPiecesToDrawFEN());
-        updateGameState(true);
-
-        savedGamesPanel.addMove(move.getRepresentation());
-
-        if (ChoosePlayFormat.isPlayingWhite == state.getIsWhiteToMove() || !ChoosePlayFormat.isOnePlayer) {
-            savedStates.push(state.fenCurrentPosition);
-            state.fenCurrentPosition = state.convertPiecesToFEN();
-        }
-        showScore.calculateScore();
-    }
-
-    public void moveKing(Move move) {
-        if (Math.abs(move.piece.col - move.newCol) == 2) {
-            Piece rook;
-            int rookEndCol;
-            if (move.piece.col < move.newCol) {
-                rook = state.getPiece(7, move.piece.row);
-                rookEndCol = 5;
-            } else {
-                rook = state.getPiece(0, move.piece.row);
-                rookEndCol = 3;
-            }
-
-            // הוספת אנימציה להצרחה גם למלך וגם לצריח
-            Piece king = state.getPiece(move.piece.col, move.piece.row);
-            int kingStartX = move.piece.xPos;
-            int kingStartY = move.piece.yPos;
-            int kingEndX = getXFromCol(move.newCol);
-            int kingEndY = getYFromRow(move.newRow);
-
-            int rookStartX = rook.xPos;
-            int rookStartY = rook.yPos;
-            int rookEndX = getXFromCol(rookEndCol);
-            int rookEndY = getYFromRow(move.newRow);
-
-            if (!input.isDraggingMove) {
-                animations.add(new ChessAnimation(move.piece, kingStartX, kingStartY, kingEndX, kingEndY, 500));
-            }
-            animations.add(new ChessAnimation(rook, rookStartX, rookStartY, rookEndX, rookEndY, 500));
-
-            king.col = move.newCol;
-            king.row = move.newRow;
-            rook.col = rookEndCol;
-            rook.row = move.newRow;
-
-            king.xPos = kingEndX;
-            king.yPos = kingEndY;
-            rook.xPos = rookEndX;
-            rook.yPos = rookEndY;
-
-            audioPlayer.playCastlingSound();
-        }
-    }
-
-    public boolean movePawn(Move move) {
-
-        // en passant:
-        int colorIndex = move.piece.isWhite ? 1 : -1;
-
-        if (state.getTileNum(move.newCol, move.newRow) == state.enPassantTile) {
-            move.captured = state.getPiece(move.newCol, move.newRow + colorIndex);
-        }
-        if (Math.abs(move.piece.row - move.newRow) == 2) {
-            state.enPassantTile = state.getTileNum(move.newCol, move.newRow + colorIndex);
-        } else {
-            state.enPassantTile = -1;
-        }
-
-        // promotions:
-        colorIndex = move.piece.isWhite ? 0 : 7;
-        if (move.newRow == colorIndex) {
-            if (!ChoosePlayFormat.isOnePlayer || (ChoosePlayFormat.isPlayingWhite == state.getIsWhiteToMove() && ChoosePlayFormat.isComputersGame == false)) { // כאן אמור להיות אם זה שני שחקנים
-                if(!promotePawn(move)) {
-                    return false;
-                }
-            }
-            else {
-                promotePawnTo(move, input.enginePromotion);
-                state.capture(move.piece);
-                animation = new ChessAnimation(move.piece, move.piece.xPos, move.piece.yPos, move.piece.xPos, move.piece.yPos, 500);
-                new Thread(() -> {
-                    try {
-                        Thread.sleep(500);
-                        audioPlayer.playCastlingSound();
-                    } catch (InterruptedException event) {
-                        event.printStackTrace();
-                    }
-                }).start();
+    private static int findKing(Position position, boolean white) {
+        char king = white ? 'K' : 'k';
+        for (int sq = 0; sq < 64; sq++) {
+            if (position.pieceAt(sq) == king) {
+                return sq;
             }
         }
-        state.numOfTurnWithoutCaptureOrPawnMove = -1;
-        return true;
+        return -1;
     }
 
-    public boolean promotePawn(Move move) {
-        PromotionDialog promotionDialog = new PromotionDialog(parentFrame, move.piece.isWhite);
-        String choice = promotionDialog.getSelection();
-        this.promotionChoice = choice;
-        if (choice != null) {
-            animation = new ChessAnimation(move.piece, move.piece.xPos, move.piece.yPos, move.piece.xPos, move.piece.yPos, 500);
-            new Thread(() -> {
-                promotePawnTo(move, choice);
-                try {
-                    Thread.sleep(500);
-                    audioPlayer.playCastlingSound();
-                } catch (InterruptedException event) {
-                    event.printStackTrace();
-                }
-                state.capture(move.piece);
-            }).start();
-        } else {
-            System.out.println("No selection made");
-            selectedPiece.xPos = getXFromCol(selectedPiece.col);
-            selectedPiece.yPos = getYFromRow(selectedPiece.row);
-            selectedPiece = null;
-            repaint();
-            input.selectedX = -1;
-            input.selectedY = -1;
+    // ---- coordinates (טיפול בהפיכת הלוח) ------------------------------------------
+
+    public int xOf(int square) {
+        int col = Square.file(square);
+        return (whiteAtBottom ? col : cols - 1 - col) * tileSize;
+    }
+
+    public int yOf(int square) {
+        int row = Square.rank8Row(square);
+        return (whiteAtBottom ? row : rows - 1 - row) * tileSize;
+    }
+
+    /** The square under a pixel, or -1 off the board. */
+    public int squareAt(int x, int y) {
+        int col = x / tileSize;
+        int row = y / tileSize;
+        if (x < 0 || y < 0 || col >= cols || row >= rows) {
+            return -1;
+        }
+        if (!whiteAtBottom) {
+            col = cols - 1 - col;
+            row = rows - 1 - row;
+        }
+        return Square.of(col, row);
+    }
+
+    public boolean isWhiteAtBottom() {
+        return whiteAtBottom;
+    }
+
+    /** White at the bottom for a White human; in two-player mode, the side to move. */
+    private void updateOrientation() {
+        GameConfig config = session.config();
+        switch (config.mode()) {
+            case HUMAN_VS_ENGINE -> whiteAtBottom = config.humanPlaysWhite();
+            case HUMAN_VS_HUMAN -> whiteAtBottom = session.whiteToMove();
+            case ENGINE_VS_ENGINE -> { /* keep */ }
+        }
+    }
+
+    // ---- input from the mouse ----------------------------------------------
+
+    /** True if the human may pick up the piece on {@code square} now. */
+    boolean canSelect(int square) {
+        if (square < 0 || !session.isHumanTurn()) {
             return false;
         }
-        return true;
+        char piece = session.position().pieceAt(square);
+        return piece != 0 && Character.isUpperCase(piece) == session.whiteToMove();
     }
 
-    public void promotePawnTo(Move move, String choice) {
-        move.setPromotionChoice(Character.toLowerCase(choice.charAt(0)));
-        Piece piece = state.getPiece(move.piece.col, move.piece.row);
-        System.out.println("piece: " + piece);
-        for (Piece piece1 : state.getAllPieces()) {
-            System.out.println("pieces*: " + piece1.col + "-" + piece1.row);
+    boolean isLegalTarget(int from, int to) {
+        for (ChessMove m : session.legalMoves()) {
+            if (m.from() == from && m.to() == to) {
+                return true;
+            }
         }
-        System.out.println("choice: " + choice);
-        switch (choice) {
-            case "q":
-                state.addPiece(new Queen(state, move.newCol, move.newRow, piece.isWhite));
-                break;
-            case "r":
-                state.addPiece(new Rook(state, move.newCol, move.newRow, piece.isWhite));
-                break;
-            case "b":
-                state.addPiece(new Bishop(state, move.newCol, move.newRow, piece.isWhite));
-                break;
-            case "n":
-                state.addPiece(new Knight(state, move.newCol, move.newRow, piece.isWhite));
-                break;
-        }
-        state.capture(piece);
+        return false;
     }
 
+    /**
+     * Plays the human move {@code from -> to} (asking for the promotion piece if needed).
+     * Returns false if it was not played (illegal, or the promotion dialog was cancelled).
+     */
+    boolean tryMove(int from, int to, boolean dragged) {
+        if (!isLegalTarget(from, to)) {
+            return false;
+        }
+        ChessMove move = new ChessMove(from, to);
+        if (Game.isPromotionMove(session.position(), move)) {
+            PromotionDialog dialog = new PromotionDialog(
+                    (JFrame) SwingUtilities.getWindowAncestor(this), session.whiteToMove());
+            String choice = dialog.getSelection();
+            if (choice == null) {
+                return false;
+            }
+            move = new ChessMove(from, to, choice.charAt(0));
+        }
+        moveWasDragged = dragged;
+        try {
+            return session.playHumanMove(move) != null;
+        } finally {
+            moveWasDragged = false;
+        }
+    }
+
+    void playSelectSound() {
+        audioPlayer.playSelectPieceSound();
+    }
+
+    void playInvalidMoveSound() {
+        audioPlayer.playInvalidMoveSound();
+    }
+
+    void clearHint() {
+        hintFrom = hintTo = -1;
+    }
+
+    // ---- buttons -------------------------------------------------------------
 
     // שינוי מצב הלוח שלא באמצעות ביצוע מהלך
     public void goBack() {
-        if(!ChoosePlayFormat.isOnePlayer || ChoosePlayFormat.isPlayingWhite == state.getIsWhiteToMove()) {
-            //System.out.println("current position: " + fenCurrentPosition);
-            state.fenCurrentPosition = savedStates.pop();
-            //System.out.println("changing position to: " + fenCurrentPosition);
-            input.cancelEngine();
-            savedGamesPanel.removeMove();
-            savedGamesPanel.removeMove();
-            SavedStatesForDraws.removeLastState();
-            SavedStatesForDraws.removeLastState();
-            state.setLastMove(null);
-            input.selectedX = input.selectedY = -1;
-            selectedPiece = null;
-            audioPlayer.playGoBackSound();
-            loadPiecesFromFen(state.fenCurrentPosition);
-            if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != state.getIsWhiteToMove()) {
-                input.makeEngineMove();
+        if (session.isHumanTurn() || session.isOver()) {
+            if (session.undo()) {
+                audioPlayer.playGoBackSound();
             }
-        }
-        else {
+        } else {
             System.out.println("doing nothing");
         }
     }
 
     public void restart() {
-        input.cancelEngine();
-        isGameOver = false;
-        input.isStatusChanged = false;
-        state.setLastMove(null);
-        fromC = -1; fromR = -1; toC = -1; toR = -1;
-        hintFromC = -1; hintFromR = -1; hintToC = -1; hintToR = -1;
-        savedStates.clear();
-        SavedStatesForDraws.clear();
-        savedGamesPanel.newGame();
-        Main.updateScores(0, 0);
         audioPlayer.playHintSound();
-        if (ChoosePlayFormat.isOnePlayer) {
-            SettingPanel.changeIsPlayingWhiteText();
-            loadPiecesFromFen(fenStartingPosition);
-            if (ChoosePlayFormat.isPlayingWhite != state.getIsWhiteToMove()) {
-                input.makeEngineMove();
+        session.newGame();
+    }
+
+    // ---- session events --------------------------------------------------
+
+    @Override
+    public void moveMade(MoveResult move, boolean byEngine) {
+        selectedSquare = -1;
+        dragSquare = -1;
+        clearHint();
+        lastFrom = move.move().from();
+        lastTo = move.move().to();
+
+        Position after = Position.fromFen(move.fenAfter());
+        if (!moveWasDragged) {
+            animate(after.pieceAt(move.move().to()), move.move().from(), move.move().to());
+        }
+        if (move.castling()) {
+            int row = Square.rank8Row(move.move().to());
+            boolean kingSide = Square.file(move.move().to()) > Square.file(move.move().from());
+            int rookFrom = Square.of(kingSide ? 7 : 0, row);
+            int rookTo = Square.of(kingSide ? 5 : 3, row);
+            animate(after.pieceAt(rookTo), rookFrom, rookTo);
+            audioPlayer.playCastlingSound();
+        }
+
+        if (move.isCapture()) {
+            audioPlayer.playCaptureSound();
+        } else {
+            audioPlayer.playMovingPieceSound();
+        }
+        if (move.isPromotion()) {
+            later(ANIMATION_MS, audioPlayer::playCastlingSound);
+        }
+        playStatusSound(move.status());
+
+        savedGamesPanel.addMove(MoveListText.of(move));
+        ShowScore.update(after, session.config());
+
+        if (session.config().mode() == GameConfig.Mode.HUMAN_VS_HUMAN && !move.status().isGameOver()) {
+            // two players: after a moment, turn the board to the side to move
+            if (flipTimer != null) {
+                flipTimer.stop();
             }
+            flipTimer = later(ANIMATION_MS, () -> {
+                audioPlayer.playSwitchSound();
+                flipTimer = later(ANIMATION_MS, () -> {
+                    updateOrientation();
+                    repaint();
+                });
+            });
         }
-        else {
-            ChoosePlayFormat.isPlayingWhite = true;
-            SettingPanel.changeIsPlayingWhiteText();
-            loadPiecesFromFen(fenStartingPosition);
-        }
+        repaint();
     }
 
-    public void refresh() {
-        savedStates.push(state.fenCurrentPosition);
-        state.fenCurrentPosition = state.convertPiecesToFEN();
-        loadPiecesFromFen(state.fenCurrentPosition);
-        if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite != state.getIsWhiteToMove()) {
-            input.makeEngineMove();
-        }
-    }
-
-    public void updateGameState(boolean isRealBoard) {
-        Piece king = state.findKing(state.getIsWhiteToMove());
-        GameStatus status = state.getRulesStatus();
-
-        // Threefold repetition is tracked separately (position history), not by the
-        // stateless rules status.
-        if (SavedStatesForDraws.isRepetition() && isRealBoard) {
-            input.isStatusChanged = true;
-            input.isCheckMate = false;
-            input.isStaleMate = false;
-            input.isRepetition = true;
-            input.isWhiteTurn = state.getIsWhiteToMove();
-            audioPlayer.playDrawSound();
-        }
-
+    private void playStatusSound(GameStatus status) {
         switch (status) {
             case CHECKMATE -> {
-                if (isRealBoard) {
-                    input.isStatusChanged = true;
-                    input.isCheckMate = true;
-                    input.isStaleMate = false;
-                    input.isWhiteTurn = state.getIsWhiteToMove();
-                    if (ChoosePlayFormat.isOnePlayer && ChoosePlayFormat.isPlayingWhite == state.getIsWhiteToMove()) {
-                        audioPlayer.playLosingSound();
-                    } else {
-                        audioPlayer.playCheckMateSound();
-                    }
-                    if (king != null) {
-                        animation = new ChessAnimation(king, king.xPos, king.yPos, king.xPos, king.yPos, 500);
-                    }
+                boolean matedSideIsHuman = session.config().mode() == GameConfig.Mode.HUMAN_VS_ENGINE
+                        && session.config().isHuman(session.whiteToMove());
+                if (matedSideIsHuman) {
+                    audioPlayer.playLosingSound();
+                } else {
+                    audioPlayer.playCheckMateSound();
                 }
             }
-            case STALEMATE -> {
-                if (isRealBoard) {
-                    input.isStatusChanged = true;
-                    input.isCheckMate = false;
-                    input.isStaleMate = true;
-                    input.isWhiteTurn = state.getIsWhiteToMove();
-                    audioPlayer.playDrawSound();
-                }
-            }
-            case DRAW_FIFTY_MOVE, DRAW_INSUFFICIENT_MATERIAL, DRAW_THREEFOLD -> {
-                if (isRealBoard) {
-                    input.isStatusChanged = true;
-                    input.isCheckMate = false;
-                    input.isStaleMate = false;
-                    input.isWhiteTurn = state.getIsWhiteToMove();
-                    audioPlayer.playDrawSound();
-                }
-            }
-            case CHECK -> {
-                audioPlayer.playCheckSound();
-                repaint();
-            }
+            case STALEMATE, DRAW_FIFTY_MOVE, DRAW_INSUFFICIENT_MATERIAL, DRAW_THREEFOLD -> audioPlayer.playDrawSound();
+            case CHECK -> audioPlayer.playCheckSound();
             case IN_PROGRESS -> { }
         }
     }
 
+    @Override
+    public void gameOver(MoveResult lastMove) {
+        // after the board has painted the final move
+        SwingUtilities.invokeLater(() -> Main.showEndGameMessage(
+                (JFrame) SwingUtilities.getWindowAncestor(this),
+                endMessage(lastMove.status(), Position.fromFen(lastMove.fenAfter()).whiteToMove())));
+    }
 
+    static String endMessage(GameStatus status, boolean whiteToMove) {
+        return switch (status) {
+            case CHECKMATE -> whiteToMove ? "שחמט!!! שחור ניצח" : "שחמט!!! לבן ניצח!";
+            case STALEMATE -> "פת. ליריב אין מהלכים חוקיים. המשחק נגמר בתיקו";
+            default -> "המשחק נגמר בתיקו.";
+        };
+    }
 
+    @Override
+    public void positionReset() {
+        selectedSquare = -1;
+        dragSquare = -1;
+        clearHint();
+        animations.clear();
+        List<MoveResult> moves = session.moves();
+        if (moves.isEmpty()) {
+            lastFrom = lastTo = -1;
+        } else {
+            MoveResult last = moves.get(moves.size() - 1);
+            lastFrom = last.move().from();
+            lastTo = last.move().to();
+        }
+        savedGamesPanel.newGame();
+        for (MoveResult move : moves) {
+            savedGamesPanel.addMove(MoveListText.of(move));
+        }
+        ShowScore.update(session.position(), session.config());
+        updateOrientation();
+        repaint();
+    }
+
+    @Override
+    public void configChanged(GameConfig config) {
+        selectedSquare = -1;
+        updateOrientation();
+        ShowScore.update(session.position(), config);
+        repaint();
+    }
+
+    @Override
+    public void hint(ChessMove move) {
+        hintFrom = move.from();
+        hintTo = move.to();
+        audioPlayer.playHintSound();
+        repaint();
+    }
+
+    // ---- helpers ---------------------------------------------------------------
+
+    private void animate(char piece, int from, int to) {
+        if (piece == 0) {
+            return;
+        }
+        animations.add(new ChessAnimation(sprites.get(piece), to, xOf(from), yOf(from), xOf(to), yOf(to), ANIMATION_MS));
+    }
+
+    private static Timer later(int ms, Runnable action) {
+        Timer timer = new Timer(ms, e -> action.run());
+        timer.setRepeats(false);
+        timer.start();
+        return timer;
+    }
 }
-

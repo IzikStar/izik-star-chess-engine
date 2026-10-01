@@ -2,7 +2,6 @@ package ai.BitBoard;
 
 import ai.BitBoard.BitPiece.BitPiece;
 import ai.openingBook.OpeningEntry;
-import main.Move;
 
 public class BitMove {
     public BitPiece piece;
@@ -34,10 +33,6 @@ public class BitMove {
         this.isCastling = isCastling;
         this.isEnPassant = isEnPassant;
         this.otherPieceToChange = otherPieceToChange;
-    }
-
-    public BitMove(long prevPosition, Move lastMove, int fromC, int fromR, boolean isCastling, boolean isPawnMove) {
-
     }
 
     public BitMove(BitMove move) {
