@@ -1,8 +1,7 @@
 # Phase 4 — Concurrency and the Stockfish integration
 
-**Status: DONE on this branch (2026-10-02), pending merge — decisions in §8, log in §9.** Branch
-`phase-4-concurrency-stockfish`, cut from `phase-3-decouple-ui` (PR #2, not merged yet; this
-branch is rebased onto `master` once it is). No production code has been touched.
+**Status: DONE — merged to `master` 2026-10-02 (PR #3); decisions in §8, log in §9.** Branch
+`phase-4-concurrency-stockfish`, cut from `phase-3-decouple-ui` and merged right after it (PR #2).
 
 This is the mandatory research step from [REFACTOR_GUIDE.md](../REFACTOR_GUIDE.md) §Phase 4. It
 covers every caller of the engines, what the guide's concurrency problem looks like after Phase 3,

@@ -151,7 +151,7 @@ structure. Two documents describe it honestly instead of hiding the problems:
 | 2 | One board model and one rules engine; fix draw detection | Done ([research](docs/phase-2-research.md)) |
 | 3 | Decouple the UI from the rules; retire global state | Done ([research](docs/phase-3-research.md)) |
 | 4 | One concurrency model; a proper Stockfish session | Done ([research](docs/phase-4-research.md)) |
-| 4b | Faster move generation; transposition table | Next |
+| 4b | Fix the move generator's rule bugs; make the search fast enough for Levels 6-7 | In research ([research](docs/phase-4b-research.md)) |
 | 5 | Opening book in play; structured game database | Planned |
 
 Phase 2 is a good example of the approach:
@@ -221,8 +221,8 @@ On Linux, `sudo apt install stockfish` installs it at `/usr/games/stockfish`.
 
 ## Roadmap
 
-- **Phase 4b:** faster move generation (legality checks take most of the search time) and the
-  transposition table switched on, so Levels 6-7 reach their full depth within the time cap.
+- **Phase 4b:** fix the rule bugs the perft tests found in the move generator, then make the
+  search fast enough that Levels 6-7 reach their full depth within the time cap.
 - **Phase 5:** use the opening book during play, and store games in a structured, queryable
   form.
 - **Longer term:** split the headless `rules`/engine core into a backend service with a web

@@ -1,6 +1,6 @@
 # Phase 3 — Extract a headless rules API and decouple the UI
 
-**Status: IN PROGRESS — decisions locked 2026-10-01 (§8); implementing on branch `phase-3-decouple-ui`.**
+**Status: DONE — merged to `master` 2026-10-02 (PR #2); decisions in §8.**
 Baseline: `master` @ `5d3d3bd` (Phase 2 merge). `mvn test` → **49 green** (built with
 `-Dmaven.compiler.release=21`, see §4 Fork 0). No production code has been touched.
 

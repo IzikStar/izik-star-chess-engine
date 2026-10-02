@@ -302,7 +302,7 @@ just deprecated.
 
 ## Phase 3 — Extract a headless rules API and decouple the UI
 
-> **Status: DONE on branch `phase-3-decouple-ui` (2026-10-01), pending merge** (PR #2). Decisions
+> **Status: DONE — merged to `master` 2026-10-02** (PR #2). Decisions
 > and the per-increment log are in [docs/phase-3-research.md](docs/phase-3-research.md) §8–§9.
 > Exit criteria met: `pieces` is deleted, `rules`/`ai`/`engine`/`game` import nothing from
 > `main`/`GUI`/Swing/AWT (enforced by `architecture.LayeringTest`), `Board` is a renderer with no
@@ -358,7 +358,7 @@ is gone; `Board` contains no chess-rules logic; the app is playable with feature
 
 ## Phase 4 — Fix concurrency and the Stockfish integration
 
-> **Status: DONE on branch `phase-4-concurrency-stockfish` (2026-10-02), pending merge.** Research,
+> **Status: DONE — merged to `master` 2026-10-02** (PR #3). Research,
 > decisions and the increment log are in [docs/phase-4-research.md](docs/phase-4-research.md).
 > Exit criteria met: one documented pattern for every engine move and hint (cancellable jobs on
 > one engine thread, results on the EDT); one Stockfish process per session; no Swing repaint off
@@ -411,6 +411,11 @@ EDT; computer-vs-computer mode can run unattended for many games without hanging
 ---
 
 ## Phase 4b — Make the built-in search fast enough for its levels
+
+> **Status: RESEARCH DONE 2026-10-02, waiting for decisions** on branch `phase-4b-search-speed`;
+> see [docs/phase-4b-research.md](docs/phase-4b-research.md). The perft safety net found nine
+> bugs in the move generator (eight visible to a player), so the proposal fixes those first and
+> then speeds up the search without changing the moves it picks.
 
 **Goal.** Let Levels 6-7 reach their intended depth (5-6 plies) inside the 5 s cap set in Phase 4.
 Today they usually finish only depth 4 in the middlegame, so they play like Level 5
