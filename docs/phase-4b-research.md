@@ -1,7 +1,8 @@
 # Phase 4b — Make the built-in search fast enough for its levels
 
-**Status: IN PROGRESS — decisions locked 2026-10-02 (§10); implementing on this branch.** Branch
-`phase-4b-search-speed`, cut from `master` after PRs #2 and #3 were merged (2026-10-02).
+**Status: DONE on this branch (2026-10-02), pending merge — decisions in §10, log and results in
+§11.** Branch `phase-4b-search-speed`, cut from `master` after PRs #2 and #3 were merged
+(2026-10-02).
 
 This is the mandatory research step from [REFACTOR_GUIDE.md](../REFACTOR_GUIDE.md) §Phase 4b.
 The guide asks for a perft suite as the safety net before any move-generator change. Building
@@ -403,3 +404,71 @@ checking both views against Stockfish at every ply (reverting the pawn fix fails
 game). `engine.SameMoveTest` holds the engine's moves at depths 1–4 for 56 positions, recorded
 from this rules-fixed engine. The fix for the flaky real-Stockfish test (PR #4) is ported here,
 because this branch's runs hit it.
+
+**Increment 3, speed (§3.3 items 1, 2, 4, 5 and 6).** Four commits. After each one, perft in both
+views and the "same move" test were green, and so were deep perft and the 300 random games
+against Stockfish under `-Pstress`.
+- **Attack lookups.** `ai.BitBoard.Attacks` holds knight, king and pawn tables built once, and
+  walks the rays of bishops, rooks and queens. "Is the king in check" asks about one square. The
+  six per-piece `getAttackedTiles` scans are deleted.
+- **One legal move is enough.** `BitBoard.hasLegalMove()` stops at the first legal move, and
+  `getStatus()` uses it, so a leaf no longer builds all its children. `HasLegalMoveTest` checks it
+  against the full move list in all 23 perft positions.
+- **Less work per node.** The search hashes a position only when it searches on from it, and
+  sorts the children once. The Zobrist hash is computed from the piece bitboards, with the same
+  values. Three unused helpers are deleted.
+- **Evaluation.** Each side's attack map is built once per leaf instead of three times. Bits are
+  counted with `Long.bitCount`, and no debug strings are built.
+
+**Increment 4, memory, failures, benchmark and docs.**
+- **Memory.** A searched position drops its children; the root keeps its moves between depths
+  (`SearchMemoryTest`). In a probe, depth 6 completed even in a 16 MB heap, 10-20% slower.
+- **Failures.** An engine job that fails with an `Error`, such as `OutOfMemoryError`, is now
+  printed instead of ending silently. The engine then plays a quick built-in move
+  (`EngineSelector.quickMove`, the depth-1 fallback level), so the game goes on. A failed hint is
+  printed and can be asked for again. Two `GameSessionTest` cases use an engine that throws once;
+  both fail without the fix. Found in a `-Pstress` run: the catch also covered handing the result
+  to the dispatcher, so a hand-off refused after `StressTest` shut its dispatcher down was printed
+  and sent to the fallback. The catch now covers the search alone.
+- **Benchmark.** `engine.SearchSpeedTest` (`-Pstress`) times each Level 6 and Level 7 search in
+  a child JVM with a 300 MB heap, taking the faster of two runs. With the release of searched
+  subtrees reverted, it runs out of memory at depth 6. The final `-Pstress` run:
+
+  | Position | Level 6 | Level 7 |
+  |---|---|---|
+  | Start | 0.23 s (depth 5) | 1.1 s (depth 6) |
+  | After 1.e4 | 0.28 s (depth 5) | 2.8 s (depth 6) |
+  | Italian | 0.27 s (depth 5) | 2.7 s (depth 6) |
+  | Middlegame | 0.36 s (depth 5) | 3.3 s (depth 6) |
+  | Kiwipete | 0.14 s (depth 5) | 1.0 s (depth 6) |
+  | Rook endgame | 0.14 s (depth 7) | 0.38 s (depth 8) |
+
+  On master, Levels 6 and 7 hit the 5 s cap in five of these six positions and played their
+  depth-4 move (§3.2).
+- **Docs.** ARCHITECTURE.md (Phase 4b banner, §2.2, §3, §5, §6), the README (move generation,
+  search, tests, phase table, roadmap) and REFACTOR_GUIDE.md (Phase 4b status). The stale
+  en-passant note in `BitBoardRules` is rewritten.
+- **The real app under Xvfb**, with Stockfish 16 and a `RepaintManager` that flags any repaint
+  off the event thread:
+  - The reply to 1.e4 took 0.7 s at Level 6 and 3.3 s at Level 7. In Phase 4 both took 5.0 s,
+    the cap.
+  - In a 20-move game at each level, where White plays a quick depth-2 search's move, the slowest
+    reply was 0.47 s at Level 6 and 3.9 s at Level 7. No reply reached the cap.
+  - At Level 7, a hint and *Go back* while the engine thought: the engine replied in 0.6 s, and
+    *Go back* was refused, as on any engine turn. *Go back* on the player's turn then took back
+    two plies. A move while a hint was still on its way got its reply in 1.1 s.
+  - No repaint off the event thread.
+- **Runs.** `mvn test` 230 green (18 s), `-Psmoke` 4 green, `-Pstress` 29 green (4 min).
+
+**Definition of done (§6).**
+1. Perft: met. The seven standard positions to depth 3 or 4 and the sixteen edge positions run in
+   `mvn test`. Under `-Pstress` every position runs to its deepest reference count: depth 4 for the
+   standard positions, and 5 for the start position and position 3.
+2. Regression tests: met. `rules.MoveGenerationBugsTest` has one test per player-visible bug;
+   `ai.BitBoard.SearchEnPassantTest` covers #7.
+3. Speed: met on the cloud container (table above). The owner's play test is still to do.
+4. Memory: met. Every benchmark search runs in a 300 MB heap.
+5. Same moves: met. `engine.SameMoveTest` passed after every speed commit.
+6. No silent hang: met (`GameSessionTest`).
+7. Green runs: met. `mvn test`, `-Psmoke` and `-Pstress` are green, and the app was driven under
+   Xvfb at Levels 6 and 7 with a hint and *Go back* while the engine thought.

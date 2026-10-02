@@ -30,6 +30,20 @@
 > process per session (handshake once, `position … moves …`, move time per level, restart on
 > crash, fall back after repeated failures). `-Pstress` plays unattended engine-vs-engine games.
 
+> **Updated after Phase 4b (2026-10-02)** — branch `phase-4b-search-speed`,
+> [docs/phase-4b-research.md](docs/phase-4b-research.md). Perft tests (published counts and
+> Stockfish, through `rules.Rules` and through the search's own `BitBoard.getNextStates`) found
+> nine bugs in the move generator; all are fixed and each has a test. Whether a square is
+> attacked now comes from `ai.BitBoard.Attacks` (tables for knights, kings and pawns, ray walks
+> for the sliders) instead of six per-piece scans of all 64 squares. The game status at a leaf
+> asks `BitBoard.hasLegalMove()` instead of building every child, and a searched position drops
+> its children, so the search no longer keeps its whole tree in memory. Levels 6 and 7 finish
+> depth 5 and 6 within the 5 s cap, in a 300 MB heap (`engine.SearchSpeedTest`, `-Pstress`); the
+> speed work did not change the engine's moves (`engine.SameMoveTest`). An engine job that dies
+> with an `Error` is reported and replaced by a quick built-in move. The transposition table is
+> still commented out: as written it returns wrong scores, and fixing it changes the engine's
+> moves (research §4).
+
 This document maps the *current* architecture of the codebase. It is descriptive, not
 prescriptive: it explains how the pieces actually interact today (including the
 broken/duplicated parts), so that a redesign can be planned with full knowledge of what's
@@ -139,6 +153,16 @@ Two bitboard move-generation bugs were fixed in Phase 2: `BitQueen.getAttackedTi
 its up-left diagonal with a stale step counter (an adjacent up-left check — e.g. Scholar's Mate
 — went undetected), and `BitPawn.getEnPassantMoves()` removed the capturing pawn without placing
 it on the target square (the pawn vanished).
+
+> **Phase 4b:** perft found nine more, all fixed and each pinned by a test
+> ([docs/phase-4b-research.md](docs/phase-4b-research.md) §2.3). Two knight jumps and one king
+> step were not counted as attacks, and pawn attacks used the wrong edge test (white pawns
+> attacked nothing).
+> The piece setters left the occupied-square masks stale, so an en-passant capture could expose
+> the king. Castling rights did not follow the rooks, queen-side castling wrongly required b1/b8
+> to be safe, sideways queen moves dropped the side's other queens, and the search computed the
+> wrong en-passant square. The per-piece `getAttackedTiles` scans are gone; attacks come from
+> `ai.BitBoard.Attacks`.
 
 ### 2.3 Check / checkmate / stalemate / draw detection
 
@@ -278,7 +302,7 @@ runs.
 | ~~`ai/BoardState.getAllPossibleMoves()` / `getAllPossibleMovesForASide()` / `makeMoveToCheckIt()` / `makeMoveAndGetStatus/Value/Fen()` / `cancelMove()` / `main()`~~ | **DELETED in Phase 2** — the mutate-a-fact-out-of-the-live-board family. Replaced by `BoardState.getLegalMoves()` → `rules.Rules`. |
 | `pieces/*.isValidMovement()` / `moveCollidesWithPiece()`, `King.canCastle()` | **Dead since Phase 2** (only `CheckScanner` and the old `isValidMove` pipeline called them). Left in place; removed in Phase 3 with the `pieces` / UI decouple. |
 | `ai/openingBook/*` (Retrofit/Lichess client, binary book reader) | Fully implemented but never invoked. **Deferred to Phase 5** (completion, not removal). |
-| `ai/TranspositionTable.java`, `ai/BitBoard/ZobristHashing.java` | Implemented; wired into `Minimax` only as commented-out lines (`ZobristHashing` is used by `BoardStateTracker` for the search's own repetition check). Phase 4. |
+| `ai/TranspositionTable.java`, `ai/BitBoard/ZobristHashing.java` | Implemented; wired into `Minimax` only as commented-out lines (`ZobristHashing` is used by `BoardStateTracker` for the search's own repetition check). Left out of Phase 4b: the table stores alpha-beta bounds as exact scores and its key ignores castling rights and the en-passant square, and fixing it changes the engine's moves (docs/phase-4b-research.md §4). |
 | `ai/BoardState.convertPiecesToFEN()` / `convertPiecesToDrawFEN()` | Still used by `Board` / `SavedStatesForDraws`, but the rules path now uses the cleaner `BoardState.toRulesFen()`. Consolidate in Phase 3. |
 
 ## 4. How the pieces actually interact today
@@ -369,8 +393,9 @@ lookup — cheap and cached — rather than the old brute-force path).
 5. ~~**Ad hoc, inconsistent concurrency.**~~ — **RESOLVED in Phase 3 + 4.** Phase 3 put engine
    moves on one engine executor with results on the EDT; Phase 4 made every job cancellable
    (searches stop at once on take-back / new game), capped search time, kept at most one hint
-   pending, and replaced the per-move Stockfish handshake with one session. Still slow: Levels
-   6-7 usually finish only depth 4 in their 5 s (move generation; Phase 4b). Original text: At least four different patterns for "do work off the
+   pending, and replaced the per-move Stockfish handshake with one session. Phase 4b made
+   Levels 6-7 fast enough to finish their full depth within the 5 s, and an engine job that dies
+   with an `Error` is now reported instead of silently ending. Original text: At least four different patterns for "do work off the
    UI thread" coexist: a raw `Thread` in `Input.makeEngineMove`'s Stockfish branch, a
    single-thread `ExecutorService` + `Future` in `myEngine`, a `SwingWorker` +
    `CountDownLatch` + `Thread.sleep(6000)` polling loop in `Main.play()`, and one-off
@@ -402,12 +427,13 @@ lookup — cheap and cached — rather than the old brute-force path).
    `Board` / `Input` glue and the `Minimax` search remain untested — Phase 3/4.
 
 9. **Dead and parallel implementations** (§3) — mostly cleared. *Phase 3:* `pieces/*`,
-   `BoardState` and its FEN serializers are deleted. Left: the opening-book client (Phase 5) and
-   the transposition table wired in only as comments (Phase 4). Phase 1 deleted the second
+   `BoardState` and its FEN serializers are deleted. *Phase 4b:* the six per-piece attack scans
+   are replaced by `ai.BitBoard.Attacks`. Left: the opening-book client (Phase 5) and the
+   transposition table wired in only as comments (left for a later phase; Phase 4b research §4). Phase 1 deleted the second
    minimax engine, the extra `Piece` variants, the unused evaluator, the REST stub. Phase 2
    deleted `CheckScanner` and the `BoardState` simulate-and-revert / bulk-generator family.
    What remains: the opening-book/Lichess client (Phase 5), the transposition/Zobrist classes
-   wired in only as comments (Phase 4), the now-dead `pieces/*` movement predicates (Phase 3),
+   wired in only as comments (later phase), the now-dead `pieces/*` movement predicates (Phase 3),
    and the two FEN serializers on `BoardState` (Phase 3).
 
 10. **No structured persistence despite that being a stated goal.** Saved games are flat FEN
@@ -429,5 +455,9 @@ the game state (`rules.Game`). Nothing below the UI imports Swing or reads UI fl
 
 **After Phase 4**, engine work follows one pattern (§5.5) and Stockfish keeps one session.
 
-**Still open:** search speed and the transposition table (Phase 4b); persistence is still a flat
-FEN list and the opening book is unwired (Phase 5).
+**After Phase 4b**, the move generator agrees with Stockfish (perft and 300 random games), and
+Levels 6-7 reach their full depth within the time cap.
+
+**Still open:** a correct transposition table and better move ordering, which would make the
+search faster again but change its moves (Phase 4b research §4); persistence is still a flat FEN
+list and the opening book is unwired (Phase 5).
