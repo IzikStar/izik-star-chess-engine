@@ -186,7 +186,7 @@ You need JDK 21 or newer (`maven.compiler.release` in `pom.xml`). The Maven wrap
 java -jar target/izikstar-chess-3.1.0.jar # play: opens http://localhost:7070/ in your browser
 ```
 
-On Windows use `mvnw.cmd`; double-clicking the jar works too. The first `package` downloads its
+On Windows use `.\mvnw.cmd` (PowerShell needs the `.\`); double-clicking the jar works too. The first `package` downloads its
 own Node.js into `target/` to build the browser UI (`-Dskip.web=true` skips that step). The
 server listens on this computer only; stop it with Ctrl+C or by closing its console. Options:
 `--port N`, `--no-browser`.
