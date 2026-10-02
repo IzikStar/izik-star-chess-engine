@@ -91,54 +91,6 @@ public class BitKnight extends BitPiece{
     }
 
     @Override
-    public long getAttackedTiles() {
-        long attackedTile = 0L;
-        for (int i = 0; i < BoardParts.NUM_OF_TILES; i++) {
-            if (BitOperations.isBitSet(position, i)) {
-                long iTile = BitOperations.setBit(0x0L, i);
-                long otherSetTiles = BitOperations.clearBit(position, i);
-                int row = BitOperations.getRowIndexFromBit(iTile);
-                int col = BitOperations.getColIndexFromBit(iTile);
-                int counter = 1;
-
-                // checking if up-right move is possible:
-                if (isUpRightMoveValid(iTile)) {
-                    attackedTile |= upRightMove(i);
-                }
-                // checking if up-left move is possible:
-                if (isUpLeftMoveValid(iTile)) {
-                    attackedTile |= upLeftMove(i);
-                }
-                // checking if down-left move is possible:
-                if (isDownLeftMoveValid(iTile)) {
-                    attackedTile |= downLeftMove(i);
-                }
-                // checking if down-right move is possible:
-                if (isDownRightMoveValid(iTile)) {
-                    attackedTile |= downRightMove(i);
-                }
-                // checking if right-up move is possible:
-                if (isRightUpMoveValid(iTile)) {
-                    attackedTile |= rightUpMove(i);
-                }
-                // checking if left-up move is possible:
-                if (isLeftUpMoveValid(iTile)) {
-                    attackedTile |= leftUpMove(i);
-                }
-                // checking if left-down move is possible:
-                if (isLeftDownMoveValid(iTile)) {
-                    attackedTile |= leftDownMove(i);
-                }
-                // checking if right-down move is possible:
-                if (isRightDownMoveValid(iTile)) {
-                    attackedTile |= rightDownMove(i);
-                }
-            }
-        }
-        return attackedTile;
-    }
-
-    @Override
     public boolean isAttackingTheOpponentPiece(BitPiece piece) {
 
         return false;

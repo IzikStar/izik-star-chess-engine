@@ -161,10 +161,11 @@ public class BitBoard {
     }
 
     private boolean isCheckOn(int color) {
-        long attackedTiles = getAllAttackedTiles(BitBoardOperations.toggleColor(color));
-        // Debug.log("Attacked tiles: " + BitOperations.printBitboard(attackedTiles));
-        long king = color == 1 ? whiteKings : blackKings;
-        return (king & attackedTiles) != 0;
+        int opponent = BitBoardOperations.toggleColor(color);
+        for (long king = color == 1 ? whiteKings : blackKings; king != 0; king &= king - 1) {
+            if (Attacks.attacked(this, Long.numberOfTrailingZeros(king), opponent)) return true;
+        }
+        return false;
     }
 
     // making moves:
@@ -575,21 +576,7 @@ public class BitBoard {
     }
     // get all attacked tiles:
     public long getAllAttackedTiles(int color) {
-        BitKing king; BitQueen queen; BitRook rook; BitBishop bishop; BitKnight knight; BitPawn pawn;
-        long kings = color == 1 ? whiteKings : blackKings;
-        long queens = color == 1 ? whiteQueens : blackQueens;
-        long rooks = color == 1 ? whiteRooks : blackRooks;
-        long bishops = color == 1 ? whiteBishops : blackBishops;
-        long knights = color == 1 ? whiteKnights : blackKnights;
-        long pawns = color == 1 ? whitePawns : blackPawns;
-
-        king = new BitKing(color, kings, whitePieces, blackPieces);
-        queen = new BitQueen(color, queens, whitePieces, blackPieces);
-        rook = new BitRook(color, rooks, whitePieces, blackPieces);
-        bishop = new BitBishop(color, bishops, whitePieces, blackPieces);
-        knight = new BitKnight(color, knights, whitePieces, blackPieces);
-        pawn = new BitPawn(color, pawns, whitePieces, blackPieces);
-        return king.getAttackedTiles() | queen.getAttackedTiles() | rook.getAttackedTiles() | bishop.getAttackedTiles() | knight.getAttackedTiles() | pawn.getAttackedTiles();
+        return Attacks.all(this, color);
     }
 
     /** Piece kind on {@code square}: 1 K, 2 Q, 3 R, 4 B, 5 N, 6 P, or 0 for an empty square. */

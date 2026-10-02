@@ -91,50 +91,6 @@ public class BitKing extends BitPiece{
     }
 
     @Override
-    public long getAttackedTiles() {
-        long attackedTile = 0L;
-        for (int i = 0; i < BoardParts.NUM_OF_TILES; i++) {
-            if (BitOperations.isBitSet(position, i)) {
-                long iTile = BitOperations.setBit(0x0L, i);
-
-                // checking if up move is possible:
-                if (isUpMoveValid(iTile)) {
-                    attackedTile |= upMove(i);
-                }
-                // checking if right move is possible:
-                if (isRightMoveValid(iTile)) {
-                    attackedTile |= rightMove(i);
-                }
-                // checking if left move is possible:
-                if (isLeftMoveValid(iTile)) {
-                    attackedTile |= leftMove(i);
-                }
-                // checking if down move is possible:
-                if (isDownMoveValid(iTile)) {
-                    attackedTile |= downMove(i);
-                }
-                // checking if up-right move is possible:
-                if (isUpRightMoveValid(iTile)) {
-                    attackedTile |= upRightMove(i);
-                }
-                // checking if up-left move is possible:
-                if (isUpLeftMoveValid(iTile)) {
-                    attackedTile |= upLeftMove(i);
-                }
-                // checking if down-left move is possible:
-                if (isDownLeftMoveValid(iTile)) {
-                    attackedTile |= downLeftMove(i);
-                }
-                // checking if down-right move is possible:
-                if (isDownRightMoveValid(iTile)) {
-                    attackedTile |= downRightMMove(i);
-                }
-            }
-        }
-        return attackedTile;
-    }
-
-    @Override
     public boolean isAttackingTheOpponentPiece(BitPiece piece) {
         return false;
     }

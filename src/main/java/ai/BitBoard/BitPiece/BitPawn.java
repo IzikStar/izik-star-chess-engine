@@ -79,19 +79,6 @@ public class BitPawn extends BitPiece {
     }
 
     @Override
-    public long getAttackedTiles() {
-        long attackedTile = 0L;
-        for (int i = 0; i < BoardParts.NUM_OF_TILES; i++) {
-            if (BitOperations.isBitSet(position, i)) {
-                long iTile = BitOperations.setBit(0L, i);
-                if (isLeftCapturePossible(iTile)) attackedTile |= leftCapture(i);
-                if (isRightCapturePossible(iTile)) attackedTile |= rightCapture(i);
-            }
-        }
-        return attackedTile;
-    }
-
-    @Override
     public boolean isAttackingTheOpponentPiece(BitPiece piece) {
         return false;
     }
