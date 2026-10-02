@@ -53,7 +53,12 @@ Each piece type has a generator in [`ai/BitBoard/BitPiece/`](src/main/java/ai/Bi
 - Castling, en passant and promotion are handled as special cases.
 
 The generators first produce pseudo-legal moves. Any move that leaves the mover's own king on
-an attacked square is then dropped, so only legal moves remain.
+an attacked square is then dropped, so only legal moves remain. Whether a square is attacked
+comes from [`Attacks`](src/main/java/ai/BitBoard/Attacks.java): lookup tables for knights, kings
+and pawns, and ray walks for bishops, rooks and queens.
+
+Perft tests count the moves to a fixed depth in 23 positions and compare the totals with the
+published values and with Stockfish (Phase 4b).
 
 Since Phase 2 of the refactor, this generator is the **only** rules authority in the program.
 The headless [`rules`](src/main/java/rules/) package wraps it in a small API with no Swing or
@@ -71,7 +76,9 @@ pruning** over bitboard positions:
 - **Depth and time.** Depth comes from the difficulty level, from 1 ply at level 2 to 6 plies at
   level 7, and 1-2 plies deeper once the board thins out to 12 or fewer pieces. The search
   deepens one ply at a time and stops after 5 seconds, playing the move of the deepest depth it
-  finished; it also stops at once when the game moves on (take-back, new game).
+  finished; it also stops at once when the game moves on (take-back, new game). Since Phase 4b,
+  Levels 6 and 7 finish their full depth within that time in typical positions (Level 7 takes
+  up to about 4 s on a 4-core test machine).
 - **Repetition.** Positions get Zobrist hashes
   ([`ZobristHashing`](src/main/java/ai/BitBoard/ZobristHashing.java)). A per-branch stack
   ([`BoardStateTracker`](src/main/java/ai/BoardStateTracker.java)) uses them to spot threefold
@@ -82,8 +89,9 @@ pruning** over bitboard positions:
 **Not wired in yet:**
 
 - A [`TranspositionTable`](src/main/java/ai/TranspositionTable.java) keyed by the same Zobrist
-  hash exists, but its calls in `minimax()` are commented out. Hooking it in is planned for
-  Phase 4b, together with faster move generation.
+  hash exists, but its calls in `minimax()` are commented out. As written it would return wrong
+  scores, and fixing it changes the moves the engine picks, so it is left for a later phase
+  ([Phase 4b research](docs/phase-4b-research.md) §4).
 - There is no quiescence search yet.
 
 ### Evaluation
@@ -124,7 +132,7 @@ keeps failing the built-in engine takes over.
 src/main/java/
 ├── rules/          headless rules API: FEN in, legal moves / status / SAN out; one game's history
 ├── ai/             Minimax search and evaluation over bitboards
-│   ├── BitBoard/   bitboard position + per-piece move generators
+│   ├── BitBoard/   bitboard position, per-piece move generators, attack tables
 │   └── openingBook/  (not wired in yet)
 ├── engine/         Engine interface: the built-in search, Stockfish, and which one plays a level
 ├── game/           GameSession: turn-taking, the engine thread, events for any front end
@@ -151,7 +159,7 @@ structure. Two documents describe it honestly instead of hiding the problems:
 | 2 | One board model and one rules engine; fix draw detection | Done ([research](docs/phase-2-research.md)) |
 | 3 | Decouple the UI from the rules; retire global state | Done ([research](docs/phase-3-research.md)) |
 | 4 | One concurrency model; a proper Stockfish session | Done ([research](docs/phase-4-research.md)) |
-| 4b | Faster move generation; transposition table | Next |
+| 4b | Fix the move generator's rule bugs; make the search fast enough for Levels 6-7 | Done ([research](docs/phase-4b-research.md)) |
 | 5 | Opening book in play; structured game database | Planned |
 
 Phase 2 is a good example of the approach:
@@ -182,8 +190,9 @@ Some end-of-game messages in the UI are in Hebrew.
 ## Tests
 
 ```bash
-./mvnw test               # main suite: must be green (49 tests)
-./mvnw test -Psmoke       # end-to-end smoke tests: must be green (3 tests)
+./mvnw test               # main suite: must be green
+./mvnw test -Psmoke       # end-to-end smoke tests: must be green
+./mvnw test -Pstress      # long runs, several minutes: must be green
 ./mvnw test -Pknown-bugs  # tests that pin known bugs (currently none; see below)
 ```
 
@@ -196,6 +205,19 @@ Some end-of-game messages in the UI are in Hebrew.
   and require them to agree.
 - **Rules tests** ([`src/test/java/rules/RulesTest.java`](src/test/java/rules/RulesTest.java))
   cover the headless `rules` API directly.
+- **Perft tests** ([`RulesPerftTest`](src/test/java/rules/RulesPerftTest.java),
+  [`SearchPerftTest`](src/test/java/ai/BitBoard/SearchPerftTest.java)) count every legal move
+  sequence to a fixed depth from 23 positions, through the `rules` API and through the search's
+  own move list, and compare with published counts and Stockfish.
+  [`MoveGenerationBugsTest`](src/test/java/rules/MoveGenerationBugsTest.java) has one test per
+  move-generator bug that perft found in Phase 4b.
+- **Same-move test** ([`SameMoveTest`](src/test/java/engine/SameMoveTest.java)) holds the
+  engine's move at depths 1-4 in 56 positions, so a change meant only to make the search faster
+  cannot quietly change how it plays.
+- **Stress tests** (`-Pstress`) play unattended engine-vs-engine games, storm the game with moves,
+  take-backs and hint requests, and run perft as deep as the reference counts go. They also
+  compare 300 random games with Stockfish's legal moves at every ply, and time Levels 6 and 7
+  ([`SearchSpeedTest`](src/test/java/engine/SearchSpeedTest.java)).
 - **Smoke tests** ([`AppSmokeTest`](src/test/java/characterization/AppSmokeTest.java)) play a
   scripted game to checkmate, play a full random game inside the bitboard engine, and
   round-trip a saved game.
@@ -221,8 +243,6 @@ On Linux, `sudo apt install stockfish` installs it at `/usr/games/stockfish`.
 
 ## Roadmap
 
-- **Phase 4b:** faster move generation (legality checks take most of the search time) and the
-  transposition table switched on, so Levels 6-7 reach their full depth within the time cap.
 - **Phase 5:** use the opening book during play, and store games in a structured, queryable
   form.
 - **Longer term:** split the headless `rules`/engine core into a backend service with a web

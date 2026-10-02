@@ -194,9 +194,11 @@
         </profile>
 
         <!-- mvn test -Pstress
-             Runs ONLY the @Tag("stress") tests (game.StressTest): many unattended
+             Runs ONLY the @Tag("stress") tests. game.StressTest (Phase 4): many unattended
              engine-vs-engine games (Stockfish ones too when it is installed) and a storm of
-             random moves, take-backs and hint requests. Takes several minutes (Phase 4). -->
+             random moves, take-backs and hint requests. The move generator's deep perft and
+             its random-games check against Stockfish, and engine.SearchSpeedTest, the Level 6
+             and 7 speed benchmark in a 300 MB heap (Phase 4b). Takes several minutes. -->
         <profile>
             <id>stress</id>
             <properties>

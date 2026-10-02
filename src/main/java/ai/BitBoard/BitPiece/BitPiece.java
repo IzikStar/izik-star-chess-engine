@@ -23,8 +23,6 @@ public abstract class BitPiece {
 
     public abstract ArrayList<Long> validMovements();
 
-    public abstract long getAttackedTiles();
-
     public abstract boolean isSelfCapturing(long target);
 
     public abstract boolean isAttackingTheOpponentPiece(BitPiece piece);

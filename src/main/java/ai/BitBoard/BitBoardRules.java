@@ -13,15 +13,10 @@ import java.util.List;
  * <p>Square indices are the engine's bit order (a8 == 0, h1 == 63):
  * {@code index = rank8Row * 8 + file}.
  *
- * <p>The bitboard is the more-correct of the two current rule paths (20 moves from the start,
- * mate/stalemate right), but it has open bugs this adapter has to route around until later
- * Phase 2 increments fix them at the source:
- * <ul>
- *   <li>En-passant generation ({@code BitPawn.getEnPassantMoves}) drops the capturing pawn
- *       instead of moving it, producing a malformed child (one square vacated, none filled).
- *       Such children are skipped here — the e.p. capture is simply absent from the move list
- *       for now. Fixed in increment 2.</li>
- * </ul>
+ * <p>A child that does not read as one move is skipped. Phase 2 added that guard for an
+ * en-passant bug that dropped the capturing pawn (one square vacated, none filled), and fixed the
+ * bug at the source. Since the Phase 4b rules fixes, perft counts match the published values
+ * and Stockfish, and no legal position is known to produce such a child.
  */
 public final class BitBoardRules {
 
@@ -136,8 +131,8 @@ public final class BitBoardRules {
 
     /**
      * Recover {from, to, promo} for the side that just moved by diffing its piece bitboards
-     * between {@code parent} and {@code child}. Returns {@code null} for a malformed child
-     * (see the class note on the e.p. bug).
+     * between {@code parent} and {@code child}. Returns {@code null} for a child that does not
+     * read as one move (see the class note).
      */
     private static int[] classify(BitBoard child, boolean whiteMoved,
                                   long ownBefore, long kingsBefore, long pawnsBefore, int promoRow) {
@@ -163,7 +158,7 @@ public final class BitBoardRules {
             return kingTo < 0 ? null : new int[]{kingFrom, kingTo, 0};
         }
         if (lc != 1 || ac != 1) {
-            return null; // malformed (pre-existing bitboard e.p. bug) — skip
+            return null; // not one move (see the class note): skip
         }
 
         int from = Long.numberOfTrailingZeros(left);

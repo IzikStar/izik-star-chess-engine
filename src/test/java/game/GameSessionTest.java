@@ -17,6 +17,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -162,5 +163,45 @@ class GameSessionTest {
         s.requestHint();
         assertNotNull(rec.hint);
         assertTrue(rules.Rules.isLegal(Position.START_FEN, rec.hint));
+    }
+
+    /** An engine whose first search dies with {@code error}; later searches play the first legal move. */
+    private static Engine failsOnce(Error error) {
+        AtomicInteger calls = new AtomicInteger();
+        return request -> {
+            if (calls.getAndIncrement() == 0) {
+                throw error;
+            }
+            return rules.Rules.legalMoves(request.fen()).get(0);
+        };
+    }
+
+    @Test
+    @DisplayName("An engine search that dies with an Error is reported, and a quick move keeps the game going")
+    void engineErrorStillGetsAMove() {
+        Recorder rec = new Recorder();
+        DirectExecutor direct = new DirectExecutor();
+        GameSession s = new GameSession(GameConfig.defaults().withSkillLevel(12),
+                new EngineSelector(failsOnce(new OutOfMemoryError("simulated, for the test")), NO_STOCKFISH),
+                direct, direct);
+        s.addListener(rec);
+        s.playHumanMove(ChessMove.fromUci("e2e4"));
+        assertEquals(List.of(false, true), rec.byEngine, "the engine answered");
+        assertTrue(s.isHumanTurn());
+    }
+
+    @Test
+    @DisplayName("A hint whose search dies with an Error can be asked for again")
+    void failedHintCanBeAskedAgain() {
+        Recorder rec = new Recorder();
+        DirectExecutor direct = new DirectExecutor();
+        GameSession s = new GameSession(GameConfig.defaults().withMode(GameConfig.Mode.HUMAN_VS_HUMAN),
+                new EngineSelector(new MinimaxEngine(new Random(7)), failsOnce(new StackOverflowError("simulated, for the test"))),
+                direct, direct);
+        s.addListener(rec);
+        s.requestHint();
+        assertNull(rec.hint);
+        s.requestHint();
+        assertNotNull(rec.hint, "the second request ran");
     }
 }

@@ -63,12 +63,7 @@ public class BitOperations {
 
     // count the on bits in a binary long
     public static int countSetBits(long bitboard) {
-        int count = 0;
-        while (bitboard != 0) {
-            count += (int) (bitboard & 0x1L);
-            bitboard >>>= 1;
-        }
-        return count;
+        return Long.bitCount(bitboard);
     }
 
     // get integers from bits:

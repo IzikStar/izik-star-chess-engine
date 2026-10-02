@@ -411,15 +411,17 @@ public class BitBoardEvaluate {
     }
 
     private static int getTargets(BitBoard board) {
+        long whiteAttacks = board.getAllAttackedTiles(1);
+        long blackAttacks = board.getAllAttackedTiles(0);
         int targets = 0;
-        targets -= BitOperations.countSetBits(board.getAllAttackedTiles(1));
-        targets += BitOperations.countSetBits(board.getAllAttackedTiles(0));
+        targets -= BitOperations.countSetBits(whiteAttacks);
+        targets += BitOperations.countSetBits(blackAttacks);
 
-        targets -= BitOperations.countSetBits((board.getAllAttackedTiles(1) & board.blackPieces)) * 2;
-        targets += BitOperations.countSetBits((board.getAllAttackedTiles(0) & board.whitePieces)) * 2;
+        targets -= BitOperations.countSetBits((whiteAttacks & board.blackPieces)) * 2;
+        targets += BitOperations.countSetBits((blackAttacks & board.whitePieces)) * 2;
 
-        targets -= BitOperations.countSetBits((board.getAllAttackedTiles(1) & board.whitePieces));
-        targets += BitOperations.countSetBits((board.getAllAttackedTiles(0) & board.blackPieces));
+        targets -= BitOperations.countSetBits((whiteAttacks & board.whitePieces));
+        targets += BitOperations.countSetBits((blackAttacks & board.blackPieces));
         return targets;
     }
 

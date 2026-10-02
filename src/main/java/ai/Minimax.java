@@ -17,6 +17,9 @@ import java.util.function.BooleanSupplier;
  * <p>Iterative deepening (Phase 4): depths 1, 2, … up to the requested depth, each a complete
  * search of its own. A {@code stop} signal (cancelled, or out of time) abandons the depth in
  * progress and the move of the deepest finished depth is played. Depth 1 always finishes.
+ *
+ * <p>Memory (Phase 4b): a position drops its children once they have been searched, so only the
+ * line being searched and the root's moves stay in memory, not the whole tree.
  */
 public class Minimax {
     private static final Random random = new Random();
@@ -93,9 +96,7 @@ public class Minimax {
         if (++nodesChecked % STOP_CHECK_INTERVAL == 0 && stop.getAsBoolean()) {
             throw ABANDONED;
         }
-        boardStateTracker.addBoardState(board);
         if (depth == 0 || board.getStatus() != 1) {
-            boardStateTracker.removeLastBoardState();
             int value = BitBoardEvaluate.evaluate(board, rootIsBlack);
             // Prefer the quickest mate (and the slowest loss): a mate found with more depth
             // still to go is closer to the root. Without this, mate-in-1 and mate-in-3 tie.
@@ -107,13 +108,15 @@ public class Minimax {
             return new MinimaxResult(board.lastMove, value);
         }
 
+        boardStateTracker.addBoardState(board); // leaves return above, so only nodes that search on are hashed
         if (boardStateTracker.isThreefoldRepetition()) {
             // a draw, worth 0 to both sides (was -1111111 whoever was to move)
             boardStateTracker.removeLastBoardState();
             return new MinimaxResult(board.lastMove, 0);
         }
 
-        BitMove bestMove = board.getRandomPossibleMove();
+        ArrayList<BitBoard> children = board.getSortedNextStates(); // sorted once, best-ordered first
+        BitMove bestMove = children.getFirst().lastMove;
         boolean lastDepth = depth == searchDepth; // the root: its children are the candidate moves
         if (lastDepth) {
             bestMoves.clear();
@@ -122,7 +125,7 @@ public class Minimax {
 
         if (isMaximizingPlayer) {
             bestValue = Integer.MIN_VALUE;
-            for (BitBoard state : board.getSortedNextStates()) {
+            for (BitBoard state : children) {
                 MinimaxResult result = minimax(state, depth - 1, false, alpha, beta, boardStateTracker, transpositionTable);
 
                 if (result.value > bestValue) {
@@ -145,7 +148,7 @@ public class Minimax {
             }
         } else {
             bestValue = Integer.MAX_VALUE;
-            for (BitBoard state : board.getSortedNextStates()) {
+            for (BitBoard state : children) {
                 MinimaxResult result = minimax(state, depth - 1, true, alpha, beta, boardStateTracker, transpositionTable);
 
                 if (result.value < bestValue) {
@@ -161,6 +164,9 @@ public class Minimax {
         }
 
         boardStateTracker.removeLastBoardState();
+        if (!lastDepth) {
+            board.releaseNextStates(); // searched: let its subtree go; the root keeps its moves between depths
+        }
 //
 //        // שמירת התוצאה בטבלת טרנספוזיציות
 //        transpositionTable.put(zobristHash, depth, bestValue, bestMove);
