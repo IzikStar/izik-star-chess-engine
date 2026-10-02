@@ -212,7 +212,7 @@ public class BitBoard {
                 wR = newPosition;
                 target = wR & ~whiteRooks;
                 // checking if kingSide rook left its origin tile and cancel castling rights for that side:
-                if (K && (BoardParts.Tile.A8.position & newPosition) == 0) {
+                if (K && (BoardParts.Tile.H1.position & newPosition) == 0) {
                     K = false;
                     moveValue -= 7;
                 }
@@ -342,6 +342,11 @@ public class BitBoard {
                 if (wP != whitePawns) moveValue += 10;
             }
         }
+        // a castling right also ends when its rook is captured on its home square
+        K &= (wK & BoardParts.Tile.E1.position) != 0 && (wR & BoardParts.Tile.H1.position) != 0;
+        Q &= (wK & BoardParts.Tile.E1.position) != 0 && (wR & BoardParts.Tile.A1.position) != 0;
+        k &= (bK & BoardParts.Tile.E8.position) != 0 && (bR & BoardParts.Tile.H8.position) != 0;
+        q &= (bK & BoardParts.Tile.E8.position) != 0 && (bR & BoardParts.Tile.A8.position) != 0;
         lastPieceToMove = switch (numOfPiece) {
             case 1 -> new BitKing(isWhiteToMove ? 1 : 0, lastToMove, 0L, 0L);
             case 2 -> new BitQueen(isWhiteToMove ? 1 : 0, lastToMove, 0L, 0L);

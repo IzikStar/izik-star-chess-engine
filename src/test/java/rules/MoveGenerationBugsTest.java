@@ -60,7 +60,6 @@ class MoveGenerationBugsTest {
     }
 
     @Test
-    @Tag("known-bug")
     @DisplayName("#4 moving the a1 rook keeps the right to castle king side")
     void queenRookMoveKeepsKingSideCastling() {
         Set<String> moves = legal(after("4k3/8/8/8/8/8/8/R3K2R w KQ - 0 1", "a1b1", "e8d8"));
@@ -93,7 +92,6 @@ class MoveGenerationBugsTest {
     }
 
     @Test
-    @Tag("known-bug")
     @DisplayName("#9 a castling right ends when its rook is captured, even if another rook takes its place")
     void capturedRookEndsCastlingRight() {
         String black = after("r3k2r/7r/8/8/8/8/1B6/4K3 w kq - 0 1", "b2h8", "h7h8", "e1e2");
