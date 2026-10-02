@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * java -cp target/izikstar-chess-3.1.0.jar lab.Cli resume runs/first.db [--algorithm CLASS]
  * java -cp target/izikstar-chess-3.1.0.jar lab.Cli show runs/first.db
  * java -cp target/izikstar-chess-3.1.0.jar lab.Cli export runs/first.db positions.csv
+ * java -cp target/izikstar-chess-3.1.0.jar lab.Cli champion runs/first.db 19 champion.json
  *
  * run options (defaults in RunSettings.defaults()):
  *   --name TEXT --generations N --depth N --openings-per-pairing N --variety N --max-plies N
@@ -37,7 +38,11 @@ public final class Cli {
             usage();
         }
         Path file = Path.of(args[1]);
-        Map<String, String> options = options(args, args[0].equals("export") ? 3 : 2);
+        Map<String, String> options = options(args, switch (args[0]) {
+            case "export" -> 3;
+            case "champion" -> 4;
+            default -> 2;
+        });
         switch (args[0]) {
             case "run" -> run(file, options);
             case "resume" -> resume(file, options);
@@ -48,7 +53,23 @@ public final class Cli {
                 }
                 export(file, Path.of(args[2]));
             }
+            case "champion" -> {
+                if (args.length < 4) {
+                    usage();
+                }
+                champion(file, Integer.parseInt(args[2]), Path.of(args[3]));
+            }
             default -> usage();
+        }
+    }
+
+    /** Writes a generation's champion as a parameter file, e.g. for {@code arena.Cli match}. */
+    private static void champion(Path file, int generation, Path out) throws IOException {
+        try (RunStore store = RunStore.open(file)) {
+            RunStore.GenerationRow row = store.generations().stream().filter(r -> r.number() == generation)
+                    .findFirst().orElseThrow(() -> new IllegalArgumentException("generation " + generation + " is not finished"));
+            Files.writeString(out, store.members(generation, ai.BitBoard.BitBoardEvaluate.SCHEMA).get(row.champion()).toJson());
+            System.out.println("generation " + generation + "'s champion (#" + row.champion() + ") written to " + out);
         }
     }
 
@@ -148,7 +169,8 @@ public final class Cli {
     }
 
     private static void usage() {
-        System.err.println("usage: lab.Cli run FILE --algorithm CLASS [options] | resume FILE | show FILE | export FILE OUT.csv");
+        System.err.println("usage: lab.Cli run FILE --algorithm CLASS [options] | resume FILE | show FILE | export FILE OUT.csv"
+                + " | champion FILE GENERATION OUT.json");
         System.exit(2);
     }
 }

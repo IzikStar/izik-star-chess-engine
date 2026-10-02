@@ -234,7 +234,10 @@ naive one. Every member, game and result goes into one SQLite file per run:
 java -cp target/izikstar-chess-3.1.0.jar lab.Cli run runs/first.db --algorithm evolution.RandomMutationExample --generations 20
 java -cp target/izikstar-chess-3.1.0.jar lab.Cli resume runs/first.db   # after Ctrl+C
 java -cp target/izikstar-chess-3.1.0.jar lab.Cli export runs/first.db positions.csv
+java -cp target/izikstar-chess-3.1.0.jar lab.Cli champion runs/first.db 19 champion.json
 ```
+
+[docs/evolution-guide.md](docs/evolution-guide.md) explains the API, the numbers and the traps.
 
 The **Lab** tab of the web app (it reads `runs/`, or `--runs DIR`) shows each run as it goes: the
 champion's Elo against the default weights with its error bar, how the champions' weights moved,

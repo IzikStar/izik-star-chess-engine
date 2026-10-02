@@ -439,3 +439,9 @@ know which kind it is evolving.
    mutant lost to the default weights, so no champion ever moved a weight). Tests: `LabApiTest`
    (API over a real tiny run, path checks, a champion game over the hub), and a Playwright test
    over a run recorded before the server starts.
+8. **Step 6 — hand-over (2026-10-02).** `docs/evolution-guide.md`: what an individual is, the
+   API, running and costs, how to read the yardstick and its interval (with the trial run's
+   noise as the example), traps (noise, mutation size, too many parameters at once,
+   overfitting to the population, openings, depth), and methods worth trying (adaptive ES, SPSA,
+   CMA-ES, Texel tuning on the export). `lab.Cli champion FILE N OUT.json` writes a champion's
+   weights for `arena.Cli match`.
