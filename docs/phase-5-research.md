@@ -1,6 +1,8 @@
 # Phase 5 research — groundwork for an engine that learns by self-play evolution
 
-Status: **research, awaiting the owner's decisions (§6).** No code yet.
+Status: **E1-E8 approved by the owner 2026-10-02**, who also asked for "dozens more parameters"
+and to research letting machine learning set them, or a neural network that reads the board
+(§8). E9-E12 (§8.5) await the owner. No code yet.
 Written 2026-10-02 on top of Phase 4c (`phase-4c-web-ui`, PR #6).
 
 ## 1. What the owner asked for
@@ -216,20 +218,25 @@ line or from the page.
 | E7 | Example algorithm | **A naive one for the tests only, the real one is yours** / none / a full reference genetic algorithm | **Naive one for tests only** |
 | E8 | Online Lichess opening book | **Later** (after evolution works) / now | **Later** |
 
-## 7. Plan, if approved
+## 7. Plan
 
 Each step on branch `phase-5-evolution`, each commit green.
 
 1. **Parameters.** `EvalParams` + specs for every literal, evaluation as an instance, no
-   statics. `SameMoveTest` unchanged and green (proves defaults = today), plus a test that two
-   different parameter sets running on two threads don't affect each other.
+   statics, behind the `Evaluator` interface (§8.4). `SameMoveTest` unchanged and green (proves
+   defaults = today), plus a test that two different parameter sets running on two threads
+   don't affect each other.
+1b. **More parameters (E9).** The new terms of §8.2, each with default weight 0 (and tapered
+   pairs whose both halves start at today's value), so the defaults still play today's moves
+   and `SameMoveTest` stays green; evolution decides which ones matter.
 2. **Search fixes (E3).** Endgame-stage fix, quiescence search; re-record `same-moves.txt`;
    a gauntlet showing the new engine beats the old at the same depth.
 3. **Arena.** Opening suite (each line validated), `Match`, `Tournament` on a thread pool,
    adjudication, Elo with error bars, CLI. Tests: a match is reproducible, colours are swapped,
    a stronger depth beats a weaker one.
 4. **Record and runner.** SQLite schema, `EvolutionRunner`, the `Evolution` interface, the naive
-   example, stop/resume. Test: a 3-generation run on a tiny population records everything.
+   example, stop/resume, and the training-data export of §8.3 (E12). Test: a 3-generation run
+   on a tiny population records everything.
 5. **Lab page.** Runs list, progress chart, weight table, game replay, "play the champion".
    API tests and a Playwright test.
 6. **Hand-over.** A short `docs/evolution-guide.md` for the owner: the API, how to start a run,
@@ -243,3 +250,102 @@ visible on the lab page; the owner can play the champion; all suites green.
 
 **Rollback.** Steps 1 and 3-6 don't change how the engine plays; step 2 does and is one commit
 that can be reverted on its own.
+
+## 8. Beyond ~30 hand-written weights: more parameters, learned parameters, neural networks
+
+The owner's follow-up: "we need dozens more parameters. Maybe even let machine learning set
+parameters somehow. Or the input could just be the screen, although that moves towards a neural
+network. Let's research it."
+
+### 8.1 What has been done before
+
+- **Evolving a hand-written evaluation works.** David, Koppel and Netanyahu evolved the weights
+  of a full evaluation function (first by imitating grandmaster games, then by coevolution) and
+  the search's settings, and report a program on par with leading engines of the time
+  ([arXiv 1711.08337](https://arxiv.org/abs/1711.08337)).
+- **Evolving piece values, piece-square tables and small neural networks by self-play works
+  too.** Fogel's Blondie25 played variations of itself for over 8,000 generations and improved
+  by almost 400 rating points ([chessprogramming: Blondie25](https://www.chessprogramming.org/Blondie25)).
+- **The usual "machine learning sets the weights" in chess is Texel's method**: treat the
+  evaluation as a single logistic neuron, and fit the weights so the evaluation of positions
+  from real games predicts how those games ended (win/draw/loss), by minimising the prediction
+  error. Other families: temporal-difference learning (TD-Leaf, KnightCap), SPSA, CLOP, and
+  evolutionary methods ([chessprogramming: Automated Tuning](https://www.chessprogramming.org/Automated_Tuning)).
+- **Modern engines read the board with a small neural network (NNUE)**: 768 on/off inputs (one
+  per piece type × colour × square), one hidden layer, one output. It is fast because a move
+  flips only a few inputs, so the hidden layer is updated, not recomputed. It is trained on
+  positions labelled with game results and engine scores
+  ([chessprogramming: NNUE](https://www.chessprogramming.org/NNUE)).
+
+### 8.2 Level 1: many more hand-written parameters (dozens to hundreds)
+
+The standard vocabulary of chess evaluation, none of which the engine has today:
+
+| Group | Terms | Count |
+|---|---|---|
+| Game phase | every weight split into a middlegame and an endgame value, blended by the material left ("tapered") | ×2 |
+| Piece-square tables | a value for each piece on each square (left-right mirrored: 32 squares) | 6 × 32 × 2 phases = 384 |
+| Mobility | value per legal move, per piece type | 4 × 2 |
+| Pawn structure | doubled, isolated, backward, connected, passed pawn by rank (6), protected passer, blocked passer | ~12 × 2 |
+| King safety | pawn shield in front of the castled king, open/half-open files near the king, attackers near the king by piece type, safe checks | ~10 × 2 |
+| Pieces | bishop pair, rook on open/half-open file, rook on 7th rank, knight outpost, bad bishop, queen early | ~8 × 2 |
+| Other | tempo (side to move), trade-down bonus when ahead | ~3 |
+
+That is about 70 named terms (~140 with the two phases) plus 384 table entries: "dozens more
+parameters" several times over. Each new term starts at weight 0 (so today's play is unchanged
+until evolution or tuning gives it a value). All of it is still fast integer arithmetic.
+
+What changes for evolution: with ~500 numbers, a population that only learns from game results
+needs many more games per step to tell good from lucky, because the effect of one table entry on
+a game's result is tiny. That is the owner's part to solve; options the literature uses are
+evolving groups (e.g. only the 30 most important terms first, tables later), methods that move all
+numbers at once from few games (SPSA, CMA-ES), or seeding the population from a Texel fit.
+
+### 8.3 Machine learning that sets the parameters
+
+This needs no new machinery beyond what the arena already produces: every arena game is
+recorded, so its positions and final results are a training set. A Texel-style fit over a few
+hundred thousand quiet positions from those games (plus, optionally, positions scored by
+Stockfish) sets all ~500 numbers in minutes, by gradient descent. It combines well with
+evolution: the fit gives a strong starting population, evolution refines it by actual play, and
+the new games feed the next fit, so "the more it plays, the more it learns" in both senses.
+
+The groundwork for this is small: an export of `(position, result)` rows from the record (E12),
+and the evaluation expressed as features × weights so a gradient can be taken. Whether to write
+the fitter, and how it mixes with evolution, is the owner's call; it is a natural second half of
+"the cool part".
+
+### 8.4 Level 2: a neural network that reads the board ("the input is the screen")
+
+- **The screen and the board carry the same information.** A network reading pixels would first
+  have to learn to recognise the pieces (a vision problem) before it can learn chess. Giving it
+  the board directly as 768 on/off inputs is the "screen" without the rendering, and is what
+  NNUE does. Recommended over pixels.
+- **Size.** 768 → 32 → 1 is about 25,000 weights; 768 → 256 → 1 about 200,000. In Java, without
+  incremental updates, a 32-wide net costs roughly 32 × 30 additions per evaluation (only the ~30
+  occupied squares are "on"), comparable to today's attack-map evaluation, so search speed stays
+  in the same range. Wider nets need the incremental update.
+- **Who sets the weights.** Evolution alone can (Blondie25), but it scales badly with tens of
+  thousands of weights. Gradient training on recorded positions (like §8.3, with a hidden layer)
+  scales well and is how NNUE nets are made. A natural split for this project: training sets the
+  weights, evolution chooses what is trained (hidden size, learning rate, which games are used)
+  and keeps a population of nets that play each other.
+- **Level 3, AlphaZero-style** (a deep network that also proposes moves, guided tree search,
+  millions of self-play games on GPUs) is out of reach on a home PC for real strength. Not
+  recommended.
+
+**Design consequence for this phase:** the arena, the record, the lab page and the `Evolution`
+interface must not assume "~30 integer weights". So the evaluator becomes an interface,
+`Evaluator`, built from a flat **parameter vector + schema** (names, ranges, groups). The
+hand-written evaluation (Level 1) is one implementation; a neural network (Level 2) is another
+whose vector is its weights. The owner's evolution code works on vectors and never needs to
+know which kind it is evolving.
+
+### 8.5 Decisions
+
+| # | Question | Options | Recommendation |
+|---|---|---|---|
+| E9 | More parameters | **Level 1 now: the §8.2 terms + piece-square tables, tapered, new terms starting at 0** / fewer, only named terms (~70) / none | **Level 1 now** |
+| E10 | Generic evaluator | **`Evaluator` over a parameter vector + schema, so a neural net fits later without changing the arena or the owner's code** / hand-written evaluation only | **Generic** |
+| E11 | Neural network | **Next phase (Phase 6), after evolution works on Level 1: 768 board inputs → small hidden layer → 1, trained and/or evolved** / in this phase / never | **Next phase** |
+| E12 | Training data | **Export `(position, result)` from every recorded game, for Texel-style fitting** / not now | **Export now** (cheap; the fitter itself is the owner's or a later step) |
