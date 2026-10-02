@@ -140,7 +140,18 @@ public class StockfishEngine implements Engine {
 
     @Override
     public void close() {
-        kill();
+        Process p = kill();
+        if (p == null) {
+            return;
+        }
+        // wait for it to go: on Windows a live process keeps its files locked (its log, its exe)
+        try {
+            if (!p.waitFor(2, TimeUnit.SECONDS)) {
+                p.destroyForcibly().waitFor(2, TimeUnit.SECONDS);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     // ---- the session -------------------------------------------------------
@@ -301,11 +312,12 @@ public class StockfishEngine implements Engine {
         }
     }
 
-    private void kill() {
+    /** Asks the process to quit and destroys it; returns it (null if none) without waiting. */
+    private Process kill() {
         Process p = process;
         process = null;
         if (p == null) {
-            return;
+            return null;
         }
         try {
             BufferedWriter w = writer;
@@ -317,6 +329,7 @@ public class StockfishEngine implements Engine {
             // already gone
         }
         p.destroy();
+        return p;
     }
 
     private static final class UciFailure extends Exception {
