@@ -3,27 +3,41 @@ package ai;
 import ai.BitBoard.BitBoard;
 import ai.BitBoard.BitBoardEvaluate;
 import ai.BitBoard.BitMove;
-import main.setting.ChoosePlayFormat;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Random;
 
+/**
+ * Alpha-beta search over the bitboard. Each call to {@link #getBestMove(BoardState, int)} runs on
+ * its own instance, so no search state survives between searches, and the search always chooses
+ * a move for the side to move at the root — it reads no UI settings (Phase 3; the old version
+ * inferred "am I at the root" from {@code ChoosePlayFormat}, which broke whenever those flags were
+ * flipped around an engine call).
+ */
 public class Minimax {
     private static final Random random = new Random();
-    public static ArrayList<BitMove> bestMoves;
-    public static int maxDepth;
-    public static int pruning = 0;
-    public static int nodesChecked = 0;
-    public static int nodesInMaxDepth = 0;
 
-    public static BitMove getBestMove(BoardState board) {
-        pruning = 0;
-        nodesChecked = 0;
-        nodesInMaxDepth = 0;
+    private final int searchDepth;
+    /** True when the side choosing the move (the side to move at the root) is Black. */
+    private final boolean rootIsBlack;
+    private final ArrayList<BitMove> bestMoves = new ArrayList<>();
+    private int nodesChecked = 0;
+    private int nodesInMaxDepth = 0;
+
+    private Minimax(int searchDepth, boolean rootIsBlack) {
+        this.searchDepth = searchDepth;
+        this.rootIsBlack = rootIsBlack;
+    }
+
+    public static BitMove getBestMove(BitBoard bitboard, int depth) {
+        return new Minimax(depth, !bitboard.getIsWhiteToMove()).search(bitboard);
+    }
+
+    private BitMove search(BitBoard bitboard) {
+        int maxDepth = searchDepth;
         int bestValue = 1000000;
-        BitBoard bitboard = new BitBoard(board);
         // System.out.println("sortes: " + bitboard.getSortedNextStates().size() + " unsorted: " + bitboard.getNextStates().size());
         getNumOfNodes(bitboard, maxDepth);
         BitMove bestMove = null;
@@ -62,7 +76,7 @@ public class Minimax {
         return bestMove;
     }
 
-    private static void getNumOfNodes(BitBoard board, int depth) {
+    private void getNumOfNodes(BitBoard board, int depth) {
         nodesInMaxDepth += board.getNextStates().size();
         if (depth == 1) return;
         for (BitBoard bitBoard : board.getNextStates()) {
@@ -70,7 +84,7 @@ public class Minimax {
         }
     }
 
-    private static MinimaxResult minimax(BitBoard board, int depth, boolean isMaximizingPlayer, int alpha, int beta, BoardStateTracker boardStateTracker, TranspositionTable transpositionTable) {
+    private MinimaxResult minimax(BitBoard board, int depth, boolean isMaximizingPlayer, int alpha, int beta, BoardStateTracker boardStateTracker, TranspositionTable transpositionTable) {
         // long zobristHash = ZobristHashing.computeHash(board);
 
         // בדיקה אם המצב כבר קיים בטבלת טרנספוזיציות
@@ -84,19 +98,27 @@ public class Minimax {
         if (depth == 0 || board.getStatus() != 1) {
             boardStateTracker.removeLastBoardState();
             nodesChecked++;
-            return new MinimaxResult(board.lastMove, BitBoardEvaluate.evaluate(board));
+            int value = BitBoardEvaluate.evaluate(board, rootIsBlack);
+            // Prefer the quickest mate (and the slowest loss): a mate found with more depth
+            // still to go is closer to the root. Without this, mate-in-1 and mate-in-3 tie.
+            if (value >= BitBoardEvaluate.MATE) {
+                value += depth;
+            } else if (value <= -BitBoardEvaluate.MATE) {
+                value -= depth;
+            }
+            return new MinimaxResult(board.lastMove, value);
         }
 
         if (boardStateTracker.isThreefoldRepetition()) {
-            System.out.println("repetition!!! this is a stalemate!");
+            // a draw, worth 0 to both sides (was -1111111 whoever was to move)
             boardStateTracker.removeLastBoardState();
-            return new MinimaxResult(board.lastMove, -1111111);
+            return new MinimaxResult(board.lastMove, 0);
         }
 
         BitMove bestMove = board.getRandomPossibleMove();
-        boolean lastDepth = depth == maxDepth && (ChoosePlayFormat.isComputersGame ? ChoosePlayFormat.isEnginePlayingBlack == (!board.getIsWhiteToMove()) : (ChoosePlayFormat.isPlayingWhite == (!board.getIsWhiteToMove())));
+        boolean lastDepth = depth == searchDepth; // the root: its children are the candidate moves
         if (lastDepth) {
-            bestMoves = new ArrayList<>();
+            bestMoves.clear();
         }
         int bestValue;
 
@@ -148,7 +170,7 @@ public class Minimax {
         return new MinimaxResult(bestMove, bestValue);
     }
 
-    private static boolean alreadyAdded(BitMove move) {
+    private boolean alreadyAdded(BitMove move) {
         for (BitMove bitMove : bestMoves) {
             if (bitMove.toString().equals(move.toString())) return true;
             // System.out.println("compared " + bitMove + " to " + move);
@@ -164,16 +186,6 @@ public class Minimax {
             this.move = move;
             this.value = value;
         }
-    }
-
-    public static void main(String[] args) {
-        maxDepth = 5;
-        String fen = "rk6/p1p5/B4p2/1q2bP2/3N4/2K5/8/1R6 b - - 0 1";
-        BoardState boardState = new BoardState(fen, null);
-        BitBoard bitBoard = new BitBoard(boardState);
-        System.out.println("sortes: " + bitBoard.getSortedNextStates().size() + " unsorted: " + bitBoard.getNextStates().size());
-        // System.out.println("best move final: " + getBestMove(boardState));
-        getBestMove(boardState);
     }
 
 }

@@ -1,25 +1,19 @@
 package characterization;
 
 import ai.BitBoard.BitBoard;
-import ai.BoardState;
-import main.Board;
-import main.setting.ChoosePlayFormat;
-import main.setting.SettingPanel;
-import main.savedGames.SavedStatesForDraws;
-import org.junit.jupiter.api.BeforeEach;
+import ai.BitBoard.BitBoardRules;
+import rules.ChessMove;
+import rules.Rules;
 
 /**
- * Characterization tests — see docs/phase-0-notes.md and docs/phase-2-research.md.
+ * Characterization tests — see docs/phase-0-notes.md, docs/phase-2-research.md and
+ * docs/phase-3-research.md.
  *
  * <p>Originally these pinned what two independent rule engines did (bugs included). Phase 2
- * unified them: {@link BoardState}'s public rules API now delegates to {@code rules.Rules},
- * which wraps the {@link BitBoard} engine. So the "OO path" and the "bitboard path" below are
- * two entry points to the <em>same</em> authority; they must agree.
- * <ul>
- *   <li><b>OO path</b> — {@link BoardState} ({@code getLegalMoves}, {@code getAccurateStatus},
- *       {@code getIsCheck}, {@code isValidMove}), delegating to {@code rules.Rules}.</li>
- *   <li><b>Bitboard path</b> — {@link BitBoard} ({@code getNextStates}, {@code getStatus}).</li>
- * </ul>
+ * unified them behind {@code rules.Rules}; Phase 3 deleted the object model ({@code BoardState},
+ * {@code pieces.*}, {@code main.Move}), so the old "OO path" assertions now run against the game
+ * API ({@code rules.Rules} / {@code rules.Game}) — the same questions, the same expected answers.
+ * The "bitboard path" ({@link BitBoard}) is still checked directly: the search runs on it.
  */
 public abstract class CharacterizationTestBase {
 
@@ -52,45 +46,24 @@ public abstract class CharacterizationTestBase {
     protected static final String PROMOTION =
             "8/P6k/8/8/8/8/8/7K w - - 0 1";
 
-    // ---- Fixtures -----------------------------------------------------------
-
-    /**
-     * The legacy engine still reads mutable global UI settings ({@code ChoosePlayFormat},
-     * {@code SettingPanel.skillLevel}) and a static repetition history
-     * ({@code SavedStatesForDraws}). Reset them before every test so ordering
-     * cannot leak state between cases. (The unified {@code rules.Rules} path reads none of
-     * these — that is a Phase 2 goal — but the OO promotion clone path still does.)
-     */
-    @BeforeEach
-    void resetGlobals() {
-        // The stock application defaults (see main.setting.ChoosePlayFormat field initializers).
-        ChoosePlayFormat.isPlayingWhite = true;
-        ChoosePlayFormat.isEnginePlayingBlack = true;
-        ChoosePlayFormat.isOnePlayer = true;
-        ChoosePlayFormat.isComputersGame = false;
-        ChoosePlayFormat.setSkillLevel = 0;
-        SettingPanel.skillLevel = 0;
-        SavedStatesForDraws.clear();
-        Board.selectedPiece = null;
-    }
-
     // ---- Helpers ----------------------------------------------------------
 
-    protected static BoardState oo(String fen) {
-        return new BoardState(fen, null);
-    }
-
     protected static BitBoard bit(String fen) {
-        return new BitBoard(new BoardState(fen, null));
+        return BitBoardRules.fromFen(fen);
     }
 
-    /** Legal moves for the side to move, via the object-oriented entry point. */
-    protected static int legalMovesOO(String fen) {
-        return oo(fen).getLegalMoves().size();
+    /** Legal moves for the side to move, via the game API ({@code rules.Rules}). */
+    protected static int legalMovesApi(String fen) {
+        return Rules.legalMoves(fen).size();
     }
 
     /** Legal moves for the side to move, via the bitboard rule path. */
     protected static int legalMovesBit(String fen) {
         return bit(fen).getNextStates().size();
+    }
+
+    /** True if {@code uci} is legal in {@code fen}. */
+    protected static boolean legal(String fen, String uci) {
+        return Rules.isLegal(fen, ChessMove.fromUci(uci));
     }
 }

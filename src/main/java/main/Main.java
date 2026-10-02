@@ -1,27 +1,40 @@
 package main;
 
-import ai.myEngine;
 import com.formdev.flatlaf.FlatLightLaf;
+import engine.EngineSelector;
+import engine.MinimaxEngine;
+import engine.StockfishEngine;
+import game.GameConfig;
+import game.GameSession;
 
 import javax.swing.*;
 import java.awt.*;
-import java.util.concurrent.CountDownLatch;
 
 import GUI.CustomButtonPanel;
 import main.savedGames.SavedGamesPanel;
-import main.setting.ChoosePlayFormat;
 import main.setting.SettingPanel;
 
 public class Main {
     private static JLabel player1ScoreLabel;
     private static JLabel player2ScoreLabel;
     public static Board board;
-    private static final CountDownLatch latch = new CountDownLatch(1);
-    public static boolean computerGame = false;
+    static GameSession session;
+    /** The settings to return to when a "computer game" (engine vs engine) ends. */
+    private static GameConfig configBeforeComputerGame;
+    /** Engine level both sides use in a computer game. */
+    private static final int COMPUTER_GAME_LEVEL = 6;
 
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(Main::createAndShow);
+    }
+
+    private static void createAndShow() {
         // Apply FlatLaf theme
         FlatLightLaf.install();
+
+        session = new GameSession(GameConfig.defaults(),
+                new EngineSelector(new MinimaxEngine(), new StockfishEngine()),
+                SwingUtilities::invokeLater);
 
         JFrame frame = new JFrame("Chess Game");
         frame.setMinimumSize(new Dimension(900, 900));
@@ -33,7 +46,7 @@ public class Main {
 
         JTabbedPane tabbedPane = new JTabbedPane();
 
-        SettingPanel settingsPanel = new SettingPanel();
+        SettingPanel settingsPanel = new SettingPanel(session);
         settingsPanel.setBackground(Color.gray);
         settingsPanel.add(new JLabel("Settings Panel"));
         tabbedPane.addTab("Settings", settingsPanel);
@@ -52,7 +65,7 @@ public class Main {
         // savedGamesPanel.add(new JLabel("Saved Games Panel"));
 
 
-        board = new Board(savedGamesPanel);
+        board = new Board(session, savedGamesPanel);
         tabbedPane.addTab("Game", board);
         tabbedPane.addTab("Saved Games", savedGamesPanel);
         frame.add(tabbedPane, tabConstraints);
@@ -71,16 +84,13 @@ public class Main {
 
         // Create custom button panel for "Take a hint"
         CustomButtonPanel takeHintButton = new CustomButtonPanel(3, "Take a hint", (Integer id) -> {
-            board.input.takeEngineHint();
+            session.requestHint();
         });
         styleButton(takeHintButton);
 
         // Create custom button panel for "New Game"
         CustomButtonPanel computerGameButton = new CustomButtonPanel(4, "New computer Game", (Integer id) -> {
-            restartGame();
-            computerGame = !computerGame;
-            System.out.println("click");
-            play();
+            toggleComputerGame();
         });
         styleButton(newGameButton);
 
@@ -126,71 +136,19 @@ public class Main {
         // Pack and display the frame
         //frame.pack();
         frame.setVisible(true);
+        session.start();
     }
 
-    private static void play() {
-        ChoosePlayFormat.isComputersGame = true;
-        // Create a new thread for the AI engine
-        new SwingWorker<Void, Void>() {
-            @Override
-            protected Void doInBackground() throws InterruptedException {
-                Input temp = board.input;
-                board.input = new Input(board, latch);
-                while (!board.input.isStatusChanged && computerGame) {
-                    if (board.state.getIsWhiteToMove()) {
-//                        SettingPanel.skillLevel = 20;
-//                        board.input.engine.skillLevel = 20;
-//                        board.input.makeEngineMove();
-//                        // Wait for a specific time or until the next move
-//                        Thread.sleep(10000);
-                        ChoosePlayFormat.isEnginePlayingBlack = false;
-                        //board.input.myEngine.stop();
-                        SettingPanel.skillLevel = 6;
-                        board.input.makeEngineMove();
-                        board.input.latch.await();
-                        if (board.state.getIsWhiteToMove()) {
-                            board.input.myEngine.stop();
-                            ChoosePlayFormat.isComputersGame = false;
-                            while (board.state.getIsWhiteToMove()) {
-                                System.out.println("problem with engine. waiting for tou to play the move instead");
-                                Thread.sleep(6000);
-                            }
-                            ChoosePlayFormat.isComputersGame = true;
-                        }
-                    }
-                    else {
-                        ChoosePlayFormat.isEnginePlayingBlack = true;
-                        //board.input.myEngine.stop();
-                        SettingPanel.skillLevel = 6;
-                        board.input.makeEngineMove();
-                        board.input.latch.await(); // Wait for the engine move to complete
-                        if (!board.state.getIsWhiteToMove()) {
-                            board.input.myEngine.stop();
-                            ChoosePlayFormat.isComputersGame = false;
-                            while (board.state.getIsWhiteToMove()) {
-                                System.out.println("problem with engine. waiting for tou to play the move instead");
-                                Thread.sleep(6000);
-                            }
-                            ChoosePlayFormat.isComputersGame = true;
-                        }
-                    }
-                }
-                board.input.myEngine.shutdown(); // Shut down the executor service when done
-                board.input = temp;
-                computerGame = false;
-                ChoosePlayFormat.isComputersGame = false;
-                return null;
-            }
-
-            @Override
-            protected void done() {
-                // Update the UI once the background task is finished
-                SwingUtilities.invokeLater(() -> {
-                    // any UI updates or cleanups
-                    // e.g., updateScores if needed
-                });
-            }
-        }.execute();
+    /** Starts an engine-vs-engine game, or, if one is running, returns to the previous settings. */
+    private static void toggleComputerGame() {
+        if (configBeforeComputerGame == null) {
+            configBeforeComputerGame = session.config();
+            board.restart();
+            session.updateConfig(new GameConfig(GameConfig.Mode.ENGINE_VS_ENGINE,
+                    configBeforeComputerGame.humanPlaysWhite(), COMPUTER_GAME_LEVEL));
+        } else {
+            restartGame();
+        }
     }
 
 
@@ -198,10 +156,10 @@ public class Main {
         JOptionPane.showMessageDialog(frame, message, "End of Game", JOptionPane.INFORMATION_MESSAGE);
     }
 
-    public static void updateScores(int player1Score, int player2Score) {
+    public static void updateScores(int player1Score, int player2Score, boolean humanPlaysWhite) {
         if (player1Score >= 0) {
             player1ScoreLabel.setText("    White:    \n\t" + player1Score + "\t    ");
-            if (ChoosePlayFormat.isPlayingWhite && player1Score > 0) {
+            if (humanPlaysWhite && player1Score > 0) {
                 player1ScoreLabel.setForeground(new Color(0, 72, 255));
             } else if (player1Score > 0){
                 player1ScoreLabel.setForeground(new Color(255, 0, 0));
@@ -214,7 +172,7 @@ public class Main {
         }
         if (player2Score >= 0) {
             player2ScoreLabel.setText("    Black:    \n\t" + player2Score + "\t    ");
-            if (player2Score > 0 && ChoosePlayFormat.isPlayingWhite) {
+            if (player2Score > 0 && humanPlaysWhite) {
                 player2ScoreLabel.setForeground(new Color(255, 0, 0));
             } else if (player2Score > 0){
                 player2ScoreLabel.setForeground(new Color(0, 72, 255));
@@ -227,8 +185,11 @@ public class Main {
     }
 
     public static void restartGame() {
+        if (configBeforeComputerGame != null) {
+            session.updateConfig(configBeforeComputerGame);
+            configBeforeComputerGame = null;
+        }
         board.restart();
-        computerGame = false;
     }
 
     private static void styleButton(CustomButtonPanel button) {

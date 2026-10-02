@@ -16,6 +16,7 @@ import java.util.Map;
 public final class Game {
 
     private final List<String> fenHistory = new ArrayList<>();
+    private final List<MoveResult> moves = new ArrayList<>();
 
     public Game() {
         this(Position.START_FEN);
@@ -33,16 +34,69 @@ public final class Game {
         return List.copyOf(fenHistory);
     }
 
+    public Position position() {
+        return Position.fromFen(fen());
+    }
+
     public List<ChessMove> legalMoves() {
         return Rules.legalMoves(fen());
     }
 
-    public void play(ChessMove move) {
-        fenHistory.add(Rules.applyMove(fen(), move));
+    /** The moves played so far, oldest first. */
+    public List<MoveResult> moves() {
+        return List.copyOf(moves);
     }
 
-    public void play(String uci) {
-        play(ChessMove.fromUci(uci));
+    /**
+     * Play a legal move. A promotion without a piece promotes to a queen.
+     *
+     * @throws IllegalArgumentException if the move is not legal here
+     */
+    public MoveResult play(ChessMove move) {
+        String before = fen();
+        Position pos = Position.fromFen(before);
+        if (isPromotionMove(pos, move) && !move.isPromotion()) {
+            move = new ChessMove(move.from(), move.to(), 'q');
+        }
+        String after = Rules.applyMove(before, move);
+        String san = San.of(before, move);
+        boolean enPassant = San.isEnPassant(pos, move);
+        char piece = pos.pieceAt(move.from());
+        char captured = enPassant
+                ? pos.pieceAt(Square.of(Square.file(move.to()), Square.rank8Row(move.from())))
+                : pos.pieceAt(move.to());
+        boolean castling = Character.toUpperCase(piece) == 'K'
+                && Math.abs(Square.file(move.from()) - Square.file(move.to())) == 2;
+        fenHistory.add(after);
+        MoveResult result = new MoveResult(move, san, piece, captured, castling, enPassant,
+                pos.fullmoveNumber(), before, after, status());
+        moves.add(result);
+        return result;
+    }
+
+    public MoveResult play(String uci) {
+        return play(ChessMove.fromUci(uci));
+    }
+
+    /** True if {@code move} is a pawn reaching the last rank (it needs a promotion piece). */
+    public static boolean isPromotionMove(Position pos, ChessMove move) {
+        char piece = pos.pieceAt(move.from());
+        int toRow = Square.rank8Row(move.to());
+        return (piece == 'P' && toRow == 0) || (piece == 'p' && toRow == 7);
+    }
+
+    /** Take back the last move. Returns false at the start of the game. */
+    public boolean undo() {
+        if (moves.isEmpty()) {
+            return false;
+        }
+        moves.remove(moves.size() - 1);
+        fenHistory.remove(fenHistory.size() - 1);
+        return true;
+    }
+
+    public int plyCount() {
+        return moves.size();
     }
 
     /** How many times the most-repeated position in the history has occurred. */

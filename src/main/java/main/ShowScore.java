@@ -1,41 +1,33 @@
 package main;
 
-import pieces.*;
+import game.GameConfig;
+import rules.Position;
 
-public class ShowScore {
-    Board board;
-    public static int blackScore; // = King.value + Queen.value + 2 * Rook.value + 2 * Knight.value + 2 * Bishop.value + 8 * Pawn.value;
-    public static int whiteScore; // = King.value + Queen.value + 2 * Rook.value + 2 * Knight.value + 2 * Bishop.value + 8 * Pawn.value;
+/** The material balance shown in the score panel (P 1, N/B 3, R 5, Q 9). */
+final class ShowScore {
 
+    private ShowScore() {}
 
-    public ShowScore(Board board) {
-        this.board = board;
+    static int material(Position position, boolean white) {
+        int score = 0;
+        for (char piece : position.pieces()) {
+            if (Character.isUpperCase(piece) != white) {
+                continue;
+            }
+            score += switch (Character.toLowerCase(piece)) {
+                case 'p' -> 1;
+                case 'n', 'b' -> 3;
+                case 'r' -> 5;
+                case 'q' -> 9;
+                default -> 0;
+            };
+        }
+        return score;
     }
 
-    public double calculateScore() {
-        whiteScore = 0;
-        blackScore = 0;
-        int betterScore = 0;
-        for (Piece piece : board.state.getAllPieces()) {
-            if (piece != null) {
-                if (piece.isWhite) {
-                    whiteScore += piece.value;
-                } else {
-                    blackScore += piece.value;
-                }
-            }
-        }
-        betterScore = Math.abs(blackScore - whiteScore);
-        if (blackScore > whiteScore) {
-             //System.out.println("black is better.");
-            Main.updateScores(-betterScore, betterScore);
-        } else if (whiteScore > blackScore) {
-             //System.out.println("white is better.");
-            Main.updateScores(betterScore, -betterScore);
-        } else {
-            Main.updateScores(0, 0);
-        }
-        // System.out.println(Math.abs(blackScore - whiteScore));
-        return betterScore;
+    static void update(Position position, GameConfig config) {
+        // the side that is ahead shows its lead; the other side's label is blanked (negative)
+        int diff = material(position, true) - material(position, false);
+        Main.updateScores(diff, -diff, config.humanPlaysWhite());
     }
 }

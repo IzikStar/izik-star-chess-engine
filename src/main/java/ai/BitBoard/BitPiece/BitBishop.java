@@ -2,7 +2,7 @@ package ai.BitBoard.BitPiece;
 
 import ai.BitBoard.BitOperations;
 import ai.BitBoard.BoardParts;
-import main.Debug;
+import ai.Debug;
 
 import java.util.ArrayList;
 

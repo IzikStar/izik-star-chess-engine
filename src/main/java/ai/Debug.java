@@ -1,4 +1,4 @@
-package main;
+package ai;
 
 public class Debug {
     public static boolean debugging = false;

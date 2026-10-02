@@ -1,5 +1,26 @@
 # Architecture of IzikStar Chess 3.1 (as-is)
 
+> **Updated after Phase 3 (2026-10-01)** — branch `phase-3-decouple-ui`,
+> [docs/phase-3-research.md](docs/phase-3-research.md). The code is now layered:
+>
+> ```
+> rules   Rules / Game / Position / ChessMove / San / MoveResult / GameStatus / Square
+>         FEN in, legal UCI moves + status + SAN out; Game = one game's history (undo, threefold)
+> ai      BitBoard move generator, evaluation, Minimax (per-search instances, no statics read)
+> engine  Engine interface; MinimaxEngine, StockfishEngine (real skill level), EngineSelector
+> game    GameConfig (immutable), GameListener, GameSession (turn-taking, engine thread,
+>         stale-result guard, results delivered on a dispatcher = the EDT in the app)
+> main/GUI  Swing only: Board renders and listens, Input tracks mouse gestures, Main wires it up
+> ```
+>
+> Each arrow points down only; `architecture.LayeringTest` fails the build if `rules`, `ai`,
+> `engine` or `game` import Swing/AWT/`main`/`GUI` (or a higher layer), or if a deleted legacy
+> class comes back. Deleted: `ai.BoardState`, all of `pieces/*`, `main.Move`,
+> `main.setting.ChoosePlayFormat`, `SavedStatesForDraws`, `ai.myEngine`, `GoBack`, `SoundPlayer`.
+> Board orientation is UI state, not game state. Engine bugs A/B/C (§2.4, §2.5) and a
+> false-repetition bug in the search hash are fixed and pinned by tests. **Sections 2–4 below
+> still describe the pre-Phase-3 code** (kept for the history of why); §5 and §6 are current.
+
 This document maps the *current* architecture of the codebase. It is descriptive, not
 prescriptive: it explains how the pieces actually interact today (including the
 broken/duplicated parts), so that a redesign can be planned with full knowledge of what's
@@ -300,7 +321,9 @@ lookup — cheap and cached — rather than the old brute-force path).
 
 ## 5. Biggest architectural flaws, ranked
 
-1. **UI and domain/engine logic are the same objects, not merely "coupled".**
+1. ~~**UI and domain/engine logic are the same objects, not merely "coupled".**~~ —
+   **RESOLVED in Phase 3.** `rules.Game` + `game.GameSession` run headless (unit-tested without
+   Swing); `Board` only renders `Position`s and reacts to `GameListener` events.
    `Board extends JPanel` *is* the rules engine, the animation host, the audio trigger, and the
    dialog launcher all at once (§2.6). There is no `Game`/`Rules` class you could run headless,
    write a unit test against, or reuse for a server/CLI front end. Any change to
@@ -315,12 +338,16 @@ lookup — cheap and cached — rather than the old brute-force path).
    FEN it hands the rules engine — collapsing that duplication of *state* (not of *rules*) is
    Phase 3's job.
 
-3. **Circular package dependencies (`main ↔ ai ↔ pieces`)** with no compiler-enforced boundary
+3. ~~**Circular package dependencies (`main ↔ ai ↔ pieces`)**~~ — **RESOLVED in Phase 3**
+   (`pieces` deleted; layering enforced by `architecture.LayeringTest`). with no compiler-enforced boundary
    (§4.1). A `Piece` needing `Board.tileSize` and `ChoosePlayFormat.isPlayingWhite` just to
    exist means the "model" layer cannot be instantiated, tested, or reasoned about without the
    Swing UI and its global settings.
 
-4. **Global mutable static state doubles as an implicit parameter channel into the search
+4. ~~**Global mutable static state doubles~~ — **RESOLVED in Phase 3.** `ChoosePlayFormat`
+   is deleted; settings live in an immutable `game.GameConfig`; the search takes the root side
+   from the position and its skill level as a parameter; Bugs A/B/C are fixed.
+   **Global mutable static state doubles as an implicit parameter channel into the search
    algorithm.** `ChoosePlayFormat.isPlayingWhite/isOnePlayer/isComputersGame/
    isEnginePlayingBlack` and `SettingPanel.skillLevel` are read from inside `Minimax.minimax`
    itself to decide root-move bookkeeping (§2.4), and are routinely flipped-and-restored as a
@@ -330,7 +357,11 @@ lookup — cheap and cached — rather than the old brute-force path).
    `Minimax` class itself is all `static` fields), and makes the search's behavior depend on
    UI state that has nothing to do with the position being searched.
 
-5. **Ad hoc, inconsistent concurrency.** At least four different patterns for "do work off the
+5. **Ad hoc, inconsistent concurrency.** — *partly resolved in Phase 3:* engine moves now run
+   on one engine executor owned by `GameSession`, results come back on the EDT, and stale
+   results (after undo / new game) are dropped. Still open for Phase 4: Stockfish restarts the
+   UCI process per call, there is no search time limit, and the search is slow at levels ≥ 10.
+   Original text: At least four different patterns for "do work off the
    UI thread" coexist: a raw `Thread` in `Input.makeEngineMove`'s Stockfish branch, a
    single-thread `ExecutorService` + `Future` in `myEngine`, a `SwingWorker` +
    `CountDownLatch` + `Thread.sleep(6000)` polling loop in `Main.play()`, and one-off
@@ -345,7 +376,8 @@ lookup — cheap and cached — rather than the old brute-force path).
    `rules.Rules.status(rules.Rules.applyMove(fen, move))` — a pure query on a derived position,
    no mutation of the live board.
 
-7. **Expensive resource loading tied to the domain model.** `pieces.Piece` decodes and
+7. ~~**Expensive resource loading tied to the domain model.**~~ — **RESOLVED in Phase 3**
+   (`GUI.PieceSprites` decodes the sprite sheet once; there are no piece objects). `pieces.Piece` decodes and
    rescales the sprite sheet image (`ImageIO.read` + `getScaledInstance`) in an **instance**
    initializer (§4, cross-referenced in [`pieces/Piece.java:23-31`](src/pieces/Piece.java#L23-L31)),
    so every `Piece` object built anywhere — including every board clone created by
@@ -353,12 +385,16 @@ lookup — cheap and cached — rather than the old brute-force path).
    — redoes this work. A pure rules/model object is paying an image-decoding cost that only the
    renderer needs.
 
-8. **No layering means no testability** — *improving.* `pieces`, `ai`, and `main` still depend
+8. **No layering means no testability** — *mostly resolved in Phase 3:* the game API, the
+   session's turn-taking and the search are unit-tested headless; only the Swing glue is not.
+   Original text: *improving.* `pieces`, `ai`, and `main` still depend
    on each other, but Phase 2's `rules` package is fully headless and directly unit-tested
    (`rules.RulesTest`), and `BoardState`'s rules API is now exercised without Swing. The Swing
    `Board` / `Input` glue and the `Minimax` search remain untested — Phase 3/4.
 
-9. **Dead and parallel implementations** (§3) — mostly cleared. Phase 1 deleted the second
+9. **Dead and parallel implementations** (§3) — mostly cleared. *Phase 3:* `pieces/*`,
+   `BoardState` and its FEN serializers are deleted. Left: the opening-book client (Phase 5) and
+   the transposition table wired in only as comments (Phase 4). Phase 1 deleted the second
    minimax engine, the extra `Piece` variants, the unused evaluator, the REST stub. Phase 2
    deleted `CheckScanner` and the `BoardState` simulate-and-revert / bulk-generator family.
    What remains: the opening-book/Lichess client (Phase 5), the transposition/Zobrist classes
@@ -372,21 +408,15 @@ lookup — cheap and cached — rather than the old brute-force path).
 
 ## 6. Summary
 
-The path that runs today: `Board` (Swing) → `Input` (Swing) → either `StockfishEngine`
-(process-per-call UCI) or `myEngine` → `Minimax` (alpha-beta over `BitBoard`) → `Move`
-(translated back to the object model) → `Board.makeMove` (mutates `BoardState`, which also
-drives painting / sound / notation).
+**After Phase 3**, the path that runs is: `Input` (mouse gesture) → `GameSession.play(uci)` →
+`rules.Game.play` (one legality check, returns a `MoveResult` with SAN and status) →
+`GameListener.onMove` on the EDT → `Board` animates and repaints, sounds play, the move list
+and score update. If the engine is to move next, `GameSession` asks its `Engine`
+(`EngineSelector`: built-in `MinimaxEngine` below level 13, `StockfishEngine` from 13 with a
+fallback) on its engine thread, and plays the answer through the same `Game.play`.
 
-**After Phase 2**, "is this legal / check / mate / stalemate / draw" has exactly one answer:
-`rules.Rules` over `BitBoard`, reached by `BoardState.isValidMove` / `getLegalMoves` /
-`getAccurateStatus` / `getStatus` / `getIsCheck` (delegating, cached per position) and by
-`Board` / `Move`. `CheckScanner`, the SAN simulate-and-revert, and the `BoardState`
-bulk-generator family are gone; the four draw-detection bugs are fixed; two bitboard
-move-generation bugs (queen up-left attacks, en-passant) are fixed.
+There is one rules authority (`rules.Rules` over `BitBoard`, since Phase 2) and now one copy of
+the game state (`rules.Game`). Nothing below the UI imports Swing or reads UI flags.
 
-**Still open:** the object model still keeps its *own* copy of the position (Phase 3 collapses
-that); `Board extends JPanel` is still the move-execution logic (Phase 3); the `Minimax` search
-still reads `ChoosePlayFormat` statics and there are still four ad hoc concurrency patterns,
-which together cause the "engine stops playing when it's losing" bug in §2.4 (Phase 3 removes
-the statics, Phase 4 unifies concurrency and the Stockfish session handling); persistence is
-still a flat FEN list (Phase 5).
+**Still open:** search speed and a time limit, a persistent Stockfish session, the transposition
+table (Phase 4); persistence is still a flat FEN list and the opening book is unwired (Phase 5).

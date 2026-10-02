@@ -1,43 +1,35 @@
 package characterization;
 
 import ai.BitBoard.BitBoard;
-import ai.BoardState;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import rules.GameStatus;
+import rules.Rules;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * Checkmate and stalemate on unambiguous textbook positions.
- *
- * <p>If a bitboard-path assertion here fails on the first run, that failure is most
- * likely the "engine sometimes avoids mate / doesn't recognize draws" symptom from
- * the project history — move that method into {@link KnownBugsTest} with a note
- * rather than weakening the assertion (see docs/phase-0-notes.md).
- */
+/** Checkmate, stalemate and plain check, through the game API and the bitboard. */
 class CheckmateStalemateTest extends CharacterizationTestBase {
 
-    // ---- Checkmate: OO path -------------------------------------------------
+    // ---- Checkmate: game API ------------------------------------------------
 
     @Test
-    @DisplayName("OO path: fool's mate is checkmate (no moves, in check)")
-    void ooFoolsMate() {
-        BoardState b = oo(FOOLS_MATE);
-        assertEquals(0, b.getLegalMoves().size(), "no legal moves");
-        assertTrue(b.getIsCheck(), "side to move is in check");
-        assertEquals(Integer.MAX_VALUE, b.getAccurateStatus(), "MAX_VALUE == checkmate");
-        assertEquals(0, b.getStatus(), "0 == game over");
+    @DisplayName("Game API: fool's mate is checkmate (no moves, in check)")
+    void apiFoolsMate() {
+        assertEquals(0, legalMovesApi(FOOLS_MATE), "no legal moves");
+        assertTrue(Rules.isCheck(FOOLS_MATE), "side to move is in check");
+        assertEquals(GameStatus.CHECKMATE, Rules.status(FOOLS_MATE));
+        assertTrue(Rules.status(FOOLS_MATE).isGameOver());
     }
 
     @Test
-    @DisplayName("OO path: back-rank rook mate is checkmate")
-    void ooBackRankMate() {
-        BoardState b = oo(BACK_RANK_MATE);
-        assertEquals(0, b.getLegalMoves().size());
-        assertTrue(b.getIsCheck());
-        assertEquals(Integer.MAX_VALUE, b.getAccurateStatus());
+    @DisplayName("Game API: back-rank rook mate is checkmate")
+    void apiBackRankMate() {
+        assertEquals(0, legalMovesApi(BACK_RANK_MATE));
+        assertTrue(Rules.isCheck(BACK_RANK_MATE));
+        assertEquals(GameStatus.CHECKMATE, Rules.status(BACK_RANK_MATE));
     }
 
     // ---- Checkmate: bitboard path ----------------------------------------
@@ -59,13 +51,12 @@ class CheckmateStalemateTest extends CharacterizationTestBase {
     // ---- Stalemate --------------------------------------------------------
 
     @Test
-    @DisplayName("OO path: K+Q vs K stalemate (game over, NOT check)")
-    void ooStalemate() {
-        BoardState b = oo(STALEMATE);
-        assertEquals(0, b.getLegalMoves().size(), "no legal moves");
-        assertFalse(b.getIsCheck(), "not in check");
-        assertEquals(0, b.getAccurateStatus(), "0 == stalemate (game over, not mate)");
-        assertEquals(0, b.getStatus());
+    @DisplayName("Game API: K+Q vs K stalemate (game over, NOT check)")
+    void apiStalemate() {
+        assertEquals(0, legalMovesApi(STALEMATE), "no legal moves");
+        assertFalse(Rules.isCheck(STALEMATE), "not in check");
+        assertEquals(GameStatus.STALEMATE, Rules.status(STALEMATE));
+        assertTrue(Rules.status(STALEMATE).isDraw());
     }
 
     @Test
@@ -79,12 +70,12 @@ class CheckmateStalemateTest extends CharacterizationTestBase {
     // ---- Plain check is not game over -----------------------------------
 
     @Test
-    @DisplayName("OO path: a simple check is status 2 (in check, not over)")
-    void ooPlainCheck() {
+    @DisplayName("Game API: a simple check is CHECK (in check, not over)")
+    void apiPlainCheck() {
         // White Ke1, Black Kh8 + Rook e8: White is in check along the e-file, but Ke1-d1/-f1/-d2/-f2 escape.
-        BoardState b = oo("4r2k/8/8/8/8/8/8/4K3 w - - 0 1");
-        assertTrue(b.getIsCheck());
-        assertEquals(2, b.getAccurateStatus(), "2 == check, game continues");
-        assertTrue(b.getLegalMoves().size() > 0);
+        String fen = "4r2k/8/8/8/8/8/8/4K3 w - - 0 1";
+        assertTrue(Rules.isCheck(fen));
+        assertEquals(GameStatus.CHECK, Rules.status(fen));
+        assertTrue(legalMovesApi(fen) > 0);
     }
 }

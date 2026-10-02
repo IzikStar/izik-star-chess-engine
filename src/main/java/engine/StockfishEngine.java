@@ -1,10 +1,16 @@
-package ai;
+package engine;
 
-import main.setting.SettingPanel;
+import rules.ChessMove;
+import rules.Rules;
 
 import java.io.*;
 
-public class StockfishEngine {
+/**
+ * Stockfish over UCI. As an {@link Engine} it maps the UI's 0-18 level onto Stockfish's
+ * "Skill Level" as {@code level - 1} (Phase 3 Fork 6; before, a never-written static forced 0).
+ * The per-move UCI handshake and polling are unchanged here — that is Phase 4 work.
+ */
+public class StockfishEngine implements Engine {
 
     /**
      * Location of the Stockfish executable. Stockfish is not shipped with the repository; see
@@ -31,9 +37,36 @@ public class StockfishEngine {
     private boolean isEngineRunning;
     /** Set once the executable could not be launched; we then stop retrying and report unavailable. */
     private boolean startFailed;
-    public String promotionChoice = null;
+    public int skillLevel = 0;
 
-    public int skillLevel = SettingPanel.skillLevel;
+    /** How long {@link #bestMove} keeps re-asking for a legal move before giving up. */
+    private static final long RETRY_BUDGET_MS = 1200;
+
+    @Override
+    public ChessMove bestMove(String fen, int level) {
+        long start = System.currentTimeMillis();
+        while (isAvailable() && System.currentTimeMillis() - start < RETRY_BUDGET_MS) {
+            skillLevel = Math.max(0, Math.min(20, level - 1));
+            String uci = getBestMove(fen);
+            if (uci == null || uci.equals("unknown") || uci.equals("(none)")) {
+                continue;
+            }
+            try {
+                ChessMove move = ChessMove.fromUci(uci);
+                if (Rules.isLegal(fen, move)) {
+                    return move;
+                }
+            } catch (IllegalArgumentException e) {
+                // malformed reply — ask again
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public void close() {
+        stopEngine();
+    }
 
     public boolean startEngine(String path) {
         try {
@@ -52,6 +85,7 @@ public class StockfishEngine {
     }
 
     /** False once launching the Stockfish executable has failed (e.g. it was not downloaded). */
+    @Override
     public boolean isAvailable() {
         return !startFailed;
     }
@@ -110,8 +144,6 @@ public class StockfishEngine {
     }
 
     public String getBestMove(String fen) {
-//        System.out.println("stocfish move. skill level: " + SettingPanel.skillLevel);
-//        skillLevel = SettingPanel.skillLevel;
         if (!ensureRunning()) {
             return "unknown";
         }
