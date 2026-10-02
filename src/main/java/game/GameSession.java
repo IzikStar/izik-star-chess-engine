@@ -288,21 +288,23 @@ public final class GameSession {
         engineCancel = cancel;
         SearchRequest request = request(level, cancel);
         pendingEngineJob = engineExecutor.submit(() -> {
+            ChessMove move;
             try {
                 if (delay > 0) {
                     Thread.sleep(delay);
                 }
-                ChessMove move = engines.move(request);
-                dispatcher.execute(() -> engineMoveReady(gen, fen, move));
+                move = engines.move(request);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+                return null;
             } catch (RuntimeException | Error e) {
                 // never swallow: a silent failure here is how "the engine stops playing" hid. An
                 // Error (say, out of memory in a deep search) used to end the job without a word.
                 e.printStackTrace();
-                ChessMove move = quickMoveAfterFailure(request);
-                dispatcher.execute(() -> engineMoveReady(gen, fen, move));
+                move = quickMoveAfterFailure(request);
             }
+            ChessMove result = move;
+            dispatcher.execute(() -> engineMoveReady(gen, fen, result));
             return null;
         });
     }
