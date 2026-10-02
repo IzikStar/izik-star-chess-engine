@@ -54,16 +54,34 @@ public class Minimax {
     private final int variety;
     private final Random random;
     /** The root's moves that scored within {@link #variety} of the best, with their scores. */
+    private final boolean quiescence;
     private final ArrayList<BitMove> rootMoves = new ArrayList<>();
     private final ArrayList<Integer> rootValues = new ArrayList<>();
     private int nodesChecked = 0;
 
-    private Minimax(int searchDepth, Evaluator evaluator, int variety, Random random, boolean rootIsBlack,
+    /**
+     * How a search picks its move. {@code variety}: how far below the best score (pawn = 10) a root
+     * move may be and still be played, picked with {@code random}; 0 always plays the best.
+     * {@code quiescence}: play on through captures past the depth (off only to compare with the
+     * search as it was before Phase 5).
+     */
+    public record Options(int variety, Random random, boolean quiescence) {
+        public static final Options DEFAULT = new Options(0, null, true);
+
+        public Options {
+            if (variety < 0 || variety > 0 && random == null) {
+                throw new IllegalArgumentException("variety needs a non-negative margin and a Random");
+            }
+        }
+    }
+
+    private Minimax(int searchDepth, Evaluator evaluator, Options options, boolean rootIsBlack,
                     BooleanSupplier stop) {
         this.searchDepth = searchDepth;
         this.evaluator = evaluator;
-        this.variety = variety;
-        this.random = random;
+        this.variety = options.variety();
+        this.random = options.random();
+        this.quiescence = options.quiescence();
         this.rootIsBlack = rootIsBlack;
         this.stop = stop;
     }
@@ -84,23 +102,22 @@ public class Minimax {
      * {@code maxDepth}: every depth is an independent search.
      */
     public static BitMove getBestMove(BitBoard bitboard, int maxDepth, Evaluator evaluator, BooleanSupplier stop) {
-        return getBestMove(bitboard, maxDepth, evaluator, 0, null, stop);
+        return getBestMove(bitboard, maxDepth, evaluator, Options.DEFAULT, stop);
     }
 
     /**
-     * Like {@link #getBestMove(BitBoard, int, Evaluator, BooleanSupplier)}, but not always the same
-     * move: any root move scoring within {@code variety} of the best (in the evaluation's units,
-     * pawn = 10) may be played, picked with {@code random}. A seeded {@code random} makes the
-     * choice repeatable. A forced mate is never traded for variety. With {@code variety} 0 the
-     * search is the deterministic one and {@code random} is not used.
+     * Like {@link #getBestMove(BitBoard, int, Evaluator, BooleanSupplier)}, with {@link Options}.
+     * With a variety margin the move is not always the same: any root move scoring within it of the
+     * best may be played. A seeded {@code Random} makes the choice repeatable, and a forced mate is
+     * never traded for variety.
      */
-    public static BitMove getBestMove(BitBoard bitboard, int maxDepth, Evaluator evaluator, int variety,
-                                      Random random, BooleanSupplier stop) {
+    public static BitMove getBestMove(BitBoard bitboard, int maxDepth, Evaluator evaluator, Options options,
+                                      BooleanSupplier stop) {
         boolean rootIsBlack = !bitboard.getIsWhiteToMove();
-        BitMove best = new Minimax(1, evaluator, variety, random, rootIsBlack, () -> false).search(bitboard);
+        BitMove best = new Minimax(1, evaluator, options, rootIsBlack, () -> false).search(bitboard);
         for (int depth = 2; depth <= maxDepth && !stop.getAsBoolean(); depth++) {
             try {
-                best = new Minimax(depth, evaluator, variety, random, rootIsBlack, stop).search(bitboard);
+                best = new Minimax(depth, evaluator, options, rootIsBlack, stop).search(bitboard);
             } catch (Abandoned e) {
                 break;
             }
@@ -138,10 +155,10 @@ public class Minimax {
         if (++nodesChecked % STOP_CHECK_INTERVAL == 0 && stop.getAsBoolean()) {
             throw ABANDONED;
         }
-        if (depth == 0) {
+        if (depth == 0 && quiescence) {
             return new MinimaxResult(board.lastMove, quiescence(board, 0, isMaximizingPlayer, alpha, beta));
         }
-        if (board.getStatus() != 1) {
+        if (depth == 0 || board.getStatus() != 1) {
             int value = evaluator.evaluate(board, rootIsBlack);
             // Prefer the quickest mate (and the slowest loss): a mate found with more depth
             // still to go is closer to the root. Without this, mate-in-1 and mate-in-3 tie.

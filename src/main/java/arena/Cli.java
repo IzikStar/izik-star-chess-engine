@@ -1,0 +1,100 @@
+package arena;
+
+import ai.BitBoard.BitBoardEvaluate;
+import ai.eval.Evaluator;
+import ai.eval.ParamVector;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicInteger;
+
+/**
+ * Command line for the arena:
+ *
+ * <pre>
+ * mvn package -DskipTests
+ * java -cp target/izikstar-chess-3.1.0.jar arena.Cli match A B [options]
+ *
+ *   A, B             "default" (the built-in weights) or a parameter file (JSON, see ParamVector)
+ *   --depth N        search depth of both players (default 3)
+ *   --openings N     use the first N openings of the suite (default all, about 50); 2 games each
+ *   --threads N      games at once (default: cores - 1)
+ *   --max-plies N    a game still going after N plies is a draw (default 300)
+ *   --variety N      how far below the best move (pawn = 10) a move may score (default 2)
+ *   --seed N         the same seed repeats the same games (default 1)
+ *   --old-search P   P = A or B: that player searches without quiescence, as before Phase 5
+ * </pre>
+ *
+ * It prints each game as it ends, then A's score against B with the Elo difference and its 95%
+ * interval.
+ */
+public final class Cli {
+
+    private Cli() {}
+
+    public static void main(String[] args) throws IOException {
+        if (args.length < 3 || !args[0].equals("match")) {
+            System.err.println("usage: arena.Cli match A B [--depth N] [--openings N] [--threads N]"
+                    + " [--max-plies N] [--variety N] [--seed N] [--old-search A|B]");
+            System.exit(2);
+        }
+        Map<String, String> options = new TreeMap<>();
+        for (int i = 3; i < args.length; i += 2) {
+            if (!args[i].startsWith("--") || i + 1 >= args.length) {
+                throw new IllegalArgumentException("expected --option value, got " + args[i]);
+            }
+            options.put(args[i].substring(2), args[i + 1]);
+        }
+        int depth = Integer.parseInt(options.getOrDefault("depth", "3"));
+        int variety = Integer.parseInt(options.getOrDefault("variety", "2"));
+        String oldSearch = options.getOrDefault("old-search", "");
+        Tournament.Settings defaults = Tournament.Settings.defaults();
+        Tournament.Settings settings = new Tournament.Settings(
+                Integer.parseInt(options.getOrDefault("max-plies", String.valueOf(defaults.maxPlies()))),
+                Integer.parseInt(options.getOrDefault("threads", String.valueOf(defaults.threads()))),
+                Long.parseLong(options.getOrDefault("seed", String.valueOf(defaults.seed()))));
+        List<Opening> openings = Opening.suite();
+        if (options.containsKey("openings")) {
+            openings = openings.subList(0, Math.min(openings.size(), Integer.parseInt(options.get("openings"))));
+        }
+
+        String nameA = name(args[1]);
+        String nameB = name(args[2]);
+        if (nameA.equals(nameB)) {
+            nameA += " (A)";
+            nameB += " (B)";
+        }
+        if (oldSearch.equalsIgnoreCase("A")) {
+            nameA += " old search";
+        } else if (oldSearch.equalsIgnoreCase("B")) {
+            nameB += " old search";
+        }
+        Player a = new Player(nameA, evaluator(args[1]), depth, variety, !oldSearch.equalsIgnoreCase("A"));
+        Player b = new Player(nameB, evaluator(args[2]), depth, variety, !oldSearch.equalsIgnoreCase("B"));
+
+        int total = 2 * openings.size();
+        System.out.printf("%s vs %s: %d games at depth %d, %d at a time%n", a.name(), b.name(), total, depth,
+                settings.threads());
+        AtomicInteger done = new AtomicInteger();
+        long start = System.nanoTime();
+        List<GameRecord> games = Tournament.match(a, b, openings, settings, game ->
+                System.out.printf("%3d/%d  %-30s %s - %s: %s (%s, %d plies)%n", done.incrementAndGet(), total,
+                        game.opening(), game.white(), game.black(), game.result(), game.reason(), game.plies()));
+        System.out.printf("%n%s%n%.0f s%n", Score.of(a.name(), games), (System.nanoTime() - start) / 1e9);
+    }
+
+    private static String name(String spec) {
+        return spec.equals("default") ? "default" : Path.of(spec).getFileName().toString().replaceFirst("\\.json$", "");
+    }
+
+    private static Evaluator evaluator(String spec) throws IOException {
+        if (spec.equals("default")) {
+            return BitBoardEvaluate.DEFAULT;
+        }
+        return new BitBoardEvaluate(ParamVector.fromJson(BitBoardEvaluate.SCHEMA, Files.readString(Path.of(spec))));
+    }
+}

@@ -84,8 +84,8 @@ public final class MinimaxEngine implements Engine {
         }
         int depth = Math.max(1, searchDepth(Position.fromFen(fen), request.skillLevel()));
         long deadline = System.nanoTime() + timeCapMs * 1_000_000;
-        BitMove bitMove = Minimax.getBestMove(BitBoardRules.fromFen(fen), depth, evaluator, variety, random,
-                () -> request.cancel().isCancelled() || System.nanoTime() > deadline);
+        BitMove bitMove = Minimax.getBestMove(BitBoardRules.fromFen(fen), depth, evaluator,
+                new Minimax.Options(variety, random, true), () -> request.cancel().isCancelled() || System.nanoTime() > deadline);
         return request.cancel().isCancelled() ? null : toLegalMove(bitMove, legal);
     }
 
@@ -101,6 +101,19 @@ public final class MinimaxEngine implements Engine {
             return null;
         }
         BitMove bitMove = Minimax.getBestMove(BitBoardRules.fromFen(fen), depth, evaluator, () -> false);
+        return toLegalMove(bitMove, legal);
+    }
+
+    /**
+     * The minimax search's move at exactly {@code depth} with {@code evaluator} and {@code options}
+     * (variety, quiescence), or {@code null} if there is no legal move. The arena plays with this.
+     */
+    public static ChessMove searchAtDepth(String fen, int depth, Evaluator evaluator, Minimax.Options options) {
+        List<ChessMove> legal = Rules.legalMoves(fen);
+        if (legal.isEmpty()) {
+            return null;
+        }
+        BitMove bitMove = Minimax.getBestMove(BitBoardRules.fromFen(fen), depth, evaluator, options, () -> false);
         return toLegalMove(bitMove, legal);
     }
 

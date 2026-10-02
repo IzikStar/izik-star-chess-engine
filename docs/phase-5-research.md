@@ -395,3 +395,15 @@ know which kind it is evolving.
    the start, 19-20 of the first eight moves differ, and it still never leaves a piece hanging
    (`VarietyTest`). A seeded `Random` repeats a game exactly, which the arena will use: varied but
    reproducible. `searchAtDepth` (and so `SameMoveTest`) stays deterministic.
+5. **Step 3 — arena (2026-10-02).** Package `arena`: `Opening` (a suite of 51 balanced lines in
+   `arena/openings.txt`, each legal and ending with White to move, `OpeningsTest`), `Player`
+   (evaluator, fixed depth, variety, quiescence on/off), `Match` (plays one game; ply cap 300 is
+   a draw with reason `PLY_CAP`; the same players, opening and seed give the same game),
+   `Tournament` (every pairing × every opening × both colours on a thread pool; results come back
+   in a fixed order and do not depend on the number of threads), `Score` (W/D/L, Elo and a 95%
+   interval from the per-game spread) and `Cli` (`arena.Cli match A B --depth 3 …`). The search
+   gained `Minimax.Options(variety, random, quiescence)`. Gauntlet of step 2, 102 games each,
+   default weights with quiescence against the same weights without it: depth 3 +90 =10 -2
+   (93%, Elo +453 [+368, +603]) in 15 s; depth 4 +83 =13 -6 (88%, Elo +342 [+268, +452]) in 99 s,
+   on 3 threads. Tests: a seed repeats a game, another seed differs, the ply cap, a mate is scored
+   for the right side, colours swap, thread count does not change results, depth 3 beats depth 1.
