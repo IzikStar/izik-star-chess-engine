@@ -218,3 +218,36 @@ cap and free wins only; move-generator speed and the transposition table become 
 `undoCancelsTheRunningSearch` (take back during a depth-6 search, the engine must answer the new
 move within 10 s) and `hintsDoNotStarveTheEngine` (five hint requests, then a human move: the
 depth-1 reply must come within 10 s). Both fail on this commit (`-Pknown-bugs`).
+
+### Increments 2 + 3 — cancellable searches, a time cap, one pending hint (2026-10-02)
+
+- `engine.SearchRequest` (position, start FEN + moves, level, `Cancellation`) replaces the bare
+  FEN in `Engine` / `EngineSelector`; `bestMove(fen, level)` stays as a convenience.
+- `ai.Minimax.getBestMove(board, maxDepth, stop)`: iterative deepening, each depth an independent
+  search, the stop signal looked at every 256 nodes; depth 1 always finishes. Without a stop it
+  plays the same move as one fixed-depth search (tested). `MinimaxEngine` stops at
+  `TIME_CAP_MS = 5000` or on cancellation.
+- `GameSession`: every job carries a `Cancellation`; take-back / new game / config change cancel
+  the engine and the hint; the engine's own move cancels a pending hint; a hint for a position
+  that already has one pending is ignored. Threading contract written in its Javadoc.
+- Free wins: the `getNumOfNodes` pre-walk, the per-search `System.out` lines, and a leftover debug
+  check in `BitBoard.getMovesForColor` (it rendered every generated board to a string and compared
+  it with one position) are gone.
+- The §3.1 / §3.2 tests are green and untagged; new: `cancellationReachesTheEngine`,
+  `builtInRespectsTimeCap`, `cancelledRequestGetsNoMove`, `deepeningMatchesFixedDepth`.
+  `mvn test` **84 green**, `-Psmoke` green.
+
+Search times after this commit (ms, same positions as §3.3):
+
+| UI level (skill) | start | after 1.e4 | Italian | middlegame | rook endgame |
+|---|---|---|---|---|---|
+| 2 (2) | 52 | 8 | 15 | 17 | 20 |
+| 3 (4) | 108 | 47 | 27 | 19 | 15 |
+| 4 (6) | 316 | 243 | 275 | 260 | 98 |
+| 5 (8) | 1463 | 1016 | 2328 | 1533 | 173 |
+| 6 (10) | 5042 (cap) | 5002 (cap) | 5004 (cap) | 5048 (cap) | 2205 |
+| 7 (12) | 5041 (cap) | 5021 (cap) | 5012 (cap) | 5010 (cap) | 5004 (cap) |
+
+Removing the debug check alone roughly halved every search. Levels 6 and 7 now answer in 5 s, but
+in the middlegame they usually finish only depth 4, so they play like Level 5 until the move
+generator gets faster (Phase 4b).

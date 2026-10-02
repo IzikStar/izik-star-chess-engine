@@ -4,84 +4,80 @@ import ai.BitBoard.BitBoard;
 import ai.BitBoard.BitBoardEvaluate;
 import ai.BitBoard.BitMove;
 
-import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Random;
+import java.util.function.BooleanSupplier;
 
 /**
- * Alpha-beta search over the bitboard. Each call to {@link #getBestMove(BoardState, int)} runs on
- * its own instance, so no search state survives between searches, and the search always chooses
- * a move for the side to move at the root — it reads no UI settings (Phase 3; the old version
- * inferred "am I at the root" from {@code ChoosePlayFormat}, which broke whenever those flags were
- * flipped around an engine call).
+ * Alpha-beta search over the bitboard. Each depth runs on its own instance, so no search state
+ * survives between searches, and the search always chooses a move for the side to move at the
+ * root — it reads no UI settings (Phase 3; the old version inferred "am I at the root" from
+ * {@code ChoosePlayFormat}, which broke whenever those flags were flipped around an engine call).
+ *
+ * <p>Iterative deepening (Phase 4): depths 1, 2, … up to the requested depth, each a complete
+ * search of its own. A {@code stop} signal (cancelled, or out of time) abandons the depth in
+ * progress and the move of the deepest finished depth is played. Depth 1 always finishes.
  */
 public class Minimax {
     private static final Random random = new Random();
 
+    /** How many nodes pass between two looks at the stop signal. */
+    private static final int STOP_CHECK_INTERVAL = 256;
+
+    /** Thrown to unwind an abandoned depth; carries no stack trace. */
+    private static final class Abandoned extends RuntimeException {
+        Abandoned() {
+            super(null, null, false, false);
+        }
+    }
+
+    private static final Abandoned ABANDONED = new Abandoned();
+
     private final int searchDepth;
+    private final BooleanSupplier stop;
     /** True when the side choosing the move (the side to move at the root) is Black. */
     private final boolean rootIsBlack;
     private final ArrayList<BitMove> bestMoves = new ArrayList<>();
     private int nodesChecked = 0;
-    private int nodesInMaxDepth = 0;
 
-    private Minimax(int searchDepth, boolean rootIsBlack) {
+    private Minimax(int searchDepth, boolean rootIsBlack, BooleanSupplier stop) {
         this.searchDepth = searchDepth;
         this.rootIsBlack = rootIsBlack;
+        this.stop = stop;
     }
 
+    /** The best move at exactly {@code depth}, however long it takes. */
     public static BitMove getBestMove(BitBoard bitboard, int depth) {
-        return new Minimax(depth, !bitboard.getIsWhiteToMove()).search(bitboard);
+        return getBestMove(bitboard, depth, () -> false);
+    }
+
+    /**
+     * The best move of the deepest depth (up to {@code maxDepth}) finished before {@code stop}
+     * returned true. With a stop that never fires this is the same move as a single search at
+     * {@code maxDepth}: every depth is an independent search.
+     */
+    public static BitMove getBestMove(BitBoard bitboard, int maxDepth, BooleanSupplier stop) {
+        boolean rootIsBlack = !bitboard.getIsWhiteToMove();
+        BitMove best = new Minimax(1, rootIsBlack, () -> false).search(bitboard);
+        for (int depth = 2; depth <= maxDepth && !stop.getAsBoolean(); depth++) {
+            try {
+                best = new Minimax(depth, rootIsBlack, stop).search(bitboard);
+            } catch (Abandoned e) {
+                break;
+            }
+        }
+        return best;
     }
 
     private BitMove search(BitBoard bitboard) {
-        int maxDepth = searchDepth;
-        int bestValue = 1000000;
-        // System.out.println("sortes: " + bitboard.getSortedNextStates().size() + " unsorted: " + bitboard.getNextStates().size());
-        getNumOfNodes(bitboard, maxDepth);
-        BitMove bestMove = null;
-        Instant start, end;
-        long timeElapsed = 0;
-
-        // יצירת מופע של BoardStateTracker וטבלת טרנספוזיציות
         BoardStateTracker boardStateTracker = new BoardStateTracker();
         TranspositionTable transpositionTable = new TranspositionTable();
-
-        for (int depth = maxDepth; depth <= maxDepth; depth++) {
-            start = Instant.now();
-            MinimaxResult result = minimax(bitboard, depth, true, Integer.MIN_VALUE, Integer.MAX_VALUE, boardStateTracker, transpositionTable);
-            end = Instant.now();
-            timeElapsed = Duration.between(start, end).toMillis();
-
-            if (depth == maxDepth) {
-                if (!bestMoves.isEmpty()) {
-                    System.out.println("best moves size: " + bestMoves.size());
-                    // System.out.println("best moves: " + bestMoves);
-                    int randomIndex = random.nextInt(bestMoves.size());
-                    result.move = bestMoves.get(randomIndex);
-                }
-            }
-
-            if (result.move != null) {
-                bestMove = result.move;
-                bestValue = result.value;
-            }
+        MinimaxResult result = minimax(bitboard, searchDepth, true, Integer.MIN_VALUE, Integer.MAX_VALUE,
+                boardStateTracker, transpositionTable);
+        if (!bestMoves.isEmpty()) {
+            result.move = bestMoves.get(random.nextInt(bestMoves.size()));
         }
-        // System.out.println("prunings: " + prunings);
-        //System.out.println("num of nodes: " + nodesInMaxDepth);
-        //System.out.println("nodes checked: " + nodesChecked);
-        System.out.println("time: " + timeElapsed);
-        System.out.println("Best value: " + bestValue);
-        return bestMove;
-    }
-
-    private void getNumOfNodes(BitBoard board, int depth) {
-        nodesInMaxDepth += board.getNextStates().size();
-        if (depth == 1) return;
-        for (BitBoard bitBoard : board.getNextStates()) {
-            getNumOfNodes(board, depth - 1);
-        }
+        return result.move;
     }
 
     private MinimaxResult minimax(BitBoard board, int depth, boolean isMaximizingPlayer, int alpha, int beta, BoardStateTracker boardStateTracker, TranspositionTable transpositionTable) {
@@ -94,10 +90,12 @@ public class Minimax {
 //            return new MinimaxResult(entry.bestMove, entry.value);
 //        }
 
+        if (++nodesChecked % STOP_CHECK_INTERVAL == 0 && stop.getAsBoolean()) {
+            throw ABANDONED;
+        }
         boardStateTracker.addBoardState(board);
         if (depth == 0 || board.getStatus() != 1) {
             boardStateTracker.removeLastBoardState();
-            nodesChecked++;
             int value = BitBoardEvaluate.evaluate(board, rootIsBlack);
             // Prefer the quickest mate (and the slowest loss): a mate found with more depth
             // still to go is closer to the root. Without this, mate-in-1 and mate-in-3 tie.

@@ -1,10 +1,11 @@
 package game;
 
+import engine.Engine;
 import engine.EngineSelector;
+import engine.SearchRequest;
 import engine.MinimaxEngine;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import rules.ChessMove;
 import rules.MoveResult;
@@ -14,6 +15,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -36,9 +38,13 @@ class EngineJobsTest {
     }
 
     private GameSession start(int level, CountDownLatch engineMoved) throws Exception {
+        return start(new MinimaxEngine(), level, engineMoved);
+    }
+
+    private GameSession start(Engine builtIn, int level, CountDownLatch engineMoved) throws Exception {
         session = dispatcher.submit(() -> {
             GameSession s = new GameSession(GameConfig.defaults().withSkillLevel(level),
-                    new EngineSelector(new MinimaxEngine(), GameSessionTest.NO_STOCKFISH), dispatcher);
+                    new EngineSelector(builtIn, GameSessionTest.NO_STOCKFISH), dispatcher);
             s.addListener(new GameListener() {
                 @Override public void moveMade(MoveResult move, boolean byEngine) {
                     if (byEngine) {
@@ -56,7 +62,6 @@ class EngineJobsTest {
     }
 
     @Test
-    @Tag("known-bug")
     @DisplayName("A take-back during a long search frees the engine for the next move")
     void undoCancelsTheRunningSearch() {
         assertTimeoutPreemptively(Duration.ofSeconds(30), () -> {
@@ -74,7 +79,6 @@ class EngineJobsTest {
     }
 
     @Test
-    @Tag("known-bug")
     @DisplayName("Repeated hint requests do not delay the engine's move")
     void hintsDoNotStarveTheEngine() {
         assertTimeoutPreemptively(Duration.ofSeconds(30), () -> {
@@ -86,6 +90,38 @@ class EngineJobsTest {
             onDispatcher(() -> s.playHumanMove(ChessMove.fromUci("e2e4")));
             assertTrue(replied.await(10, TimeUnit.SECONDS),
                     "the engine's move should not wait behind queued hints");
+        });
+    }
+
+    @Test
+    @DisplayName("Cancelling reaches the engine and frees the engine thread at once")
+    void cancellationReachesTheEngine() {
+        assertTimeoutPreemptively(Duration.ofSeconds(30), () -> {
+            AtomicInteger calls = new AtomicInteger();
+            CountDownLatch firstSearchCancelled = new CountDownLatch(1);
+            Engine thinksUntilCancelled = new Engine() {
+                @Override
+                public ChessMove bestMove(SearchRequest request) {
+                    if (calls.incrementAndGet() == 1) {
+                        while (!request.cancel().isCancelled()) {
+                            Thread.onSpinWait();
+                        }
+                        firstSearchCancelled.countDown();
+                        return null;
+                    }
+                    return rules.Rules.legalMoves(request.fen()).get(0);
+                }
+            };
+            CountDownLatch replied = new CountDownLatch(1);
+            GameSession s = start(thinksUntilCancelled, 2, replied);
+            onDispatcher(() -> s.playHumanMove(ChessMove.fromUci("e2e4")));
+            Thread.sleep(100);
+            onDispatcher(() -> {
+                s.undo();
+                s.playHumanMove(ChessMove.fromUci("d2d4"));
+            });
+            assertTrue(firstSearchCancelled.await(2, TimeUnit.SECONDS), "the take-back cancels the search");
+            assertTrue(replied.await(2, TimeUnit.SECONDS), "the next search starts right away");
         });
     }
 }

@@ -1,6 +1,8 @@
 package game;
 
+import engine.Cancellation;
 import engine.EngineSelector;
+import engine.SearchRequest;
 import rules.ChessMove;
 import rules.Game;
 import rules.GameStatus;
@@ -19,10 +21,21 @@ import java.util.concurrent.Future;
  * turn-taking between humans and the engine. Swing-free — the desktop UI is one client; a server
  * could be another (Phase 3, docs/phase-3-research.md Fork 1).
  *
- * <p>Threading: every method must be called on the <em>dispatcher</em> thread, and every
- * {@link GameListener} callback is delivered there. Engine searches run on a separate engine
- * executor; their results are handed back to the dispatcher, and dropped if the game moved on in
- * the meantime (take-back, new game). The single concurrency model is Phase 4.
+ * <p>Threading — the one concurrency pattern for engine work (Phase 4, docs/phase-4-research.md
+ * Fork B1):
+ * <ul>
+ *   <li>Every method must be called on the <em>dispatcher</em> thread (the Swing event thread in
+ *       the desktop app), and every {@link GameListener} callback is delivered there. Game state
+ *       is only ever touched on that thread.</li>
+ *   <li>Engine moves and hints run as jobs on one engine thread. Each job carries a
+ *       {@link Cancellation}; the engines stop thinking soon after it is set, so a cancelled job
+ *       frees the engine thread almost at once.</li>
+ *   <li>A take-back, new game or config change cancels every job. Starting the engine's move
+ *       cancels a pending hint. A new hint request replaces a pending one for another position,
+ *       so at most one hint is ever waiting.</li>
+ *   <li>A job's result is handed back to the dispatcher and dropped if the game moved on in the
+ *       meantime (generation check), so a late answer can never be played.</li>
+ * </ul>
  */
 public final class GameSession {
 
@@ -39,6 +52,11 @@ public final class GameSession {
     /** Bumped whenever the position changes other than by the move an engine job is computing. */
     private long generation;
     private Future<?> pendingEngineJob;
+    private Cancellation engineCancel = new Cancellation();
+    private Future<?> pendingHintJob;
+    private Cancellation hintCancel = new Cancellation();
+    /** The position the pending hint is for, or {@code null} when no hint is pending. */
+    private String hintFen;
     /** True from submitting an engine move until its result is applied or discarded. */
     private boolean engineBusy;
     private long randomMoveDelayMs = RANDOM_MOVE_DELAY_MS;
@@ -164,22 +182,34 @@ public final class GameSession {
         return true;
     }
 
-    /** Asks the engine for a suggestion for the side to move; arrives as {@link GameListener#hint}. */
+    /**
+     * Asks the engine for a suggestion for the side to move; arrives as {@link GameListener#hint}.
+     * Asking again for the same position while a hint is on its way does nothing.
+     */
     public void requestHint() {
         if (isOver()) {
             return;
         }
         String fen = game.fen();
+        if (fen.equals(hintFen)) {
+            return;
+        }
+        cancelHint();
         long gen = generation;
-        engineExecutor.submit(() -> {
-            ChessMove move = engines.hint(fen);
-            if (move != null) {
-                dispatcher.execute(() -> {
-                    if (gen == generation && fen.equals(game.fen())) {
-                        listeners.forEach(l -> l.hint(move));
-                    }
-                });
-            }
+        Cancellation cancel = new Cancellation();
+        hintCancel = cancel;
+        hintFen = fen;
+        SearchRequest request = request(EngineSelector.HINT_LEVEL, cancel);
+        pendingHintJob = engineExecutor.submit(() -> {
+            ChessMove move = cancel.isCancelled() ? null : engines.hint(request);
+            dispatcher.execute(() -> {
+                if (cancel == hintCancel) {
+                    hintFen = null;
+                }
+                if (move != null && !cancel.isCancelled() && gen == generation && fen.equals(game.fen())) {
+                    listeners.forEach(l -> l.hint(move));
+                }
+            });
             return null;
         });
     }
@@ -213,30 +243,51 @@ public final class GameSession {
         return result;
     }
 
+    /** Cancels the engine's move and any hint; their results, if they still arrive, are dropped. */
     private void cancelEngine() {
         generation++;
         engineBusy = false;
+        engineCancel.cancel();
         if (pendingEngineJob != null) {
             pendingEngineJob.cancel(true);
             pendingEngineJob = null;
         }
+        cancelHint();
+    }
+
+    private void cancelHint() {
+        hintCancel.cancel();
+        hintFen = null;
+        if (pendingHintJob != null) {
+            pendingHintJob.cancel(true);
+            pendingHintJob = null;
+        }
+    }
+
+    private SearchRequest request(int level, Cancellation cancel) {
+        List<ChessMove> played = game.moves().stream().map(MoveResult::move).toList();
+        return new SearchRequest(game.fen(), game.history().get(0), played, level, cancel);
     }
 
     private void maybeStartEngine() {
         if (isOver() || config.isHuman(whiteToMove()) || engineBusy) {
             return;
         }
+        cancelHint(); // the engine's own move goes first
         engineBusy = true;
         String fen = game.fen();
         int level = config.skillLevel();
         long gen = generation;
         long delay = level == 0 ? randomMoveDelayMs : 0;
+        Cancellation cancel = new Cancellation();
+        engineCancel = cancel;
+        SearchRequest request = request(level, cancel);
         pendingEngineJob = engineExecutor.submit(() -> {
             try {
                 if (delay > 0) {
                     Thread.sleep(delay);
                 }
-                ChessMove move = engines.move(fen, level);
+                ChessMove move = engines.move(request);
                 dispatcher.execute(() -> engineMoveReady(gen, fen, move));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();

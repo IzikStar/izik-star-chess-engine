@@ -43,9 +43,12 @@ public class StockfishEngine implements Engine {
     private static final long RETRY_BUDGET_MS = 1200;
 
     @Override
-    public ChessMove bestMove(String fen, int level) {
+    public ChessMove bestMove(SearchRequest request) {
+        String fen = request.fen();
+        int level = request.skillLevel();
         long start = System.currentTimeMillis();
-        while (isAvailable() && System.currentTimeMillis() - start < RETRY_BUDGET_MS) {
+        while (isAvailable() && !request.cancel().isCancelled()
+                && System.currentTimeMillis() - start < RETRY_BUDGET_MS) {
             skillLevel = Math.max(0, Math.min(20, level - 1));
             String uci = getBestMove(fen);
             if (uci == null || uci.equals("unknown") || uci.equals("(none)")) {

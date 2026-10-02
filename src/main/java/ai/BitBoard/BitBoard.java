@@ -401,29 +401,11 @@ public class BitBoard {
     // get next moves:
     public ArrayList<BitBoard> getMovesForColor(int color) {
         ArrayList<BitBoard> nextStates = new ArrayList<>(getKingsMoves(color));
-        Debug.log("size = " + nextStates.size());
         nextStates.addAll(getQueensMoves(color));
-        Debug.log("size = " + nextStates.size());
         nextStates.addAll(getRooksMoves(color));
-        Debug.log("size = " + nextStates.size());
         nextStates.addAll(getBishopsMoves(color));
-        Debug.log("size = " + nextStates.size());
         nextStates.addAll(getKnightsMoves(color));
-        Debug.log("size = " + nextStates.size());
         nextStates.addAll(getPawnsMoves(color));
-        Debug.log("size = " + nextStates.size());
-        for (BitBoard board : nextStates) {
-            if (BitBoardOperations.printBitBoard(board).equals("\n[ r n b q k b n r ]\n" +
-                    "[ - p - p - p p p ]\n" +
-                    "[ - - p - - - - - ]\n" +
-                    "[ p - - - p - - - ]\n" +
-                    "[ - - B - P - - - ]\n" +
-                    "[ - - - P - - - - ]\n" +
-                    "[ - P P - - P P P ]\n" +
-                    "[ R N B Q K - N R ]\n")) {
-                System.out.println("found the problem! its move " + nextStates.indexOf(board) + ", and it is a " + board.lastMove);
-            }
-        }
         return nextStates;
     }
     // pieces moves:
