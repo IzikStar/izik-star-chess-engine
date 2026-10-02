@@ -1,6 +1,6 @@
 # Phase 4 — Concurrency and the Stockfish integration
 
-**Status: RESEARCH — awaiting the owner's decisions on the forks in §4.** Branch
+**Status: IN PROGRESS — decisions locked 2026-10-02 (§8).** Branch
 `phase-4-concurrency-stockfish`, cut from `phase-3-decouple-ui` (PR #2, not merged yet; this
 branch is rebased onto `master` once it is). No production code has been touched.
 
@@ -202,6 +202,19 @@ The guide asks for this to be written down rather than inherited.
 Each increment is one commit on this branch; reverting one restores the previous green state.
 The branch is merged with `--no-ff` like the earlier phases.
 
-## 8. Decisions
+## 8. Decisions (locked 2026-10-02, project owner)
 
-_Pending._
+All recommendations approved: **A1** (depth per level + 5 s cap; Stockfish 300 / 600 / 1000 ms,
+hints 1000 ms), **B1** (one engine thread, cancellable jobs, at most one pending hint),
+**C1** (one Stockfish process per session, `position fen … moves …`), **D1** (cancellation, time
+cap and free wins only; move-generator speed and the transposition table become Phase 4b),
+**E1** (`-Pstress` test).
+
+## 9. Increment log
+
+### Increment 1 — safety net (2026-10-02)
+
+`game.EngineJobsTest`, on real threads, tagged `known-bug` (red, excluded from `mvn test`):
+`undoCancelsTheRunningSearch` (take back during a depth-6 search, the engine must answer the new
+move within 10 s) and `hintsDoNotStarveTheEngine` (five hint requests, then a human move: the
+depth-1 reply must come within 10 s). Both fail on this commit (`-Pknown-bugs`).
