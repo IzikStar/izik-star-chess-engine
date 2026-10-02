@@ -349,3 +349,24 @@ know which kind it is evolving.
 | E10 | Generic evaluator | **`Evaluator` over a parameter vector + schema, so a neural net fits later without changing the arena or the owner's code** / hand-written evaluation only | **Generic** |
 | E11 | Neural network | **Next phase (Phase 6), after evolution works on Level 1: 768 board inputs → small hidden layer → 1, trained and/or evolved** / in this phase / never | **Next phase** |
 | E12 | Training data | **Export `(position, result)` from every recorded game, for Texel-style fitting** / not now | **Export now** (cheap; the fitter itself is the owner's or a later step) |
+
+## 9. Increment log
+
+1. **Step 1 — parameters (2026-10-02).** `ai.eval`: `ParamSpec`, `ParamSchema`, `ParamVector`
+   (JSON in and out) and the `Evaluator` interface. `BitBoardEvaluate` is an instance built from a
+   vector; the static game stage is gone, so searches with different weights run side by side
+   (`EvaluatorTest`: two weight sets on four threads score exactly as alone). `Minimax` and
+   `MinimaxEngine` take an `Evaluator`; without one they use `BitBoardEvaluate.DEFAULT`.
+   `SameMoveTest` unchanged and green.
+2. **Step 1b — 499 parameters (2026-10-02).** The evaluation is now features × weights, tapered
+   between a middlegame and an endgame weight by the material left (phase 24 → 0). 56 named
+   features (27 from the old code, 29 new: pawn structure 11, king safety 8, mobility 4, pieces 6),
+   each with an mg and an eg weight; 3 gates (the old "before turn N" thresholds); piece-square
+   tables for 6 piece types × 32 mirrored squares × 2 phases. Old weights keep their values in
+   both phases (penalties are now negative bonuses, e.g. `development.bishopsHome = -15`); new ones
+   start at 0, and a group whose weights are all 0 is not computed. `BitBoardEvaluate.features()`
+   returns the full feature vector and phase for fitting (§8.3). Measured: the defaults play the
+   same games at the same speed as before; with every feature switched on, a depth-4 game takes
+   about 20-30% longer (20 ms per move instead of ~15). Tests: `EvaluatorFeaturesTest` (each new
+   feature on a hand-made position; every feature flips sign when the colours are swapped, on 400
+   random positions; the score equals the tapered sum of features × weights for random weights).

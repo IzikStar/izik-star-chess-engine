@@ -50,7 +50,7 @@ class EvaluatorTest {
     @DisplayName("A different weight changes the score; the same weights give the same score")
     void weightsMatter() {
         BitBoard b = BitBoardRules.fromFen(QUEEN_UP);
-        BitBoardEvaluate cheapQueen = new BitBoardEvaluate(BitBoardEvaluate.SCHEMA.defaults().with("material.queen", 0));
+        BitBoardEvaluate cheapQueen = new BitBoardEvaluate(BitBoardEvaluate.SCHEMA.defaults().with("material.queen.mg", 0).with("material.queen.eg", 0));
         int normal = BitBoardEvaluate.DEFAULT.evaluate(b, true);
         assertNotEquals(normal, cheapQueen.evaluate(b, true));
         assertEquals(normal, new BitBoardEvaluate(BitBoardEvaluate.SCHEMA.defaults()).evaluate(b, true));
@@ -62,8 +62,12 @@ class EvaluatorTest {
         List<BitBoard> boards = positions(5, 3000);
         ParamVector other = BitBoardEvaluate.SCHEMA.defaults()
                 .with("development.openingUntilTurn", 0) // flips the game stage the old static held
-                .with("development.queenOutEarly", 60)
-                .with("material.knight", 45);
+                .with("development.queenOutEarly.mg", -60)
+                .with("material.knight.eg", 45)
+                .with("pawns.passed.rank6.eg", 80)
+                .with("kingSafety.queenAttacker.mg", 20)
+                .with("mobility.bishop.mg", 3)
+                .with("pst.knight.d4.mg", 15);
         BitBoardEvaluate a = BitBoardEvaluate.DEFAULT;
         BitBoardEvaluate b = new BitBoardEvaluate(other);
         int[] aloneA = scores(a, boards);

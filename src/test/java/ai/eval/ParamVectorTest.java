@@ -16,29 +16,34 @@ class ParamVectorTest {
     @DisplayName("The defaults are the weights the evaluation used to hard-code")
     void defaults() {
         ParamVector d = schema.defaults();
-        assertEquals(10, d.get("material.pawn"));
-        assertEquals(90, d.get("material.queen"));
-        assertEquals(-25, d.get("king.exposed"));
-        assertEquals(30, schema.size());
+        assertEquals(10, d.get("material.pawn.mg"));
+        assertEquals(10, d.get("material.pawn.eg"));
+        assertEquals(90, d.get("material.queen.mg"));
+        assertEquals(-25, d.get("king.exposed.eg"));
+        assertEquals(20, d.get("king.safetyUntilTurn"));
+        assertEquals(0, d.get("pawns.passed.rank6.mg"));
+        assertEquals(0, d.get("pst.knight.d4.eg"));
+        // 56 named features × (middlegame, endgame) + 3 gates + 6 piece types × 32 squares × 2 phases
+        assertEquals(56 * 2 + 3 + 6 * 32 * 2, schema.size());
     }
 
     @Test
     @DisplayName("Values are kept inside each parameter's range")
     void clamped() {
-        ParamVector v = schema.defaults().with("material.pawn", 5000).with("material.knight", -3);
-        assertEquals(100, v.get("material.pawn"));
-        assertEquals(0, v.get("material.knight"));
+        ParamVector v = schema.defaults().with("material.pawn.mg", 5000).with("material.knight.mg", -3);
+        assertEquals(300, v.get("material.pawn.mg"));
+        assertEquals(0, v.get("material.knight.mg"));
     }
 
     @Test
     @DisplayName("JSON round-trips; missing names keep their defaults; unknown names are refused")
     void json() {
-        ParamVector v = schema.defaults().with("material.rook", 55).with("king.exposed", -40);
+        ParamVector v = schema.defaults().with("material.rook.eg", 55).with("king.exposed.mg", -40);
         assertEquals(v, ParamVector.fromJson(schema, v.toJson()));
 
-        ParamVector partial = ParamVector.fromJson(schema, "{\"material.queen\": 95}");
-        assertEquals(95, partial.get("material.queen"));
-        assertEquals(10, partial.get("material.pawn"));
+        ParamVector partial = ParamVector.fromJson(schema, "{\"material.queen.mg\": 95}");
+        assertEquals(95, partial.get("material.queen.mg"));
+        assertEquals(90, partial.get("material.queen.eg"));
 
         assertThrows(IllegalArgumentException.class, () -> ParamVector.fromJson(schema, "{\"material.qeen\": 95}"));
     }
