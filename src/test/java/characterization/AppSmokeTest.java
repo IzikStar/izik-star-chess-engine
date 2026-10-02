@@ -1,24 +1,16 @@
 package characterization;
 
 import ai.BitBoard.BitBoard;
-import main.savedGames.LoadGame;
-import main.savedGames.SaveGame;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import rules.Game;
 import rules.GameStatus;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -26,9 +18,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * manual play-through the refactor guide left owed after Phase 0 / Phase 1.
  *
  * <p>Headless, no Swing, no synthetic input. It drives the real rules core
- * ({@code rules.Game}, the API the UI's game session drives), the real engine board
- * representation ({@code BitBoard}, which the minimax search runs on), and the real
- * persistence classes ({@code SaveGame} / {@code LoadGame}) through complete games.
+ * ({@code rules.Game}, the API the UI's game session drives) and the real engine board
+ * representation ({@code BitBoard}, which the minimax search runs on) through complete games.
+ * (A third test round-tripped the Swing UI's saved-game files; it went with that UI in Phase 4c.)
  *
  * <p>Tagged {@code "smoke"} and excluded from the default {@code mvn test} run because a
  * full random game is slower than a unit test; run with {@code mvn test -Psmoke}.
@@ -89,23 +81,5 @@ class AppSmokeTest extends CharacterizationTestBase {
         assertTrue(status == 0 || status == Integer.MAX_VALUE || status == Integer.MIN_VALUE,
                 "terminal status must be draw/stalemate (0) or a mate (+/-MAX_VALUE), was " + status);
         assertTrue(ply > 0, "at least one move was played");
-    }
-
-    /** The persistence limb: a FEN move-list survives a SaveGame -> LoadGame round-trip. */
-    @Test
-    @DisplayName("SaveGame / LoadGame round-trips a game's FEN list unchanged")
-    void saveLoadRoundTrip(@TempDir Path dir) throws IOException {
-        Game g = new Game(START);
-        g.play("e2e4");
-        g.play("e7e5");
-        List<String> fens = new ArrayList<>(g.history());
-
-        Path file = dir.resolve("game.txt");
-        new SaveGame().saveGameToFile(fens, file.toString());
-        assertTrue(Files.exists(file), "save wrote the file");
-
-        List<String> loaded = new LoadGame().loadGameFromFile(file.toString());
-        assertEquals(fens, loaded, "loaded FEN list equals the saved one");
-        assertNotEquals(loaded.get(0), loaded.get(1), "the game actually advanced between saved states");
     }
 }

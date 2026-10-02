@@ -18,13 +18,12 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * The application's entry point since Phase 4c: a local web server for the browser UI.
  *
- * <p>It serves the React app built into the jar under {@code /webapp}, the game's sounds under
- * {@code /sounds}, and one WebSocket at {@code /ws} that carries the game (see {@link GameHub}
+ * <p>It serves the React app built into the jar under {@code /webapp} and one WebSocket at {@code /ws} that carries the game (see {@link GameHub}
  * for the protocol). It listens on 127.0.0.1 only, so nothing outside this computer can reach it,
  * and opens the default browser on start.
  *
  * <p>Arguments: {@code --port N} (default 7070, then the next free one up to 7079),
- * {@code --no-browser}. The old Swing UI still runs with {@code java -cp <jar> main.Main}.
+ * {@code --no-browser}.
  */
 public final class WebServer {
 
@@ -104,11 +103,6 @@ public final class WebServer {
                     files.location = Location.CLASSPATH;
                 });
             }
-            config.staticFiles.add(files -> {
-                files.hostedPath = "/sounds";
-                files.directory = "/sounds";
-                files.location = Location.CLASSPATH;
-            });
             // a player can think for a long time; don't let Jetty drop an idle game connection
             config.jetty.modifyWebSocketServletFactory(factory -> factory.setIdleTimeout(Duration.ofHours(12)));
         });

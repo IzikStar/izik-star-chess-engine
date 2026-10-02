@@ -9,7 +9,7 @@
     <version>3.1.0</version>
     <packaging>jar</packaging>
     <name>IzikStar Chess</name>
-    <description>Swing chess game with a bitboard alpha-beta engine and a Stockfish UCI bridge.</description>
+    <description>Chess with a browser UI, a bitboard alpha-beta engine and a Stockfish UCI bridge.</description>
 
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
@@ -17,7 +17,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
         <!-- Main class, referenced by the shade plugin and exec plugin. Since Phase 4c the jar
-             starts the web UI; the Swing UI still runs with `java -cp <jar> main.Main`. -->
+             starts the web UI. -->
         <main.class>web.WebServer</main.class>
 
         <!-- The React app in web/ is built into the jar at prepare-package (so `mvn test` needs
@@ -40,7 +40,6 @@
         <!-- 1.9.25 (was 1.8.0): Javalin 6.7 is built against Kotlin 1.9; the 1.9 stdlib still
              serves okhttp 4.9.3, which needs >= 1.4. -->
         <kotlin.version>1.9.25</kotlin.version>
-        <flatlaf.version>3.0</flatlaf.version>
         <junit.version>5.10.2</junit.version>
         <javalin.version>6.7.0</javalin.version>
         <slf4j.version>2.0.17</slf4j.version>
@@ -90,13 +89,6 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
             <version>${slf4j.version}</version>
-        </dependency>
-
-        <!-- Swing look and feel; was .idea/flatlaf-3.0.jar. -->
-        <dependency>
-            <groupId>com.formdev</groupId>
-            <artifactId>flatlaf</artifactId>
-            <version>${flatlaf.version}</version>
         </dependency>
 
         <!-- Characterization test suite (Phase 0). -->
@@ -248,7 +240,7 @@
         <!-- mvn test -Psmoke
              Runs ONLY the @Tag("smoke") end-to-end tests (AppSmokeTest): a full scripted
              game to checkmate through the OO rules path, a full random game in the bitboard
-             engine, and a SaveGame/LoadGame round-trip. These MUST pass; they are the
+             engine. These MUST pass; they are the
              automated stand-in for the manual play-through the refactor guide left owed. -->
         <profile>
             <id>smoke</id>

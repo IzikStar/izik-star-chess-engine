@@ -18,14 +18,14 @@ import java.util.concurrent.Future;
 
 /**
  * One game being played: the {@link Game} (position + history), the {@link GameConfig}, and the
- * turn-taking between humans and the engine. Swing-free — the desktop UI is one client; a server
- * could be another (Phase 3, docs/phase-3-research.md Fork 1).
+ * turn-taking between humans and the engine. UI-free: the web server ({@code web.GameHub}) is its
+ * client (Phase 3, docs/phase-3-research.md Fork 1; Phase 4c).
  *
  * <p>Threading — the one concurrency pattern for engine work (Phase 4, docs/phase-4-research.md
  * Fork B1):
  * <ul>
- *   <li>Every method must be called on the <em>dispatcher</em> thread (the Swing event thread in
- *       the desktop app), and every {@link GameListener} callback is delivered there. Game state
+ *   <li>Every method must be called on the <em>dispatcher</em> thread ({@code web.GameHub}'s
+ *       game thread), and every {@link GameListener} callback is delivered there. Game state
  *       is only ever touched on that thread.</li>
  *   <li>Engine moves and hints run as jobs on one engine thread. Each job carries a
  *       {@link Cancellation}; the engines stop thinking soon after it is set, so a cancelled job

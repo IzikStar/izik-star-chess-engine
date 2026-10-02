@@ -295,17 +295,6 @@ class WebServerTest {
     }
 
     @Test
-    @DisplayName("The game's sounds are served over HTTP")
-    void serveSounds() throws Exception {
-        startServer();
-        HttpResponse<byte[]> r = HttpClient.newHttpClient().send(HttpRequest.newBuilder(
-                URI.create("http://127.0.0.1:" + server.port() + "/sounds/moveSound1.wav")).build(),
-                HttpResponse.BodyHandlers.ofByteArray());
-        assertEquals(200, r.statusCode());
-        assertTrue(r.body().length > 1000);
-    }
-
-    @Test
     @DisplayName("UI levels 1-10 map to the session's skill levels 0-18 and back")
     void levels() {
         for (int ui = 1; ui <= 10; ui++) {

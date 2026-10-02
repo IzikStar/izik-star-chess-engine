@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Chess" type="Application" factoryName="Application">
-    <option name="MAIN_CLASS_NAME" value="main.Main" />
+    <option name="MAIN_CLASS_NAME" value="web.WebServer" />
     <module name="izikstar-chess" />
     <!-- Run from the project root so the relative engine/ and any file-based
          resources resolve the same way they do from `mvn exec:java` / `java -jar`. -->

@@ -5,7 +5,7 @@ import rules.MoveResult;
 
 /**
  * What a front end hears from a {@link GameSession}. All callbacks arrive on the session's
- * dispatcher thread (the Swing event thread in the desktop app). Default methods, so a listener
+ * dispatcher thread ({@code web.GameHub}'s game thread). Default methods, so a listener
  * implements only what it needs.
  */
 public interface GameListener {

@@ -254,4 +254,10 @@ owner sign-off.
    and the first one that is not legal then drops the whole queue (the rest was planned from a
    position that will not happen). Tests: `web/e2e/premove.spec.ts`, which stands in for the
    server with Playwright's `routeWebSocket` to reach set-up positions.
+7. **Swing retired (2026-10-02).** With the owner's play-through done and their asks in, the
+   Swing UI is deleted: `main/`, `GUI/`, `pieces.png`, the .wav sounds (the browser synthesises
+   its own, so the server no longer serves `/sounds`) and FlatLaf. `AppSmokeTest` loses its
+   saved-game round-trip (that file format belonged to the Swing UI; Phase 5's game database
+   replaces it), `LayeringTest` now also keeps `main/` and `GUI/` from coming back, and the
+   IntelliJ run configuration starts `web.WebServer`.
 

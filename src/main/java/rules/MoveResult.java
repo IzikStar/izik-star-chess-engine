@@ -3,8 +3,8 @@ package rules;
 /**
  * Everything a front end needs to know about a move that was just played: what moved, what was
  * captured, the special-move flags, its SAN, and the game status afterwards (threefold included).
- * This is the payload of the session's "move made" event — the Swing board animates and plays
- * sounds from it, and a remote client could do the same from its JSON form.
+ * This is the payload of the session's "move made" event — the browser UI animates and plays
+ * sounds from its JSON form.
  */
 public record MoveResult(
         ChessMove move,

@@ -143,13 +143,11 @@ src/main/java/
 │   └── openingBook/  (not wired in yet)
 ├── engine/         Engine interface: the built-in search, Stockfish, and which one plays a level
 ├── game/           GameSession: turn-taking, the engine thread, events for any front end
-├── web/            local web server: the browser UI's files, and the game over one WebSocket
-├── main/           the old Swing UI (kept until the web UI is signed off, then deleted)
-└── GUI/            Swing audio, sprites, animation, custom buttons
+└── web/            local web server: the browser UI's files, and the game over one WebSocket
 web/                the browser UI: React + TypeScript (Vite), board by react-chessboard
 ```
 
-Lower layers never import higher ones, and nothing below `web`/`main` imports Swing or the web
+Lower layers never import higher ones, and nothing below `web` imports Swing, AWT or the web
 server; a test (`architecture.LayeringTest`) fails the build otherwise. The browser never
 decides what is legal: the server sends it the legal moves with every position.
 
@@ -170,7 +168,7 @@ structure. Two documents describe it honestly instead of hiding the problems:
 | 3 | Decouple the UI from the rules; retire global state | Done ([research](docs/phase-3-research.md)) |
 | 4 | One concurrency model; a proper Stockfish session | Done ([research](docs/phase-4-research.md)) |
 | 4b | Fix the move generator's rule bugs; make the search fast enough for Levels 6-7 | Done ([research](docs/phase-4b-research.md)) |
-| 4c | Replace the Swing screens with a browser UI | In progress ([research](docs/ui-research.md)) |
+| 4c | Replace the Swing screens with a browser UI | Done, pending merge ([research](docs/ui-research.md)) |
 | 5 | Opening book in play; structured game database | Planned |
 
 Phase 2 is a good example of the approach:
@@ -196,9 +194,6 @@ server listens on this computer only; stop it with Ctrl+C or by closing its cons
 `--port N`, `--no-browser`.
 
 Run the jar from the repository root if you want it to find Stockfish at the default path.
-
-The old Swing UI still runs, until it is retired at the end of Phase 4c:
-`java -cp target/izikstar-chess-3.1.0.jar main.Main` (some of its messages are in Hebrew).
 
 **Working on the browser UI:** run the jar (`--no-browser`), then `npm run dev` in `web/` and
 open <http://localhost:5173/>; changes show up as you save.
@@ -235,8 +230,7 @@ open <http://localhost:5173/>; changes show up as you save.
   compare 300 random games with Stockfish's legal moves at every ply, and time Levels 6 and 7
   ([`SearchSpeedTest`](src/test/java/engine/SearchSpeedTest.java)).
 - **Smoke tests** ([`AppSmokeTest`](src/test/java/characterization/AppSmokeTest.java)) play a
-  scripted game to checkmate, play a full random game inside the bitboard engine, and
-  round-trip a saved game.
+  scripted game to checkmate, and play a full random game inside the bitboard engine.
 - **Known-bug tests** are tagged `known-bug`. They assert the *correct* behaviour and are
   expected to fail until a phase fixes the bug. The four from Phase 0 were all fixed in Phase 2
   and became regular tests, so the profile is currently empty.

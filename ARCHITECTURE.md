@@ -1,7 +1,8 @@
 # Architecture of IzikStar Chess 3.1 (as-is)
 
 > **Updated after Phase 3 (2026-10-01)** — branch `phase-3-decouple-ui`,
-> [docs/phase-3-research.md](docs/phase-3-research.md). The code is now layered:
+> [docs/phase-3-research.md](docs/phase-3-research.md) — **and Phase 4c (2026-10-02)**, which
+> replaced the Swing UI (`main`, `GUI`) with a browser UI. The code is now layered:
 >
 > ```
 > rules   Rules / Game / Position / ChessMove / San / MoveResult / GameStatus / Square
@@ -9,17 +10,17 @@
 > ai      BitBoard move generator, evaluation, Minimax (per-search instances, no statics read)
 > engine  Engine interface; MinimaxEngine, StockfishEngine (real skill level), EngineSelector
 > game    GameConfig (immutable), GameListener, GameSession (turn-taking, engine thread,
->         stale-result guard, results delivered on a dispatcher = the EDT in the app)
-> main/GUI  Swing only: Board renders and listens, Input tracks mouse gestures, Main wires it up
-> web     (Phase 4c) WebServer: Javalin on 127.0.0.1, serves the React app (web/ -> /webapp in
+>         stale-result guard, results delivered on a dispatcher = GameHub's game thread)
+> web     WebServer: Javalin on 127.0.0.1, serves the React app (web/ -> /webapp in
 >         the jar) and one WebSocket; GameHub runs the session on a "game" thread and sends a
 >         full JSON snapshot after every change. The browser never computes legal moves.
 > ```
 >
 > Each arrow points down only; `architecture.LayeringTest` fails the build if `rules`, `ai`,
-> `engine` or `game` import Swing/AWT/`main`/`GUI` (or a higher layer), or if a deleted legacy
+> `engine` or `game` import Swing/AWT (or a higher layer), or if a deleted legacy
 > class comes back. Deleted: `ai.BoardState`, all of `pieces/*`, `main.Move`,
-> `main.setting.ChoosePlayFormat`, `SavedStatesForDraws`, `ai.myEngine`, `GoBack`, `SoundPlayer`.
+> `main.setting.ChoosePlayFormat`, `SavedStatesForDraws`, `ai.myEngine`, `GoBack`, `SoundPlayer`,
+> and in Phase 4c the whole Swing UI (`main/*`, `GUI/*`).
 > Board orientation is UI state, not game state. Engine bugs A/B/C (§2.4, §2.5) and a
 > false-repetition bug in the search hash are fixed and pinned by tests. **Sections 2–4 below
 > still describe the pre-Phase-3 code** (kept for the history of why); §5 and §6 are current.

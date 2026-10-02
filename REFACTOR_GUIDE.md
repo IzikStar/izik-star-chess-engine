@@ -451,7 +451,9 @@ their expected moves, or each change is justified in the phase notes.
 
 ## Phase 4c — Web UI
 
-> **Status: IN PROGRESS on branch `phase-4c-web-ui` (started 2026-10-02).** Research, decisions
+> **Status: DONE on branch `phase-4c-web-ui`, pending merge (PR #6, 2026-10-02).** The owner
+> played it and asked for changes, which are in; the Swing UI (`main/`, `GUI/`, its sprites,
+> sounds and the FlatLaf dependency) is deleted, so the browser is the only UI. Research, decisions
 > (U1-U7, all approved by the owner) and the increment log are in
 > [docs/ui-research.md](docs/ui-research.md).
 

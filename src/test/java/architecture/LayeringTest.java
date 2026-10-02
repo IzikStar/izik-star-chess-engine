@@ -16,8 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Phase 3 exit criterion, enforced: the headless core (rules, engines, the game session and the
- * bitboard search) imports nothing from Swing, AWT or the desktop UI packages, so it can run
- * unchanged behind a server later. Also keeps the layers pointing one way.
+ * bitboard search) imports nothing from Swing, AWT or the UI, so it runs unchanged behind the web
+ * server (Phase 4c). Also keeps the layers pointing one way.
  */
 class LayeringTest {
 
@@ -26,12 +26,12 @@ class LayeringTest {
 
     /** Package -> import prefixes it must not use. */
     private static final String[][] RULES = {
-            {"rules", "javax.swing", "java.awt", "main.", "GUI.", "engine.", "game.", "web."},
-            {"ai", "javax.swing", "java.awt", "main.", "GUI.", "engine.", "game.", "web."},
-            {"engine", "javax.swing", "java.awt", "main.", "GUI.", "game.", "web."},
-            {"game", "javax.swing", "java.awt", "main.", "GUI.", "web."},
-            // the web server (Phase 4c) is a client of the session like the Swing UI, not part of it
-            {"web", "javax.swing", "main.", "GUI."},
+            {"rules", "javax.swing", "java.awt", "engine.", "game.", "web."},
+            {"ai", "javax.swing", "java.awt", "engine.", "game.", "web."},
+            {"engine", "javax.swing", "java.awt", "game.", "web."},
+            {"game", "javax.swing", "java.awt", "web."},
+            // the web server (Phase 4c) is a client of the session, not part of it
+            {"web", "javax.swing"},
     };
 
     @Test
@@ -57,10 +57,9 @@ class LayeringTest {
     }
 
     @Test
-    @DisplayName("The legacy global-settings and object-model classes stay deleted")
+    @DisplayName("The legacy object-model classes and the Swing UI stay deleted")
     void legacyClassesStayDeleted() {
-        for (String gone : new String[]{"main/setting/ChoosePlayFormat.java", "ai/BoardState.java",
-                "main/Move.java", "pieces", "ai/myEngine.java", "main/savedGames/SavedStatesForDraws.java"}) {
+        for (String gone : new String[]{"ai/BoardState.java", "pieces", "ai/myEngine.java", "main", "GUI"}) {
             assertEquals(false, Files.exists(SRC.resolve(gone)), gone + " is back");
         }
     }
