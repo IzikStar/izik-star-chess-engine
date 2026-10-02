@@ -169,8 +169,9 @@ class StockfishSessionTest {
             assertTrue(Rules.isLegal(r.fen(), move));
             played.add(move.toUci());
         }
+        // Full strength: below Skill Level 20 Stockfish picks weaker moves at random, mates included.
         String mateInOne = "7k/1R6/6K1/8/8/8/8/R7 w - - 0 1";
-        ChessMove mate = engine.bestMove(SearchRequest.of(mateInOne, 17));
+        ChessMove mate = engine.bestMove(SearchRequest.of(mateInOne, EngineSelector.HINT_LEVEL));
         assertEquals(rules.GameStatus.CHECKMATE, Rules.status(Rules.applyMove(mateInOne, mate)));
     }
 }
