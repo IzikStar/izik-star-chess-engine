@@ -247,4 +247,11 @@ owner sign-off.
    "invalid" sound otherwise. Purely client-side: the server still only accepts legal moves on
    the human's turn. Tests: `GameSessionTest` per-side levels, `WebServerTest` per-side config,
    e2e premove and per-side levels.
+6. **Owner's asks on premove (2026-10-02).** A premove to the last rank opens the piece picker
+   (it stays open if the engine replies meanwhile, and the chosen move is then played at once),
+   and premoves queue: the board shows the position after the queued moves (`withPremoves` in
+   `chess.ts`, display only) so a piece can be moved again, one premove is sent per human turn,
+   and the first one that is not legal then drops the whole queue (the rest was planned from a
+   position that will not happen). Tests: `web/e2e/premove.spec.ts`, which stands in for the
+   server with Playwright's `routeWebSocket` to reach set-up positions.
 

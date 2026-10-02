@@ -26,8 +26,9 @@ refactor, which is documented phase by phase in this repository (see
   checkmate and stalemate. Draws are detected by the 50-move rule, threefold repetition and
   insufficient material.
 - **Click or drag** to move; the legal moves of the selected piece are marked.
-- **Premove.** While the engine thinks, queue your next move; it is played the moment it is
-  your turn, if it is still legal. Click an empty square to cancel it.
+- **Premoves.** While the engine thinks, queue your next moves (as many as you like, and a
+  promotion asks for its piece); one is played each time it is your turn, if it is still legal,
+  and an illegal one drops the rest. Click an empty square to cancel them.
 - **Hints.** *Hint* draws an arrow for the engine's suggested move.
 - **Take-backs**, a **flip board** button, and a **status line** that says whose move it is
   and when the engine is thinking.

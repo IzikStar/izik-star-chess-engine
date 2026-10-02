@@ -16,11 +16,12 @@ interface Props {
   onIllegal: () => void;
   /**
    * While the engine thinks: the human's colour, so its pieces can be picked up to queue a
-   * premove (any target square; it is checked when it is played). Null otherwise.
+   * premove (any target square; it is checked when it is played), several in a row. Null otherwise.
    */
   premoveColor: Color | null;
-  /** The queued premove (from + to), shown on the board. */
-  premove: string | null;
+  /** The queued premoves (from + to [+ piece]), oldest first, shown on the board. */
+  premoves: string[];
+  /** Queues one more premove, or with null drops them all. */
   onPremove: (uci: string | null) => void;
 }
 
@@ -36,15 +37,16 @@ const CHECK = 'radial-gradient(circle, rgba(255, 0, 0, 0.85) 0%, rgba(231, 0, 0,
  * the hint as an arrow and a promotion picker over the promotion square. It only offers the
  * moves it is given.
  */
-export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, onMove, onSelect, onIllegal, premoveColor, premove, onPremove }: Props) {
+export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, onMove, onSelect, onIllegal, premoveColor, premoves, onPremove }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
-  const [promotion, setPromotion] = useState<{ from: string; to: string } | null>(null);
+  const [promotion, setPromotion] = useState<{ from: string; to: string; color: 'w' | 'b'; premove: boolean } | null>(null);
   const pieces = useMemo(() => boardOf(fen), [fen]);
 
-  // a new position (or the end of our turn) drops any selection
+  // a new position (or the end of our turn) drops any selection; a premove's promotion picker
+  // stays open, since the engine replying is exactly what a premove waits for
   useEffect(() => {
     setSelected(null);
-    setPromotion(null);
+    setPromotion((p) => (p?.premove ? p : null));
   }, [fen, legal.size === 0]);
 
   const premoving = legal.size === 0 && premoveColor !== null;
@@ -54,6 +56,17 @@ export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, on
   };
   const canPick = (square: string | null) => !!square && (premoving ? isOwn(square) : legal.has(square));
 
+  /** Premoves are not checked, so a pawn reaching the last rank is taken to be a promotion. */
+  const premovePromotes = (from: string, to: string) => {
+    const p = pieces[from];
+    return (p === 'P' && to[1] === '8') || (p === 'p' && to[1] === '1');
+  };
+  const queuePremove = (from: string, to: string) => {
+    setSelected(null);
+    if (premovePromotes(from, to)) setPromotion({ from, to, color: pieces[from] === 'P' ? 'w' : 'b', premove: true });
+    else onPremove(from + to);
+  };
+
   const candidates = (from: string, to: string) => (legal.get(from) ?? []).filter((u) => u.slice(2, 4) === to);
 
   /** Plays from -> to if legal; asks for the piece first on a promotion. Returns true if played. */
@@ -62,7 +75,7 @@ export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, on
     if (moves.length === 0) return false;
     setSelected(null);
     if (moves.some((u) => u.length === 5)) {
-      setPromotion({ from, to });
+      setPromotion({ from, to, color: pieces[from] === pieces[from]?.toUpperCase() ? 'w' : 'b', premove: false });
       return false;
     }
     onMove(moves[0]);
@@ -80,9 +93,9 @@ export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, on
     add(lastMove.slice(2, 4), { backgroundColor: LAST });
   }
   if (checkSquare) add(checkSquare, { backgroundImage: CHECK });
-  if (premove) {
-    add(premove.slice(0, 2), { backgroundColor: PREMOVE });
-    add(premove.slice(2, 4), { backgroundColor: PREMOVE });
+  for (const uci of premoves) {
+    add(uci.slice(0, 2), { backgroundColor: PREMOVE });
+    add(uci.slice(2, 4), { backgroundColor: PREMOVE });
   }
   if (selected) {
     add(selected, { backgroundColor: SELECTED });
@@ -93,9 +106,6 @@ export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, on
   }
 
   const arrows: Arrow[] = hint ? [{ startSquare: hint.slice(0, 2), endSquare: hint.slice(2, 4), color: 'rgba(31, 122, 100, 0.85)' }] : [];
-
-  const promoting = promotion ? pieces[promotion.from] : null;
-  const promoColor = promoting && promoting === promoting.toUpperCase() ? 'w' : 'b';
 
   return (
     <div className="board" data-testid="board" data-hint={hint ?? ''}>
@@ -120,8 +130,7 @@ export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, on
           onPieceDrop: ({ sourceSquare, targetSquare }) => {
             if (!targetSquare || targetSquare === sourceSquare) return false;
             if (premoving) {
-              setSelected(null);
-              onPremove(sourceSquare + targetSquare);
+              queuePremove(sourceSquare, targetSquare);
               return false;
             }
             if (candidates(sourceSquare, targetSquare).length === 0) {
@@ -131,19 +140,17 @@ export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, on
             return tryMove(sourceSquare, targetSquare);
           },
           onSquareClick: ({ square }) => {
-            if (premoving) {
+            if (promotion) {
+              setPromotion(null);
+            } else if (premoving) {
               if (selected && selected !== square && !isOwn(square)) {
-                onPremove(selected + square);
-                setSelected(null);
+                queuePremove(selected, square);
               } else if (isOwn(square) && square !== selected) {
                 setSelected(square);
-                onPremove(null);
               } else {
                 setSelected(null);
                 onPremove(null);
               }
-            } else if (promotion) {
-              setPromotion(null);
             } else if (selected && selected !== square && candidates(selected, square).length) {
               tryMove(selected, square);
             } else if (legal.has(square) && square !== selected) {
@@ -159,9 +166,11 @@ export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, on
         <PromotionPicker
           square={promotion.to}
           orientation={orientation}
-          color={promoColor}
+          color={promotion.color}
           onPick={(piece) => {
-            onMove(promotion.from + promotion.to + piece);
+            const uci = promotion.from + promotion.to + piece;
+            if (promotion.premove) onPremove(uci);
+            else onMove(uci);
             setPromotion(null);
           }}
           onCancel={() => setPromotion(null)}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Board } from './Board';
 import { NewGameDialog, type NewGameChoice } from './NewGameDialog';
-import { captured, colorName, isOver, kingSquare, LEVELS, materialOf, movesByFrom, other, resultText, turnOf } from './chess';
+import { captured, colorName, isOver, kingSquare, LEVELS, materialOf, movesByFrom, other, resultText, turnOf, withPremoves } from './chess';
 import { useGame, type Color, type GameEvent, type GameState } from './protocol';
 import { play } from './sounds';
 
@@ -31,8 +31,10 @@ export function App() {
   /** The ply being reviewed (0 = start position), or null for the live position. */
   const [view, setView] = useState<number | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  /** A move queued while the engine thinks (from + to squares), played as soon as it is our turn. */
-  const [premove, setPremove] = useState<string | null>(null);
+  /** Moves queued while the engine thinks (from + to [+ piece]), played one per turn, oldest first. */
+  const [premoves, setPremoves] = useState<string[]>([]);
+  /** The state a premove was last sent from, so the next one waits for the engine's reply. */
+  const premoveSentFrom = useRef<GameState | null>(null);
   const soundRef = useRef(soundOn);
   soundRef.current = soundOn;
 
@@ -55,7 +57,7 @@ export function App() {
         case 'reset':
         case 'config':
           setView(null);
-          setPremove(null);
+          setPremoves([]);
           break;
         case 'rejected':
           play('invalid', sound);
@@ -72,19 +74,28 @@ export function App() {
     else root.dataset.theme = theme;
   }, [theme]);
 
-  // play the premove the moment it is our turn, if it is legal then
+  // play the next premove the moment it is our turn, if it is legal then; an illegal one drops
+  // the whole queue, since the moves after it were planned from a position that will not happen
   useEffect(() => {
-    if (!premove || !state) return;
+    if (premoves.length === 0 || !state) return;
     if (!state.humanTurn) {
-      if (isOver(state)) setPremove(null);
+      if (isOver(state)) setPremoves([]);
       return;
     }
-    const options = state.legalMoves.filter((u) => u.startsWith(premove));
-    const uci = options.find((u) => u.length === 4) ?? options.find((u) => u.endsWith('q'));
-    setPremove(null);
-    if (uci) send({ type: 'move', uci });
-    else play('invalid', soundRef.current);
-  }, [state, premove, send]);
+    if (premoveSentFrom.current === state) return;
+    const [next, ...rest] = premoves;
+    const options = state.legalMoves.filter((u) => u.startsWith(next));
+    // a promotion premove already names its piece, so it matches exactly one move
+    const uci = options.find((u) => u.length === 4) ?? options.find((u) => u === next) ?? options.find((u) => u.endsWith('q'));
+    if (uci) {
+      premoveSentFrom.current = state;
+      setPremoves(rest);
+      send({ type: 'move', uci });
+    } else {
+      setPremoves([]);
+      play('invalid', soundRef.current);
+    }
+  }, [state, premoves, send]);
 
   const legal = useMemo(() => (state && state.humanTurn ? movesByFrom(state.legalMoves) : EMPTY), [state]);
 
@@ -133,7 +144,7 @@ export function App() {
     setDialogOpen(false);
     setFlipped(false);
     setView(null);
-    setPremove(null);
+    setPremoves([]);
     setAutoFlip(choice.autoFlip);
     store('autoFlip', choice.autoFlip ? 'on' : 'off');
     play('start', soundOn);
@@ -164,7 +175,7 @@ export function App() {
       <main className="game">
         <section className="board-area" aria-label="Board">
           <Board
-            fen={fen}
+            fen={premoveColor ? withPremoves(fen, premoves) : fen}
             orientation={orientation}
             legal={live ? legal : EMPTY}
             lastMove={lastMove}
@@ -172,9 +183,9 @@ export function App() {
             hint={live ? state.hint : null}
             onMove={(uci) => send({ type: 'move', uci })}
             premoveColor={premoveColor}
-            premove={premoveColor ? premove : null}
+            premoves={premoveColor ? premoves : []}
             onPremove={(uci) => {
-              setPremove(uci);
+              setPremoves((queued) => (uci ? [...queued, uci] : []));
               if (uci) play('select', soundOn);
             }}
             onSelect={() => play('select', soundOn)}
@@ -185,7 +196,7 @@ export function App() {
         <aside className="side">
           <PlayerCard state={state} color={other(orientation)} fen={fen} live={live} />
 
-          <StatusLine state={state} connection={connection} live={live} ply={ply} premove={premoveColor ? premove : null} onReturn={() => goTo(moves.length)} />
+          <StatusLine state={state} connection={connection} live={live} ply={ply} premoves={premoveColor ? premoves : []} onReturn={() => goTo(moves.length)} />
 
           {live && over && (
             <section className="result" aria-label="Result" data-testid="result">
@@ -211,7 +222,7 @@ export function App() {
 
           <div className="controls" role="group" aria-label="Game controls">
             <button type="button" className="icon labelled" disabled={!canUndo} onClick={() => {
-              setPremove(null);
+              setPremoves([]);
               play('back', soundOn);
               send({ type: 'undo' });
             }}><b aria-hidden="true">↶</b>Take back</button>
@@ -258,12 +269,12 @@ function PlayerCard({ state, color, fen, live }: { state: GameState; color: Colo
 
 const GLYPHS: Record<string, string> = { p: '♟', n: '♞', b: '♝', r: '♜', q: '♛' };
 
-function StatusLine({ state, connection, live, ply, premove, onReturn }: {
+function StatusLine({ state, connection, live, ply, premoves, onReturn }: {
   state: GameState;
   connection: string;
   live: boolean;
   ply: number;
-  premove: string | null;
+  premoves: string[];
   onReturn: () => void;
 }) {
   let text: string;
@@ -279,7 +290,8 @@ function StatusLine({ state, connection, live, ply, premove, onReturn }: {
   } else if (isOver(state)) {
     text = 'Game over';
   } else if (state.engineThinking) {
-    text = premove ? `Engine is thinking… Premove ${premove.slice(0, 2)}–${premove.slice(2, 4)}` : 'Engine is thinking…';
+    const shown = premoves.map((u) => `${u.slice(0, 2)}–${u.slice(2, 4)}${u.length === 5 ? '=' + u[4].toUpperCase() : ''}`);
+    text = shown.length ? `Engine is thinking… ${shown.length > 1 ? 'Premoves' : 'Premove'} ${shown.join(', ')}` : 'Engine is thinking…';
     busy = true;
   } else if (state.hintPending) {
     text = 'Looking for a hint…';

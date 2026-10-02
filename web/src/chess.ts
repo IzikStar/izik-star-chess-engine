@@ -18,6 +18,55 @@ export function boardOf(fen: string): Record<string, string> {
   return board;
 }
 
+/** A FEN's board field from square name -> piece letter. */
+function placement(board: Record<string, string>): string {
+  const rows: string[] = [];
+  for (let rank = 8; rank >= 1; rank--) {
+    let row = '';
+    let empty = 0;
+    for (const file of 'abcdefgh') {
+      const p = board[file + rank];
+      if (!p) {
+        empty++;
+        continue;
+      }
+      if (empty) row += empty;
+      row += p;
+      empty = 0;
+    }
+    rows.push(empty ? row + empty : row);
+  }
+  return rows.join('/');
+}
+
+/**
+ * The position as it will look once the queued premoves are played, so the next premove can start
+ * where the last one left a piece. Display only: each premove is checked when it is played.
+ */
+export function withPremoves(fen: string, premoves: string[]): string {
+  if (premoves.length === 0) return fen;
+  const board = boardOf(fen);
+  for (const uci of premoves) {
+    const from = uci.slice(0, 2);
+    const to = uci.slice(2, 4);
+    const piece = board[from];
+    if (!piece) continue;
+    delete board[from];
+    const white = piece === piece.toUpperCase();
+    board[to] = uci.length === 5 ? (white ? uci[4].toUpperCase() : uci[4]) : piece;
+    // castling: a king moving two files takes its rook over with it
+    if (piece.toLowerCase() === 'k' && from[0] === 'e' && (to[0] === 'g' || to[0] === 'c')) {
+      const rookFrom = (to[0] === 'g' ? 'h' : 'a') + from[1];
+      const rookTo = (to[0] === 'g' ? 'f' : 'd') + from[1];
+      if (board[rookFrom]) {
+        board[rookTo] = board[rookFrom];
+        delete board[rookFrom];
+      }
+    }
+  }
+  return [placement(board), ...fen.split(' ').slice(1)].join(' ');
+}
+
 export function turnOf(fen: string): Color {
   return fen.split(' ')[1] === 'b' ? 'black' : 'white';
 }
