@@ -23,13 +23,19 @@ import java.util.function.BooleanSupplier;
  * line being searched and the root's moves stay in memory, not the whole tree.
  *
  * <p>Evaluation (Phase 5): the leaves are scored by an {@link Evaluator} the caller chooses; the
- * overloads without one use {@link BitBoardEvaluate#DEFAULT}.
+ * overloads without one use {@link BitBoardEvaluate#DEFAULT}. When the depth runs out the search
+ * does not stop in the middle of an exchange: a quiescence search plays on the captures and
+ * promotions (and every reply to a check) until the position is quiet, so a leaf never counts a
+ * piece that is about to be taken back.
  */
 public class Minimax {
     private static final Random random = new Random();
 
     /** How many nodes pass between two looks at the stop signal. */
     private static final int STOP_CHECK_INTERVAL = 256;
+
+    /** How many plies the quiescence search may add beyond the search depth. */
+    static final int MAX_QUIESCENCE_DEPTH = 8;
 
     /** Thrown to unwind an abandoned depth; carries no stack trace. */
     private static final class Abandoned extends RuntimeException {
@@ -107,7 +113,10 @@ public class Minimax {
         if (++nodesChecked % STOP_CHECK_INTERVAL == 0 && stop.getAsBoolean()) {
             throw ABANDONED;
         }
-        if (depth == 0 || board.getStatus() != 1) {
+        if (depth == 0) {
+            return new MinimaxResult(board.lastMove, quiescence(board, 0, isMaximizingPlayer, alpha, beta));
+        }
+        if (board.getStatus() != 1) {
             int value = evaluator.evaluate(board, rootIsBlack);
             // Prefer the quickest mate (and the slowest loss): a mate found with more depth
             // still to go is closer to the root. Without this, mate-in-1 and mate-in-3 tie.
@@ -183,6 +192,67 @@ public class Minimax {
 //        transpositionTable.put(zobristHash, depth, bestValue, bestMove);
 
         return new MinimaxResult(bestMove, bestValue);
+    }
+
+    /**
+     * Plays on the captures and promotions of a position past the search depth until it is quiet.
+     * The side to move may also "stand pat" (keep the static evaluation) instead of capturing, since
+     * it is never forced to take. In check at the first ply it must answer, so every move is searched
+     * and there is no standing pat; deeper checks are scored as they stand, which keeps the search
+     * small. Captures that lose material are not tried ({@link BitBoard#getNoisyNextStates()}).
+     */
+    private int quiescence(BitBoard board, int ply, boolean isMaximizingPlayer, int alpha, int beta) {
+        if (++nodesChecked % STOP_CHECK_INTERVAL == 0 && stop.getAsBoolean()) {
+            throw ABANDONED;
+        }
+        // only the first ply answers a check with every move; deeper, a check is scored as it stands
+        boolean inCheck = ply == 0 && board.isSideToMoveInCheck();
+        if (ply >= MAX_QUIESCENCE_DEPTH || inCheck && board.getStatus() != 1) { // mated, or a 50-move draw
+            return mateDistance(evaluator.evaluate(board, rootIsBlack), ply);
+        }
+        int best;
+        if (inCheck) {
+            best = isMaximizingPlayer ? Integer.MIN_VALUE : Integer.MAX_VALUE;
+        } else {
+            best = evaluator.evaluate(board, rootIsBlack); // stand pat
+            if (Math.abs(best) >= BitBoardEvaluate.MATE || best == 0 && board.getStatus() != 1) {
+                return mateDistance(best, ply); // over already: mated or drawn
+            }
+            if (isMaximizingPlayer ? best >= beta : best <= alpha) {
+                return best;
+            }
+        }
+        if (isMaximizingPlayer) {
+            alpha = Math.max(alpha, best);
+        } else {
+            beta = Math.min(beta, best);
+        }
+        for (BitBoard child : inCheck ? board.getSortedNextStates() : board.getNoisyNextStates()) {
+            int value = quiescence(child, ply + 1, !isMaximizingPlayer, alpha, beta);
+            if (isMaximizingPlayer) {
+                best = Math.max(best, value);
+                alpha = Math.max(alpha, best);
+            } else {
+                best = Math.min(best, value);
+                beta = Math.min(beta, best);
+            }
+            if (beta <= alpha) {
+                break;
+            }
+        }
+        board.releaseNextStates();
+        return best;
+    }
+
+    /** A mate {@code ply} plies past the search depth is that much further away than one at it. */
+    private static int mateDistance(int value, int ply) {
+        if (value >= BitBoardEvaluate.MATE) {
+            return value - ply;
+        }
+        if (value <= -BitBoardEvaluate.MATE) {
+            return value + ply;
+        }
+        return value;
     }
 
     private boolean alreadyAdded(BitMove move) {

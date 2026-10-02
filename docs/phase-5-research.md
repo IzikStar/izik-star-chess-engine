@@ -370,3 +370,20 @@ know which kind it is evolving.
    about 20-30% longer (20 ms per move instead of ~15). Tests: `EvaluatorFeaturesTest` (each new
    feature on a hand-made position; every feature flips sign when the colours are swapped, on 400
    random positions; the score equals the tapered sum of features × weights for random weights).
+3. **Step 2 — quiescence search (2026-10-02).** When the depth runs out, `Minimax` no longer
+   scores the position on the spot: it plays on through captures and queen promotions until the
+   position is quiet, and the side to move may "stand pat" on the static score instead of taking.
+   At the first extra ply a side in check tries every move (so mates are still seen); deeper,
+   checks are scored as they stand, and the extra plies stop at 8. A capture of a defended piece by
+   a more valuable one is skipped; that test uses fixed textbook values (1/3/3/5/9), not the
+   evaluation's weights, so it prunes the same way for every candidate. The captures come from a
+   new generator, `BitBoard.getNoisyNextStates()`, that reads the attack tables instead of building
+   every move (`NoisyMovesTest` checks it against the full move list in the perft trees); the king
+   moves were rewritten from the same tables, since they were a sixth of the time. The endgame
+   stage bug from §2 was already gone with tapering in step 1b. Effect: at depth 1 the queen no
+   longer grabs a pawn a pawn defends (`QuiescenceTest`; the old engine did). Cost: about 1.5-2×
+   the old search time (56 positions at depth 5: 7.7 s, was 5.3 s). Level 6 still finishes depth 5
+   within 1 s in every benchmark; Level 7 finishes depth 6 within its 5 s cap in five of six, but
+   the middlegame benchmark takes about 8 s, so there the cap plays the depth-5 move
+   (`SearchSpeedTest` now allows Level 7 twice the cap; a transposition table and better move
+   ordering are the way back). `same-moves.txt` re-recorded, as this change is meant to alter play.
