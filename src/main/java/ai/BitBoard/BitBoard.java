@@ -583,25 +583,6 @@ public class BitBoard {
         return Attacks.all(this, color);
     }
 
-    /** Piece kind on {@code square}: 1 K, 2 Q, 3 R, 4 B, 5 N, 6 P, or 0 for an empty square. */
-    public int getPieceAt(int square) {
-        long tile = BitOperations.setBit(0L, square);
-        if ((tile & (whiteKings | blackKings)) != 0) return 1;
-        if ((tile & (whiteQueens | blackQueens)) != 0) return 2;
-        if ((tile & (whiteRooks | blackRooks)) != 0) return 3;
-        if ((tile & (whiteBishops | blackBishops)) != 0) return 4;
-        if ((tile & (whiteKnights | blackKnights)) != 0) return 5;
-        if ((tile & (whitePawns | blackPawns)) != 0) return 6; // was 0, i.e. pawns invisible to the hash
-        return 0;
-    }
-
-    public int getColorAt(int square) {
-        long tile = BitOperations.setBit(0L, square);
-        if ((tile & whitePieces) != 0) return 1;
-        // if ((tile & blackPieces) != 0) return 0;
-        return 0;
-    }
-
     /** Package-visible for the Phase 2 {@code rules} adapter: is the side to move in check? */
     public boolean isSideToMoveInCheck() {
         return isCheckOn(isWhiteToMove ? 1 : 0);
@@ -664,11 +645,6 @@ public class BitBoard {
         // incremented once per ply (getNewBoardFromMove), so the threshold is 100, not 50.
         if (numOfTurnsWithoutCaptureOrPawnMove >= 100) return 0;
         return 1;
-    }
-
-    public BitMove getRandomPossibleMove() {
-        BitBoard state = getSortedNextStates().getFirst();
-        return state.lastMove;
     }
 
     public boolean getIsWhiteToMove() {
