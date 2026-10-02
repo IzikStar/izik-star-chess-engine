@@ -1,6 +1,6 @@
 # Phase 4b — Make the built-in search fast enough for its levels
 
-**Status: DONE on this branch (2026-10-02), pending merge — decisions in §10, log and results in
+**Status: DONE — merged to `master` 2026-10-02 (PR #5) — decisions in §10, log and results in
 §11.** Branch `phase-4b-search-speed`, cut from `master` after PRs #2 and #3 were merged
 (2026-10-02).
 

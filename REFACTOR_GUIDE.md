@@ -412,7 +412,7 @@ EDT; computer-vs-computer mode can run unattended for many games without hanging
 
 ## Phase 4b — Make the built-in search fast enough for its levels
 
-> **Status: DONE on branch `phase-4b-search-speed` (2026-10-02), pending merge.** Research,
+> **Status: DONE — merged to `master` 2026-10-02** (PR #5). Research,
 > decisions and the increment log are in [docs/phase-4b-research.md](docs/phase-4b-research.md).
 > The perft safety net found nine bugs in the move generator (eight visible to a player); they
 > were fixed first, test first, one commit per cause, and the engine plays better for it
