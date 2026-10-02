@@ -102,29 +102,33 @@ Checkmate and stalemate are scored as terminal values.
 ### Opening book
 
 There is an [`ai/openingBook`](src/main/java/ai/openingBook/) package: a file-backed book
-format and a Retrofit/OkHttp client for the Lichess API. **It is not used during play yet.** The
-call site in `myEngine` is commented out, and finishing it is planned for Phase 5.
+format and a Retrofit/OkHttp client for the Lichess API. **It is not used during play yet.** Nothing
+calls it, and wiring it in is planned for Phase 5.
 
 ### Stockfish bridge
 
-[`ai/StockfishEngine.java`](src/main/java/ai/StockfishEngine.java) starts a Stockfish process
-and talks to it over the UCI protocol through stdin and stdout. The suggested move is checked
-against the program's own rules before it is played. The integration is basic so far: it
-re-handshakes on every move, uses a fixed 150 ms move time, and levels 8-10 currently share
-the same Stockfish strength setting. Phase 4 of the refactor is about fixing this.
+[`engine/StockfishEngine.java`](src/main/java/engine/StockfishEngine.java) starts a Stockfish
+process and talks to it over the UCI protocol through stdin and stdout. The suggested move is
+checked against the program's own rules before it is played. Levels 8-10 set Stockfish's skill
+level to 13, 15 and 17. The integration is still basic: it re-handshakes on every move and uses a
+fixed 150 ms move time. Phase 4 of the refactor is about fixing this.
 
 ## Architecture and the ongoing refactor
 
 ```
 src/main/java/
-├── rules/          headless rules API (FEN in -> legal moves / status out); no Swing
-├── ai/             engine: Minimax, evaluation, Stockfish bridge, myEngine orchestrator
+├── rules/          headless rules API: FEN in, legal moves / status / SAN out; one game's history
+├── ai/             Minimax search and evaluation over bitboards
 │   ├── BitBoard/   bitboard position + per-piece move generators
 │   └── openingBook/  (not wired in yet)
-├── pieces/         piece objects used by the renderer
-├── main/           Swing board, input handling, move/notation bookkeeping, settings
-└── GUI/            audio, animation, custom buttons
+├── engine/         Engine interface: the built-in search, Stockfish, and which one plays a level
+├── game/           GameSession: turn-taking, the engine thread, events for any front end
+├── main/           Swing: board renderer, mouse input, menus, settings
+└── GUI/            audio, sprites, animation, custom buttons
 ```
+
+Lower layers never import higher ones, and nothing below `main` imports Swing; a test
+(`architecture.LayeringTest`) fails the build otherwise.
 
 The code started as a single-developer IntelliJ project that grew features faster than
 structure. Two documents describe it honestly instead of hiding the problems:
@@ -140,8 +144,8 @@ structure. Two documents describe it honestly instead of hiding the problems:
 | 0 | Maven build + characterization test suite | Done ([notes](docs/phase-0-notes.md)) |
 | 1 | Remove dead and duplicate code | Done ([notes](docs/phase-1-notes.md)) |
 | 2 | One board model and one rules engine; fix draw detection | Done ([research](docs/phase-2-research.md)) |
-| 3 | Decouple the UI from the rules; retire global state | Next |
-| 4 | One concurrency model; a proper Stockfish session; transposition table | Planned |
+| 3 | Decouple the UI from the rules; retire global state | Done ([research](docs/phase-3-research.md)) |
+| 4 | One concurrency model; a proper Stockfish session; transposition table | Next |
 | 5 | Opening book in play; structured game database | Planned |
 
 Phase 2 is a good example of the approach:
@@ -211,11 +215,8 @@ On Linux, `sudo apt install stockfish` installs it at `/usr/games/stockfish`.
 
 ## Roadmap
 
-- **Phase 3:** split `Board` (currently both a Swing panel and the move executor) from the game
-  logic, and replace the global settings that the search reads with parameters.
-- **Phase 4:** a single concurrency model, which fixes the documented "engine stops moving
-  when it is losing" bug. Also a persistent Stockfish session with proper strength levels, and
-  the transposition table switched on.
+- **Phase 4:** engine searches that can be cancelled and are capped in time, a persistent
+  Stockfish session with a move time per level, and the transposition table switched on.
 - **Phase 5:** use the opening book during play, and store games in a structured, queryable
   form.
 - **Longer term:** split the headless `rules`/engine core into a backend service with a web
