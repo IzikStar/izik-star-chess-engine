@@ -42,7 +42,6 @@ class MoveGenerationBugsTest {
     }
 
     @Test
-    @Tag("known-bug")
     @DisplayName("#2 pawns attack diagonally: pawns give check, and kings can't walk into pawns")
     void pawnsAttack() {
         assertTrue(Rules.isCheck("4k3/3P4/8/8/8/8/8/4K3 b - - 0 1"), "white pawn d7 checks e8");
