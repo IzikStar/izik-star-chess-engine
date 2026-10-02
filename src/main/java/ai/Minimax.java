@@ -17,6 +17,9 @@ import java.util.function.BooleanSupplier;
  * <p>Iterative deepening (Phase 4): depths 1, 2, … up to the requested depth, each a complete
  * search of its own. A {@code stop} signal (cancelled, or out of time) abandons the depth in
  * progress and the move of the deepest finished depth is played. Depth 1 always finishes.
+ *
+ * <p>Memory (Phase 4b): a position drops its children once they have been searched, so only the
+ * line being searched and the root's moves stay in memory, not the whole tree.
  */
 public class Minimax {
     private static final Random random = new Random();
@@ -161,6 +164,9 @@ public class Minimax {
         }
 
         boardStateTracker.removeLastBoardState();
+        if (!lastDepth) {
+            board.releaseNextStates(); // searched: let its subtree go; the root keeps its moves between depths
+        }
 //
 //        // שמירת התוצאה בטבלת טרנספוזיציות
 //        transpositionTable.put(zobristHash, depth, bestValue, bestMove);

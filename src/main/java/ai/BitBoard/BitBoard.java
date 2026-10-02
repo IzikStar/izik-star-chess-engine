@@ -405,6 +405,11 @@ public class BitBoard {
         return nextStates;
     }
 
+    /** Drops the cached children, so a searched subtree can be garbage collected. */
+    public void releaseNextStates() {
+        nextStates = null;
+    }
+
     public ArrayList<BitBoard> getSortedNextStates() {
         if (nextStates == null) {
             getNextStates();
