@@ -1,0 +1,245 @@
+# Phase 5 research — groundwork for an engine that learns by self-play evolution
+
+Status: **research, awaiting the owner's decisions (§6).** No code yet.
+Written 2026-10-02 on top of Phase 4c (`phase-4c-web-ui`, PR #6).
+
+## 1. What the owner asked for
+
+> "I'd like an evolution flow: the computer makes several versions with random values for all
+> kinds of parameters, lets them play each other, and the values are corrected in favour of the
+> winners. The game should learn the more it plays. That is the part I want to work on myself,
+> it's the cool part. Everything needed to get us there I'd rather you do, to save time."
+
+This answers the question REFACTOR_GUIDE's Phase 5 left open ("define what *learning from past
+games* means before designing the schema"): **learning = evolving the engine's parameters
+through self-play.** So Phase 5 is re-scoped around that goal. The split of work:
+
+- **The owner writes the evolution itself**: how a population is created, how individuals are
+  selected, mutated and crossed, how fitness is computed from results. That is one Java
+  interface (§5.4) and whatever he builds behind it.
+- **Claude builds everything that leads there**: an engine whose parameters can be set from
+  outside, a fast and fair self-play arena, a record of every generation and game, and a page in
+  the web app to watch evolution happen and play against the champion.
+
+## 2. What the engine looks like today (measured, not assumed)
+
+### 2.1 The evaluation is ~30 hard-coded numbers
+
+`ai.BitBoard.BitBoardEvaluate.evaluate` sums nine terms, every weight a literal in the code:
+
+| Term | Numbers in it today |
+|---|---|
+| Material | P 10, N 30, B 33, R 50, Q 90 |
+| Pawn advance | 9 / 7 / 5 / 3 / 1 for ranks 7..3 (White), mirrored for Black; +5 per centre pawn |
+| King placement (first 20 plies) | 10 / 5 / 0 / -7 / -25 by square group (g1/b1, f1/c1, back rank, 2nd rank, elsewhere) |
+| Castling | -6 / -4 for losing king/queen-side rights, +16 for having castled |
+| Activity ("targets") | +1 per attacked square, +2 per attacked enemy piece, +1 per defended own piece |
+| Bishops | -15 if any bishop is still on the back rank |
+| Queen | -15 if the queen left d1/d8 in the opening (first 8 plies) |
+| Knights | -10 undeveloped, +2 on c3/f3 (c6/f6), -5 if out early before ply 9 |
+
+Plus thresholds: "opening" = before ply 8, king table applies before ply 20, knight rule before
+ply 9. Three more terms are written but switched off (`getIsKingsBehindPawns`,
+`getPiecesValueForAmount`, `getPawnsInTheCenter`). These are exactly the "parameters" the
+owner wants to evolve; today none can be changed without editing code.
+
+### 2.2 Problems that would break or poison evolution
+
+1. **Shared mutable state.** `BitBoardEvaluate.gameStage` is a `static` field written on every
+   evaluation. Two searches on two threads overwrite each other's game stage, so **games cannot
+   run in parallel** until it goes. (`ai.Debug.debugging` is also a mutable static, but read-only
+   in practice.)
+2. **The endgame stage never triggers.** `getGameStage` counts
+   `whitePieces & blackPieces`, which is always empty (a square can't hold both colours), so
+   stage 2 is unreachable. Harmless today because nothing reads stage 2, but an evolved
+   "endgame weight" would be dead.
+3. **Self-play is deterministic.** Measured: three depth-3 games from the start position are
+   the same 82-ply game, three depth-4 games the same 125-ply threefold draw. `Minimax` has a
+   random tie-break, but it never holds more than one move, so the same two engines always play
+   the same game. Evolution would learn from one game repeated, not from many.
+4. **No quiescence search.** The search stops at a fixed depth in the middle of captures, so
+   the score at the leaves is often "I just took a queen" before the recapture. At low depth
+   this noise dominates the evaluation, so a weight change may win or lose for reasons that have
+   nothing to do with the weight. Fitness signal gets much cleaner with a capture-only
+   extension at the leaves.
+5. **The parameters reach the search through statics only.** `Minimax` calls
+   `BitBoardEvaluate.evaluate(board, rootIsBlack)`; there is no way to say "evaluate with *these*
+   weights". Move ordering (`getSortedNextStates` by `moveValue`) does not use the evaluation, so
+   only the leaf evaluation needs the parameters.
+
+### 2.3 Speed (measured in this container, 4 cores, one thread per game)
+
+| Fixed depth | Average game | Games per hour on 4 cores |
+|---|---|---|
+| 3 | ~0.7 s, 82 plies | ~20,000 |
+| 4 | ~2 s, 125 plies | ~7,000 |
+
+So a generation of, say, 16 individuals × 16 games each (128 games) takes about 5 s at depth 3
+or 40 s at depth 4 on four cores; a few hundred generations fit in an evening. The owner's PC
+will differ; the arena reports its own numbers. Faster search (the transposition table and move
+ordering deferred in Phase 4b) would let evolution run deeper, but is not needed to start.
+
+### 2.4 What already exists and can be reused
+
+- `rules.Game` plays and adjudicates a full game (mate, stalemate, 50-move, threefold,
+  insufficient material). The arena can use it as the referee.
+- `engine.Engine` / `SearchRequest` is the move-picker interface; a parameterised
+  `MinimaxEngine` fits it.
+- `engine.SameMoveTest` pins the engine's moves at depths 1-4 on 56 positions. It proves that
+  moving the weights out of the code changes nothing when the defaults are used.
+- `game.StressTest` already runs unattended engine-vs-engine games.
+- The opening-book code (`ai.openingBook`, Lichess over the network) was never wired in. For
+  self-play an **offline** opening suite is what matters (§5.2); the online book can wait.
+
+## 3. What evolution needs from the infrastructure
+
+1. A **parameter vector** with a name, default, minimum and maximum for each entry, so any
+   algorithm can mutate it without knowing chess.
+2. An engine that **plays with a given vector**, thread-safe, so many games run at once.
+3. **Fair, varied games**: each pairing plays a set of different openings, each opening with
+   both colours, at a fixed depth (fixed depth is CPU-independent and reproducible; fixed time
+   would make results depend on the machine's load).
+4. **Adjudication** so games don't run forever: the normal rules, plus a ply cap and optional
+   "resign when the score is hopeless for N moves".
+5. **Statistics** that don't fool you: wins/draws/losses, an Elo difference with an error bar,
+   and a fixed yardstick (the current default weights, and optionally Stockfish at a low skill
+   level) so "the population got better" is measured against something that does not move.
+6. **A record** of every generation, individual, match and game, so a run can be stopped,
+   resumed, compared and replayed.
+7. **Something to look at**: progress over generations, the current champion's weights, any game
+   replayed on the board, and "play against the champion" in the normal game screen.
+
+## 4. Options
+
+### Option A — Evolution-ready engine, arena, record and lab page (recommended)
+
+Build items 1-7 above in four steps (§7), each a green commit, before the owner writes any
+evolution code. The owner then works only in `evolution/` against a stable API, and every run
+he does is recorded and visible.
+
+### Option B — Minimal: parameters + arena, no record or UI
+
+Items 1-5 only, results printed to the console. Faster to deliver, but the owner would end up
+building the record and the visualisation himself, which is the opposite of what he asked.
+
+### Option C — Opening book and game database first, as the old Phase 5 said
+
+Builds things evolution does not need yet (the online Lichess book, storing human games).
+Recommended against: it delays the part the owner cares about.
+
+## 5. Design of Option A
+
+### 5.1 Parameters (`engine.params`)
+
+- `ParamSpec(name, defaultValue, min, max, description)` and `EvalParams` = an immutable
+  `int[]` plus the shared list of specs. Integers, in the evaluation's own units
+  (pawn = 10 today).
+- Every literal in §2.1 becomes a named parameter whose default is today's value, so
+  `EvalParams.defaults()` plays **exactly** today's moves (`SameMoveTest` stays green, unchanged).
+- The three switched-off terms become parameters with default weight 0, so evolution can turn
+  them on.
+- Saved and loaded as JSON (`{"pawn": 10, "knight": 30, ...}`), readable and hand-editable.
+- `BitBoardEvaluate` becomes an instance holding its `EvalParams` (no statics), created once per
+  search and passed to `Minimax`.
+
+### 5.2 Arena (`arena` package)
+
+- `Match.play(EvalParams white, EvalParams black, Opening opening, MatchRules rules)` → a
+  finished game (moves, result, reason, ply count).
+- `MatchRules`: fixed depth, ply cap (default 300 → draw), optional resign threshold.
+- An **opening suite**: ~50 short, balanced opening lines (2-6 moves each, e.g. Italian,
+  Sicilian, Queen's Gambit, King's Indian...) as a resource file in UCI, every line checked by
+  `rules.Rules` in a test. Each opening is played twice with colours swapped, so neither side
+  gets the better opening.
+- `Tournament` runs a list of pairings on a thread pool (default: number of cores - 1) and
+  reports progress.
+- Statistics: score, W/D/L, Elo difference with a 95% interval; a gauntlet mode
+  "candidate vs yardstick" for honest progress checks.
+- Command line: `java -cp <jar> arena.Cli match a.json b.json --depth 3 --games 100`.
+
+### 5.3 Record (`lab` package, SQLite)
+
+Tables: `run` (name, settings, start time), `generation`, `individual` (params JSON, parent ids,
+fitness), `game` (white, black, opening, moves in UCI, result, reason, plies). SQLite through
+`org.xerial:sqlite-jdbc`: one file per run, nothing to install, opens in any SQLite browser and
+supports the queries the owner will want ("which weights rose over the last 50 generations?").
+
+### 5.4 The owner's part (`evolution` package)
+
+One interface, the only thing he has to implement:
+
+```java
+public interface Evolution {
+    /** The first generation. */
+    List<EvalParams> firstGeneration(ParamSchema schema, Random random);
+
+    /** Which games to play this generation (default: round robin). */
+    default List<Pairing> pairings(List<EvalParams> population) { ... }
+
+    /** The next generation, from this one's game results. */
+    List<EvalParams> nextGeneration(List<EvalParams> population, Results results, Random random);
+}
+```
+
+The runner (`lab.EvolutionRunner`) does the rest: plays the pairings, records everything,
+checks the champion against the yardstick every N generations, and can stop and resume.
+To prove the plumbing works there will be a deliberately naive `RandomMutationExample`
+(mutate everyone, keep the top half) used by the tests. The owner can read it, delete it or
+ignore it; the real algorithm is his.
+
+### 5.5 Lab page in the web app
+
+A second screen next to the game: pick a run, a chart of champion strength vs the yardstick per
+generation, a table of how each weight moved, the latest games (click one to replay it on the
+board), and a **"Play the champion"** option in the New game dialog. Runs start from the command
+line or from the page.
+
+### 5.6 Search changes
+
+- **Quiescence search** (captures only, with stand-pat) at the leaves: cleaner fitness signal
+  and a stronger engine at every level. It changes the engine's moves, so `same-moves.txt` is
+  re-recorded once, in its own commit, with the reason in the header.
+- **Variety**: the opening suite does this for self-play. In normal play nothing changes.
+- **Transposition table and move ordering** (deferred from Phase 4b): not in this phase. They
+  only make the arena faster; revisit if depth 3-4 turns out too shallow.
+
+## 6. Decisions for the owner
+
+| # | Question | Options | Recommendation |
+|---|---|---|---|
+| E1 | Direction | **A full groundwork** / B parameters + arena only / C old Phase 5 (opening book + game DB) | **A** |
+| E2 | What evolves | **Evaluation weights only** / also search settings (depth, quiescence on/off) | **Weights only.** Search settings change speed, so a "deeper" individual would win by thinking longer, not by judging better |
+| E3 | Fix the endgame-stage bug and add quiescence before evolving | **Yes** (moves change once, re-recorded) / no, evolve today's engine as is | **Yes** |
+| E4 | Game format | **Fixed depth, ~50 openings × both colours** / fixed time per move | **Fixed depth** (reproducible, independent of the PC's load) |
+| E5 | Where results live | **SQLite file per run** / JSON files | **SQLite** |
+| E6 | Lab page in the web app | **Yes, with "play the champion"** / command line only for now | **Yes** |
+| E7 | Example algorithm | **A naive one for the tests only, the real one is yours** / none / a full reference genetic algorithm | **Naive one for tests only** |
+| E8 | Online Lichess opening book | **Later** (after evolution works) / now | **Later** |
+
+## 7. Plan, if approved
+
+Each step on branch `phase-5-evolution`, each commit green.
+
+1. **Parameters.** `EvalParams` + specs for every literal, evaluation as an instance, no
+   statics. `SameMoveTest` unchanged and green (proves defaults = today), plus a test that two
+   different parameter sets running on two threads don't affect each other.
+2. **Search fixes (E3).** Endgame-stage fix, quiescence search; re-record `same-moves.txt`;
+   a gauntlet showing the new engine beats the old at the same depth.
+3. **Arena.** Opening suite (each line validated), `Match`, `Tournament` on a thread pool,
+   adjudication, Elo with error bars, CLI. Tests: a match is reproducible, colours are swapped,
+   a stronger depth beats a weaker one.
+4. **Record and runner.** SQLite schema, `EvolutionRunner`, the `Evolution` interface, the naive
+   example, stop/resume. Test: a 3-generation run on a tiny population records everything.
+5. **Lab page.** Runs list, progress chart, weight table, game replay, "play the champion".
+   API tests and a Playwright test.
+6. **Hand-over.** A short `docs/evolution-guide.md` for the owner: the API, how to start a run,
+   what the numbers mean, and pitfalls (noise, overfitting to the population, why the yardstick
+   matters).
+
+**Exit criteria.** `EvalParams.defaults()` reproduces the engine; parameter sets play in
+parallel without interfering; a tournament of N games with colours swapped runs from the CLI
+and reports Elo ± error; an evolution run with the example algorithm is recorded in SQLite and
+visible on the lab page; the owner can play the champion; all suites green.
+
+**Rollback.** Steps 1 and 3-6 don't change how the engine plays; step 2 does and is one commit
+that can be reverted on its own.
