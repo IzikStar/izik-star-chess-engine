@@ -34,7 +34,6 @@ class MoveGenerationBugsTest {
     }
 
     @Test
-    @Tag("known-bug")
     @DisplayName("#1 a knight attacks all eight of its squares (Kf2 is no escape from Nd3+)")
     void knightAttacksAllEightSquares() {
         String fen = "4k3/8/8/8/8/3n4/8/4K3 w - - 0 1";
@@ -88,7 +87,6 @@ class MoveGenerationBugsTest {
     }
 
     @Test
-    @Tag("known-bug")
     @DisplayName("#8 a king attacks all eight neighbours (the kings can't stand side by side)")
     void kingsCannotTouch() {
         assertEquals(Set.of("b6a5", "b6a6", "b6b5", "b6c5", "b6c6"), legal("1k6/8/1K6/8/8/8/8/8 w - - 0 1"));

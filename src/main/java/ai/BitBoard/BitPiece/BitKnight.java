@@ -115,7 +115,7 @@ public class BitKnight extends BitPiece{
                 }
                 // checking if down-right move is possible:
                 if (isDownRightMoveValid(iTile)) {
-                    downRightMove(i);
+                    attackedTile |= downRightMove(i);
                 }
                 // checking if right-up move is possible:
                 if (isRightUpMoveValid(iTile)) {
@@ -129,9 +129,9 @@ public class BitKnight extends BitPiece{
                 if (isLeftDownMoveValid(iTile)) {
                     attackedTile |= leftDownMove(i);
                 }
-                // checking if down-right move is possible:
+                // checking if right-down move is possible:
                 if (isRightDownMoveValid(iTile)) {
-                    rightDownMove(i);
+                    attackedTile |= rightDownMove(i);
                 }
             }
         }

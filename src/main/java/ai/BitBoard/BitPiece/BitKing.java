@@ -127,7 +127,7 @@ public class BitKing extends BitPiece{
                 }
                 // checking if down-right move is possible:
                 if (isDownRightMoveValid(iTile)) {
-                    downRightMMove(i);
+                    attackedTile |= downRightMMove(i);
                 }
             }
         }
