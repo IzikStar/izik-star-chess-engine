@@ -177,7 +177,7 @@ structure. Two documents describe it honestly instead of hiding the problems:
 | 4 | One concurrency model; a proper Stockfish session | Done ([research](docs/phase-4-research.md)) |
 | 4b | Fix the move generator's rule bugs; make the search fast enough for Levels 6-7 | Done ([research](docs/phase-4b-research.md)) |
 | 4c | Replace the Swing screens with a browser UI | Done ([research](docs/ui-research.md)) |
-| 5 | Groundwork for an engine that learns by self-play evolution | In progress: parameters, quiescence and the arena done ([research](docs/phase-5-research.md)) |
+| 5 | Groundwork for an engine that learns by self-play evolution | In progress: parameters, quiescence, arena, run record and lab page done ([research](docs/phase-5-research.md)) |
 
 Phase 2 is a good example of the approach:
 
@@ -220,7 +220,28 @@ java -cp target/izikstar-chess-3.1.0.jar arena.Cli match default my-weights.json
 `default` is the built-in weights; a JSON file names the parameters it changes (the rest keep
 their defaults). Options: `--depth`, `--openings`, `--threads`, `--max-plies`, `--variety`,
 `--seed` (the same seed replays the same games), `--old-search A|B` (that side searches without
-quiescence). It is the base the self-play evolution of Phase 5 builds on.
+quiescence).
+
+## Evolution runs and the lab page
+
+An evolution run lets an algorithm breed sets of weights: each generation plays a tournament,
+and the algorithm builds the next generation from the results. The algorithm is a class that
+implements [`evolution.Evolution`](src/main/java/evolution/Evolution.java);
+[`RandomMutationExample`](src/main/java/evolution/RandomMutationExample.java) is a deliberately
+naive one. Every member, game and result goes into one SQLite file per run:
+
+```bash
+java -cp target/izikstar-chess-3.1.0.jar lab.Cli run runs/first.db --algorithm evolution.RandomMutationExample --generations 20
+java -cp target/izikstar-chess-3.1.0.jar lab.Cli resume runs/first.db   # after Ctrl+C
+java -cp target/izikstar-chess-3.1.0.jar lab.Cli export runs/first.db positions.csv
+```
+
+The **Lab** tab of the web app (it reads `runs/`, or `--runs DIR`) shows each run as it goes: the
+champion's Elo against the default weights with its error bar, how the champions' weights moved,
+and every game, which you can replay on the board. **Play the champion** starts a game against
+any generation's best set of weights.
+
+![The lab page](docs/images/lab.png)
 
 ## Tests
 

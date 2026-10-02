@@ -1,9 +1,12 @@
 package web;
 
+import ai.BitBoard.BitBoardEvaluate;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import engine.EngineSelector;
+import engine.MinimaxEngine;
 import game.GameConfig;
 import game.GameListener;
 import game.GameSession;
@@ -31,8 +34,11 @@ import java.util.function.Consumer;
  *
  * <p>Protocol, client to server ({@code type} field): {@code move} {uci}, {@code undo},
  * {@code hint}, {@code newGame} {mode: engine|friend|computer, color: white|black|random,
- * level: 1-10, blackLevel: 1-10 (computer mode: Black's level; level is then White's)}. Server to client: {@code {"type":"state","events":[...],"state":{...}}}; an
- * event is {@code {kind: move|reset|config|hint|gameOver|rejected, ...}}.
+ * level: 1-10, blackLevel: 1-10 (computer mode: Black's level; level is then White's),
+ * champion: {run, generation} (optional: the built-in engine plays with that evolved champion's
+ * weights, at level 7 at most)}. Server to client: {@code {"type":"state","events":[...],"state":{...}}};
+ * the state's {@code opponent} is the champion being played ({run, generation, label}), or null. An event is
+ * {@code {kind: move|reset|config|hint|gameOver|rejected, ...}}.
  */
 final class GameHub implements GameListener {
 
@@ -52,6 +58,20 @@ final class GameHub implements GameListener {
     private final JsonArray pending = new JsonArray();
     /** The last hint, shown until the position changes; only touched on the game thread. */
     private ChessMove hint;
+    /** The built-in engine, whose weights a "play the champion" game swaps; null if not given. */
+    private MinimaxEngine builtIn;
+    private LabApi lab;
+    /** The champion the engine plays as ({run, generation, label}), or null; game thread only. */
+    private JsonObject opponent;
+
+    /** Lets new games play an evolved champion: {@code builtIn} is the session's built-in engine. */
+    void useBuiltIn(MinimaxEngine builtIn) {
+        this.builtIn = builtIn;
+    }
+
+    void useLab(LabApi lab) {
+        this.lab = lab;
+    }
 
     /** The dispatcher to hand the session: runs a task on the game thread, then broadcasts. */
     void execute(Runnable task) {
@@ -134,6 +154,28 @@ final class GameHub implements GameListener {
         // engine vs engine: Black may play at its own level
         int blackLevel = mode == GameConfig.Mode.ENGINE_VS_ENGINE && msg.has("blackLevel")
                 ? GameStateJson.skillLevel(msg.get("blackLevel").getAsInt()) : level;
+        JsonObject newOpponent = null;
+        JsonElement champion = msg.get("champion");
+        if (builtIn != null) {
+            if (champion != null && !champion.isJsonNull()) {
+                if (lab == null) {
+                    throw new IllegalStateException("no lab to play a champion from");
+                }
+                String run = champion.getAsJsonObject().get("run").getAsString();
+                int generation = champion.getAsJsonObject().get("generation").getAsInt();
+                builtIn.useEvaluator(new BitBoardEvaluate(lab.champion(run, generation)));
+                newOpponent = new JsonObject();
+                newOpponent.addProperty("run", run);
+                newOpponent.addProperty("generation", generation);
+                newOpponent.addProperty("label", "Champion of " + lab.name(run) + ", generation " + generation);
+                // the champion is the built-in engine; levels from 8 up would hand the game to Stockfish
+                level = Math.min(level, EngineSelector.STOCKFISH_FROM_LEVEL - 1);
+                blackLevel = Math.min(blackLevel, EngineSelector.STOCKFISH_FROM_LEVEL - 1);
+            } else {
+                builtIn.useEvaluator(BitBoardEvaluate.DEFAULT);
+            }
+        }
+        opponent = newOpponent;
         GameConfig config = new GameConfig(mode, white, level, blackLevel);
         // reset first, so the engine does not start a move in the old position under the new config
         session.updateConfig(new GameConfig(GameConfig.Mode.HUMAN_VS_HUMAN, white, level));
@@ -205,7 +247,9 @@ final class GameHub implements GameListener {
         JsonObject msg = new JsonObject();
         msg.addProperty("type", "state");
         msg.add("events", events);
-        msg.add("state", GameStateJson.snapshot(session, hint));
+        JsonObject state = GameStateJson.snapshot(session, hint);
+        state.add("opponent", opponent == null ? null : opponent.deepCopy());
+        msg.add("state", state);
         return msg.toString();
     }
 

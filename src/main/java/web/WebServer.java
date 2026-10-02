@@ -11,6 +11,7 @@ import io.javalin.websocket.WsContext;
 
 import java.awt.Desktop;
 import java.net.URI;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,8 +23,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * for the protocol). It listens on 127.0.0.1 only, so nothing outside this computer can reach it,
  * and opens the default browser on start.
  *
+ * <p>It also serves the lab page's API over the evolution runs in a folder ({@link LabApi}).
+ *
  * <p>Arguments: {@code --port N} (default 7070, then the next free one up to 7079),
- * {@code --no-browser}.
+ * {@code --no-browser}, {@code --runs DIR} (the evolution runs, default {@code runs}).
  */
 public final class WebServer {
 
@@ -40,17 +43,19 @@ public final class WebServer {
     public static void main(String[] args) {
         int port = DEFAULT_PORT;
         boolean browser = true;
+        Path runs = Path.of("runs");
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--port" -> port = Integer.parseInt(args[++i]);
                 case "--no-browser" -> browser = false;
+                case "--runs" -> runs = Path.of(args[++i]);
                 default -> {
-                    System.err.println("unknown argument: " + args[i] + " (use --port N, --no-browser)");
+                    System.err.println("unknown argument: " + args[i] + " (use --port N, --no-browser, --runs DIR)");
                     System.exit(2);
                 }
             }
         }
-        WebServer server = startOnFreePort(port, port == DEFAULT_PORT ? 10 : 1);
+        WebServer server = startOnFreePort(port, port == DEFAULT_PORT ? 10 : 1, runs);
         String url = "http://localhost:" + server.port() + "/";
         System.out.println("IzikStar Chess is running at " + url + " (Ctrl+C to stop)");
         Runtime.getRuntime().addShutdownHook(new Thread(server::stop));
@@ -59,11 +64,11 @@ public final class WebServer {
         }
     }
 
-    private static WebServer startOnFreePort(int first, int attempts) {
+    private static WebServer startOnFreePort(int first, int attempts, Path runs) {
         RuntimeException last = null;
         for (int port = first; port < first + attempts; port++) {
             try {
-                return start(port, defaultSession());
+                return start(port, defaultSession(), runs);
             } catch (RuntimeException e) {
                 last = e; // port taken: try the next one
             }
@@ -72,8 +77,10 @@ public final class WebServer {
     }
 
     private static GameSession defaultSession(GameHub hub) {
+        MinimaxEngine builtIn = new MinimaxEngine();
+        hub.useBuiltIn(builtIn); // so a new game can play an evolved champion
         return new GameSession(GameConfig.defaults(),
-                new EngineSelector(new MinimaxEngine(), new StockfishEngine()), hub::execute);
+                new EngineSelector(builtIn, new StockfishEngine()), hub::execute);
     }
 
     /** A session factory, so tests can pass their own engines. */
@@ -85,9 +92,16 @@ public final class WebServer {
         return WebServer::defaultSession;
     }
 
-    /** Starts a server on {@code port} (0 = any free port) around a new session. */
+    /** Starts a server on {@code port} (0 = any free port) around a new session, runs in {@code runs/}. */
     static WebServer start(int port, SessionFactory sessions) {
+        return start(port, sessions, Path.of("runs"));
+    }
+
+    /** Starts a server on {@code port} (0 = any free port) around a new session. */
+    static WebServer start(int port, SessionFactory sessions, Path runs) {
         GameHub hub = new GameHub();
+        LabApi lab = new LabApi(runs);
+        hub.useLab(lab);
         GameSession session = sessions.create(hub);
         hub.attach(session);
 
@@ -110,6 +124,7 @@ public final class WebServer {
             app.get("/", ctx -> ctx.html("<p>The web UI is not built into this jar. Run <code>mvn package</code>, "
                     + "or <code>npm run dev</code> in <code>web/</code> during development.</p>"));
         }
+        lab.routes(app);
         app.ws("/ws", ws -> {
             ws.onConnect(ctx -> {
                 GameHub.Client client = ctx::send;

@@ -424,3 +424,18 @@ know which kind it is evolving.
    pairing, took 13 s on 3 threads. It also showed how noisy short matches are: generation 0's
    champion was the default weights themselves, and over 8 games against the defaults it scored
    31% (Elo -137, interval -446 to +37). The guide (step 6) has to say this plainly.
+7. **Step 5 — lab page (2026-10-02).** `web.LabApi` serves the runs in a folder (`runs/`, or
+   `--runs DIR`) read-only over HTTP: the list, one run (settings, generations, and the parameters
+   its champions moved, at most 60, biggest change first), a generation's games, and one game
+   move by move. The web app has a **Lab** tab (`#lab`): runs list, a chart of the champion's Elo
+   against the default weights with 95% bars, a weight table (default, latest, change and a
+   sparkline over the generations; 12 rows, the rest on request), the generation's games and a
+   replay board. It refreshes every 5 s, so a run in progress fills in. **Play generation N's
+   champion** opens the New game dialog with that champion: `newGame` carries
+   `champion: {run, generation}`, the hub swaps the built-in engine's evaluator
+   (`MinimaxEngine.useEvaluator`) and caps the level at 7 (8-10 would be Stockfish); the state's
+   `opponent` names it and the player card shows it; the next game without it goes back to the
+   default weights. `RandomMutationExample` now steps 1% of a parameter's range (was 5%: every
+   mutant lost to the default weights, so no champion ever moved a weight). Tests: `LabApiTest`
+   (API over a real tiny run, path checks, a champion game over the hub), and a Playwright test
+   over a run recorded before the server starts.

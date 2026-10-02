@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Board } from './Board';
+import { Lab } from './Lab';
 import { NewGameDialog, type NewGameChoice } from './NewGameDialog';
 import { captured, colorName, isOver, kingSquare, LEVELS, materialOf, movesByFrom, other, resultText, turnOf, withPremoves } from './chess';
-import { useGame, type Color, type GameEvent, type GameState } from './protocol';
+import { useGame, type Champion, type Color, type GameEvent, type GameState } from './protocol';
 import { play } from './sounds';
 
 const EMPTY = new Map<string, string[]>();
@@ -31,6 +32,10 @@ export function App() {
   /** The ply being reviewed (0 = start position), or null for the live position. */
   const [view, setView] = useState<number | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  /** The champion the New game dialog opens with (from the lab's "Play the champion"). */
+  const [dialogChampion, setDialogChampion] = useState<Champion | null>(null);
+  /** Which screen: the game, or the lab (#lab). */
+  const [page, setPage] = useState(() => (location.hash === '#lab' ? 'lab' : 'game'));
   /** Moves queued while the engine thinks (from + to [+ piece]), played one per turn, oldest first. */
   const [premoves, setPremoves] = useState<string[]>([]);
   /** The state a premove was last sent from, so the next one waits for the engine's reply. */
@@ -67,6 +72,16 @@ export function App() {
   }, []);
 
   const { state, connection, send } = useGame(onEvents);
+
+  useEffect(() => {
+    const onHash = () => setPage(location.hash === '#lab' ? 'lab' : 'game');
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+  const showPage = (p: 'game' | 'lab') => {
+    history.replaceState(null, '', p === 'lab' ? '#lab' : location.pathname);
+    setPage(p);
+  };
 
   useEffect(() => {
     const root = document.documentElement;
@@ -107,7 +122,7 @@ export function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (dialogOpen || (e.target as HTMLElement).closest('input, select, textarea')) return;
+      if (dialogOpen || page !== 'game' || (e.target as HTMLElement).closest('input, select, textarea')) return;
       if (e.key === 'ArrowLeft') goTo(ply - 1);
       else if (e.key === 'ArrowRight') goTo(ply + 1);
       else if (e.key === 'Home') goTo(0);
@@ -118,7 +133,7 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [goTo, ply, moves.length, dialogOpen]);
+  }, [goTo, ply, moves.length, dialogOpen, page]);
 
   if (!state) {
     return (
@@ -148,7 +163,13 @@ export function App() {
     setAutoFlip(choice.autoFlip);
     store('autoFlip', choice.autoFlip ? 'on' : 'off');
     play('start', soundOn);
-    send({ type: 'newGame', mode: choice.mode, color: choice.color, level: choice.level, blackLevel: choice.blackLevel });
+    const champion = choice.mode === 'engine' && choice.champion ? { run: choice.champion.run, generation: choice.champion.generation } : null;
+    send({ type: 'newGame', mode: choice.mode, color: choice.color, level: choice.level, blackLevel: choice.blackLevel, champion });
+  };
+
+  const openDialog = (champion: Champion | null) => {
+    setDialogChampion(champion);
+    setDialogOpen(true);
   };
 
   const canUndo = live && moves.length > 0 && config.mode !== 'computer'
@@ -158,6 +179,10 @@ export function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand"><span aria-hidden="true">♞</span> IzikStar Chess</div>
+        <div className="tabs" role="group" aria-label="Screen">
+          <button type="button" className={'btn ghost' + (page === 'game' ? ' on' : '')} aria-pressed={page === 'game'} onClick={() => showPage('game')}>Game</button>
+          <button type="button" className={'btn ghost' + (page === 'lab' ? ' on' : '')} aria-pressed={page === 'lab'} onClick={() => showPage('lab')}>Lab</button>
+        </div>
         <div className="spacer" />
         <button type="button" className="btn ghost" aria-pressed={!soundOn} onClick={() => {
           setSoundOn(!soundOn);
@@ -169,10 +194,12 @@ export function App() {
           setTheme(next);
           store('theme', next);
         }}>Dark / light</button>
-        <button type="button" className="btn primary" onClick={() => setDialogOpen(true)}>New game</button>
+        <button type="button" className="btn primary" onClick={() => openDialog(state.opponent)}>New game</button>
       </header>
 
-      <main className="game">
+      {page === 'lab' && <Lab onPlay={(champion) => openDialog(champion)} />}
+
+      <main className="game" hidden={page !== 'game'}>
         <section className="board-area" aria-label="Board">
           <Board
             fen={premoveColor ? withPremoves(fen, premoves) : fen}
@@ -203,7 +230,7 @@ export function App() {
               <div className="score">{state.result === '1/2-1/2' ? '½ – ½' : state.result!.replace('-', ' – ')}</div>
               <div className="reason">{resultText(state.status, state.turn)}</div>
               <div className="row">
-                <button type="button" className="btn primary" onClick={() => startNewGame({ mode: config.mode, color: config.humanColor, level: config.level, blackLevel: config.blackLevel, autoFlip })}>Rematch</button>
+                <button type="button" className="btn primary" onClick={() => startNewGame({ mode: config.mode, color: config.humanColor, level: config.level, blackLevel: config.blackLevel, autoFlip, champion: state.opponent })}>Rematch</button>
                 <button type="button" className="btn" onClick={() => goTo(0)}>Review game</button>
               </div>
             </section>
@@ -234,8 +261,11 @@ export function App() {
 
       {dialogOpen && (
         <NewGameDialog
-          initial={{ mode: config.mode, color: config.humanColor, level: config.level, blackLevel: config.blackLevel, autoFlip }}
-          onStart={startNewGame}
+          initial={{ mode: dialogChampion ? 'engine' : config.mode, color: config.humanColor, level: config.level, blackLevel: config.blackLevel, autoFlip, champion: dialogChampion }}
+          onStart={(choice) => {
+            showPage('game');
+            startNewGame(choice);
+          }}
           onCancel={() => setDialogOpen(false)}
         />
       )}
@@ -247,7 +277,8 @@ function PlayerCard({ state, color, fen, live }: { state: GameState; color: Colo
   const { config } = state;
   const isEngine = config.mode === 'computer' || (config.mode === 'engine' && color !== config.humanColor);
   const level = config.mode === 'computer' && color === 'black' ? config.blackLevel : config.level;
-  const name = isEngine ? `Engine · Level ${level}` : config.mode === 'engine' ? 'You' : colorName(color);
+  const name = isEngine ? (state.opponent && config.mode === 'engine' ? state.opponent.label : `Engine · Level ${level}`)
+    : config.mode === 'engine' ? 'You' : colorName(color);
   const detail = isEngine ? LEVELS[level - 1].engine : `Plays ${colorName(color)}`;
   const taken = captured(fen)[color];
   const lead = materialOf(fen) * (color === 'white' ? 1 : -1);

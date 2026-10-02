@@ -23,7 +23,7 @@ public class RandomMutationExample implements Evolution {
     private final double step;
 
     public RandomMutationExample() {
-        this(8, 0.05, 0.05);
+        this(8, 0.05, 0.01);
     }
 
     public RandomMutationExample(int populationSize, double rate, double step) {

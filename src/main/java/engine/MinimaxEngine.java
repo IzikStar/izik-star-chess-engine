@@ -35,7 +35,8 @@ public final class MinimaxEngine implements Engine {
 
     private final Random random;
     private final long timeCapMs;
-    private final Evaluator evaluator;
+    /** Swapped by {@link #useEvaluator}, e.g. to play an evolved champion; read once per search. */
+    private volatile Evaluator evaluator;
     private final int variety;
 
     public MinimaxEngine() {
@@ -72,6 +73,11 @@ public final class MinimaxEngine implements Engine {
         return evaluator;
     }
 
+    /** Plays the following searches with {@code evaluator}'s weights (a search already running keeps its own). */
+    public void useEvaluator(Evaluator evaluator) {
+        this.evaluator = evaluator;
+    }
+
     @Override
     public ChessMove bestMove(SearchRequest request) {
         String fen = request.fen();
@@ -84,7 +90,8 @@ public final class MinimaxEngine implements Engine {
         }
         int depth = Math.max(1, searchDepth(Position.fromFen(fen), request.skillLevel()));
         long deadline = System.nanoTime() + timeCapMs * 1_000_000;
-        BitMove bitMove = Minimax.getBestMove(BitBoardRules.fromFen(fen), depth, evaluator,
+        Evaluator weights = evaluator;
+        BitMove bitMove = Minimax.getBestMove(BitBoardRules.fromFen(fen), depth, weights,
                 new Minimax.Options(variety, random, true), () -> request.cancel().isCancelled() || System.nanoTime() > deadline);
         return request.cancel().isCancelled() ? null : toLegalMove(bitMove, legal);
     }
