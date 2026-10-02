@@ -1,7 +1,6 @@
 package ai.BitBoard;
 
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -42,7 +41,6 @@ class SearchEnPassantTest {
     }
 
     @Test
-    @Tag("known-bug")
     @DisplayName("After ...d7-d5 the search lets White take en passant, exd6")
     void whiteTakesEnPassant() {
         BitBoard pushed = child(BitBoardRules.fromFen("4k3/3p4/8/4P3/8/8/8/4K3 b - - 0 1"), "d7", "d5");
@@ -50,7 +48,6 @@ class SearchEnPassantTest {
     }
 
     @Test
-    @Tag("known-bug")
     @DisplayName("After e2-e4 the search lets Black take en passant, dxe3")
     void blackTakesEnPassant() {
         BitBoard pushed = child(BitBoardRules.fromFen("4k3/8/8/8/3p4/8/4P3/4K3 w - - 0 1"), "e2", "e4");
@@ -58,7 +55,6 @@ class SearchEnPassantTest {
     }
 
     @Test
-    @Tag("known-bug")
     @DisplayName("No pawn lands on the last rank without promoting (position 4 mirrored, after ...d5)")
     void noEnPassantOntoTheLastRank() {
         BitBoard pushed = child(BitBoardRules.fromFen(

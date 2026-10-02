@@ -187,8 +187,9 @@ public class BitBoard {
                 nOTWCOPM = 0;
                 // pawn 2 square move:
                 if(BitOperations.isShiftBy16(whitePawns ^ newPosition)) {
-                    // "whitePawns ^ newPosition" is the pawn how moved in the start and the end location, ">>8" move it to first row and third row, then we get only third row.
-                    ePT = BitOperations.getColIndexFromBit(BoardParts.FIRST_RANK ^ (whitePawns ^ newPosition >>> 8));
+                    // the pawn's start and end squares; the en-passant square is the one between them
+                    long moved = whitePawns ^ newPosition;
+                    ePT = (Long.numberOfTrailingZeros(moved) + 63 - Long.numberOfLeadingZeros(moved)) / 2;
                 }
                 lastToMove = whitePawns;
                 wP = newPosition;
@@ -269,8 +270,9 @@ public class BitBoard {
                 nOTWCOPM = 0;
                 // pawn 2 square move:
                 if(BitOperations.isShiftBy16(blackPawns ^ newPosition)) {
-                    // "blackPawns ^ newPosition" is the pawn how moved in the start and the end location, ">>8" move it to first row and third row, then we get only third row.
-                    ePT = BitOperations.getColIndexFromBit(BoardParts.EIGHTH_RANK ^ (blackPawns ^ newPosition << 8));
+                    // the pawn's start and end squares; the en-passant square is the one between them
+                    long moved = blackPawns ^ newPosition;
+                    ePT = (Long.numberOfTrailingZeros(moved) + 63 - Long.numberOfLeadingZeros(moved)) / 2;
                 }
                 lastToMove = blackPawns;
                 bP = newPosition;
