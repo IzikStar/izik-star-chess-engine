@@ -1,7 +1,6 @@
 package ai.BitBoard;
 
 import ai.BitBoard.BitPiece.*;
-import ai.Debug;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -399,12 +398,9 @@ public class BitBoard {
             int color = isWhiteToMove ? 1 : 0;
             ArrayList<BitBoard> nextMoves = getMovesForColor(color);
             nextStates = new ArrayList<>();
-            int counter = 0;
             for (BitBoard state : nextMoves) {
-                if (state.isCheckOn(color)) counter++;
-                else nextStates.add(state);
+                if (!state.isCheckOn(color)) nextStates.add(state);
             }
-            Debug.log("move that causes check: " + counter);
         }
         return nextStates;
     }
@@ -445,8 +441,6 @@ public class BitBoard {
             }
         }
         nextStates.addAll(castles);
-        Debug.log("king moves: " + kingMoves.size());
-        Debug.log("castle moves: " + castles.size());
         return nextStates;
     }
     private ArrayList<BitBoard> getCastles(int color) {
@@ -461,7 +455,6 @@ public class BitBoard {
                 BitBoard board = getNewBoardFromMove(1, kingNewPosition);
                 board.setRooks(color, rooksNewPosition);
                 board.hasWhiteCastled = true;
-                Debug.log("white king side castle!");
                 castles.add(board);
             }
             if (canWhiteCastleQueenSide && ((whitePieces | blackPieces) & BoardParts.WHITE_QUEEN_SIDE_CASTLE) == 0 && (((king | BoardParts.WHITE_QUEEN_SIDE_CASTLE_PATH) & getAllAttackedTiles(opponentColor)) == 0 && (rooks & BoardParts.Tile.A1.position) != 0)) {
@@ -470,7 +463,6 @@ public class BitBoard {
                 BitBoard board = getNewBoardFromMove(1, kingNewPosition);
                 board.setRooks(color, rooksNewPosition);
                 board.hasWhiteCastled = true;
-                Debug.log("white queen side castle!");
                 castles.add(board);
             }
         }
@@ -481,7 +473,6 @@ public class BitBoard {
                 BitBoard board = getNewBoardFromMove(1, kingNewPosition);
                 board.setRooks(color, rooksNewPosition);
                 board.hasBlackCastled = true;
-                Debug.log("black king side castle!");
                 castles.add(board);
             }
             if (canBlackCastleQueenSide && ((whitePieces | blackPieces) & BoardParts.BLACK_QUEEN_SIDE_CASTLE) == 0 && (((king | BoardParts.BLACK_QUEEN_SIDE_CASTLE_PATH) & getAllAttackedTiles(opponentColor)) == 0 && (rooks & BoardParts.Tile.A8.position) != 0)) {
@@ -490,7 +481,6 @@ public class BitBoard {
                 BitBoard board = getNewBoardFromMove(1, kingNewPosition);
                 board.setRooks(color, rooksNewPosition);
                 board.hasBlackCastled = true;
-                Debug.log("black queen side castle!");
                 castles.add(board);
             }
         }
@@ -505,7 +495,6 @@ public class BitBoard {
             BitBoard newBoard = getNewBoardFromMove(2, move);
             nextStates.add(newBoard);
         }
-        Debug.log("queen moves: " + moves.size());
         return nextStates;
     }
     private ArrayList<BitBoard> getRooksMoves(int color) {
@@ -517,7 +506,6 @@ public class BitBoard {
             BitBoard newBoard = getNewBoardFromMove(3, move);
             nextStates.add(newBoard);
         }
-        Debug.log("rook moves: " + moves.size());
         return nextStates;
     }
     private ArrayList<BitBoard> getBishopsMoves(int color) {
@@ -529,7 +517,6 @@ public class BitBoard {
             BitBoard newBoard = getNewBoardFromMove(4, move);
             nextStates.add(newBoard);
         }
-        Debug.log("bishop moves: " + moves.size());
         return nextStates;
     }
     private ArrayList<BitBoard> getKnightsMoves(int color) {
@@ -541,7 +528,6 @@ public class BitBoard {
             BitBoard newBoard = getNewBoardFromMove(5, move);
             nextStates.add(newBoard);
         }
-        Debug.log("knight moves: " + moves.size());
         return nextStates;
     }
     private ArrayList<BitBoard> getPawnsMoves(int color) {
@@ -552,7 +538,6 @@ public class BitBoard {
         BitPawn pawn = new BitPawn(color, position, whitePieces, blackPieces);
         ArrayList<Long> moves = pawn.validMovements();
         long[] enPassantMoves = pawn.getEnPassantMoves(enPassantTile);
-        int EnPassantCounter = 0;//, promotionCounter = 0;
         for (long move : moves) {
             BitBoard newBoard = getNewBoardFromMove(6, move);
             long promotionTile = (move & BoardParts.getPromotionRow(color));
@@ -569,13 +554,6 @@ public class BitBoard {
                 nextStates.add(newBoard);
             }
         }
-        Debug.log("pawn moves: " + moves.size());
-        //Debug.log("promotion possibilities: " + promotionCounter * 4);
-        Debug.log("En Passant moves: ");
-        for (long enPassantMove : enPassantMoves) {
-            if (enPassantMove != 0) EnPassantCounter++;
-        }
-        Debug.log(EnPassantCounter + "");
         return nextStates;
     }
     // get all attacked tiles:

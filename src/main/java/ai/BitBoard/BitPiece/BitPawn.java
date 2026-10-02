@@ -3,7 +3,6 @@ package ai.BitBoard.BitPiece;
 import ai.BitBoard.BitBoard;
 import ai.BitBoard.BitOperations;
 import ai.BitBoard.BoardParts;
-import ai.Debug;
 
 import java.util.ArrayList;
 
@@ -68,11 +67,9 @@ public class BitPawn extends BitPiece {
             long enPassantToTheLeft = getLeftEnPassantTile(enPassantIndex) & position;
             if (enPassantToTheLeft != 0) {
                 movements[0] = (position & ~enPassantToTheLeft) | target;
-                Debug.log("left en passant" + BitOperations.printBitboard(enPassantToTheLeft) + " position: " + BitOperations.printBitboard(position) + " sending: " + BitOperations.printBitboard(movements[0]));
             }
             if (enPassantToTheRight != 0) {
                 movements[1] = (position & ~enPassantToTheRight) | target;
-                Debug.log("right en passant: " + BitOperations.printBitboard(enPassantToTheRight) + " position: " + BitOperations.printBitboard(position) + " sending: " + BitOperations.printBitboard(movements[1]));
             }
         }
         return movements;
