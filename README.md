@@ -223,6 +223,11 @@ On Linux, `sudo apt install stockfish` installs it at `/usr/games/stockfish`.
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE). The license covers the source code only.
+
+The piece images (`src/main/resources/pieces.png`) and the sound effects
+(`src/main/resources/sounds/`) are third-party assets collected for a learning project. They
+are not covered by the MIT license, and their original authors keep their rights. If you are an
+author and want an asset credited or removed, please open an issue.
 
 Stockfish is a separate project licensed under the GPLv3 and is not distributed here.
