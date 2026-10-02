@@ -1,0 +1,207 @@
+# Phase 4 — Concurrency and the Stockfish integration
+
+**Status: RESEARCH — awaiting the owner's decisions on the forks in §4.** Branch
+`phase-4-concurrency-stockfish`, cut from `phase-3-decouple-ui` (PR #2, not merged yet; this
+branch is rebased onto `master` once it is). No production code has been touched.
+
+This is the mandatory research step from [REFACTOR_GUIDE.md](../REFACTOR_GUIDE.md) §Phase 4. It
+covers every caller of the engines, what the guide's concurrency problem looks like after Phase 3,
+four problems reproduced with measurements, the product questions (strength and time per level),
+the design forks, and a checkable definition of done.
+
+All timings below were taken on the cloud container (4 cores, JDK 21, Stockfish 16 from apt). They
+are relative evidence, not a promise about the owner's machine. Probes live outside the repo;
+the ones worth keeping become tests in the increments.
+
+---
+
+## 1. Where Phase 3 left the concurrency problem
+
+ARCHITECTURE.md §5.5 listed four ad hoc patterns: a raw `Thread` in `Input`, an
+`ExecutorService` in `myEngine`, a `SwingWorker` + `CountDownLatch` + `sleep(6000)` loop in
+`Main.play()`, and `new Thread(() -> sleep(500) …)` sound sequencing in `Board`/`Input`.
+
+Phase 3 already removed all four (the classes or methods that held them are deleted). Today:
+
+| Where | What | Thread |
+|---|---|---|
+| `game.GameSession.maybeStartEngine` | engine move: `engineExecutor.submit`, result handed to the dispatcher, stale results dropped by a generation counter | one daemon "engine" thread → EDT |
+| `game.GameSession.requestHint` | hint: same executor, same hand-back | same "engine" thread → EDT |
+| `GameSession` level 0 | `Thread.sleep(1000)` before a random move, inside the engine job | engine thread |
+| `main.Board` | animation (`javax.swing.Timer`, 15 ms) and delayed sounds (`Timer`) | EDT |
+| `engine.StockfishEngine.getOutput` | `Thread.sleep(waitTime)` then `reader.ready()` polling | engine thread |
+
+Nothing touches Swing off the EDT any more (checked: every `GameListener` callback is delivered
+through the dispatcher, which is `SwingUtilities::invokeLater` in `Main`; `Board`'s timers are
+Swing timers). So the guide's "one pattern" goal is **mostly met in shape**. What is still wrong
+is the behaviour of that one pattern, and the Stockfish bridge.
+
+## 2. Every caller of an engine (guide research item 1)
+
+| Caller | Path | Level used |
+|---|---|---|
+| Engine's turn, human vs engine | `GameSession.maybeStartEngine` → `EngineSelector.move(fen, level)` | `GameConfig.skillLevel` (0-18) |
+| Computer vs computer ("New computer Game") | same, both sides | skill 6 = UI Level 4 (set by `Main`) |
+| Hint button | `GameSession.requestHint` → `EngineSelector.hint(fen)` | Stockfish skill 20; fallback built-in at 10 |
+| After undo / new game / config change | `cancelEngine()` then `maybeStartEngine()` | as above |
+| Level selection | `EngineSelector`: < 13 → `MinimaxEngine`; ≥ 13 → `StockfishEngine`, fallback built-in at 3 | |
+
+The UI offers Level 1-10 = skill 0, 2, …, 18. Built-in depth = skill / 2 (+1 with ≤ 12 pieces,
++2 with ≤ 8). So Level 1 is random, Levels 2-7 are depth 1-6, Levels 8-10 are Stockfish.
+
+The Phase 3 API already gives the engine side what it needs: FEN (`Game.fen`), legality
+(`Rules.isLegal`), the game's history (`Game.history()` FENs, `Game.moves()` UCI moves). One
+gap: the `Engine` interface takes only a FEN, so Stockfish cannot be given `position … moves …`
+(Fork C).
+
+## 3. Problems reproduced
+
+### 3.1 A hint backlog starves the engine (new)
+
+Hints and engine moves share one single-thread queue, a hint is never cancelled, and nothing
+stops a second hint request while one is pending. A headless stress run (human-vs-engine at
+level 2 with random moves, undo, colour flips, new games, and hint requests on 10% of 3,000
+operations, Stockfish missing so hints fall back to depth 5) ended with **the engine still not
+having answered 60 s after the last operation**: its move was queued behind dozens of
+5-20 s hint searches. The same run without hint requests ended with the engine answering
+(0 errors). In the app this is a user clicking "hint" a few times and the engine going silent for
+minutes.
+
+### 3.2 Cancelling does not stop a search (new)
+
+`cancelEngine()` calls `Future.cancel(true)`, but `Minimax` never checks for interruption, so a
+cancelled search runs to the end and the next search waits behind it. Probe: level 10 (depth 5),
+human plays 1.e4, takes it back after 0.5 s and plays 1.d4: **the engine answered after 48.9 s**,
+about two full searches (one 1.e4 search nobody wants, then the 1.d4 one).
+
+### 3.3 Search time is unbounded and climbs steeply with level
+
+Built-in engine, one search per position (ms; a second run in parallel gave similar numbers):
+
+| UI level (skill) | depth | start | after 1.e4 | Italian | middlegame | rook endgame |
+|---|---|---|---|---|---|---|
+| 2 (2) | 1 | 84 | 13 | 20 | 19 | 39 |
+| 3 (4) | 2 | 176 | 56 | 46 | 31 | 81 |
+| 4 (6) | 3 | 579 | 1026 | 620 | 1299 | 432 |
+| 5 (8) | 4 | 4150 | 4624 | 3730 | 3450 | 318 |
+| 6 (10) | 5 | 9267 | 21744 | 21426 | 34696 | 8987 |
+| 7 (12) | 6 | > 90 s | | | | |
+
+So UI Level 6 thinks 10-35 s a move and Level 7 is unplayable. A JFR profile of a depth-5
+search: **68% of samples are inside `BitBoard.isCheckOn` / `getAllAttackedTiles`**, called while
+building every child board to filter illegal moves; 3% are `BitBoardOperations.printBitBoard`
+(debug output still running inside the search). The `getNumOfNodes` pre-walk in
+`Minimax.search` is wasted work but not the main cost (removing it changed little). The
+transposition table exists but its use is commented out.
+
+### 3.4 The Stockfish bridge spends most of its time on the handshake
+
+With Stockfish installed, `StockfishEngine.bestMove` on three positions at levels 13/15/17/21:
+**~685 ms per move, of which 150 ms is Stockfish thinking** (`go movetime 150`). The rest is
+`uci` / `isready` / `ucinewgame` / `setoption` / `position` resent on every move, each followed by
+a `sleep(100)`-and-poll wait. The first call took 1,646 ms (one retry: `bestmove` had not arrived
+within the fixed 180 ms read window). `ucinewgame` every move also throws away Stockfish's hash,
+and a FEN-only `position` hides the game history, so Stockfish cannot see repetitions. All levels
+think for the same 150 ms; only "Skill Level" differs.
+
+### 3.5 Unattended computer-vs-computer
+
+20 games at level 2 (both sides), headless `GameSession`: **20 finished, 0 hangs, 0 exceptions**,
+1,540 plies in 15 s. The app's "New computer Game" plays skill 6 (depth 3, 0.4-1.3 s a ply), so a
+50-game run there takes about an hour; it was not attempted yet and is part of the definition of
+done.
+
+## 4. Design forks — need a decision before implementation
+
+### Fork A — strength and time per level (product decision)
+
+The guide asks for this to be written down rather than inherited.
+
+- **A1 (recommended): keep depth as the strength knob, add a hard time cap.** The built-in engine
+  searches with iterative deepening up to its level's depth and stops at a cap (proposal: 5 s for
+  every level), playing the best move of the last finished depth. Levels 2-5 play as today
+  (all under 5 s in §3.3); Levels 6-7 stop taking 10-90 s and get stronger as the search gets
+  faster.
+  Stockfish: Skill Level as today (13/15/17) plus a move time per level (proposal: 300 / 600 /
+  1000 ms); hints: skill 20, 1000 ms.
+- A2: time is the only knob (each level = a time budget). Simpler to explain, but low levels
+  would play much stronger on a fast machine and weaker on a slow one.
+- A3: leave times as they are. Rejected by the measurements.
+
+### Fork B — the concurrency primitive
+
+- **B1 (recommended): keep the one engine thread from Phase 3, and make every job cancellable.**
+  A search gets a cancel token/deadline that `Minimax` checks every N nodes and that
+  `StockfishEngine` turns into UCI `stop`. At most one hint is pending: a new hint request
+  replaces it, and the engine's own move cancels it. Undo / new game / config change cancel the
+  running job for real, so the next one starts at once. Results still come back through the
+  dispatcher with the generation check.
+- B2: separate threads for hints and moves. Two built-in searches could run at once on a
+  multi-core machine, but Stockfish is one process that searches one position at a time, so it
+  needs a queue anyway. More states for little gain.
+- B3: `CompletableFuture` chains. Same semantics as B1 with a different API; no behaviour gain.
+
+### Fork C — Stockfish session
+
+- **C1 (recommended): one Stockfish process per `GameSession`**, started on first use, with a
+  reader thread feeding a queue (no `sleep` polling). Handshake (`uci`, options) once;
+  `ucinewgame` only on a new game; each move sends `position fen <start> moves <uci…>` and
+  `go movetime <ms>` and waits for `bestmove` with a timeout; cancellation sends `stop`. A
+  crashed or missing process is reported once and the built-in engine takes over, as today. The
+  `Engine` interface takes a small request (start FEN + moves + level + cancel token) instead of a
+  bare FEN; `MinimaxEngine` uses its final FEN.
+- C2: persistent process but keep sending a bare FEN. Smaller change; Stockfish stays blind to
+  repetitions in the game.
+
+### Fork D — how much search speed belongs in this phase
+
+- **D1 (recommended): only what the concurrency work needs, plus free wins.** Cancellation,
+  iterative deepening with the time cap, remove the `getNumOfNodes` pre-walk and the debug
+  printing inside the search. Leave the move generator alone. Switching on the transposition
+  table and making legality checks cheap (68% of the time) becomes its own phase ("4b"), with
+  perft tests as its safety net, because it changes the rules authority from Phase 2.
+- D2: also do the move-generator speed-up and the transposition table here. Faster engine
+  sooner, but one PR that changes threading, Stockfish and the rules core at once.
+
+### Fork E — how "unattended computer-vs-computer" is proven
+
+- **E1 (recommended): a stress test tagged `stress`** (run with `-Pstress`, not on every build):
+  many engine-vs-engine games at a capped level, plus the random undo/new-game/hint churn from
+  §3.1, asserting every game ends and the engine always answers. `-Psmoke` runs a short version.
+- E2: manual runs only.
+
+## 5. Definition of done (guide exit criteria, made checkable)
+
+1. One documented concurrency pattern computes every engine move and hint (B1), and the threading
+   contract is written in `GameSession`'s Javadoc and ARCHITECTURE.md.
+2. Undo / new game / config change during a search: the next engine move starts within a few
+   hundred ms (test, replacing the 48.9 s of §3.2).
+3. Repeated hint requests never delay the engine's move by more than one hint (test, from §3.1).
+4. Stockfish keeps one process per game; no `Thread.sleep` remains in `StockfishEngine`; a
+   missing or crashed Stockfish falls back to the built-in engine (tests with a fake UCI
+   process, so they run without Stockfish installed).
+5. No search exceeds its level's time cap by more than a small margin (test).
+6. No Swing component is touched off the EDT (`LayeringTest` already keeps Swing out of
+   `game`/`engine`; plus a review of `main`).
+7. `-Pstress`: 50 engine-vs-engine games plus the churn run finish with no hang and no exception.
+8. `mvn test` and `-Psmoke` green; the app driven under Xvfb at Levels 1, 6, 7 and 9 (with
+   Stockfish), hint, undo during engine thought, computer-vs-computer.
+
+## 6. Proposed increments (each its own commit, green and playable)
+
+1. Safety net: tests for §3.1 and §3.2 (red, tagged `known-bugs`), a fake UCI engine for tests.
+2. Cancellable searches: cancel token + deadline in `Minimax`, iterative deepening, time caps
+   per level (Fork A), remove the pre-walk and debug printing.
+3. `GameSession` job policy: real cancellation, one pending hint, engine move cancels a hint.
+4. Stockfish session (Fork C): persistent process, reader thread, `position … moves`, move time
+   per level, `stop`, fallback; `Engine` takes a request object.
+5. Stress test (Fork E) and the Xvfb run; docs (ARCHITECTURE §2.5/§5.5, README, guide status).
+
+## 7. Rollback
+
+Each increment is one commit on this branch; reverting one restores the previous green state.
+The branch is merged with `--no-ff` like the earlier phases.
+
+## 8. Decisions
+
+_Pending._
