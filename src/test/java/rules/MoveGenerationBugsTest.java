@@ -67,7 +67,6 @@ class MoveGenerationBugsTest {
     }
 
     @Test
-    @Tag("known-bug")
     @DisplayName("#5 castling queen side is legal while b1 is attacked (only the king's path must be safe)")
     void queenSideCastlingWithB1Attacked() {
         assertTrue(legal("1r2k3/8/8/8/8/8/8/R3K3 w Q - 0 1").contains("e1c1"));

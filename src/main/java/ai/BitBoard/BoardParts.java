@@ -59,6 +59,9 @@ public class BoardParts {
     public static final long WHITE_QUEEN_SIDE_CASTLE = Tile.D1.position | Tile.C1.position | Tile.B1.position;
     public static final long BLACK_KING_SIDE_CASTLE = Tile.F8.position | Tile.G8.position;
     public static final long BLACK_QUEEN_SIDE_CASTLE = Tile.D8.position | Tile.C8.position | Tile.B8.position;
+    // the squares the king crosses when castling queen side; b1/b8 must be empty but may be attacked
+    public static final long WHITE_QUEEN_SIDE_CASTLE_PATH = Tile.D1.position | Tile.C1.position;
+    public static final long BLACK_QUEEN_SIDE_CASTLE_PATH = Tile.D8.position | Tile.C8.position;
 
     public static void printAllTiles() {
         // List of all tiles
