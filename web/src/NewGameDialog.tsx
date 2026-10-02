@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { LEVELS } from './chess';
-import type { Color, Mode } from './protocol';
+import type { Champion, Color, Mode } from './protocol';
 
 export interface NewGameChoice {
   mode: Mode;
@@ -9,14 +9,26 @@ export interface NewGameChoice {
   /** Black's level when watching the engine; level is then White's. */
   blackLevel: number;
   autoFlip: boolean;
+  /** Play this evolved champion instead of the usual engine (levels 2-7, the built-in engine's). */
+  champion: Champion | null;
 }
 
-function LevelSlider({ id, label, value, onChange }: { id: string; label: string; value: number; onChange: (v: number) => void }) {
+/** The champion is the built-in engine: level 1 plays random moves and 8-10 hand over to Stockfish. */
+export const CHAMPION_LEVELS = { min: 2, max: 7 };
+
+function LevelSlider({ id, label, value, onChange, min = 1, max = 10 }: {
+  id: string;
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  min?: number;
+  max?: number;
+}) {
   const level = LEVELS[value - 1];
   return (
     <div className="field">
       <label htmlFor={id}>{label}</label>
-      <input id={id} type="range" min={1} max={10} value={value} onChange={(e) => onChange(Number(e.target.value))} />
+      <input id={id} type="range" min={min} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} />
       <div className="level">
         <span><strong>Level {value}</strong> · {level.name}</span>
         <span className="muted">{level.engine}</span>
@@ -51,7 +63,10 @@ export function NewGameDialog({ initial, onStart, onCancel }: {
   onStart: (choice: NewGameChoice) => void;
   onCancel: () => void;
 }) {
-  const [choice, setChoice] = useState<NewGameChoice>(initial);
+  const [choice, setChoice] = useState<NewGameChoice>(() => initial.champion
+    // level 1 (random moves) would hide the champion's weights: start it at Casual
+    ? { ...initial, mode: 'engine', level: initial.level <= 1 ? 4 : Math.min(CHAMPION_LEVELS.max, initial.level) }
+    : initial);
   const dialog = useRef<HTMLDialogElement>(null);
   const set = (patch: Partial<NewGameChoice>) => setChoice({ ...choice, ...patch });
 
@@ -84,8 +99,16 @@ export function NewGameDialog({ initial, onStart, onCancel }: {
             onChange={(color) => set({ color })}
           />
         )}
+        {choice.mode === 'engine' && choice.champion && (
+          <div className="champion-pick" data-testid="champion-pick">
+            <span><strong>{choice.champion.label}</strong><br /><span className="muted">An evolved set of weights from the lab</span></span>
+            <button type="button" className="btn" onClick={() => set({ champion: null })}>Usual engine</button>
+          </div>
+        )}
         {choice.mode === 'engine' && (
-          <LevelSlider id="level" label="Strength" value={choice.level} onChange={(level) => set({ level })} />
+          <LevelSlider id="level" label="Strength" value={choice.level}
+            onChange={(level) => set({ level })}
+            min={choice.champion ? CHAMPION_LEVELS.min : 1} max={choice.champion ? CHAMPION_LEVELS.max : 10} />
         )}
         {choice.mode === 'computer' && (
           <>

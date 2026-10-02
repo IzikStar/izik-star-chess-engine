@@ -85,15 +85,19 @@ pruning** over bitboard positions:
 - **Depth and time.** Depth comes from the difficulty level, from 1 ply at level 2 to 6 plies at
   level 7, and 1-2 plies deeper once the board thins out to 12 or fewer pieces. The search
   deepens one ply at a time and stops after 5 seconds, playing the move of the deepest depth it
-  finished; it also stops at once when the game moves on (take-back, new game). Since Phase 4b,
-  Levels 6 and 7 finish their full depth within that time in typical positions (Level 7 takes
-  up to about 4 s on a 4-core test machine).
+  finished; it also stops at once when the game moves on (take-back, new game). Level 6 finishes
+  its full depth within a second; Level 7 finishes depth 6 within the 5 seconds in most
+  positions, and in busy middlegames plays its depth-5 move.
+- **Quiescence.** When the depth runs out the search does not stop in the middle of an
+  exchange: it plays on through captures and queen promotions until the position is quiet, so
+  it never counts a piece that is about to be taken back. At the same depth this wins about 90%
+  of the points against the search without it.
 - **Repetition.** Positions get Zobrist hashes
   ([`ZobristHashing`](src/main/java/ai/BitBoard/ZobristHashing.java)). A per-branch stack
   ([`BoardStateTracker`](src/main/java/ai/BoardStateTracker.java)) uses them to spot threefold
   repetition inside the search tree.
-- **Variety.** When several root moves share the best score, the engine picks one at random so
-  it does not repeat the same game every time.
+- **Variety.** Any root move scoring within 0.2 pawn of the best may be played, picked at
+  random, so the engine does not repeat the same game. It never passes up a forced mate.
 
 **Not wired in yet:**
 
@@ -101,12 +105,14 @@ pruning** over bitboard positions:
   hash exists, but its calls in `minimax()` are commented out. As written it would return wrong
   scores, and fixing it changes the moves the engine picks, so it is left for a later phase
   ([Phase 4b research](docs/phase-4b-research.md) §4).
-- There is no quiescence search yet.
 
 ### Evaluation
 
 [`ai/BitBoard/BitBoardEvaluate.java`](src/main/java/ai/BitBoard/BitBoardEvaluate.java) scores a
-position with hand-written terms, mostly computed with bit masks and popcounts:
+position with hand-written terms, mostly computed with bit masks and popcounts. Since Phase 5
+every weight is a named, bounded parameter (about 500 of them, saved and loaded as JSON), each
+with a middlegame and an endgame value blended by the material left; the defaults reproduce the
+hand-tuned engine, and new terms start at 0 for evolution to switch on. The terms:
 
 - material (P=10, N=30, B=33, R=50, Q=90)
 - pawn advancement, with a bonus for central pawns
@@ -171,7 +177,7 @@ structure. Two documents describe it honestly instead of hiding the problems:
 | 4 | One concurrency model; a proper Stockfish session | Done ([research](docs/phase-4-research.md)) |
 | 4b | Fix the move generator's rule bugs; make the search fast enough for Levels 6-7 | Done ([research](docs/phase-4b-research.md)) |
 | 4c | Replace the Swing screens with a browser UI | Done ([research](docs/ui-research.md)) |
-| 5 | Groundwork for an engine that learns by self-play evolution | Research approved ([research](docs/phase-5-research.md)) |
+| 5 | Groundwork for an engine that learns by self-play evolution | In progress: parameters, quiescence, arena, run record and lab page done ([research](docs/phase-5-research.md)) |
 
 Phase 2 is a good example of the approach:
 
@@ -199,6 +205,46 @@ Run the jar from the repository root if you want it to find Stockfish at the def
 
 **Working on the browser UI:** run the jar (`--no-browser`), then `npm run dev` in `web/` and
 open <http://localhost:5173/>; changes show up as you save.
+
+## Arena: engine against engine
+
+The arena plays two sets of evaluation weights against each other over a suite of about fifty
+openings, each opening once with each colour, several games at a time, and reports the score with
+an Elo difference and its 95% interval:
+
+```bash
+./mvnw package -DskipTests
+java -cp target/izikstar-chess-3.1.0.jar arena.Cli match default my-weights.json --depth 3
+```
+
+`default` is the built-in weights; a JSON file names the parameters it changes (the rest keep
+their defaults). Options: `--depth`, `--openings`, `--threads`, `--max-plies`, `--variety`,
+`--seed` (the same seed replays the same games), `--old-search A|B` (that side searches without
+quiescence).
+
+## Evolution runs and the lab page
+
+An evolution run lets an algorithm breed sets of weights: each generation plays a tournament,
+and the algorithm builds the next generation from the results. The algorithm is a class that
+implements [`evolution.Evolution`](src/main/java/evolution/Evolution.java);
+[`RandomMutationExample`](src/main/java/evolution/RandomMutationExample.java) is a deliberately
+naive one. Every member, game and result goes into one SQLite file per run:
+
+```bash
+java -cp target/izikstar-chess-3.1.0.jar lab.Cli run runs/first.db --algorithm evolution.RandomMutationExample --generations 20
+java -cp target/izikstar-chess-3.1.0.jar lab.Cli resume runs/first.db   # after Ctrl+C
+java -cp target/izikstar-chess-3.1.0.jar lab.Cli export runs/first.db positions.csv
+java -cp target/izikstar-chess-3.1.0.jar lab.Cli champion runs/first.db 19 champion.json
+```
+
+[docs/evolution-guide.md](docs/evolution-guide.md) explains the API, the numbers and the traps.
+
+The **Lab** tab of the web app (it reads `runs/`, or `--runs DIR`) shows each run as it goes: the
+champion's Elo against the default weights with its error bar, how the champions' weights moved,
+and every game, which you can replay on the board. **Play the champion** starts a game against
+any generation's best set of weights.
+
+![The lab page](docs/images/lab.png)
 
 ## Tests
 

@@ -410,6 +410,20 @@ public class BitBoard {
         nextStates = null;
     }
 
+    /**
+     * True when this position follows from {@code parent} by a capture or a promotion: the moves
+     * the quiescence search keeps looking at after the main search depth runs out.
+     */
+    public boolean isNoisyChildOf(BitBoard parent) {
+        boolean white = parent.isWhiteToMove;
+        long victimsBefore = white ? parent.blackPieces : parent.whitePieces;
+        long victimsAfter = white ? blackPieces : whitePieces;
+        long pawnsBefore = white ? parent.whitePawns : parent.blackPawns;
+        long pawnsAfter = white ? whitePawns : blackPawns;
+        return Long.bitCount(victimsAfter) < Long.bitCount(victimsBefore)
+                || Long.bitCount(pawnsAfter) < Long.bitCount(pawnsBefore);
+    }
+
     public ArrayList<BitBoard> getSortedNextStates() {
         if (nextStates == null) {
             getNextStates();
@@ -421,6 +435,104 @@ public class BitBoard {
         return sortedNextStates;
     }
 
+
+    /**
+     * The legal captures and queen promotions of the side to move, most valuable victim first and,
+     * among equal victims, cheapest attacker first: the moves the quiescence search plays. A capture
+     * of a defended piece by a more valuable one is left out, since it loses material. Built
+     * without the other moves, and not cached, so it leaves {@link #getNextStates()} untouched.
+     */
+    public ArrayList<BitBoard> getNoisyNextStates() {
+        int color = isWhiteToMove ? 1 : 0;
+        long enemy = color == 1 ? blackPieces : whitePieces;
+        long occupied = whitePieces | blackPieces;
+        ArrayList<BitBoard> noisy = new ArrayList<>();
+        addCaptures(noisy, color, 1, color == 1 ? whiteKings : blackKings, enemy, occupied);
+        addCaptures(noisy, color, 2, color == 1 ? whiteQueens : blackQueens, enemy, occupied);
+        addCaptures(noisy, color, 3, color == 1 ? whiteRooks : blackRooks, enemy, occupied);
+        addCaptures(noisy, color, 4, color == 1 ? whiteBishops : blackBishops, enemy, occupied);
+        addCaptures(noisy, color, 5, color == 1 ? whiteKnights : blackKnights, enemy, occupied);
+
+        long pawns = color == 1 ? whitePawns : blackPawns;
+        long promotionRow = BoardParts.getPromotionRow(color);
+        BitPawn pawn = new BitPawn(color, pawns, whitePieces, blackPieces);
+        for (long p = pawns; p != 0; p &= p - 1) {
+            int from = Long.numberOfTrailingZeros(p);
+            int push = color == 1 ? from - 8 : from + 8; // White moves toward a8 = 0
+            long targets = Attacks.PAWN[color][from] & enemy;
+            if ((promotionRow & (1L << push) & ~occupied) != 0) {
+                targets |= 1L << push;
+            }
+            for (; targets != 0; targets &= targets - 1) {
+                long to = Long.lowestOneBit(targets);
+                BitBoard child = getNewBoardFromMove(6, pawns & ~(1L << from) | to, false);
+                if ((to & promotionRow) != 0) {
+                    child = pawn.getPromotions(child, to).getFirst(); // the queen
+                }
+                addIfLegal(noisy, child, color, 6);
+            }
+        }
+        int colorIndex = color == 1 ? 1 : -1;
+        for (long move : pawn.getEnPassantMoves(enPassantTile)) {
+            if (move != 0L) {
+                BitBoard child = getNewBoardFromMove(6, move, false);
+                int opponent = BitBoardOperations.toggleColor(color);
+                child.setPawns(opponent, BitOperations.clearBit(child.getPawns(opponent), enPassantTile + 8 * colorIndex));
+                child.setMoveValue(child.getMoveValue() + 10);
+                addIfLegal(noisy, child, color, 6);
+            }
+        }
+        noisy.sort((a, b) -> Integer.compare(b.getMoveValue(), a.getMoveValue()));
+        return noisy;
+    }
+
+    /** The captures of one kind of piece, found in the attack tables rather than the move lists. */
+    private void addCaptures(ArrayList<BitBoard> noisy, int color, int numOfPiece, long position,
+                             long enemy, long occupied) {
+        for (long p = position; p != 0; p &= p - 1) {
+            int from = Long.numberOfTrailingZeros(p);
+            long targets = enemy & switch (numOfPiece) {
+                case 1 -> Attacks.KING[from];
+                case 2 -> Attacks.rook(from, occupied) | Attacks.bishop(from, occupied);
+                case 3 -> Attacks.rook(from, occupied);
+                case 4 -> Attacks.bishop(from, occupied);
+                default -> Attacks.KNIGHT[from];
+            };
+            for (; targets != 0; targets &= targets - 1) {
+                int to = Long.numberOfTrailingZeros(targets);
+                if (ROUGH_VALUE[numOfPiece] > roughValueOn(to) && Attacks.attacked(this, to, 1 - color)) {
+                    continue; // a bigger piece takes a smaller, defended one: it loses material
+                }
+                long move = position & ~(1L << from) | 1L << to;
+                addIfLegal(noisy, getNewBoardFromMove(numOfPiece, move, false), color, numOfPiece);
+            }
+        }
+    }
+
+    /**
+     * Textbook piece values (king 1 … pawn 6), only for skipping captures that lose material. They
+     * are fixed rather than the evaluation's weights, so the search prunes the same way whatever
+     * weights it is given.
+     */
+    private static final int[] ROUGH_VALUE = {0, 1000, 9, 5, 3, 3, 1};
+
+    private int roughValueOn(int square) {
+        long b = 1L << square;
+        if (((whitePawns | blackPawns) & b) != 0) return ROUGH_VALUE[6];
+        if (((whiteKnights | blackKnights) & b) != 0) return ROUGH_VALUE[5];
+        if (((whiteBishops | blackBishops) & b) != 0) return ROUGH_VALUE[4];
+        if (((whiteRooks | blackRooks) & b) != 0) return ROUGH_VALUE[3];
+        if (((whiteQueens | blackQueens) & b) != 0) return ROUGH_VALUE[2];
+        return ROUGH_VALUE[1];
+    }
+
+    /** Keeps a legal child, its move value turned into victim first, then cheapest attacker. */
+    private static void addIfLegal(ArrayList<BitBoard> noisy, BitBoard child, int color, int numOfPiece) {
+        if (!child.isCheckOn(color)) {
+            child.setMoveValue(child.getMoveValue() * 8 + numOfPiece); // pieces are numbered king 1 … pawn 6
+            noisy.add(child);
+        }
+    }
 
     // get next moves:
     public ArrayList<BitBoard> getMovesForColor(int color) {

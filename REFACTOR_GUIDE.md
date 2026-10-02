@@ -486,8 +486,11 @@ end-to-end test green; the existing suites unchanged; Swing UI deleted with the 
 > **Re-scoped 2026-10-02.** The owner defined "learning from past games" as evolving the
 > engine's parameters by self-play, and wants to write the evolution himself. Phase 5 is now the
 > groundwork for that (parameters, arena, record, lab page); the opening book moves later. All
-> decisions (E1-E12) are approved; see [docs/phase-5-research.md](docs/phase-5-research.md). The
-> text below is the original plan, kept for the history of why.
+> decisions (E1-E12) are approved; see [docs/phase-5-research.md](docs/phase-5-research.md).
+> **Built on branch `phase-5-evolution` (PR #1):** parameters, quiescence search, move variety,
+> arena, run record and runner, lab page with "play the champion", and the owner's
+> [evolution guide](docs/evolution-guide.md). The text below is the original plan, kept for the
+> history of why.
 
 **Goal.** Now that there's a clean, tested, headless rules/engine core, deliver the two
 capabilities that motivated this project in the first place: real opening-book integration and a

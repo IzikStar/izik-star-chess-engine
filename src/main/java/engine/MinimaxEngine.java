@@ -1,8 +1,10 @@
 package engine;
 
+import ai.BitBoard.BitBoardEvaluate;
 import ai.BitBoard.BitBoardRules;
 import ai.BitBoard.BitMove;
 import ai.Minimax;
+import ai.eval.Evaluator;
 import rules.ChessMove;
 import rules.Position;
 import rules.Rules;
@@ -17,14 +19,25 @@ import java.util.Random;
  * <p>Phase 4 (docs/phase-4-research.md Fork A1): the depth is still the strength knob, but the
  * search deepens one ply at a time and stops at {@link #TIME_CAP_MS}, playing the move of the
  * deepest finished depth. Levels that finish in time play exactly as before.
+ *
+ * <p>Phase 5: it plays with any {@link Evaluator}; the default is the hand-written evaluation
+ * with its usual weights. It no longer plays the same game every time: among the moves scoring
+ * within {@link #DEFAULT_VARIETY} of the best it picks one at random ({@code searchAtDepth} stays
+ * deterministic, for the tests that record moves).
  */
 public final class MinimaxEngine implements Engine {
 
     /** Longest a built-in search may think, at any level. */
     public static final long TIME_CAP_MS = 5000;
 
+    /** How far below the best move (pawn = 10) a move may score and still be played: 0.2 pawn. */
+    public static final int DEFAULT_VARIETY = 2;
+
     private final Random random;
     private final long timeCapMs;
+    /** Swapped by {@link #useEvaluator}, e.g. to play an evolved champion; read once per search. */
+    private volatile Evaluator evaluator;
+    private final int variety;
 
     public MinimaxEngine() {
         this(new Random());
@@ -36,8 +49,33 @@ public final class MinimaxEngine implements Engine {
 
     /** For tests: a different time cap. */
     public MinimaxEngine(Random random, long timeCapMs) {
+        this(random, timeCapMs, BitBoardEvaluate.DEFAULT);
+    }
+
+    /** The engine playing with {@code evaluator}'s weights. */
+    public MinimaxEngine(Evaluator evaluator) {
+        this(new Random(), TIME_CAP_MS, evaluator);
+    }
+
+    public MinimaxEngine(Random random, long timeCapMs, Evaluator evaluator) {
+        this(random, timeCapMs, evaluator, DEFAULT_VARIETY);
+    }
+
+    /** {@code variety} 0 always plays the search's best move. */
+    public MinimaxEngine(Random random, long timeCapMs, Evaluator evaluator, int variety) {
         this.random = random;
         this.timeCapMs = timeCapMs;
+        this.evaluator = evaluator;
+        this.variety = variety;
+    }
+
+    public Evaluator evaluator() {
+        return evaluator;
+    }
+
+    /** Plays the following searches with {@code evaluator}'s weights (a search already running keeps its own). */
+    public void useEvaluator(Evaluator evaluator) {
+        this.evaluator = evaluator;
     }
 
     @Override
@@ -52,18 +90,37 @@ public final class MinimaxEngine implements Engine {
         }
         int depth = Math.max(1, searchDepth(Position.fromFen(fen), request.skillLevel()));
         long deadline = System.nanoTime() + timeCapMs * 1_000_000;
-        BitMove bitMove = Minimax.getBestMove(BitBoardRules.fromFen(fen), depth,
-                () -> request.cancel().isCancelled() || System.nanoTime() > deadline);
+        Evaluator weights = evaluator;
+        BitMove bitMove = Minimax.getBestMove(BitBoardRules.fromFen(fen), depth, weights,
+                new Minimax.Options(variety, random, true), () -> request.cancel().isCancelled() || System.nanoTime() > deadline);
         return request.cancel().isCancelled() ? null : toLegalMove(bitMove, legal);
     }
 
     /** The minimax search's move at exactly {@code depth} (no time cap), or {@code null} if there is no legal move. */
     public static ChessMove searchAtDepth(String fen, int depth) {
+        return searchAtDepth(fen, depth, BitBoardEvaluate.DEFAULT);
+    }
+
+    /** The minimax search's move at exactly {@code depth} with {@code evaluator}, or {@code null} if there is no legal move. */
+    public static ChessMove searchAtDepth(String fen, int depth, Evaluator evaluator) {
         List<ChessMove> legal = Rules.legalMoves(fen);
         if (legal.isEmpty()) {
             return null;
         }
-        BitMove bitMove = Minimax.getBestMove(BitBoardRules.fromFen(fen), depth);
+        BitMove bitMove = Minimax.getBestMove(BitBoardRules.fromFen(fen), depth, evaluator, () -> false);
+        return toLegalMove(bitMove, legal);
+    }
+
+    /**
+     * The minimax search's move at exactly {@code depth} with {@code evaluator} and {@code options}
+     * (variety, quiescence), or {@code null} if there is no legal move. The arena plays with this.
+     */
+    public static ChessMove searchAtDepth(String fen, int depth, Evaluator evaluator, Minimax.Options options) {
+        List<ChessMove> legal = Rules.legalMoves(fen);
+        if (legal.isEmpty()) {
+            return null;
+        }
+        BitMove bitMove = Minimax.getBestMove(BitBoardRules.fromFen(fen), depth, evaluator, options, () -> false);
         return toLegalMove(bitMove, legal);
     }
 

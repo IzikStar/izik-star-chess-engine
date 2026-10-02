@@ -57,6 +57,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 .btn.ghost:hover { color: var(--fg); }
 
 /* the board takes what the window leaves after the side panel */
+.game[hidden] { display: none; }
 .game { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; padding: 20px; max-width: 1400px; width: 100%; margin: 0 auto; }
 .board-area { display: flex; justify-content: center; align-items: flex-start; min-width: 0; }
 .board { position: relative; width: min(100%, calc(100vh - 110px)); min-width: 280px; aspect-ratio: 1; border-radius: 4px; overflow: hidden; box-shadow: 0 3px 14px rgba(0, 0, 0, 0.22); }
@@ -140,4 +141,56 @@ input[type='range'] { width: 100%; accent-color: var(--accent); }
   .topbar { padding: 8px 12px; gap: 2px; }
   .brand { font-size: 15px; }
   .btn { padding: 6px 9px; white-space: nowrap; }
+}
+
+/* ---- Lab (Phase 5): evolution runs ---- */
+.tabs { display: flex; gap: 2px; margin-left: 12px; }
+.tabs .btn.on { color: var(--fg); background: var(--surface-2); }
+.lab { flex: 1; display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 20px; padding: 20px; max-width: 1400px; width: 100%; margin: 0 auto; align-items: start; }
+.panel { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 14px 16px; }
+.panel h2 { margin: 0 0 4px; font-size: 18px; }
+.panel h3 { margin: 12px 0 8px; font-size: 15px; }
+.panel p { margin: 4px 0 10px; }
+.empty-lab { grid-column: 1 / -1; max-width: 760px; }
+.empty-lab pre { background: var(--surface-2); padding: 10px; border-radius: 8px; overflow-x: auto; font-size: 13px; }
+.runs ul { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.runs button { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 8px; border: 1px solid transparent; background: none; cursor: pointer; }
+.runs button:hover { background: var(--surface-2); }
+.runs button.on { border-color: var(--accent); background: var(--accent-soft); }
+.runs .muted { font-size: 13px; }
+.run { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.run-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.chart { width: 100%; height: auto; max-height: 260px; font-size: 11px; fill: var(--muted); }
+.chart .grid { stroke: var(--line); }
+.chart .zero { stroke: var(--muted); stroke-dasharray: 4 3; }
+.chart .line { fill: none; stroke: var(--accent); stroke-width: 2; }
+.chart .err { stroke: var(--accent); stroke-opacity: 0.45; stroke-width: 3; }
+.chart .dot { fill: var(--accent); }
+.table-wrap { overflow-x: auto; }
+.lab table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.lab th { text-align: left; font-weight: 600; color: var(--muted); padding: 4px 8px; border-bottom: 1px solid var(--line); }
+.lab td { padding: 4px 8px; border-bottom: 1px solid var(--line); }
+.lab .mono { font-family: var(--mono); }
+.weights td.up { color: var(--accent); font-weight: 600; }
+.weights td.down { color: var(--warn); font-weight: 600; }
+.spark { width: 120px; height: 24px; display: block; }
+.spark polyline { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+.pick { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+.pick select { font: inherit; padding: 3px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface-2); color: var(--fg); }
+.games-replay { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 420px); gap: 16px; align-items: start; }
+.games { max-height: 520px; overflow-y: auto; }
+.games tbody tr { cursor: pointer; }
+.games tbody tr:hover { background: var(--surface-2); }
+.games tbody tr.on { background: var(--accent-soft); }
+.games tbody tr.yardstick td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.replay { display: flex; flex-direction: column; gap: 8px; }
+.replay p { margin: 0; font-size: 13px; }
+.replay-board .board { width: 100%; min-width: 0; }
+.replay .sans { line-height: 1.8; }
+.replay .mv { background: none; border: 0; padding: 1px 3px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+.replay .mv.current { background: var(--accent); color: var(--accent-fg); }
+.champion-pick { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--accent); border-radius: 9px; background: var(--accent-soft); font-size: 14px; }
+@media (max-width: 900px) {
+  .lab { grid-template-columns: 1fr; }
+  .games-replay { grid-template-columns: 1fr; }
 }

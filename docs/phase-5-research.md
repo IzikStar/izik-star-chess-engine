@@ -349,3 +349,99 @@ know which kind it is evolving.
 | E10 | Generic evaluator | **`Evaluator` over a parameter vector + schema, so a neural net fits later without changing the arena or the owner's code** / hand-written evaluation only | **Generic** |
 | E11 | Neural network | **Next phase (Phase 6), after evolution works on Level 1: 768 board inputs → small hidden layer → 1, trained and/or evolved** / in this phase / never | **Next phase** |
 | E12 | Training data | **Export `(position, result)` from every recorded game, for Texel-style fitting** / not now | **Export now** (cheap; the fitter itself is the owner's or a later step) |
+
+## 9. Increment log
+
+1. **Step 1 — parameters (2026-10-02).** `ai.eval`: `ParamSpec`, `ParamSchema`, `ParamVector`
+   (JSON in and out) and the `Evaluator` interface. `BitBoardEvaluate` is an instance built from a
+   vector; the static game stage is gone, so searches with different weights run side by side
+   (`EvaluatorTest`: two weight sets on four threads score exactly as alone). `Minimax` and
+   `MinimaxEngine` take an `Evaluator`; without one they use `BitBoardEvaluate.DEFAULT`.
+   `SameMoveTest` unchanged and green.
+2. **Step 1b — 499 parameters (2026-10-02).** The evaluation is now features × weights, tapered
+   between a middlegame and an endgame weight by the material left (phase 24 → 0). 56 named
+   features (27 from the old code, 29 new: pawn structure 11, king safety 8, mobility 4, pieces 6),
+   each with an mg and an eg weight; 3 gates (the old "before turn N" thresholds); piece-square
+   tables for 6 piece types × 32 mirrored squares × 2 phases. Old weights keep their values in
+   both phases (penalties are now negative bonuses, e.g. `development.bishopsHome = -15`); new ones
+   start at 0, and a group whose weights are all 0 is not computed. `BitBoardEvaluate.features()`
+   returns the full feature vector and phase for fitting (§8.3). Measured: the defaults play the
+   same games at the same speed as before; with every feature switched on, a depth-4 game takes
+   about 20-30% longer (20 ms per move instead of ~15). Tests: `EvaluatorFeaturesTest` (each new
+   feature on a hand-made position; every feature flips sign when the colours are swapped, on 400
+   random positions; the score equals the tapered sum of features × weights for random weights).
+3. **Step 2 — quiescence search (2026-10-02).** When the depth runs out, `Minimax` no longer
+   scores the position on the spot: it plays on through captures and queen promotions until the
+   position is quiet, and the side to move may "stand pat" on the static score instead of taking.
+   At the first extra ply a side in check tries every move (so mates are still seen); deeper,
+   checks are scored as they stand, and the extra plies stop at 8. A capture of a defended piece by
+   a more valuable one is skipped; that test uses fixed textbook values (1/3/3/5/9), not the
+   evaluation's weights, so it prunes the same way for every candidate. The captures come from a
+   new generator, `BitBoard.getNoisyNextStates()`, that reads the attack tables instead of building
+   every move (`NoisyMovesTest` checks it against the full move list in the perft trees); the king
+   moves were rewritten from the same tables, since they were a sixth of the time. The endgame
+   stage bug from §2 was already gone with tapering in step 1b. Effect: at depth 1 the queen no
+   longer grabs a pawn a pawn defends (`QuiescenceTest`; the old engine did). Cost: about 1.5-2×
+   the old search time (56 positions at depth 5: 7.7 s, was 5.3 s). Level 6 still finishes depth 5
+   within 1 s in every benchmark; Level 7 finishes depth 6 within its 5 s cap in five of six, but
+   the middlegame benchmark takes about 8 s, so there the cap plays the depth-5 move
+   (`SearchSpeedTest` now allows Level 7 twice the cap; a transposition table and better move
+   ordering are the way back). `same-moves.txt` re-recorded, as this change is meant to alter play.
+4. **Variety (2026-10-02, the owner's request "the game shouldn't be deterministic").** The search
+   used to play the same game every time. Now `Minimax.getBestMove` takes a `variety` margin and a
+   `Random`: at the root the window is kept open by the margin, so every move within it of the best
+   gets an exact score, and one of them is picked at random. A forced mate is never traded away.
+   The game engine uses 0.2 pawn (`MinimaxEngine.DEFAULT_VARIETY = 2`): in 20 self-play games from
+   the start, 19-20 of the first eight moves differ, and it still never leaves a piece hanging
+   (`VarietyTest`). A seeded `Random` repeats a game exactly, which the arena will use: varied but
+   reproducible. `searchAtDepth` (and so `SameMoveTest`) stays deterministic.
+5. **Step 3 — arena (2026-10-02).** Package `arena`: `Opening` (a suite of 51 balanced lines in
+   `arena/openings.txt`, each legal and ending with White to move, `OpeningsTest`), `Player`
+   (evaluator, fixed depth, variety, quiescence on/off), `Match` (plays one game; ply cap 300 is
+   a draw with reason `PLY_CAP`; the same players, opening and seed give the same game),
+   `Tournament` (every pairing × every opening × both colours on a thread pool; results come back
+   in a fixed order and do not depend on the number of threads), `Score` (W/D/L, Elo and a 95%
+   interval from the per-game spread) and `Cli` (`arena.Cli match A B --depth 3 …`). The search
+   gained `Minimax.Options(variety, random, quiescence)`. Gauntlet of step 2, 102 games each,
+   default weights with quiescence against the same weights without it: depth 3 +90 =10 -2
+   (93%, Elo +453 [+368, +603]) in 15 s; depth 4 +83 =13 -6 (88%, Elo +342 [+268, +452]) in 99 s,
+   on 3 threads. Tests: a seed repeats a game, another seed differs, the ply cap, a mate is scored
+   for the right side, colours swap, thread count does not change results, depth 3 beats depth 1.
+6. **Step 4 — record and runner (2026-10-02).** Package `evolution` is the owner's: the
+   `Evolution` interface (`firstGeneration`, `pairings` with a round-robin default,
+   `nextGeneration`), `Generation` (the population with its games: points, score, head-to-head,
+   ranking, champion), `Pairing`, and `RandomMutationExample` (keep the better half, refill with
+   mutated copies; for the tests and as an example only). Package `lab`: `RunStore` (one SQLite
+   file per run through `sqlite-jdbc`: tables `run`, `member`, `game`, `generation`),
+   `EvolutionRunner` (plays each generation's pairings over rotating openings with both colours,
+   stores every game, picks the champion, plays it against the default weights every N
+   generations, stores the next population and the generation row in one transaction),
+   `TrainingExport` (E12: `fen,result` per quiet position after ply 10) and `Cli`
+   (`run`, `resume`, `show`, `export`; Ctrl+C stops after the current generation). Every random
+   choice comes from the run's seed and the generation number, so a stopped and resumed run
+   records exactly what an uninterrupted one does (`EvolutionRunnerTest`, which also cuts a
+   generation off half way). A trial run, 3 generations of 8 at depth 2 with one opening per
+   pairing, took 13 s on 3 threads. It also showed how noisy short matches are: generation 0's
+   champion was the default weights themselves, and over 8 games against the defaults it scored
+   31% (Elo -137, interval -446 to +37). The guide (step 6) has to say this plainly.
+7. **Step 5 — lab page (2026-10-02).** `web.LabApi` serves the runs in a folder (`runs/`, or
+   `--runs DIR`) read-only over HTTP: the list, one run (settings, generations, and the parameters
+   its champions moved, at most 60, biggest change first), a generation's games, and one game
+   move by move. The web app has a **Lab** tab (`#lab`): runs list, a chart of the champion's Elo
+   against the default weights with 95% bars, a weight table (default, latest, change and a
+   sparkline over the generations; 12 rows, the rest on request), the generation's games and a
+   replay board. It refreshes every 5 s, so a run in progress fills in. **Play generation N's
+   champion** opens the New game dialog with that champion: `newGame` carries
+   `champion: {run, generation}`, the hub swaps the built-in engine's evaluator
+   (`MinimaxEngine.useEvaluator`) and caps the level at 7 (8-10 would be Stockfish); the state's
+   `opponent` names it and the player card shows it; the next game without it goes back to the
+   default weights. `RandomMutationExample` now steps 1% of a parameter's range (was 5%: every
+   mutant lost to the default weights, so no champion ever moved a weight). Tests: `LabApiTest`
+   (API over a real tiny run, path checks, a champion game over the hub), and a Playwright test
+   over a run recorded before the server starts.
+8. **Step 6 — hand-over (2026-10-02).** `docs/evolution-guide.md`: what an individual is, the
+   API, running and costs, how to read the yardstick and its interval (with the trial run's
+   noise as the example), traps (noise, mutation size, too many parameters at once,
+   overfitting to the population, openings, depth), and methods worth trying (adaptive ES, SPSA,
+   CMA-ES, Texel tuning on the export). `lab.Cli champion FILE N OUT.json` writes a champion's
+   weights for `arena.Cli match`.

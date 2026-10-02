@@ -14,9 +14,13 @@ export default defineConfig({
     launchOptions: process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {},
   },
   webServer: {
-    command: 'java -jar ../target/izikstar-chess-3.1.0.jar --port 7071 --no-browser',
+    // first a tiny evolution run for the lab page to show (lab.spec.ts), then the server
+    command: 'node -e "require(\'fs\').rmSync(\'../target/e2e-runs\', { recursive: true, force: true })"'
+      + ' && java -cp ../target/izikstar-chess-3.1.0.jar lab.Cli run ../target/e2e-runs/demo.db --name Demo'
+      + ' --generations 2 --depth 1 --openings-per-pairing 1 --yardstick-every 1 --yardstick-openings 2 --threads 2'
+      + ' && java -jar ../target/izikstar-chess-3.1.0.jar --port 7071 --no-browser --runs ../target/e2e-runs',
     url: 'http://127.0.0.1:7071/',
     reuseExistingServer: false,
-    timeout: 30_000,
+    timeout: 90_000,
   },
 });

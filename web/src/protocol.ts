@@ -50,6 +50,15 @@ export interface GameState {
   legalMoves: string[];
   moves: MoveInfo[];
   config: GameConfig;
+  /** The evolved champion the engine plays as, or null for the usual engine. */
+  opponent: Champion | null;
+}
+
+/** An evolved champion to play against: a run file in the lab and one of its generations. */
+export interface Champion {
+  run: string;
+  generation: number;
+  label: string;
 }
 
 export type GameEvent =
@@ -70,7 +79,7 @@ export type Command =
   | { type: 'move'; uci: string }
   | { type: 'undo' }
   | { type: 'hint' }
-  | { type: 'newGame'; mode: Mode; color: Color | 'random'; level: number; blackLevel: number };
+  | { type: 'newGame'; mode: Mode; color: Color | 'random'; level: number; blackLevel: number; champion?: { run: string; generation: number } | null };
 
 export type Connection = 'connecting' | 'open' | 'lost';
 
