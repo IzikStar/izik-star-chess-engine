@@ -170,6 +170,10 @@ public class BitBoard {
 
     // making moves:
     private BitBoard getNewBoardFromMove(int numOfPiece, long newPosition) {
+        return getNewBoardFromMove(numOfPiece, newPosition, true);
+    }
+    // scoreCheck: rate a move that gives check first in the move order (skipped when only legality matters)
+    private BitBoard getNewBoardFromMove(int numOfPiece, long newPosition, boolean scoreCheck) {
         long wK = whiteKings, wQ = whiteQueens, wR = whiteRooks, wB = whiteBishops, wN = whiteKnights, wP = whitePawns;
         long bK = blackKings, bQ = blackQueens, bR = blackRooks, bB = blackBishops, bN = blackKnights, bP = blackPawns;
         int ePT = -1;
@@ -384,7 +388,7 @@ public class BitBoard {
                 nOTWCOPM,   // numOfTurnsWithoutCaptureOrPawnMove
                 new BitMove(lastPieceToMove, newPosition)
         );
-        if (bitBoard.isCheckOn(bitBoard.isWhiteToMove ? 1 : 0)) moveValue = Integer.MAX_VALUE;
+        if (scoreCheck && bitBoard.isCheckOn(bitBoard.isWhiteToMove ? 1 : 0)) moveValue = Integer.MAX_VALUE;
         bitBoard.setMoveValue(moveValue);
         return bitBoard;
     }
@@ -603,9 +607,54 @@ public class BitBoard {
         return isCheckOn(isWhiteToMove ? 1 : 0);
     }
 
+    /**
+     * Whether the side to move has a legal move: the same answer as {@code !getNextStates().isEmpty()},
+     * but it stops at the first legal move and keeps nothing, so a leaf of the search no longer builds
+     * all its children. Castling is not tried: whenever castling is legal, so is the king's step
+     * to f1/d1 (f8/d8).
+     */
+    public boolean hasLegalMove() {
+        if (nextStates != null) return !nextStates.isEmpty();
+        int color = isWhiteToMove ? 1 : 0;
+        long kings = color == 1 ? whiteKings : blackKings;
+        for (long move : new BitKing(color, kings, whitePieces, blackPieces).validMovements()) {
+            if (!sameTeem(move, kings) && !getNewBoardFromMove(1, move, false).isCheckOn(color)) return true;
+        }
+        long knights = color == 1 ? whiteKnights : blackKnights;
+        for (long move : new BitKnight(color, knights, whitePieces, blackPieces).validMovements()) {
+            if (!getNewBoardFromMove(5, move, false).isCheckOn(color)) return true;
+        }
+        long bishops = color == 1 ? whiteBishops : blackBishops;
+        for (long move : new BitBishop(color, bishops, whitePieces, blackPieces).validMovements()) {
+            if (!getNewBoardFromMove(4, move, false).isCheckOn(color)) return true;
+        }
+        long rooks = color == 1 ? whiteRooks : blackRooks;
+        for (long move : new BitRook(color, rooks, whitePieces, blackPieces).validMovements()) {
+            if (!getNewBoardFromMove(3, move, false).isCheckOn(color)) return true;
+        }
+        long queens = color == 1 ? whiteQueens : blackQueens;
+        for (long move : new BitQueen(color, queens, whitePieces, blackPieces).validMovements()) {
+            if (!getNewBoardFromMove(2, move, false).isCheckOn(color)) return true;
+        }
+        long pawns = color == 1 ? whitePawns : blackPawns;
+        BitPawn pawn = new BitPawn(color, pawns, whitePieces, blackPieces);
+        for (long move : pawn.validMovements()) {
+            if (!getNewBoardFromMove(6, move, false).isCheckOn(color)) return true;
+        }
+        int opponentColor = BitBoardOperations.toggleColor(color);
+        int colorIndex = color == 1 ? 1 : -1;
+        for (long move : pawn.getEnPassantMoves(enPassantTile)) {
+            if (move != 0L) {
+                BitBoard child = getNewBoardFromMove(6, move, false);
+                child.setPawns(opponentColor, BitOperations.clearBit(child.getPawns(opponentColor), enPassantTile + 8 * colorIndex));
+                if (!child.isCheckOn(color)) return true;
+            }
+        }
+        return false;
+    }
+
     public int getStatus() {
-        if (nextStates == null) getNextStates();
-        if (nextStates.isEmpty()) {
+        if (!hasLegalMove()) {
             if (isCheckOn(0)) return Integer.MIN_VALUE;
             if (isCheckOn(1)) return Integer.MAX_VALUE;
             // System.out.println("staleMate!!!!!!!!!!!");
