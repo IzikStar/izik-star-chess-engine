@@ -29,7 +29,6 @@ import java.util.function.BooleanSupplier;
  * piece that is about to be taken back.
  */
 public class Minimax {
-    private static final Random random = new Random();
 
     /** How many nodes pass between two looks at the stop signal. */
     private static final int STOP_CHECK_INTERVAL = 256;
@@ -51,12 +50,20 @@ public class Minimax {
     private final BooleanSupplier stop;
     /** True when the side choosing the move (the side to move at the root) is Black. */
     private final boolean rootIsBlack;
-    private final ArrayList<BitMove> bestMoves = new ArrayList<>();
+    /** How far below the best score a root move may be and still be picked (0 = only the best). */
+    private final int variety;
+    private final Random random;
+    /** The root's moves that scored within {@link #variety} of the best, with their scores. */
+    private final ArrayList<BitMove> rootMoves = new ArrayList<>();
+    private final ArrayList<Integer> rootValues = new ArrayList<>();
     private int nodesChecked = 0;
 
-    private Minimax(int searchDepth, Evaluator evaluator, boolean rootIsBlack, BooleanSupplier stop) {
+    private Minimax(int searchDepth, Evaluator evaluator, int variety, Random random, boolean rootIsBlack,
+                    BooleanSupplier stop) {
         this.searchDepth = searchDepth;
         this.evaluator = evaluator;
+        this.variety = variety;
+        this.random = random;
         this.rootIsBlack = rootIsBlack;
         this.stop = stop;
     }
@@ -77,11 +84,23 @@ public class Minimax {
      * {@code maxDepth}: every depth is an independent search.
      */
     public static BitMove getBestMove(BitBoard bitboard, int maxDepth, Evaluator evaluator, BooleanSupplier stop) {
+        return getBestMove(bitboard, maxDepth, evaluator, 0, null, stop);
+    }
+
+    /**
+     * Like {@link #getBestMove(BitBoard, int, Evaluator, BooleanSupplier)}, but not always the same
+     * move: any root move scoring within {@code variety} of the best (in the evaluation's units,
+     * pawn = 10) may be played, picked with {@code random}. A seeded {@code random} makes the
+     * choice repeatable. A forced mate is never traded for variety. With {@code variety} 0 the
+     * search is the deterministic one and {@code random} is not used.
+     */
+    public static BitMove getBestMove(BitBoard bitboard, int maxDepth, Evaluator evaluator, int variety,
+                                      Random random, BooleanSupplier stop) {
         boolean rootIsBlack = !bitboard.getIsWhiteToMove();
-        BitMove best = new Minimax(1, evaluator, rootIsBlack, () -> false).search(bitboard);
+        BitMove best = new Minimax(1, evaluator, variety, random, rootIsBlack, () -> false).search(bitboard);
         for (int depth = 2; depth <= maxDepth && !stop.getAsBoolean(); depth++) {
             try {
-                best = new Minimax(depth, evaluator, rootIsBlack, stop).search(bitboard);
+                best = new Minimax(depth, evaluator, variety, random, rootIsBlack, stop).search(bitboard);
             } catch (Abandoned e) {
                 break;
             }
@@ -94,10 +113,16 @@ public class Minimax {
         TranspositionTable transpositionTable = new TranspositionTable();
         MinimaxResult result = minimax(bitboard, searchDepth, true, Integer.MIN_VALUE, Integer.MAX_VALUE,
                 boardStateTracker, transpositionTable);
-        if (!bestMoves.isEmpty()) {
-            result.move = bestMoves.get(random.nextInt(bestMoves.size()));
+        if (variety == 0 || Math.abs(result.value) >= BitBoardEvaluate.MATE) {
+            return result.move;
         }
-        return result.move;
+        ArrayList<BitMove> candidates = new ArrayList<>();
+        for (int i = 0; i < rootMoves.size(); i++) {
+            if (rootValues.get(i) >= result.value - variety) {
+                candidates.add(rootMoves.get(i));
+            }
+        }
+        return candidates.isEmpty() ? result.move : candidates.get(random.nextInt(candidates.size()));
     }
 
     private MinimaxResult minimax(BitBoard board, int depth, boolean isMaximizingPlayer, int alpha, int beta, BoardStateTracker boardStateTracker, TranspositionTable transpositionTable) {
@@ -138,9 +163,6 @@ public class Minimax {
         ArrayList<BitBoard> children = board.getSortedNextStates(); // sorted once, best-ordered first
         BitMove bestMove = children.getFirst().lastMove;
         boolean lastDepth = depth == searchDepth; // the root: its children are the candidate moves
-        if (lastDepth) {
-            bestMoves.clear();
-        }
         int bestValue;
 
         if (isMaximizingPlayer) {
@@ -151,16 +173,14 @@ public class Minimax {
                 if (result.value > bestValue) {
                     bestMove = state.lastMove;
                     bestValue = result.value;
-                    if (lastDepth) {
-                        // if (result.value - bestValue > 3)
-                        bestMoves.clear();
-                        bestMoves.add(bestMove);
-                    }
-                } else if (lastDepth && result.value == bestValue && (!alreadyAdded(result.move))) {
-                    // bestMoves.add(bestMove);
-                    // System.out.println(bestMove);
                 }
-                alpha = Math.max(alpha, bestValue);
+                if (lastDepth && variety > 0) {
+                    rootMoves.add(state.lastMove);
+                    rootValues.add(result.value);
+                }
+                // at the root, keep the window open by `variety` so near-best moves get exact scores
+                alpha = Math.max(alpha, lastDepth && variety > 0 && bestValue > Integer.MIN_VALUE + variety
+                        ? bestValue - variety - 1 : bestValue);
                 if (beta <= alpha) {
                     // prunings += 1 * (maxDepth - depth);
                     break; // אלפא-בטא גיזום
@@ -253,14 +273,6 @@ public class Minimax {
             return value + ply;
         }
         return value;
-    }
-
-    private boolean alreadyAdded(BitMove move) {
-        for (BitMove bitMove : bestMoves) {
-            if (bitMove.toString().equals(move.toString())) return true;
-            // System.out.println("compared " + bitMove + " to " + move);
-        }
-        return false;
     }
 
     private static class MinimaxResult {

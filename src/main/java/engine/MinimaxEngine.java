@@ -21,16 +21,22 @@ import java.util.Random;
  * deepest finished depth. Levels that finish in time play exactly as before.
  *
  * <p>Phase 5: it plays with any {@link Evaluator}; the default is the hand-written evaluation
- * with its usual weights.
+ * with its usual weights. It no longer plays the same game every time: among the moves scoring
+ * within {@link #DEFAULT_VARIETY} of the best it picks one at random ({@code searchAtDepth} stays
+ * deterministic, for the tests that record moves).
  */
 public final class MinimaxEngine implements Engine {
 
     /** Longest a built-in search may think, at any level. */
     public static final long TIME_CAP_MS = 5000;
 
+    /** How far below the best move (pawn = 10) a move may score and still be played: 0.2 pawn. */
+    public static final int DEFAULT_VARIETY = 2;
+
     private final Random random;
     private final long timeCapMs;
     private final Evaluator evaluator;
+    private final int variety;
 
     public MinimaxEngine() {
         this(new Random());
@@ -51,9 +57,15 @@ public final class MinimaxEngine implements Engine {
     }
 
     public MinimaxEngine(Random random, long timeCapMs, Evaluator evaluator) {
+        this(random, timeCapMs, evaluator, DEFAULT_VARIETY);
+    }
+
+    /** {@code variety} 0 always plays the search's best move. */
+    public MinimaxEngine(Random random, long timeCapMs, Evaluator evaluator, int variety) {
         this.random = random;
         this.timeCapMs = timeCapMs;
         this.evaluator = evaluator;
+        this.variety = variety;
     }
 
     public Evaluator evaluator() {
@@ -72,7 +84,7 @@ public final class MinimaxEngine implements Engine {
         }
         int depth = Math.max(1, searchDepth(Position.fromFen(fen), request.skillLevel()));
         long deadline = System.nanoTime() + timeCapMs * 1_000_000;
-        BitMove bitMove = Minimax.getBestMove(BitBoardRules.fromFen(fen), depth, evaluator,
+        BitMove bitMove = Minimax.getBestMove(BitBoardRules.fromFen(fen), depth, evaluator, variety, random,
                 () -> request.cancel().isCancelled() || System.nanoTime() > deadline);
         return request.cancel().isCancelled() ? null : toLegalMove(bitMove, legal);
     }

@@ -387,3 +387,11 @@ know which kind it is evolving.
    the middlegame benchmark takes about 8 s, so there the cap plays the depth-5 move
    (`SearchSpeedTest` now allows Level 7 twice the cap; a transposition table and better move
    ordering are the way back). `same-moves.txt` re-recorded, as this change is meant to alter play.
+4. **Variety (2026-10-02, the owner's request "the game shouldn't be deterministic").** The search
+   used to play the same game every time. Now `Minimax.getBestMove` takes a `variety` margin and a
+   `Random`: at the root the window is kept open by the margin, so every move within it of the best
+   gets an exact score, and one of them is picked at random. A forced mate is never traded away.
+   The game engine uses 0.2 pawn (`MinimaxEngine.DEFAULT_VARIETY = 2`): in 20 self-play games from
+   the start, 19-20 of the first eight moves differ, and it still never leaves a piece hanging
+   (`VarietyTest`). A seeded `Random` repeats a game exactly, which the arena will use: varied but
+   reproducible. `searchAtDepth` (and so `SameMoveTest`) stays deterministic.
