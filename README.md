@@ -321,9 +321,10 @@ On Linux, `sudo apt install stockfish` installs it at `/usr/games/stockfish`.
 
 MIT, see [LICENSE](LICENSE).
 
-The chess piece set is original artwork drawn for this project; the board draws it straight
-from its vector source, [`docs/art/pieces.svg`](docs/art/pieces.svg), and it is covered by the
-same MIT license. The sound effects are synthesised in the browser by
+The chess pieces are original artwork drawn for this project and covered by the same MIT
+license: the board's glossy black-and-ivory set is drawn in code by
+[`web/src/pieces.tsx`](web/src/pieces.tsx), and an earlier original set is kept in
+[`docs/art/pieces.svg`](docs/art/pieces.svg). The sound effects are synthesised in the browser by
 [`web/src/sounds.ts`](web/src/sounds.ts), so the repository ships no third-party sound files.
 
 Stockfish is a separate project licensed under the GPLv3 and is not distributed here.

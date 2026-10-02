@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Chessboard, type Arrow } from 'react-chessboard';
 import type { Color } from './protocol';
 import { boardOf } from './chess';
-import { PIECES, PieceSvg } from './pieces';
+import { PieceSvg, pieceSet } from './pieces';
 
 interface Props {
   fen: string;
@@ -114,7 +114,7 @@ export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, on
         options={{
           id: 'main',
           position: fen,
-          pieces: PIECES,
+          pieces: pieceSet,
           boardOrientation: orientation,
           squareStyles,
           arrows,
@@ -202,13 +202,11 @@ function PromotionPicker({ square, orientation, color, onPick, onCancel }: {
         style={{ left: `${col * 12.5}%`, [fromTop ? 'top' : 'bottom']: 0, flexDirection: fromTop ? 'column' : 'column-reverse' }}
         onClick={(e) => e.stopPropagation()}
       >
-        {(['q', 'r', 'b', 'n'] as const).map((p) => {
-          return (
-            <button key={p} type="button" className="promo-piece" aria-label={{ q: 'Queen', r: 'Rook', b: 'Bishop', n: 'Knight' }[p]} onClick={() => onPick(p)}>
-              <PieceSvg piece={color + p.toUpperCase()} />
-            </button>
-          );
-        })}
+        {(['q', 'r', 'b', 'n'] as const).map((p) => (
+          <button key={p} type="button" className="promo-piece" aria-label={{ q: 'Queen', r: 'Rook', b: 'Bishop', n: 'Knight' }[p]} onClick={() => onPick(p)}>
+            <PieceSvg code={color + p.toUpperCase()} />
+          </button>
+        ))}
       </div>
     </div>
   );

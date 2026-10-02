@@ -13,6 +13,8 @@
   --warn-soft: #f6e1d6;
   --sq-light: #e4eae0;
   --sq-dark: #7c9f8e;
+  /* black pieces drawn on the panel (taken pieces, avatar, promotion picker) need a halo on a dark surface */
+  --piece-halo: none;
   --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, 'Cascadia Mono', Consolas, 'DejaVu Sans Mono', monospace;
   color-scheme: light;
@@ -22,6 +24,7 @@
     --bg: #161a18; --surface: #202522; --surface-2: #272d29; --line: #343b37;
     --fg: #e7ebe8; --muted: #97a19b; --accent: #5fbfa3; --accent-fg: #0f1a16; --accent-soft: #23413a;
     --warn: #e08a5f; --warn-soft: #3d2a20; --sq-light: #c3cfc5; --sq-dark: #5e7f71;
+    --piece-halo: drop-shadow(0 0 1.2px rgba(255, 255, 255, 0.75));
     color-scheme: dark;
   }
 }
@@ -29,6 +32,7 @@
   --bg: #161a18; --surface: #202522; --surface-2: #272d29; --line: #343b37;
   --fg: #e7ebe8; --muted: #97a19b; --accent: #5fbfa3; --accent-fg: #0f1a16; --accent-soft: #23413a;
   --warn: #e08a5f; --warn-soft: #3d2a20; --sq-light: #c3cfc5; --sq-dark: #5e7f71;
+  --piece-halo: drop-shadow(0 0 1.2px rgba(255, 255, 255, 0.75));
   color-scheme: dark;
 }
 
@@ -67,11 +71,14 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 .player { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
 .player.to-move { border-color: var(--accent); box-shadow: inset 4px 0 0 var(--accent); }
 .avatar { width: 38px; height: 38px; border-radius: 8px; display: grid; place-items: center; font-size: 22px; background: var(--surface-2); border: 1px solid var(--line); flex: none; }
+.avatar svg { width: 30px; height: 30px; }
 .who { flex: 1; min-width: 0; }
 .name { font-weight: 600; }
 .detail { font-size: 13px; color: var(--muted); }
 .taken { display: flex; align-items: center; gap: 4px; color: var(--muted); }
-.taken .glyphs { font-size: 17px; letter-spacing: -3px; }
+.taken .glyphs { display: flex; }
+.taken .glyphs svg { width: 24px; height: 24px; margin-right: -8px; flex: none; }
+.taken svg[data-piece^='b'], .avatar svg[data-piece^='b'], .promo-piece svg[data-piece^='b'] { filter: var(--piece-halo); }
 .taken .lead { font-size: 13px; font-weight: 600; color: var(--fg); padding-left: 4px; }
 
 .status { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; background: var(--accent-soft); font-weight: 600; min-height: 44px; }
