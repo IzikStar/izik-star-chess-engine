@@ -3,7 +3,7 @@
 A desktop chess game in Java with its own bitboard engine: legal move generation, alpha-beta
 search and a hand-tuned evaluation. Stockfish can optionally take over the top difficulty levels.
 
-![IzikStar Chess: the game board after 1.d4 2.Nf3 3.e3 4.Bd3 5.O-O, with the engine's last move and a hint highlighted](docs/images/screenshot.png)
+![IzikStar Chess: a game against the built-in engine after White castles, with the engine's last move highlighted](docs/images/screenshot.png)
 
 *The board mid-game. Green marks the engine's last move (...e5). Cyan is a hint the player
 asked for (Nxe5).*
@@ -223,11 +223,13 @@ On Linux, `sudo apt install stockfish` installs it at `/usr/games/stockfish`.
 
 ## License
 
-MIT, see [LICENSE](LICENSE). The license covers the source code only.
+MIT, see [LICENSE](LICENSE).
 
-The piece images (`src/main/resources/pieces.png`) and the sound effects
-(`src/main/resources/sounds/`) are third-party assets collected for a learning project. They
-are not covered by the MIT license, and their original authors keep their rights. If you are an
-author and want an asset credited or removed, please open an issue.
+The chess piece set is original artwork drawn for this project; its vector source is
+[`docs/art/pieces.svg`](docs/art/pieces.svg) and it is covered by the same MIT license.
+
+The sound effects (`src/main/resources/sounds/`) are third-party assets collected for a learning
+project. They are not covered by the MIT license, and their original authors keep their rights.
+If you are an author and want a sound credited or removed, please open an issue.
 
 Stockfish is a separate project licensed under the GPLv3 and is not distributed here.
