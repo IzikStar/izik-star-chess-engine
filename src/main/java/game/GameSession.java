@@ -36,6 +36,9 @@ import java.util.concurrent.Future;
  *       hint is ever waiting.</li>
  *   <li>A job's result is handed back to the dispatcher and dropped if the game moved on in the
  *       meantime (generation check), so a late answer can never be played.</li>
+ *   <li>A job that fails, with an exception or an {@code Error}, is reported on stderr. A failed
+ *       engine move is replaced by a quick built-in move so the game goes on (Phase 4b); a failed
+ *       hint simply doesn't arrive and can be asked for again.</li>
  * </ul>
  */
 public final class GameSession {
@@ -202,7 +205,7 @@ public final class GameSession {
         hintFen = fen;
         SearchRequest request = request(EngineSelector.HINT_LEVEL, cancel);
         pendingHintJob = engineExecutor.submit(() -> {
-            ChessMove move = cancel.isCancelled() ? null : engines.hint(request);
+            ChessMove move = cancel.isCancelled() ? null : hintOrNull(request);
             dispatcher.execute(() -> {
                 if (cancel == hintCancel) {
                     hintFen = null;
@@ -293,13 +296,38 @@ public final class GameSession {
                 dispatcher.execute(() -> engineMoveReady(gen, fen, move));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-            } catch (RuntimeException e) {
-                // never swallow: a silent failure here is how "the engine stops playing" hid
+            } catch (RuntimeException | Error e) {
+                // never swallow: a silent failure here is how "the engine stops playing" hid. An
+                // Error (say, out of memory in a deep search) used to end the job without a word.
                 e.printStackTrace();
-                dispatcher.execute(() -> engineMoveReady(gen, fen, null));
+                ChessMove move = quickMoveAfterFailure(request);
+                dispatcher.execute(() -> engineMoveReady(gen, fen, move));
             }
             return null;
         });
+    }
+
+    /** After a failed search, a quick built-in move keeps the game going; null if that fails too. */
+    private ChessMove quickMoveAfterFailure(SearchRequest request) {
+        if (request.cancel().isCancelled()) {
+            return null;
+        }
+        try {
+            return engines.quickMove(request);
+        } catch (RuntimeException | Error e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /** The hint, or null if its search failed; the failure is reported and the hint can be asked for again. */
+    private ChessMove hintOrNull(SearchRequest request) {
+        try {
+            return engines.hint(request);
+        } catch (RuntimeException | Error e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     private void engineMoveReady(long gen, String fen, ChessMove move) {

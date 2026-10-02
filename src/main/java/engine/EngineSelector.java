@@ -47,6 +47,11 @@ public final class EngineSelector {
         return withFallback(request.withSkillLevel(HINT_LEVEL), HINT_FALLBACK_LEVEL);
     }
 
+    /** A quick move from the built-in engine, for when a search failed outright. */
+    public ChessMove quickMove(SearchRequest request) {
+        return builtIn.bestMove(request.withSkillLevel(MOVE_FALLBACK_LEVEL));
+    }
+
     private ChessMove withFallback(SearchRequest request, int fallbackLevel) {
         ChessMove move = stockfish.isAvailable() ? stockfish.bestMove(request) : null;
         if (move != null || request.cancel().isCancelled()) {
