@@ -1,252 +1,25 @@
 package ai.BitBoard;
 
+import ai.eval.Evaluator;
+import ai.eval.ParamSchema;
+import ai.eval.ParamSpec;
+import ai.eval.ParamVector;
 
+import java.util.List;
 
-
-public class BitBoardEvaluate {
-    private static int gameStage;
-    // מערכים לפתיחה
-    private static final long[] BEST_TILES_FOR_WHITE_KING_IN_OPENING = {
-            (BoardParts.Tile.G1.position | BoardParts.Tile.B1.position),
-            (BoardParts.Tile.F1.position | BoardParts.Tile.C1.position),
-            (BoardParts.FIRST_RANK),
-            (BoardParts.SECOND_RANK)
-    };
-
-    private static final long[] BEST_TILES_FOR_BLACK_KING_IN_OPENING = {
-            (BoardParts.Tile.G8.position | BoardParts.Tile.B8.position),
-            (BoardParts.Tile.F8.position | BoardParts.Tile.C8.position),
-            (BoardParts.EIGHTH_RANK),
-            (BoardParts.SEVENTH_RANK)
-    };
-
-//    private static final long[] BEST_TILES_FOR_WHITE_QUEEN_IN_OPENING = {
-//            BoardParts.Tile.D1.position,
-//            BoardParts.Tile.C1.position,
-//            BoardParts.Tile.E2.position,
-//            BoardParts.Tile.D2.position
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_BLACK_QUEEN_IN_OPENING = {
-//            BoardParts.Tile.D8.position,
-//            BoardParts.Tile.C8.position,
-//            BoardParts.Tile.E7.position,
-//            BoardParts.Tile.D7.position
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_WHITE_ROOK_IN_OPENING = {
-//            BoardParts.Tile.A1.position,
-//            BoardParts.Tile.H1.position,
-//            BoardParts.Tile.D1.position,
-//            BoardParts.Tile.F1.position
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_BLACK_ROOK_IN_OPENING = {
-//            BoardParts.Tile.A8.position,
-//            BoardParts.Tile.H8.position,
-//            BoardParts.Tile.D8.position,
-//            BoardParts.Tile.F8.position
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_WHITE_BISHOP_IN_OPENING = {
-//            BoardParts.Tile.C1.position,
-//            BoardParts.Tile.F1.position,
-//            BoardParts.Tile.G2.position,
-//            BoardParts.Tile.B2.position
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_BLACK_BISHOP_IN_OPENING = {
-//            BoardParts.Tile.C8.position,
-//            BoardParts.Tile.F8.position,
-//            BoardParts.Tile.G7.position,
-//            BoardParts.Tile.B7.position
-//    };
-
-    private static final long BEST_TILES_FOR_WHITE_KNIGHT_IN_OPENING = (BoardParts.Tile.F3.position | BoardParts.Tile.C3.position);
-    private static final long BEST_TILES_FOR_BLACK_KNIGHT_IN_OPENING = (BoardParts.Tile.F6.position | BoardParts.Tile.C6.position);
-
-//    private static final long[] BEST_TILES_FOR_WHITE_PAWN_IN_OPENING = {
-//            BoardParts.SECOND_RANK,
-//            BoardParts.THIRD_RANK,
-//            BoardParts.FOURTH_RANK
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_BLACK_PAWN_IN_OPENING = {
-//            BoardParts.SEVENTH_RANK,
-//            BoardParts.SIXTH_RANK,
-//            BoardParts.FIFTH_RANK
-//    };
-//
-//    // מערכים לאמצע משחק
-//    private static final long[] BEST_TILES_FOR_WHITE_KING_IN_MID_GAME = {
-//            BoardParts.Tile.G1.position,
-//            BoardParts.Tile.B1.position,
-//            BoardParts.Tile.F1.position,
-//            BoardParts.Tile.C1.position
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_BLACK_KING_IN_MID_GAME = {
-//            BoardParts.Tile.G8.position,
-//            BoardParts.Tile.B8.position,
-//            BoardParts.Tile.F8.position,
-//            BoardParts.Tile.C8.position
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_WHITE_QUEEN_IN_MID_GAME = {
-//            BoardParts.Tile.D1.position,
-//            BoardParts.Tile.C1.position,
-//            BoardParts.Tile.E4.position,
-//            BoardParts.Tile.D4.position
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_BLACK_QUEEN_IN_MID_GAME = {
-//            BoardParts.Tile.D8.position,
-//            BoardParts.Tile.C8.position,
-//            BoardParts.Tile.E5.position,
-//            BoardParts.Tile.D5.position
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_WHITE_ROOK_IN_MID_GAME = {
-//            BoardParts.Tile.A1.position,
-//            BoardParts.Tile.H1.position,
-//            BoardParts.Tile.D1.position,
-//            BoardParts.Tile.F1.position
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_BLACK_ROOK_IN_MID_GAME = {
-//            BoardParts.Tile.A8.position,
-//            BoardParts.Tile.H8.position,
-//            BoardParts.Tile.D8.position,
-//            BoardParts.Tile.F8.position
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_WHITE_BISHOP_IN_MID_GAME = {
-//            BoardParts.Tile.C1.position,
-//            BoardParts.Tile.F1.position,
-//            BoardParts.Tile.G4.position,
-//            BoardParts.Tile.B4.position
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_BLACK_BISHOP_IN_MID_GAME = {
-//            BoardParts.Tile.C8.position,
-//            BoardParts.Tile.F8.position,
-//            BoardParts.Tile.G5.position,
-//            BoardParts.Tile.B5.position
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_WHITE_KNIGHT_IN_MID_GAME = {
-//            BoardParts.Tile.G1.position,
-//            BoardParts.Tile.B1.position,
-//            BoardParts.Tile.F6.position,
-//            BoardParts.Tile.C6.position
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_BLACK_KNIGHT_IN_MID_GAME = {
-//            BoardParts.Tile.G8.position,
-//            BoardParts.Tile.B8.position,
-//            BoardParts.Tile.F3.position,
-//            BoardParts.Tile.C3.position
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_WHITE_PAWN_IN_MID_GAME = {
-//            BoardParts.THIRD_RANK,
-//            BoardParts.FOURTH_RANK,
-//            BoardParts.FIFTH_RANK
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_BLACK_PAWN_IN_MID_GAME = {
-//            BoardParts.SIXTH_RANK,
-//            BoardParts.FIFTH_RANK,
-//            BoardParts.FOURTH_RANK
-//    };
-//
-//    // מערכים לסיום משחק
-//    private static final long[] BEST_TILES_FOR_WHITE_KING_IN_END_GAME = {
-//            BoardParts.Tile.G1.position,
-//            BoardParts.Tile.B1.position,
-//            BoardParts.Tile.F1.position,
-//            BoardParts.Tile.C1.position
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_BLACK_KING_IN_END_GAME = {
-//            BoardParts.Tile.G8.position,
-//            BoardParts.Tile.B8.position,
-//            BoardParts.Tile.F8.position,
-//            BoardParts.Tile.C8.position
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_WHITE_QUEEN_IN_END_GAME = {
-//            BoardParts.Tile.D1.position,
-//            BoardParts.Tile.C1.position,
-//            BoardParts.Tile.E3.position,
-//            BoardParts.Tile.D3.position
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_BLACK_QUEEN_IN_END_GAME = {
-//            BoardParts.Tile.D8.position,
-//            BoardParts.Tile.C8.position,
-//            BoardParts.Tile.E6.position,
-//            BoardParts.Tile.D6.position
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_WHITE_ROOK_IN_END_GAME = {
-//            BoardParts.Tile.A1.position,
-//            BoardParts.Tile.H1.position,
-//            BoardParts.Tile.D1.position,
-//            BoardParts.Tile.F1.position
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_BLACK_ROOK_IN_END_GAME = {
-//            BoardParts.Tile.A8.position,
-//            BoardParts.Tile.H8.position,
-//            BoardParts.Tile.D8.position,
-//            BoardParts.Tile.F8.position
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_WHITE_BISHOP_IN_END_GAME = {
-//            BoardParts.Tile.C1.position,
-//            BoardParts.Tile.F1.position,
-//            BoardParts.Tile.G3.position,
-//            BoardParts.Tile.B3.position
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_BLACK_BISHOP_IN_END_GAME = {
-//            BoardParts.Tile.C8.position,
-//            BoardParts.Tile.F8.position,
-//            BoardParts.Tile.G6.position,
-//            BoardParts.Tile.B6.position
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_WHITE_KNIGHT_IN_END_GAME = {
-//            BoardParts.Tile.G1.position,
-//            BoardParts.Tile.B1.position,
-//            BoardParts.Tile.F4.position,
-//            BoardParts.Tile.C4.position
-//    };
-//
-//    private static final long[] BEST_TILES_FOR_BLACK_KNIGHT_IN_END_GAME = {
-//            BoardParts.Tile.G8.position,
-//            BoardParts.Tile.B8.position,
-//            BoardParts.Tile.F5.position,
-//            BoardParts.Tile.C5.position
-//    };
-
-    private static final long[] BEST_TILES_FOR_WHITE_PAWN_IN_END_GAME = {
-            BoardParts.SEVENTH_RANK,
-            BoardParts.SIXTH_RANK,
-            BoardParts.FIFTH_RANK,
-            BoardParts.FOURTH_RANK,
-            BoardParts.THIRD_RANK
-    };
-
-    private static final long[] BEST_TILES_FOR_BLACK_PAWN_IN_END_GAME = {
-            BoardParts.SECOND_RANK,
-            BoardParts.THIRD_RANK,
-            BoardParts.FOURTH_RANK,
-            BoardParts.FIFTH_RANK,
-            BoardParts.SIXTH_RANK
-    };
-
+/**
+ * The hand-written evaluation. Since Phase 5 every number in it is a named parameter
+ * ({@link #SCHEMA}) whose default is the value the code used to hard-code, so
+ * {@link #DEFAULT} plays exactly the moves the engine always played (pinned by
+ * {@code engine.SameMoveTest}) and any other {@link ParamVector} plays a variant of it.
+ *
+ * <p>An instance holds only its weights; nothing is written while evaluating, so one instance
+ * can serve searches on several threads (the old version kept the game stage in a static field).
+ *
+ * <p>Internally the terms are computed Black-positive (White's terms are subtracted), as they
+ * always were; {@link #evaluate} turns the sum round for the side choosing the move.
+ */
+public final class BitBoardEvaluate implements Evaluator {
 
     /**
      * Score of a mated side, from the winner's point of view. Kept well inside {@code int} range
@@ -255,11 +28,144 @@ public class BitBoardEvaluate {
      */
     public static final int MATE = 100_000_000;
 
+    private static final ParamSpec[] SPECS = {
+            // material
+            new ParamSpec("material.pawn", "material", 10, 0, 100, "Value of a pawn"),
+            new ParamSpec("material.knight", "material", 30, 0, 300, "Value of a knight"),
+            new ParamSpec("material.bishop", "material", 33, 0, 300, "Value of a bishop"),
+            new ParamSpec("material.rook", "material", 50, 0, 500, "Value of a rook"),
+            new ParamSpec("material.queen", "material", 90, 0, 900, "Value of a queen"),
+            // pawns
+            new ParamSpec("pawns.rank7", "pawns", 9, -50, 100, "Bonus for a pawn one step from promoting"),
+            new ParamSpec("pawns.rank6", "pawns", 7, -50, 100, "Bonus for a pawn two steps from promoting"),
+            new ParamSpec("pawns.rank5", "pawns", 5, -50, 100, "Bonus for a pawn three steps from promoting"),
+            new ParamSpec("pawns.rank4", "pawns", 3, -50, 100, "Bonus for a pawn four steps from promoting"),
+            new ParamSpec("pawns.rank3", "pawns", 1, -50, 100, "Bonus for a pawn that has made its first step"),
+            new ParamSpec("pawns.center", "pawns", 5, -50, 100, "Bonus for a pawn on d4, e4, d5 or e5"),
+            // king placement while the king-safety table applies
+            new ParamSpec("king.castledSquare", "king", 10, -100, 100, "King on g1/b1 (g8/b8)"),
+            new ParamSpec("king.nearCastledSquare", "king", 5, -100, 100, "King on f1/c1 (f8/c8)"),
+            new ParamSpec("king.backRank", "king", 0, -100, 100, "King elsewhere on its back rank"),
+            new ParamSpec("king.secondRank", "king", -7, -100, 100, "King on its second rank"),
+            new ParamSpec("king.exposed", "king", -25, -100, 100, "King further up the board"),
+            new ParamSpec("king.safetyUntilTurn", "king", 20, 0, 200, "The king placement terms apply before this turn"),
+            // castling
+            new ParamSpec("castling.lostKingSide", "castling", 6, -50, 100, "Penalty for losing the right to castle king-side"),
+            new ParamSpec("castling.lostQueenSide", "castling", 4, -50, 100, "Penalty for losing the right to castle queen-side"),
+            new ParamSpec("castling.castled", "castling", 16, -50, 100, "Bonus for having castled"),
+            // activity
+            new ParamSpec("activity.attackedSquare", "activity", 1, -10, 20, "Bonus per square a side attacks"),
+            new ParamSpec("activity.attackedEnemyPiece", "activity", 2, -10, 20, "Extra bonus per enemy piece attacked"),
+            new ParamSpec("activity.defendedOwnPiece", "activity", 1, -10, 20, "Bonus per own piece defended"),
+            // development
+            new ParamSpec("development.openingUntilTurn", "development", 8, 0, 100, "The game counts as the opening before this turn"),
+            new ParamSpec("development.bishopsHome", "development", 15, -50, 100, "Penalty if a bishop is still on the back rank"),
+            new ParamSpec("development.queenOutEarly", "development", 15, -50, 100, "Penalty for moving the queen in the opening"),
+            new ParamSpec("development.knightsHome", "development", 10, -50, 100, "Penalty if a knight is still on the back rank"),
+            new ParamSpec("development.knightOnC3F3", "development", 2, -50, 100, "Bonus per knight on c3/f3 (c6/f6)"),
+            new ParamSpec("development.knightOutEarly", "development", 5, -50, 100, "Penalty for a knight far up the board early on"),
+            new ParamSpec("development.knightEarlyUntilTurn", "development", 9, 0, 100, "The early-knight penalty applies before this turn"),
+    };
+
+    /** Every parameter of the hand-written evaluation, in a fixed order. */
+    public static final ParamSchema SCHEMA = new ParamSchema(List.of(SPECS));
+
+    /** The evaluation with the weights the engine has always used. */
+    public static final BitBoardEvaluate DEFAULT = new BitBoardEvaluate(SCHEMA.defaults());
+
+    private static final long[] WHITE_KING_SQUARES = {
+            (BoardParts.Tile.G1.position | BoardParts.Tile.B1.position),
+            (BoardParts.Tile.F1.position | BoardParts.Tile.C1.position),
+            (BoardParts.FIRST_RANK),
+            (BoardParts.SECOND_RANK)
+    };
+
+    private static final long[] BLACK_KING_SQUARES = {
+            (BoardParts.Tile.G8.position | BoardParts.Tile.B8.position),
+            (BoardParts.Tile.F8.position | BoardParts.Tile.C8.position),
+            (BoardParts.EIGHTH_RANK),
+            (BoardParts.SEVENTH_RANK)
+    };
+
+    private static final long WHITE_KNIGHT_SQUARES = (BoardParts.Tile.F3.position | BoardParts.Tile.C3.position);
+    private static final long BLACK_KNIGHT_SQUARES = (BoardParts.Tile.F6.position | BoardParts.Tile.C6.position);
+
+    /** Ranks a pawn advances through, nearest to promotion first. */
+    private static final long[] WHITE_PAWN_RANKS = {
+            BoardParts.SEVENTH_RANK,
+            BoardParts.SIXTH_RANK,
+            BoardParts.FIFTH_RANK,
+            BoardParts.FOURTH_RANK,
+            BoardParts.THIRD_RANK
+    };
+
+    private static final long[] BLACK_PAWN_RANKS = {
+            BoardParts.SECOND_RANK,
+            BoardParts.THIRD_RANK,
+            BoardParts.FOURTH_RANK,
+            BoardParts.FIFTH_RANK,
+            BoardParts.SIXTH_RANK
+    };
+
+    private final ParamVector params;
+
+    // the weights, read once from the vector so evaluating stays plain field arithmetic
+    private final int pawn, knight, bishop, rook, queen;
+    private final int[] pawnRanks = new int[5];
+    private final int centerPawn;
+    private final int[] kingSquares = new int[5];
+    private final int kingSafetyUntilTurn;
+    private final int lostKingSide, lostQueenSide, castled;
+    private final int attackedSquare, attackedEnemyPiece, defendedOwnPiece;
+    private final int openingUntilTurn;
+    private final int bishopsHome, queenOutEarly, knightsHome, knightOnGoodSquare, knightOutEarly, knightEarlyUntilTurn;
+
+    public BitBoardEvaluate(ParamVector params) {
+        if (params.schema() != SCHEMA) {
+            throw new IllegalArgumentException("parameters are not for the hand-written evaluation");
+        }
+        this.params = params;
+        pawn = params.get("material.pawn");
+        knight = params.get("material.knight");
+        bishop = params.get("material.bishop");
+        rook = params.get("material.rook");
+        queen = params.get("material.queen");
+        String[] ranks = {"pawns.rank7", "pawns.rank6", "pawns.rank5", "pawns.rank4", "pawns.rank3"};
+        for (int i = 0; i < ranks.length; i++) {
+            pawnRanks[i] = params.get(ranks[i]);
+        }
+        centerPawn = params.get("pawns.center");
+        String[] king = {"king.castledSquare", "king.nearCastledSquare", "king.backRank", "king.secondRank", "king.exposed"};
+        for (int i = 0; i < king.length; i++) {
+            kingSquares[i] = params.get(king[i]);
+        }
+        kingSafetyUntilTurn = params.get("king.safetyUntilTurn");
+        lostKingSide = params.get("castling.lostKingSide");
+        lostQueenSide = params.get("castling.lostQueenSide");
+        castled = params.get("castling.castled");
+        attackedSquare = params.get("activity.attackedSquare");
+        attackedEnemyPiece = params.get("activity.attackedEnemyPiece");
+        defendedOwnPiece = params.get("activity.defendedOwnPiece");
+        openingUntilTurn = params.get("development.openingUntilTurn");
+        bishopsHome = params.get("development.bishopsHome");
+        queenOutEarly = params.get("development.queenOutEarly");
+        knightsHome = params.get("development.knightsHome");
+        knightOnGoodSquare = params.get("development.knightOnC3F3");
+        knightOutEarly = params.get("development.knightOutEarly");
+        knightEarlyUntilTurn = params.get("development.knightEarlyUntilTurn");
+    }
+
+    @Override
+    public ParamVector params() {
+        return params;
+    }
+
     /**
      * Static evaluation of {@code board} from the point of view of the side choosing the move at
-     * the search root ({@code rootIsBlack}). Internally the terms are computed Black-positive.
+     * the search root ({@code rootIsBlack}).
      */
-    public static int evaluate(BitBoard board, boolean rootIsBlack) {
+    @Override
+    public int evaluate(BitBoard board, boolean rootIsBlack) {
         boolean switchSides = rootIsBlack;
         int value;
         if (board.whiteKings == 0) return switchSides ? MATE : -MATE;
@@ -271,22 +177,25 @@ public class BitBoardEvaluate {
             return switchSides ? value : -value;
         }
         value = 0;
-        gameStage = getGameStage(board);
+        int gameStage = getGameStage(board);
         value += getPiecesPureValue(board);
         value += getPawnsProgress(board);
-        // value += getPiecesValueForAmount(board, value);
         value += getKingSafety(board);
         value += getCastles(board);
         value += getTargets(board);
         value += getBishopsDevelopment(board);
-        value += getQueensOutInTheOpening(board);
+        value += getQueensOutInTheOpening(board, gameStage);
         value += getKnightsDevelopment(board);
         return switchSides ? value : -value;
     }
 
-    private static int getGameStage(BitBoard board) {
+    /**
+     * 0 = opening, 1 = otherwise. Stage 2 is meant to be the endgame but is never reached: it
+     * counts {@code whitePieces & blackPieces}, which is always empty (docs/phase-5-research.md §2.2).
+     */
+    private int getGameStage(BitBoard board) {
         int gameStage = 1;
-        if (board.numOfTurns < 8) {
+        if (board.numOfTurns < openingUntilTurn) {
             gameStage = 0;
         }
         if (BitOperations.countSetBits(board.whitePieces & board.blackPieces) >= 7) {
@@ -294,198 +203,110 @@ public class BitBoardEvaluate {
         }
         return gameStage;
     }
-    
-    private static int getPiecesPureValue(BitBoard board) {
-        int piecesValue = 0;
-        piecesValue -= BitOperations.countSetBits(board.whitePawns) * 10;
-        piecesValue -= BitOperations.countSetBits(board.whiteKnights) * 30;
-        piecesValue -= BitOperations.countSetBits(board.whiteBishops) * 33;
-        piecesValue -= BitOperations.countSetBits(board.whiteRooks) * 50;
-        piecesValue -= BitOperations.countSetBits(board.whiteQueens) * 90;
 
-        piecesValue += BitOperations.countSetBits(board.blackPawns) * 10;
-        piecesValue += BitOperations.countSetBits(board.blackKnights) * 30;
-        piecesValue += BitOperations.countSetBits(board.blackBishops) * 33;
-        piecesValue += BitOperations.countSetBits(board.blackRooks) * 50;
-        piecesValue += BitOperations.countSetBits(board.blackQueens) * 90;
+    private int getPiecesPureValue(BitBoard board) {
+        int piecesValue = 0;
+        piecesValue -= BitOperations.countSetBits(board.whitePawns) * pawn;
+        piecesValue -= BitOperations.countSetBits(board.whiteKnights) * knight;
+        piecesValue -= BitOperations.countSetBits(board.whiteBishops) * bishop;
+        piecesValue -= BitOperations.countSetBits(board.whiteRooks) * rook;
+        piecesValue -= BitOperations.countSetBits(board.whiteQueens) * queen;
+
+        piecesValue += BitOperations.countSetBits(board.blackPawns) * pawn;
+        piecesValue += BitOperations.countSetBits(board.blackKnights) * knight;
+        piecesValue += BitOperations.countSetBits(board.blackBishops) * bishop;
+        piecesValue += BitOperations.countSetBits(board.blackRooks) * rook;
+        piecesValue += BitOperations.countSetBits(board.blackQueens) * queen;
         return piecesValue;
     }
 
-    private static int getPiecesValue(BitBoard board) {
-        int piecesValue = 0;
-        piecesValue -= BitOperations.countSetBits(board.whitePawns) * 9;
-        piecesValue -= BitOperations.countSetBits(board.whiteKnights) * 27;
-        piecesValue -= BitOperations.countSetBits(board.whiteBishops) * 30;
-        piecesValue -= BitOperations.countSetBits(board.whiteRooks) * 45;
-        piecesValue -= BitOperations.countSetBits(board.whiteQueens) * 81;
-
-        piecesValue += BitOperations.countSetBits(board.blackPawns) * 9;
-        piecesValue += BitOperations.countSetBits(board.blackKnights) * 27;
-        piecesValue += BitOperations.countSetBits(board.blackBishops) * 30;
-        piecesValue += BitOperations.countSetBits(board.blackRooks) * 45;
-        piecesValue += BitOperations.countSetBits(board.blackQueens) * 81;
-        return piecesValue;
-    }
-
-    private static int getPiecesValueForAmount(BitBoard board, int evaluate) {
-        int piecesValue = 0;
-        int wNumOfPieces = 16 - BitOperations.countSetBits(board.whitePieces) + evaluate;
-        int bNumOfPieces = 16 - BitOperations.countSetBits(board.blackPieces) - evaluate;
-        if (wNumOfPieces < 1) wNumOfPieces = 1;
-        if (bNumOfPieces < 1) bNumOfPieces = 1;
-        piecesValue -= BitOperations.countSetBits(board.whitePawns) * wNumOfPieces;
-        piecesValue -= BitOperations.countSetBits(board.whiteKnights) * 3 * wNumOfPieces;
-        piecesValue -= BitOperations.countSetBits(board.whiteBishops) * 4 * wNumOfPieces;
-        piecesValue -= BitOperations.countSetBits(board.whiteRooks) * 5 * wNumOfPieces;
-        piecesValue -= BitOperations.countSetBits(board.whiteQueens) * 9 * wNumOfPieces;
-
-        piecesValue += BitOperations.countSetBits(board.blackPawns) * bNumOfPieces;
-        piecesValue += BitOperations.countSetBits(board.blackKnights) * 3 * bNumOfPieces;
-        piecesValue += BitOperations.countSetBits(board.blackBishops) * 4 * bNumOfPieces;
-        piecesValue += BitOperations.countSetBits(board.blackRooks) * 5 * bNumOfPieces;
-        piecesValue += BitOperations.countSetBits(board.blackQueens) * 9 * bNumOfPieces;
-        return piecesValue;
-    }
-
-    private static int getKingSafety(BitBoard board) {
+    private int getKingSafety(BitBoard board) {
         int kingSafety = 0;
-        if (board.numOfTurns < 20) {
-            int[] iValues = { 10, 5, 0, -7, -25 };
-            for (int i = 0; i < BEST_TILES_FOR_WHITE_KING_IN_OPENING.length; i++) {
-                if ((board.whiteKings & BEST_TILES_FOR_WHITE_KING_IN_OPENING[i]) != 0) {
-                    kingSafety -= iValues[i];
+        if (board.numOfTurns < kingSafetyUntilTurn) {
+            for (int i = 0; i < WHITE_KING_SQUARES.length; i++) {
+                if ((board.whiteKings & WHITE_KING_SQUARES[i]) != 0) {
+                    kingSafety -= kingSquares[i];
                     break;
                 }
-                if (i == BEST_TILES_FOR_WHITE_KING_IN_OPENING.length - 1) kingSafety -= iValues[i + 1];
+                if (i == WHITE_KING_SQUARES.length - 1) kingSafety -= kingSquares[i + 1];
             }
-            for (int i = 0; i < BEST_TILES_FOR_BLACK_KING_IN_OPENING.length; i++) {
-                if ((board.blackKings & BEST_TILES_FOR_BLACK_KING_IN_OPENING[i]) != 0) {
-                    kingSafety += iValues[i];
+            for (int i = 0; i < BLACK_KING_SQUARES.length; i++) {
+                if ((board.blackKings & BLACK_KING_SQUARES[i]) != 0) {
+                    kingSafety += kingSquares[i];
                     break;
                 }
-                if (i == BEST_TILES_FOR_BLACK_KING_IN_OPENING.length - 1) kingSafety += iValues[i + 1];
+                if (i == BLACK_KING_SQUARES.length - 1) kingSafety += kingSquares[i + 1];
             }
         }
         return kingSafety;
     }
 
-    private static int getIsKingsBehindPawns(BitBoard board) {
-        int kingSafety = 0;
-        if ((board.whiteKings >> 8 & board.whitePawns) == 0) {
-            // מוריד את ערך המלך בחייל אם אין לפני המלך חייל
-            kingSafety += 10;
-            // לתוספת דיוק צריך לבדוק אם המלך נמצא במקום ששיפט 9 או 7 מעלה בעוד שורה. ןצריך גם לבדוק מבני חיילים בטוחים שנפרשים על שתי שורות
-            if ((board.whiteKings >> 9 & board.whitePawns) == 0) {
-                kingSafety += 4;
-            }
-            if ((board.whiteKings >> 7 & board.whitePawns) == 0) {
-                kingSafety += 4;
-            }
-
-        }
-        if ((board.blackKings >> 8 & board.blackPawns) == 0) {
-            // מוריד את ערך המלך בחייל אם אין לפני המלך חייל
-            kingSafety -= 10;
-            // לתוספת דיוק צריך לבדוק אם המלך נמצא במקום ששיפט 9 או 7 מעלה בעוד שורה. ןצריך גם לבדוק מבני חיילים בטוחים שנפרשים על שתי שורות
-            if ((board.blackKings >> 9 & board.blackPawns) == 0) {
-                kingSafety -= 4;
-            }
-            if ((board.blackKings >> 7 & board.blackPawns) == 0) {
-                kingSafety -= 4;
-            }
-
-        }
-
-        return kingSafety;
-    }
-
-    private static int getCastles(BitBoard board) {
+    private int getCastles(BitBoard board) {
         int castles = 0;
-        castles -= board.canWhiteCastleKingSide ? 0 : -6;
-        castles -= board.canWhiteCastleQueenSide ? 0 : -4;
-        castles -= board.hasWhiteCastled ? 16 : 0;
-        castles += board.canBlackCastleKingSide ? 0 : -6;
-        castles += board.canBlackCastleQueenSide ? 0 : -4;
-        castles += board.hasBlackCastled ? 16 : 0;
+        castles += board.canWhiteCastleKingSide ? 0 : lostKingSide;
+        castles += board.canWhiteCastleQueenSide ? 0 : lostQueenSide;
+        castles -= board.hasWhiteCastled ? castled : 0;
+        castles -= board.canBlackCastleKingSide ? 0 : lostKingSide;
+        castles -= board.canBlackCastleQueenSide ? 0 : lostQueenSide;
+        castles += board.hasBlackCastled ? castled : 0;
         return castles;
     }
 
-    private static int getTargets(BitBoard board) {
+    private int getTargets(BitBoard board) {
         long whiteAttacks = board.getAllAttackedTiles(1);
         long blackAttacks = board.getAllAttackedTiles(0);
         int targets = 0;
-        targets -= BitOperations.countSetBits(whiteAttacks);
-        targets += BitOperations.countSetBits(blackAttacks);
+        targets -= BitOperations.countSetBits(whiteAttacks) * attackedSquare;
+        targets += BitOperations.countSetBits(blackAttacks) * attackedSquare;
 
-        targets -= BitOperations.countSetBits((whiteAttacks & board.blackPieces)) * 2;
-        targets += BitOperations.countSetBits((blackAttacks & board.whitePieces)) * 2;
+        targets -= BitOperations.countSetBits((whiteAttacks & board.blackPieces)) * attackedEnemyPiece;
+        targets += BitOperations.countSetBits((blackAttacks & board.whitePieces)) * attackedEnemyPiece;
 
-        targets -= BitOperations.countSetBits((whiteAttacks & board.whitePieces));
-        targets += BitOperations.countSetBits((blackAttacks & board.blackPieces));
+        targets -= BitOperations.countSetBits((whiteAttacks & board.whitePieces)) * defendedOwnPiece;
+        targets += BitOperations.countSetBits((blackAttacks & board.blackPieces)) * defendedOwnPiece;
         return targets;
     }
 
-    private static int getPawnsProgress(BitBoard board) {
+    private int getPawnsProgress(BitBoard board) {
         int pawnProgress = 0;
-        for (int i = 0; i < BEST_TILES_FOR_WHITE_PAWN_IN_END_GAME.length; i++) {
-            pawnProgress -= BitOperations.countSetBits((board.whitePawns & BEST_TILES_FOR_WHITE_PAWN_IN_END_GAME[i])) * (10 - i * 2 - 1);
+        for (int i = 0; i < WHITE_PAWN_RANKS.length; i++) {
+            pawnProgress -= BitOperations.countSetBits((board.whitePawns & WHITE_PAWN_RANKS[i])) * pawnRanks[i];
         }
-        for (int i = 0; i < BEST_TILES_FOR_BLACK_PAWN_IN_END_GAME.length; i++) {
-            pawnProgress += BitOperations.countSetBits((board.blackPawns & BEST_TILES_FOR_BLACK_PAWN_IN_END_GAME[i])) * (10 - i * 2 - 1);
+        for (int i = 0; i < BLACK_PAWN_RANKS.length; i++) {
+            pawnProgress += BitOperations.countSetBits((board.blackPawns & BLACK_PAWN_RANKS[i])) * pawnRanks[i];
         }
-        pawnProgress -= BitOperations.countSetBits(board.whitePawns & BoardParts.CENTER) * 5;
-        pawnProgress += BitOperations.countSetBits(board.blackPawns & BoardParts.CENTER) * 5;
+        pawnProgress -= BitOperations.countSetBits(board.whitePawns & BoardParts.CENTER) * centerPawn;
+        pawnProgress += BitOperations.countSetBits(board.blackPawns & BoardParts.CENTER) * centerPawn;
         return pawnProgress;
     }
 
-    private static int getPassedPawnsAndBlockedPawns(BitBoard board) {
-        int passedPawnsAndBlockedPawns = 0;
-        
-        return passedPawnsAndBlockedPawns;
-    }
-
-    private static int getQueensOutInTheOpening(BitBoard board) {
+    private int getQueensOutInTheOpening(BitBoard board, int gameStage) {
         int queensOutInTheOpening = 0;
         if (gameStage == 0) {
-            queensOutInTheOpening -= (board.whiteQueens & BoardParts.Tile.D1.position) == 0 ? -15 : 0;
-            queensOutInTheOpening += (board.blackQueens & BoardParts.Tile.D8.position) == 0 ? -15 : 0;
+            queensOutInTheOpening += (board.whiteQueens & BoardParts.Tile.D1.position) == 0 ? queenOutEarly : 0;
+            queensOutInTheOpening -= (board.blackQueens & BoardParts.Tile.D8.position) == 0 ? queenOutEarly : 0;
         }
-        // System.out.println(queensOutInTheOpening);
         return queensOutInTheOpening;
     }
 
-    private static int getKnightsDevelopment(BitBoard board) {
+    private int getKnightsDevelopment(BitBoard board) {
         int knightsDevelopment = 0;
-        knightsDevelopment -= (board.whiteKnights & BoardParts.FIRST_RANK) != 0 ? -10 : 0;
-        knightsDevelopment += (board.blackKnights & BoardParts.EIGHTH_RANK) != 0 ? -10 : 0;
+        knightsDevelopment += (board.whiteKnights & BoardParts.FIRST_RANK) != 0 ? knightsHome : 0;
+        knightsDevelopment -= (board.blackKnights & BoardParts.EIGHTH_RANK) != 0 ? knightsHome : 0;
 
-        knightsDevelopment -= BitOperations.countSetBits(board.whiteKnights & BEST_TILES_FOR_WHITE_KNIGHT_IN_OPENING) * 2;
-        knightsDevelopment += BitOperations.countSetBits(board.blackKnights & BEST_TILES_FOR_BLACK_KNIGHT_IN_OPENING) * 2;
+        knightsDevelopment -= BitOperations.countSetBits(board.whiteKnights & WHITE_KNIGHT_SQUARES) * knightOnGoodSquare;
+        knightsDevelopment += BitOperations.countSetBits(board.blackKnights & BLACK_KNIGHT_SQUARES) * knightOnGoodSquare;
 
-
-        knightsDevelopment -= (board.whiteKnights & BoardParts.BACK_FIVE_RANKS) != 0 && board.numOfTurns < 9 ? -5 : 0;
-        knightsDevelopment += (board.blackKnights & BoardParts.FIRST_FIVE_RANKS) != 0 && board.numOfTurns < 9 ? -5 : 0;
+        boolean early = board.numOfTurns < knightEarlyUntilTurn;
+        knightsDevelopment += (board.whiteKnights & BoardParts.BACK_FIVE_RANKS) != 0 && early ? knightOutEarly : 0;
+        knightsDevelopment -= (board.blackKnights & BoardParts.FIRST_FIVE_RANKS) != 0 && early ? knightOutEarly : 0;
         return knightsDevelopment;
     }
 
-    private static int getPawnsInTheCenter(BitBoard board) {
-        int pawnsDevelopment = 0;
-        pawnsDevelopment -= (board.whitePawns & (BoardParts.Tile.E2.position | BoardParts.Tile.D2.position)) != 0 ? - 2 : 0;
-        pawnsDevelopment += (board.blackPawns & (BoardParts.Tile.E7.position | BoardParts.Tile.D7.position)) != 0 ? - 2 : 0;
-//        for (int i = 0; i < BEST_TILES_FOR_WHITE_PAWN_IN_END_GAME.length; i++) {
-//            pawnsDevelopment -= BitOperations.countSetBits((board.whitePawns & BEST_TILES_FOR_WHITE_PAWN_IN_END_GAME[i])) * (10 - i * 2 - 1);
-//        }
-//        for (int i = 0; i < BEST_TILES_FOR_BLACK_PAWN_IN_END_GAME.length; i++) {
-//            pawnsDevelopment += BitOperations.countSetBits((board.blackPawns & BEST_TILES_FOR_BLACK_PAWN_IN_END_GAME[i])) * (10 - i * 2 - 1);
-//        }
-        return pawnsDevelopment;
-    }
-
-    private static int getBishopsDevelopment(BitBoard board) {
+    private int getBishopsDevelopment(BitBoard board) {
         int bishopsDevelopment = 0;
-        bishopsDevelopment -= (board.whiteBishops & BoardParts.FIRST_RANK) != 0 ? -15 : 0;
-        bishopsDevelopment += (board.blackBishops & BoardParts.EIGHTH_RANK) != 0 ? -15 : 0;
+        bishopsDevelopment += (board.whiteBishops & BoardParts.FIRST_RANK) != 0 ? bishopsHome : 0;
+        bishopsDevelopment -= (board.blackBishops & BoardParts.EIGHTH_RANK) != 0 ? bishopsHome : 0;
         return bishopsDevelopment;
     }
-
 }

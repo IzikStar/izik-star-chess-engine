@@ -3,6 +3,7 @@ package ai;
 import ai.BitBoard.BitBoard;
 import ai.BitBoard.BitBoardEvaluate;
 import ai.BitBoard.BitMove;
+import ai.eval.Evaluator;
 
 import java.util.ArrayList;
 import java.util.Random;
@@ -20,6 +21,9 @@ import java.util.function.BooleanSupplier;
  *
  * <p>Memory (Phase 4b): a position drops its children once they have been searched, so only the
  * line being searched and the root's moves stay in memory, not the whole tree.
+ *
+ * <p>Evaluation (Phase 5): the leaves are scored by an {@link Evaluator} the caller chooses; the
+ * overloads without one use {@link BitBoardEvaluate#DEFAULT}.
  */
 public class Minimax {
     private static final Random random = new Random();
@@ -37,14 +41,16 @@ public class Minimax {
     private static final Abandoned ABANDONED = new Abandoned();
 
     private final int searchDepth;
+    private final Evaluator evaluator;
     private final BooleanSupplier stop;
     /** True when the side choosing the move (the side to move at the root) is Black. */
     private final boolean rootIsBlack;
     private final ArrayList<BitMove> bestMoves = new ArrayList<>();
     private int nodesChecked = 0;
 
-    private Minimax(int searchDepth, boolean rootIsBlack, BooleanSupplier stop) {
+    private Minimax(int searchDepth, Evaluator evaluator, boolean rootIsBlack, BooleanSupplier stop) {
         this.searchDepth = searchDepth;
+        this.evaluator = evaluator;
         this.rootIsBlack = rootIsBlack;
         this.stop = stop;
     }
@@ -54,17 +60,22 @@ public class Minimax {
         return getBestMove(bitboard, depth, () -> false);
     }
 
+    /** {@link #getBestMove(BitBoard, int, Evaluator, BooleanSupplier)} with the default evaluation. */
+    public static BitMove getBestMove(BitBoard bitboard, int maxDepth, BooleanSupplier stop) {
+        return getBestMove(bitboard, maxDepth, BitBoardEvaluate.DEFAULT, stop);
+    }
+
     /**
      * The best move of the deepest depth (up to {@code maxDepth}) finished before {@code stop}
      * returned true. With a stop that never fires this is the same move as a single search at
      * {@code maxDepth}: every depth is an independent search.
      */
-    public static BitMove getBestMove(BitBoard bitboard, int maxDepth, BooleanSupplier stop) {
+    public static BitMove getBestMove(BitBoard bitboard, int maxDepth, Evaluator evaluator, BooleanSupplier stop) {
         boolean rootIsBlack = !bitboard.getIsWhiteToMove();
-        BitMove best = new Minimax(1, rootIsBlack, () -> false).search(bitboard);
+        BitMove best = new Minimax(1, evaluator, rootIsBlack, () -> false).search(bitboard);
         for (int depth = 2; depth <= maxDepth && !stop.getAsBoolean(); depth++) {
             try {
-                best = new Minimax(depth, rootIsBlack, stop).search(bitboard);
+                best = new Minimax(depth, evaluator, rootIsBlack, stop).search(bitboard);
             } catch (Abandoned e) {
                 break;
             }
@@ -97,7 +108,7 @@ public class Minimax {
             throw ABANDONED;
         }
         if (depth == 0 || board.getStatus() != 1) {
-            int value = BitBoardEvaluate.evaluate(board, rootIsBlack);
+            int value = evaluator.evaluate(board, rootIsBlack);
             // Prefer the quickest mate (and the slowest loss): a mate found with more depth
             // still to go is closer to the root. Without this, mate-in-1 and mate-in-3 tie.
             if (value >= BitBoardEvaluate.MATE) {
