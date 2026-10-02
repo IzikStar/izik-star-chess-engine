@@ -18,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * The application's entry point since Phase 4c: a local web server for the browser UI.
  *
- * <p>It serves the React app built into the jar under {@code /web}, the game's sounds under
+ * <p>It serves the React app built into the jar under {@code /webapp}, the game's sounds under
  * {@code /sounds}, and one WebSocket at {@code /ws} that carries the game (see {@link GameHub}
  * for the protocol). It listens on 127.0.0.1 only, so nothing outside this computer can reach it,
  * and opens the default browser on start.
@@ -93,14 +93,14 @@ public final class WebServer {
         hub.attach(session);
 
         Map<WsContext, GameHub.Client> clients = new ConcurrentHashMap<>();
-        boolean uiBuilt = WebServer.class.getResource("/web/index.html") != null;
+        boolean uiBuilt = WebServer.class.getResource("/webapp/index.html") != null;
 
         Javalin app = Javalin.create(config -> {
             config.showJavalinBanner = false;
             if (uiBuilt) {
                 config.staticFiles.add(files -> {
                     files.hostedPath = "/";
-                    files.directory = "/web";
+                    files.directory = "/webapp";
                     files.location = Location.CLASSPATH;
                 });
             }

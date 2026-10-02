@@ -204,3 +204,32 @@ owner sign-off.
 ## 8. Increment log
 
 (Filled in as the phase lands, one entry per commit.)
+
+1. **Decisions locked; Phase 4c added to the guide.**
+2. **Server** (`web.WebServer`, `web.GameHub`, `web.GameStateJson`). Javalin 6.7.0 (not 7: 6 is
+   the line whose API this was written against, and 7 moves route setup into the config; the
+   upgrade is a later, mechanical change). Binds 127.0.0.1 only. One game per server process,
+   shared by every open tab. The hub owns the session's dispatcher: a single "game" thread runs
+   every browser command and every engine result, and after each task sends each client one
+   message, `{"type":"state","events":[...],"state":{...}}`, with a full snapshot. Sending after
+   the task rather than inside the listener callbacks is what lets the snapshot already show the
+   engine thinking after the human's move. `GameSession` gained two read-only getters
+   (`isEngineThinking`, `isHintPending`). Kotlin stdlib 1.8.0 -> 1.9.25 to match Javalin (okhttp
+   only needs >= 1.4). WebSocket idle timeout raised to 12 h so a long think doesn't drop the
+   connection; the client reconnects on its own anyway. `WebServerTest`: 11 tests, whole games
+   over the socket.
+3. **Browser app** (`web/`): React 19 + TypeScript 5.9 + Vite 8, react-chessboard 5.12 (MIT),
+   all versions pinned exactly. Built by `frontend-maven-plugin` 2.0.2 at `prepare-package` into
+   `target/classes/webapp` (not `/web`: that is the Java package's directory and the Vite build
+   empties its output directory), so `mvn test` needs no Node. The jar's main class is now
+   `web.WebServer`; Swing runs with `java -cp <jar> main.Main`. The screen follows §3 and the
+   mockup: board with coordinates, last-move tint, dots/rings for targets, red glow on a king in
+   check, hint as an arrow, promotion picker over the square; side panel with player cards
+   (captured pieces, material lead, to-move marker), status line, move list with review
+   (click or arrow keys), take back / hint / flip; new-game dialog (computer / friend / watch the
+   engine, colour incl. random, level slider with names); result in the panel with Rematch and
+   Review; the original sounds; light/dark; narrow-window layout.
+   Left out of the first slice, as agreed in U7: PGN export, clocks, resign/draw offers.
+4. **Browser tests** (`web/e2e/`, Playwright against the packaged jar on port 7071): fool's mate
+   in two-player mode with a real drag and review; illegal move refused; promotion to a knight
+   through the picker; engine reply, hint and take-back; engine-vs-engine stopped by a new game.

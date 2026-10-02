@@ -11,6 +11,9 @@
 > game    GameConfig (immutable), GameListener, GameSession (turn-taking, engine thread,
 >         stale-result guard, results delivered on a dispatcher = the EDT in the app)
 > main/GUI  Swing only: Board renders and listens, Input tracks mouse gestures, Main wires it up
+> web     (Phase 4c) WebServer: Javalin on 127.0.0.1, serves the React app (web/ -> /webapp in
+>         the jar) and one WebSocket; GameHub runs the session on a "game" thread and sends a
+>         full JSON snapshot after every change. The browser never computes legal moves.
 > ```
 >
 > Each arrow points down only; `architecture.LayeringTest` fails the build if `rules`, `ai`,

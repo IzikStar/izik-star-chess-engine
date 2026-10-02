@@ -1,12 +1,13 @@
 # IzikStar Chess
 
-A desktop chess game in Java with its own bitboard engine: legal move generation, alpha-beta
-search and a hand-tuned evaluation. Stockfish can optionally take over the top difficulty levels.
+A chess game in Java with its own bitboard engine: legal move generation, alpha-beta search and
+a hand-tuned evaluation. Stockfish can optionally take over the top difficulty levels. You play
+in the browser: the jar starts a small local server and opens the game.
 
-![IzikStar Chess: the game board after 1.d4 2.Nf3 3.e3 4.Bd3 5.O-O, with the engine's last move and a hint highlighted](docs/images/screenshot.png)
+![IzikStar Chess in the browser: the board with the last move, a selected piece's moves and a hint arrow; the side panel shows the players, the status line and the move list](docs/images/web-ui.png)
 
-*The board mid-game. Green marks the engine's last move (...e5). Cyan is a hint the player
-asked for (Nxe5).*
+*Mid-game against the engine. Yellow marks the last move, dots show where the selected piece
+can go, and the green arrow is a hint the player asked for.*
 
 I started this as a personal project in 2024. It is now going through a planned, test-first
 refactor, which is documented phase by phase in this repository (see
@@ -14,22 +15,24 @@ refactor, which is documented phase by phase in this repository (see
 
 ## Features
 
-- **Play against the computer or a friend.** Choose one or two players, and play as White or
-  Black.
+- **Play against the computer or a friend**, or watch the engine play itself. Pick White,
+  Black or a random colour in the *New game* dialog.
 - **10 difficulty levels.**
   - Level 1 plays random legal moves.
   - Levels 2-7 use the built-in engine and search deeper as the level rises.
   - Levels 8-10 hand the move to Stockfish if it is installed, and fall back to the built-in
     engine if it is not.
-- **Full chess rules.** Castling, en passant, promotion with a piece-choice dialog, check,
+- **Full chess rules.** Castling, en passant, promotion (pick the piece on the board), check,
   checkmate and stalemate. Draws are detected by the 50-move rule, threefold repetition and
   insufficient material.
-- **Hints.** The *Take a hint* button highlights a suggested move for you.
-- **Take-backs.** *Go back* undoes moves.
-- **Move list.** A *Saved Games* tab shows the current game in algebraic notation, including
-  `+`, `#` and draw markers.
-- **Computer vs. computer** mode.
-- **Animations, sound effects** and a material score panel.
+- **Click or drag** to move; the legal moves of the selected piece are marked.
+- **Hints.** *Hint* draws an arrow for the engine's suggested move.
+- **Take-backs**, a **flip board** button, and a **status line** that says whose move it is
+  and when the engine is thinking.
+- **Move list with review.** Click any move, or use the arrow keys, to see that position.
+- **Captured pieces and material** on each player's card; the result in the side panel when
+  the game ends.
+- **Sound effects, light and dark themes**, and a layout that works on a narrow window.
 
 ## How the engine works
 
@@ -136,12 +139,15 @@ src/main/java/
 │   └── openingBook/  (not wired in yet)
 ├── engine/         Engine interface: the built-in search, Stockfish, and which one plays a level
 ├── game/           GameSession: turn-taking, the engine thread, events for any front end
-├── main/           Swing: board renderer, mouse input, menus, settings
-└── GUI/            audio, sprites, animation, custom buttons
+├── web/            local web server: the browser UI's files, and the game over one WebSocket
+├── main/           the old Swing UI (kept until the web UI is signed off, then deleted)
+└── GUI/            Swing audio, sprites, animation, custom buttons
+web/                the browser UI: React + TypeScript (Vite), board by react-chessboard
 ```
 
-Lower layers never import higher ones, and nothing below `main` imports Swing; a test
-(`architecture.LayeringTest`) fails the build otherwise.
+Lower layers never import higher ones, and nothing below `web`/`main` imports Swing or the web
+server; a test (`architecture.LayeringTest`) fails the build otherwise. The browser never
+decides what is legal: the server sends it the legal moves with every position.
 
 The code started as a single-developer IntelliJ project that grew features faster than
 structure. Two documents describe it honestly instead of hiding the problems:
@@ -160,6 +166,7 @@ structure. Two documents describe it honestly instead of hiding the problems:
 | 3 | Decouple the UI from the rules; retire global state | Done ([research](docs/phase-3-research.md)) |
 | 4 | One concurrency model; a proper Stockfish session | Done ([research](docs/phase-4-research.md)) |
 | 4b | Fix the move generator's rule bugs; make the search fast enough for Levels 6-7 | Done ([research](docs/phase-4b-research.md)) |
+| 4c | Replace the Swing screens with a browser UI | In progress ([research](docs/ui-research.md)) |
 | 5 | Opening book in play; structured game database | Planned |
 
 Phase 2 is a good example of the approach:
@@ -176,16 +183,21 @@ You need JDK 21 or newer (`maven.compiler.release` in `pom.xml`). The Maven wrap
 
 ```bash
 ./mvnw package                            # build target/izikstar-chess-3.1.0.jar (runs the tests)
-java -jar target/izikstar-chess-3.1.0.jar # play
-# or
-./mvnw exec:java
+java -jar target/izikstar-chess-3.1.0.jar # play: opens http://localhost:7070/ in your browser
 ```
 
-On Windows use `mvnw.cmd`.
+On Windows use `mvnw.cmd`; double-clicking the jar works too. The first `package` downloads its
+own Node.js into `target/` to build the browser UI (`-Dskip.web=true` skips that step). The
+server listens on this computer only; stop it with Ctrl+C or by closing its console. Options:
+`--port N`, `--no-browser`.
 
 Run the jar from the repository root if you want it to find Stockfish at the default path.
 
-Some end-of-game messages in the UI are in Hebrew.
+The old Swing UI still runs, until it is retired at the end of Phase 4c:
+`java -cp target/izikstar-chess-3.1.0.jar main.Main` (some of its messages are in Hebrew).
+
+**Working on the browser UI:** run the jar (`--no-browser`), then `npm run dev` in `web/` and
+open <http://localhost:5173/>; changes show up as you save.
 
 ## Tests
 
@@ -225,6 +237,13 @@ Some end-of-game messages in the UI are in Hebrew.
   expected to fail until a phase fixes the bug. The four from Phase 0 were all fixed in Phase 2
   and became regular tests, so the profile is currently empty.
 
+- **Web server tests** ([`WebServerTest`](src/test/java/web/WebServerTest.java)) drive whole
+  games through the WebSocket the way the browser does, with no browser.
+- **Browser tests** ([`web/e2e/`](web/e2e/)) play real games in Chromium against the packaged
+  jar: checkmate, drag and click moves, promotion, the engine's reply, take-back, review.
+  After `./mvnw package`, run them in `web/` with `npx playwright install chromium` (once) and
+  `npm run e2e`.
+
 Tests run with `-Djava.awt.headless=true`, so no display is needed.
 
 ## Optional: Stockfish
@@ -245,8 +264,8 @@ On Linux, `sudo apt install stockfish` installs it at `/usr/games/stockfish`.
 
 - **Phase 5:** use the opening book during play, and store games in a structured, queryable
   form.
-- **Longer term:** split the headless `rules`/engine core into a backend service with a web
-  (React) front end.
+- **Longer term:** split the headless `rules`/engine core into a backend service behind the
+  web front end that Phase 4c started.
 
 ## License
 

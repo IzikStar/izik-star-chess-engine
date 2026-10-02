@@ -1,0 +1,311 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Board } from './Board';
+import { NewGameDialog, type NewGameChoice } from './NewGameDialog';
+import { captured, colorName, isOver, kingSquare, LEVELS, materialOf, movesByFrom, other, resultText, turnOf } from './chess';
+import { useGame, type Color, type GameEvent, type GameState } from './protocol';
+import { play } from './sounds';
+
+const EMPTY = new Map<string, string[]>();
+
+function stored(key: string, fallback: string): string {
+  try {
+    return localStorage.getItem(key) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function store(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // private window: the setting just isn't remembered
+  }
+}
+
+export function App() {
+  const [soundOn, setSoundOn] = useState(() => stored('sound', 'on') === 'on');
+  const [theme, setTheme] = useState(() => stored('theme', 'system'));
+  const [flipped, setFlipped] = useState(false);
+  const [autoFlip, setAutoFlip] = useState(() => stored('autoFlip', 'off') === 'on');
+  /** The ply being reviewed (0 = start position), or null for the live position. */
+  const [view, setView] = useState<number | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const soundRef = useRef(soundOn);
+  soundRef.current = soundOn;
+
+  const onEvents = useCallback((events: GameEvent[], state: GameState) => {
+    const sound = soundRef.current;
+    for (const e of events) {
+      switch (e.kind) {
+        case 'move':
+          setView(null);
+          play(e.move.status === 'CHECK' ? 'check' : e.move.capture ? 'capture' : e.move.castling ? 'castle' : 'move', sound);
+          break;
+        case 'gameOver': {
+          const humanLost = state.config.mode === 'engine' && e.status === 'CHECKMATE' && state.turn === state.config.humanColor;
+          play(e.status === 'CHECKMATE' ? (humanLost ? 'lose' : 'win') : 'draw', sound);
+          break;
+        }
+        case 'hint':
+          play('hint', sound);
+          break;
+        case 'reset':
+          setView(null);
+          break;
+        case 'rejected':
+          play('invalid', sound);
+          break;
+      }
+    }
+  }, []);
+
+  const { state, connection, send } = useGame(onEvents);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'system') delete root.dataset.theme;
+    else root.dataset.theme = theme;
+  }, [theme]);
+
+  const legal = useMemo(() => (state && state.humanTurn ? movesByFrom(state.legalMoves) : EMPTY), [state]);
+
+  const moves = state?.moves ?? [];
+  const live = view === null || view >= moves.length;
+  const ply = live ? moves.length : view!;
+
+  const goTo = useCallback((p: number) => setView(p >= moves.length ? null : Math.max(0, p)), [moves.length]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (dialogOpen || (e.target as HTMLElement).closest('input, select, textarea')) return;
+      if (e.key === 'ArrowLeft') goTo(ply - 1);
+      else if (e.key === 'ArrowRight') goTo(ply + 1);
+      else if (e.key === 'Home') goTo(0);
+      else if (e.key === 'End') goTo(moves.length);
+      else if (e.key === 'f') setFlipped((f) => !f);
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [goTo, ply, moves.length, dialogOpen]);
+
+  if (!state) {
+    return (
+      <div className="app loading">
+        <p>{connection === 'lost' ? 'Waiting for the game server…' : 'Connecting…'}</p>
+      </div>
+    );
+  }
+
+  const { config } = state;
+  const fen = live ? state.fen : ply === 0 ? state.startFen : moves[ply - 1].fenAfter;
+  const shownStatus = live ? state.status : ply === 0 ? 'IN_PROGRESS' : moves[ply - 1].status;
+  const lastMove = ply === 0 ? null : moves[ply - 1].uci;
+  const checkSquare = shownStatus === 'CHECK' || shownStatus === 'CHECKMATE' ? kingSquare(fen, turnOf(fen)) : null;
+  const over = isOver(state);
+
+  const baseOrientation: Color =
+    config.mode === 'engine' ? config.humanColor : config.mode === 'friend' && autoFlip ? state.turn : 'white';
+  const orientation = flipped ? other(baseOrientation) : baseOrientation;
+
+  const startNewGame = (choice: NewGameChoice) => {
+    setDialogOpen(false);
+    setFlipped(false);
+    setView(null);
+    setAutoFlip(choice.autoFlip);
+    store('autoFlip', choice.autoFlip ? 'on' : 'off');
+    play('start', soundOn);
+    send({ type: 'newGame', mode: choice.mode, color: choice.color, level: choice.level });
+  };
+
+  const canUndo = live && moves.length > 0 && config.mode !== 'computer'
+    && !(config.mode === 'engine' && moves.length === 1 && config.humanColor === 'black');
+
+  return (
+    <div className="app">
+      <header className="topbar">
+        <div className="brand"><span aria-hidden="true">♞</span> IzikStar Chess</div>
+        <div className="spacer" />
+        <button type="button" className="btn ghost" aria-pressed={!soundOn} onClick={() => {
+          setSoundOn(!soundOn);
+          store('sound', soundOn ? 'off' : 'on');
+        }}>{soundOn ? 'Sound on' : 'Sound off'}</button>
+        <button type="button" className="btn ghost" onClick={() => {
+          const dark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+          const next = dark ? 'light' : 'dark';
+          setTheme(next);
+          store('theme', next);
+        }}>Dark / light</button>
+        <button type="button" className="btn primary" onClick={() => setDialogOpen(true)}>New game</button>
+      </header>
+
+      <main className="game">
+        <section className="board-area" aria-label="Board">
+          <Board
+            fen={fen}
+            orientation={orientation}
+            legal={live ? legal : EMPTY}
+            lastMove={lastMove}
+            checkSquare={checkSquare}
+            hint={live ? state.hint : null}
+            onMove={(uci) => send({ type: 'move', uci })}
+            onSelect={() => play('select', soundOn)}
+            onIllegal={() => play('invalid', soundOn)}
+          />
+        </section>
+
+        <aside className="side">
+          <PlayerCard state={state} color={other(orientation)} fen={fen} live={live} />
+
+          <StatusLine state={state} connection={connection} live={live} ply={ply} onReturn={() => goTo(moves.length)} />
+
+          {live && over && (
+            <section className="result" aria-label="Result" data-testid="result">
+              <div className="score">{state.result === '1/2-1/2' ? '½ – ½' : state.result!.replace('-', ' – ')}</div>
+              <div className="reason">{resultText(state.status, state.turn)}</div>
+              <div className="row">
+                <button type="button" className="btn primary" onClick={() => startNewGame({ mode: config.mode, color: config.humanColor, level: config.level, autoFlip })}>Rematch</button>
+                <button type="button" className="btn" onClick={() => goTo(0)}>Review game</button>
+              </div>
+            </section>
+          )}
+
+          <MoveList state={state} ply={ply} onPick={goTo} />
+
+          <div className="nav" role="group" aria-label="Review moves">
+            <button type="button" className="icon" aria-label="First position" disabled={ply === 0} onClick={() => goTo(0)}>⏮</button>
+            <button type="button" className="icon" aria-label="Previous move" disabled={ply === 0} onClick={() => goTo(ply - 1)}>◀</button>
+            <button type="button" className="icon" aria-label="Next move" disabled={live} onClick={() => goTo(ply + 1)}>▶</button>
+            <button type="button" className="icon" aria-label="Latest move" disabled={live} onClick={() => goTo(moves.length)}>⏭</button>
+          </div>
+
+          <PlayerCard state={state} color={orientation} fen={fen} live={live} />
+
+          <div className="controls" role="group" aria-label="Game controls">
+            <button type="button" className="icon labelled" disabled={!canUndo} onClick={() => {
+              play('back', soundOn);
+              send({ type: 'undo' });
+            }}><b aria-hidden="true">↶</b>Take back</button>
+            <button type="button" className="icon labelled" disabled={!live || !state.humanTurn || state.hintPending} onClick={() => send({ type: 'hint' })}><b aria-hidden="true">✦</b>Hint</button>
+            <button type="button" className="icon labelled" onClick={() => setFlipped(!flipped)}><b aria-hidden="true">⇅</b>Flip board</button>
+          </div>
+        </aside>
+      </main>
+
+      {dialogOpen && (
+        <NewGameDialog
+          initial={{ mode: config.mode, color: config.humanColor, level: config.level, autoFlip }}
+          onStart={startNewGame}
+          onCancel={() => setDialogOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function PlayerCard({ state, color, fen, live }: { state: GameState; color: Color; fen: string; live: boolean }) {
+  const { config } = state;
+  const isEngine = config.mode === 'computer' || (config.mode === 'engine' && color !== config.humanColor);
+  const name = isEngine ? `Engine · Level ${config.level}` : config.mode === 'engine' ? 'You' : colorName(color);
+  const detail = isEngine ? LEVELS[config.level - 1].engine : `Plays ${colorName(color)}`;
+  const taken = captured(fen)[color];
+  const lead = materialOf(fen) * (color === 'white' ? 1 : -1);
+  const toMove = live && !isOver(state) && state.turn === color;
+  return (
+    <div className={'player' + (toMove ? ' to-move' : '')} data-testid={`player-${color}`}>
+      <div className="avatar" aria-hidden="true">{isEngine ? '⚙' : color === 'white' ? '♔' : '♚'}</div>
+      <div className="who">
+        <div className="name">{name}</div>
+        <div className="detail">{detail}</div>
+      </div>
+      <div className="taken" aria-label={`${colorName(color)} has taken`}>
+        <span className="glyphs">{taken.map((p) => GLYPHS[p.toLowerCase()]).join('')}</span>
+        {lead > 0 && <span className="lead">+{lead}</span>}
+      </div>
+    </div>
+  );
+}
+
+const GLYPHS: Record<string, string> = { p: '♟', n: '♞', b: '♝', r: '♜', q: '♛' };
+
+function StatusLine({ state, connection, live, ply, onReturn }: {
+  state: GameState;
+  connection: string;
+  live: boolean;
+  ply: number;
+  onReturn: () => void;
+}) {
+  let text: string;
+  let busy = false;
+  let tone = '';
+  if (connection !== 'open') {
+    text = 'Lost the connection to the game. Reconnecting…';
+    busy = true;
+    tone = 'warn';
+  } else if (!live) {
+    const m = state.moves[ply - 1];
+    text = ply === 0 ? 'Reviewing the start position' : `Reviewing ${m.number}${m.color === 'white' ? '.' : '…'} ${m.san}`;
+  } else if (isOver(state)) {
+    text = 'Game over';
+  } else if (state.engineThinking) {
+    text = 'Engine is thinking…';
+    busy = true;
+  } else if (state.hintPending) {
+    text = 'Looking for a hint…';
+    busy = true;
+  } else {
+    const who = state.config.mode === 'engine' ? 'Your move' : `${colorName(state.turn)} to move`;
+    text = state.status === 'CHECK' ? `${who} · Check!` : who;
+    if (state.status === 'CHECK') tone = 'warn';
+  }
+  return (
+    <div className={'status ' + tone} role="status" data-testid="status">
+      {busy && <span className="spinner" aria-hidden="true" />}
+      <span>{text}</span>
+      {!live && <button type="button" className="link" onClick={onReturn}>Back to game</button>}
+    </div>
+  );
+}
+
+function MoveList({ state, ply, onPick }: { state: GameState; ply: number; onPick: (ply: number) => void }) {
+  const list = useRef<HTMLOListElement>(null);
+  const { moves } = state;
+  useEffect(() => {
+    list.current?.querySelector('.current')?.scrollIntoView({ block: 'nearest' });
+  }, [ply, moves.length]);
+
+  // rows of [white, black]; a game set up with Black to move would start with an empty White cell
+  const rows: { number: number; cells: ({ san: string; ply: number } | null)[] }[] = [];
+  moves.forEach((m, i) => {
+    if (m.color === 'white' || rows.length === 0) rows.push({ number: m.number, cells: [null, null] });
+    rows[rows.length - 1].cells[m.color === 'white' ? 0 : 1] = { san: m.san, ply: i + 1 };
+  });
+
+  return (
+    <section className="moves" aria-label="Moves">
+      {moves.length === 0 ? (
+        <p className="empty">No moves yet. {state.humanTurn ? 'Click or drag a piece to start.' : ''}</p>
+      ) : (
+        <ol className="move-list" ref={list} data-testid="move-list">
+          {rows.map((row) => (
+            <li key={row.number}>
+              <span className="num">{row.number}.</span>
+              {row.cells.map((c, i) =>
+                c ? (
+                  <button key={i} type="button" className={'mv' + (c.ply === ply ? ' current' : '')} onClick={() => onPick(c.ply)}>
+                    {c.san}
+                  </button>
+                ) : (
+                  <span key={i} className="mv" />
+                ),
+              )}
+            </li>
+          ))}
+          {state.result && <li className="final">{state.result}</li>}
+        </ol>
+      )}
+    </section>
+  );
+}
