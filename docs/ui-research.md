@@ -1,6 +1,9 @@
 # UI/UX research — what is wrong with the game screen, and what to build next
 
-Status: **research only, awaiting the owner's decisions (§6).** No UI code has been written.
+Status: **decisions locked 2026-10-02 — the owner approved every recommendation in §6** (U1 web UI,
+U2 before Phase 5, U3 Javalin, U4 react-chessboard, U5 English, U6 Swing kept until parity then
+deleted, U7 the listed first slice). Implementation is Phase 4c in REFACTOR_GUIDE.md; the
+increment log is §8.
 Written 2026-10-02 against `master` at `e0965d5` (Phase 4b merged).
 
 The owner's ask: the current UX/UI is bad and should improve dramatically; what is the next step?
@@ -197,3 +200,7 @@ merge (or simply not merging) leaves today's app.
 and vs a friend can be played, reviewed and restarted without the Swing window; API and browser
 end-to-end tests green; `mvn test` count unchanged or higher; Swing UI classes deleted with
 owner sign-off.
+
+## 8. Increment log
+
+(Filled in as the phase lands, one entry per commit.)

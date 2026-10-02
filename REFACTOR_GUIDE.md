@@ -449,6 +449,35 @@ their expected moves, or each change is justified in the phase notes.
 
 ---
 
+## Phase 4c — Web UI
+
+> **Status: IN PROGRESS on branch `phase-4c-web-ui` (started 2026-10-02).** Research, decisions
+> (U1-U7, all approved by the owner) and the increment log are in
+> [docs/ui-research.md](docs/ui-research.md).
+
+**Goal.** Replace the Swing screens, which the owner called the weakest part of the app, with a
+browser UI in the shape of lichess: one screen with a scalable board, a side panel (players,
+move list with review, controls), a status line, a new-game dialog and an in-panel game-over
+result.
+
+**Why now, and before Phase 5.** Phase 3 left the UI talking to the core only through
+`game.GameSession` / `GameListener`, so a server can wrap the session without touching rules or
+engines. Phase 5's opening names and games browser need UI; building it in Swing first would
+mean building it twice. This is also the first step towards the long-term backend + React
+architecture, kept to one local process and one user.
+
+**Scope.** A local Javalin server in the same JVM (JSON over one WebSocket; the server stays the
+only rules authority, the browser only shows the legal moves it is sent); a React + TypeScript
++ Vite app using react-chessboard, built by Maven into the jar; the packaged jar starts the
+server and opens the browser. Swing stays runnable (`main.Main`) until the owner confirms parity,
+then its classes are deleted in the phase's last commit.
+
+**Exit criteria.** The packaged jar opens the new UI; a full game against the engine and against
+a friend can be played, reviewed and restarted in the browser; API tests and a browser
+end-to-end test green; the existing suites unchanged; Swing UI deleted with the owner's sign-off.
+
+---
+
 ## Phase 5 — Build the originally-requested features
 
 **Goal.** Now that there's a clean, tested, headless rules/engine core, deliver the two
