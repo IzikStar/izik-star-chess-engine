@@ -64,12 +64,12 @@ public class StockfishEngine implements Engine {
         return path;
     }
 
-    /** Thinking time per UI level: Levels 8 / 9 / 10 (13 / 15 / 17) and hints (21). */
+    /** Thinking time: UI Levels 8 / 9 / 10 (skill 14 / 16 / 18) think 300 / 600 / 1000 ms, hints (21) 1000 ms. */
     static long moveTimeMs(int level) {
-        if (level <= 13) {
+        if (level <= 14) {
             return 300;
         }
-        if (level <= 15) {
+        if (level <= 16) {
             return 600;
         }
         return 1000;

@@ -68,8 +68,10 @@ pruning** over bitboard positions:
 - **Move ordering.** Child positions are sorted by a cheap move score before they are searched,
   which makes cut-offs happen sooner. Checks come first, then captures by the value of the
   captured piece. Moves that give up castling rights score lower.
-- **Depth.** Depth comes from the difficulty level, from 1 ply at level 2 to 6 plies at level 7.
-  The engine searches 1-2 plies deeper once the board thins out to 12 or fewer pieces.
+- **Depth and time.** Depth comes from the difficulty level, from 1 ply at level 2 to 6 plies at
+  level 7, and 1-2 plies deeper once the board thins out to 12 or fewer pieces. The search
+  deepens one ply at a time and stops after 5 seconds, playing the move of the deepest depth it
+  finished; it also stops at once when the game moves on (take-back, new game).
 - **Repetition.** Positions get Zobrist hashes
   ([`ZobristHashing`](src/main/java/ai/BitBoard/ZobristHashing.java)). A per-branch stack
   ([`BoardStateTracker`](src/main/java/ai/BoardStateTracker.java)) uses them to spot threefold
@@ -80,8 +82,9 @@ pruning** over bitboard positions:
 **Not wired in yet:**
 
 - A [`TranspositionTable`](src/main/java/ai/TranspositionTable.java) keyed by the same Zobrist
-  hash exists, but its calls in `minimax()` are commented out. Hooking it in is part of Phase 4.
-- There is no iterative deepening and no quiescence search yet.
+  hash exists, but its calls in `minimax()` are commented out. Hooking it in is planned for
+  Phase 4b, together with faster move generation.
+- There is no quiescence search yet.
 
 ### Evaluation
 
@@ -109,9 +112,11 @@ calls it, and wiring it in is planned for Phase 5.
 
 [`engine/StockfishEngine.java`](src/main/java/engine/StockfishEngine.java) starts a Stockfish
 process and talks to it over the UCI protocol through stdin and stdout. The suggested move is
-checked against the program's own rules before it is played. Levels 8-10 set Stockfish's skill
-level to 13, 15 and 17. The integration is still basic: it re-handshakes on every move and uses a
-fixed 150 ms move time. Phase 4 of the refactor is about fixing this.
+checked against the program's own rules before it is played. One Stockfish process serves the
+whole session: the UCI handshake runs once, and each move sends the game's moves so far.
+Levels 8-10 set Stockfish's skill level to 13, 15 and 17 and let it think 300, 600 and 1000 ms;
+hints use full strength and 1000 ms. If Stockfish crashes it is restarted, and if it is missing or
+keeps failing the built-in engine takes over.
 
 ## Architecture and the ongoing refactor
 
@@ -145,7 +150,8 @@ structure. Two documents describe it honestly instead of hiding the problems:
 | 1 | Remove dead and duplicate code | Done ([notes](docs/phase-1-notes.md)) |
 | 2 | One board model and one rules engine; fix draw detection | Done ([research](docs/phase-2-research.md)) |
 | 3 | Decouple the UI from the rules; retire global state | Done ([research](docs/phase-3-research.md)) |
-| 4 | One concurrency model; a proper Stockfish session; transposition table | Next |
+| 4 | One concurrency model; a proper Stockfish session | Done ([research](docs/phase-4-research.md)) |
+| 4b | Faster move generation; transposition table | Next |
 | 5 | Opening book in play; structured game database | Planned |
 
 Phase 2 is a good example of the approach:
@@ -215,8 +221,8 @@ On Linux, `sudo apt install stockfish` installs it at `/usr/games/stockfish`.
 
 ## Roadmap
 
-- **Phase 4:** engine searches that can be cancelled and are capped in time, a persistent
-  Stockfish session with a move time per level, and the transposition table switched on.
+- **Phase 4b:** faster move generation (legality checks take most of the search time) and the
+  transposition table switched on, so Levels 6-7 reach their full depth within the time cap.
 - **Phase 5:** use the opening book during play, and store games in a structured, queryable
   form.
 - **Longer term:** split the headless `rules`/engine core into a backend service with a web

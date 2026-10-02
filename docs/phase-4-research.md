@@ -1,6 +1,6 @@
 # Phase 4 — Concurrency and the Stockfish integration
 
-**Status: IN PROGRESS — decisions locked 2026-10-02 (§8).** Branch
+**Status: DONE on this branch (2026-10-02), pending merge — decisions in §8, log in §9.** Branch
 `phase-4-concurrency-stockfish`, cut from `phase-3-decouple-ui` (PR #2, not merged yet; this
 branch is rebased onto `master` once it is). No production code has been touched.
 
@@ -273,3 +273,27 @@ Same probe as §3.4 with Stockfish 16: the first move pays the process start (~1
 each move takes its move time plus ~5 ms (Level 8: 309 ms, Level 9: 606 ms, Level 10 and hints:
 ~1,005 ms); a forced mate comes back in 8-25 ms. Before: ~685 ms for every move, 150 ms of it
 thinking.
+
+### Increment 5 — stress test, the real app, docs (2026-10-02)
+
+- `game.StressTest`, tagged `stress` (`mvn test -Pstress`, new profile): 50 engine-vs-engine
+  games at Level 2, 5 at the app's computer-game skill 6, 3 Stockfish-vs-Stockfish at Level 8
+  (when installed), and 3,000 random moves / take-backs / colour flips / new games / hint
+  requests ending with the engine answering. **4 green in 136 s.** A short version
+  (`stressSmoke`: 5 games + 300 operations) runs with `-Psmoke`.
+- Driven the real app under Xvfb with Stockfish 16 and a `RepaintManager` that flags any repaint
+  off the event thread: engine reply after 1.e4 at UI Level 1: 1.0 s (the cosmetic pause),
+  Level 6: 5.0 s, Level 7: 5.0 s (cap), Level 8: 1.4 s (first Stockfish move, process start),
+  Levels 9 / 10: 1.0 s; a new game during a Level 7 search then 1.e4: reply in 5.05 s (the stale
+  search was dropped at once); five hint requests then a move at Level 3: reply in 65 ms;
+  computer-vs-computer: 94 plies in 40 s; **0 off-EDT repaints**.
+- Found while driving it: the move times were keyed to Stockfish's skill (13/15/17) instead of the
+  UI's skill (14/16/18), so Level 8 thought 600 ms; fixed (300 / 600 / 1000) and pinned in
+  `StockfishSessionTest`.
+- In the app "go back" is accepted only on a human's turn (unchanged from Phase 3), so a
+  take-back during the engine's thought cannot happen from the UI; the session handles it anyway
+  (tested).
+- ARCHITECTURE.md (Phase 4 banner, §5.5, §6), README (search, Stockfish, roadmap) and
+  REFACTOR_GUIDE.md (Phase 4 status; Phase 4b split out) re-synced. `mvn test` **90 green**,
+  `-Psmoke` 4 green, `-Pstress` 4 green.
+

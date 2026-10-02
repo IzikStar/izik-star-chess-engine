@@ -23,7 +23,7 @@
              both the known-bug tests and the slower end-to-end smoke tests; the
              `known-bugs` and `smoke` profiles flip these. -->
         <surefire.groups></surefire.groups>
-        <surefire.excludedGroups>known-bug,smoke</surefire.excludedGroups>
+        <surefire.excludedGroups>known-bug,smoke,stress</surefire.excludedGroups>
         <surefire.testFailureIgnore>false</surefire.testFailureIgnore>
 
         <!-- Dependency versions: pinned to match the jars previously checked into libs/
@@ -174,7 +174,7 @@
             <id>known-bugs</id>
             <properties>
                 <surefire.groups>known-bug</surefire.groups>
-                <surefire.excludedGroups>smoke</surefire.excludedGroups>
+                <surefire.excludedGroups>smoke,stress</surefire.excludedGroups>
                 <surefire.testFailureIgnore>true</surefire.testFailureIgnore>
             </properties>
         </profile>
@@ -188,6 +188,19 @@
             <id>smoke</id>
             <properties>
                 <surefire.groups>smoke</surefire.groups>
+                <surefire.excludedGroups>stress</surefire.excludedGroups>
+                <surefire.testFailureIgnore>false</surefire.testFailureIgnore>
+            </properties>
+        </profile>
+
+        <!-- mvn test -Pstress
+             Runs ONLY the @Tag("stress") tests (game.StressTest): many unattended
+             engine-vs-engine games (Stockfish ones too when it is installed) and a storm of
+             random moves, take-backs and hint requests. Takes several minutes (Phase 4). -->
+        <profile>
+            <id>stress</id>
+            <properties>
+                <surefire.groups>stress</surefire.groups>
                 <surefire.excludedGroups></surefire.excludedGroups>
                 <surefire.testFailureIgnore>false</surefire.testFailureIgnore>
             </properties>

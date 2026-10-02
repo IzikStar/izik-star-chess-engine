@@ -83,6 +83,9 @@ class StockfishSessionTest {
         assertEquals(1, count(sent, "setoption name Skill Level value 12"), "the skill is only resent when it changes");
         assertTrue(sent.contains("go movetime 300"), sent.toString());
         assertTrue(sent.contains("go movetime 1000"), sent.toString());
+        assertEquals(300, StockfishEngine.moveTimeMs(14), "UI Level 8");
+        assertEquals(600, StockfishEngine.moveTimeMs(16), "UI Level 9");
+        assertEquals(1000, StockfishEngine.moveTimeMs(18), "UI Level 10");
     }
 
     @Test

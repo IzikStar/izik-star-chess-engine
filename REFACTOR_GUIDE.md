@@ -358,6 +358,14 @@ is gone; `Board` contains no chess-rules logic; the app is playable with feature
 
 ## Phase 4 — Fix concurrency and the Stockfish integration
 
+> **Status: DONE on branch `phase-4-concurrency-stockfish` (2026-10-02), pending merge.** Research,
+> decisions and the increment log are in [docs/phase-4-research.md](docs/phase-4-research.md).
+> Exit criteria met: one documented pattern for every engine move and hint (cancellable jobs on
+> one engine thread, results on the EDT); one Stockfish process per session; no Swing repaint off
+> the EDT (checked under Xvfb with a checking `RepaintManager`); `-Pstress` runs unattended
+> engine-vs-engine games (built-in and Stockfish) and a take-back/hint storm without a hang.
+> Split out as **Phase 4b**: faster move generation and the transposition table (Fork D1).
+
 **Goal.** Replace the four coexisting ad hoc concurrency patterns (ARCHITECTURE.md §5.5) with one
 consistent approach, and fix Stockfish's process/session handling so it stops restarting its UCI
 handshake every move (ARCHITECTURE.md §2.5) — very likely the actual cause of "Stockfish plays

@@ -21,6 +21,15 @@
 > false-repetition bug in the search hash are fixed and pinned by tests. **Sections 2–4 below
 > still describe the pre-Phase-3 code** (kept for the history of why); §5 and §6 are current.
 
+> **Updated after Phase 4 (2026-10-02)** — branch `phase-4-concurrency-stockfish`,
+> [docs/phase-4-research.md](docs/phase-4-research.md). One concurrency pattern, documented on
+> `game.GameSession`: game state lives on the dispatcher (EDT), engine moves and hints are jobs
+> on one engine thread, each carrying an `engine.Cancellation` the engines honour (the search
+> stops within 256 nodes; Stockfish gets `stop`); at most one hint waits and the engine's move
+> goes first. The built-in search deepens one ply at a time with a 5 s cap. Stockfish is one
+> process per session (handshake once, `position … moves …`, move time per level, restart on
+> crash, fall back after repeated failures). `-Pstress` plays unattended engine-vs-engine games.
+
 This document maps the *current* architecture of the codebase. It is descriptive, not
 prescriptive: it explains how the pieces actually interact today (including the
 broken/duplicated parts), so that a redesign can be planned with full knowledge of what's
@@ -357,11 +366,11 @@ lookup — cheap and cached — rather than the old brute-force path).
    `Minimax` class itself is all `static` fields), and makes the search's behavior depend on
    UI state that has nothing to do with the position being searched.
 
-5. **Ad hoc, inconsistent concurrency.** — *partly resolved in Phase 3:* engine moves now run
-   on one engine executor owned by `GameSession`, results come back on the EDT, and stale
-   results (after undo / new game) are dropped. Still open for Phase 4: Stockfish restarts the
-   UCI process per call, there is no search time limit, and the search is slow at levels ≥ 10.
-   Original text: At least four different patterns for "do work off the
+5. ~~**Ad hoc, inconsistent concurrency.**~~ — **RESOLVED in Phase 3 + 4.** Phase 3 put engine
+   moves on one engine executor with results on the EDT; Phase 4 made every job cancellable
+   (searches stop at once on take-back / new game), capped search time, kept at most one hint
+   pending, and replaced the per-move Stockfish handshake with one session. Still slow: Levels
+   6-7 usually finish only depth 4 in their 5 s (move generation; Phase 4b). Original text: At least four different patterns for "do work off the
    UI thread" coexist: a raw `Thread` in `Input.makeEngineMove`'s Stockfish branch, a
    single-thread `ExecutorService` + `Future` in `myEngine`, a `SwingWorker` +
    `CountDownLatch` + `Thread.sleep(6000)` polling loop in `Main.play()`, and one-off
@@ -418,5 +427,7 @@ fallback) on its engine thread, and plays the answer through the same `Game.play
 There is one rules authority (`rules.Rules` over `BitBoard`, since Phase 2) and now one copy of
 the game state (`rules.Game`). Nothing below the UI imports Swing or reads UI flags.
 
-**Still open:** search speed and a time limit, a persistent Stockfish session, the transposition
-table (Phase 4); persistence is still a flat FEN list and the opening book is unwired (Phase 5).
+**After Phase 4**, engine work follows one pattern (§5.5) and Stockfish keeps one session.
+
+**Still open:** search speed and the transposition table (Phase 4b); persistence is still a flat
+FEN list and the opening book is unwired (Phase 5).
