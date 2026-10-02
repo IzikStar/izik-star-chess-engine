@@ -1,8 +1,7 @@
 # Phase 4b — Make the built-in search fast enough for its levels
 
-**Status: RESEARCH, waiting for the owner's decisions (§5).** Branch `phase-4b-search-speed`,
-cut from `master` after PRs #2 and #3 were merged (2026-10-02). No production code has been
-touched.
+**Status: IN PROGRESS — decisions locked 2026-10-02 (§10); implementing on this branch.** Branch
+`phase-4b-search-speed`, cut from `master` after PRs #2 and #3 were merged (2026-10-02).
 
 This is the mandatory research step from [REFACTOR_GUIDE.md](../REFACTOR_GUIDE.md) §Phase 4b.
 The guide asks for a perft suite as the safety net before any move-generator change. Building
@@ -377,3 +376,21 @@ green state. The branch is merged with a merge commit like the earlier phases.
   `whitePieces & blackPieces`, which is always empty. Nothing reads that stage today. Also,
   `gameStage` is a static field written by every evaluation, which is safe only while one thread
   searches.
+
+## 10. Decisions (locked 2026-10-02, project owner)
+
+All recommendations approved: **A1** (fix the nine rules bugs first, in this phase, test first),
+**B1** (only speed changes that keep the engine's moves identical; no transposition table or new
+move ordering), **C1** (perft, the bug regressions and the "same move" test in every `mvn test`;
+deeper perft and the Stockfish random-games check under `-Pstress`).
+
+## 11. Increment log
+
+**Increment 1, safety net.**
+- `rules.PerftPositions` holds the 7 standard and 16 edge positions with their reference counts.
+- `ai.BitBoard.SearchPerftTest` (search view) and `rules.RulesPerftTest` (game view) run each
+  position to the deepest depth within 300,000 nodes (search) or 100,000 nodes (game).
+- `rules.MoveGenerationBugsTest` has one test per player-visible bug (#1–#6, #8, #9), with
+  Stockfish's moves. `ai.BitBoard.SearchEnPassantTest` covers #7.
+- All are tagged `known-bug`. On master, 18 of the 23 perft cases fail in each view, and all 11
+  bug tests fail.
