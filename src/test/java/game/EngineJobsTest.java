@@ -124,4 +124,30 @@ class EngineJobsTest {
             assertTrue(replied.await(2, TimeUnit.SECONDS), "the next search starts right away");
         });
     }
+
+    @Test
+    @DisplayName("A move cancels a hint that is still being computed for the position before it")
+    void moveCancelsPendingHint() {
+        assertTimeoutPreemptively(Duration.ofSeconds(30), () -> {
+            CountDownLatch hintCancelled = new CountDownLatch(1);
+            Engine slowHints = new Engine() {
+                @Override
+                public ChessMove bestMove(SearchRequest request) {
+                    while (!request.cancel().isCancelled()) {
+                        Thread.onSpinWait();
+                    }
+                    hintCancelled.countDown();
+                    return null;
+                }
+            };
+            session = dispatcher.submit(() -> new GameSession(
+                    GameConfig.defaults().withMode(GameConfig.Mode.HUMAN_VS_HUMAN),
+                    new EngineSelector(new MinimaxEngine(), slowHints), dispatcher)).get();
+            GameSession s = session;
+            onDispatcher(s::requestHint);
+            Thread.sleep(100);
+            onDispatcher(() -> s.playHumanMove(ChessMove.fromUci("e2e4")));
+            assertTrue(hintCancelled.await(2, TimeUnit.SECONDS), "the stale hint stops");
+        });
+    }
 }

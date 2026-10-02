@@ -410,6 +410,32 @@ EDT; computer-vs-computer mode can run unattended for many games without hanging
 
 ---
 
+## Phase 4b — Make the built-in search fast enough for its levels
+
+**Goal.** Let Levels 6-7 reach their intended depth (5-6 plies) inside the 5 s cap set in Phase 4.
+Today they usually finish only depth 4 in the middlegame, so they play like Level 5
+(docs/phase-4-research.md §3.3 and the increment 2+3 log).
+
+**Why separate.** Split out of Phase 4 by decision (docs/phase-4-research.md Fork D1): the cost is
+in move generation, which is the Phase 2 rules authority, so it needs its own safety net and
+should not ride along with a threading change.
+
+**Scope.** Cheaper legality checking (a JFR profile puts 68% of search time in
+`BitBoard.isCheckOn` / `getAllAttackedTiles` while building child boards), switching on the
+transposition table that exists but is commented out, and the remaining debug string building in
+move generation.
+
+**Research required before implementing.** A perft suite (move counts to fixed depths from
+standard positions) as the safety net for any move-generator change; a profile per change;
+whether the transposition table changes the moves the engine picks at a given depth (it can,
+through move ordering and mate scores), and if so how that is tested.
+
+**Exit criteria.** Perft counts match the published values; Levels 6 and 7 finish depth 5 and 6
+in typical middlegames within the cap on the owner's machine; the characterization tests keep
+their expected moves, or each change is justified in the phase notes.
+
+---
+
 ## Phase 5 — Build the originally-requested features
 
 **Goal.** Now that there's a clean, tested, headless rules/engine core, deliver the two

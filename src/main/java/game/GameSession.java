@@ -30,9 +30,10 @@ import java.util.concurrent.Future;
  *   <li>Engine moves and hints run as jobs on one engine thread. Each job carries a
  *       {@link Cancellation}; the engines stop thinking soon after it is set, so a cancelled job
  *       frees the engine thread almost at once.</li>
- *   <li>A take-back, new game or config change cancels every job. Starting the engine's move
- *       cancels a pending hint. A new hint request replaces a pending one for another position,
- *       so at most one hint is ever waiting.</li>
+ *   <li>A take-back, new game or config change cancels every job. Any move, and starting the
+ *       engine's move, cancels a pending hint (it was for an older position, or would delay the
+ *       engine). A new hint request replaces a pending one for another position, so at most one
+ *       hint is ever waiting.</li>
  *   <li>A job's result is handed back to the dispatcher and dropped if the game moved on in the
  *       meantime (generation check), so a late answer can never be played.</li>
  * </ul>
@@ -236,6 +237,7 @@ public final class GameSession {
     private MoveResult apply(ChessMove move, boolean byEngine) {
         MoveResult result = game.play(move);
         generation++;
+        cancelHint(); // it was for the position before this move
         listeners.forEach(l -> l.moveMade(result, byEngine));
         if (result.status().isGameOver()) {
             listeners.forEach(l -> l.gameOver(result));

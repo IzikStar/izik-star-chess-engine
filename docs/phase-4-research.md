@@ -293,7 +293,10 @@ thinking.
 - In the app "go back" is accepted only on a human's turn (unchanged from Phase 3), so a
   take-back during the engine's thought cannot happen from the UI; the session handles it anyway
   (tested).
+- Found on re-reading the diff: in two-player mode a hint still being computed kept running
+  after a move (only the engine's own move cancelled it), wasting up to 5 s of the engine thread.
+  Any move now cancels a pending hint (`EngineJobsTest.moveCancelsPendingHint`, red before).
 - ARCHITECTURE.md (Phase 4 banner, §5.5, §6), README (search, Stockfish, roadmap) and
-  REFACTOR_GUIDE.md (Phase 4 status; Phase 4b split out) re-synced. `mvn test` **90 green**,
+  REFACTOR_GUIDE.md (Phase 4 status; Phase 4b split out) re-synced. `mvn test` **91 green**,
   `-Psmoke` 4 green, `-Pstress` 4 green.
 
