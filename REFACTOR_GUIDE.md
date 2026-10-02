@@ -358,6 +358,14 @@ is gone; `Board` contains no chess-rules logic; the app is playable with feature
 
 ## Phase 4 — Fix concurrency and the Stockfish integration
 
+> **Status: DONE on branch `phase-4-concurrency-stockfish` (2026-10-02), pending merge.** Research,
+> decisions and the increment log are in [docs/phase-4-research.md](docs/phase-4-research.md).
+> Exit criteria met: one documented pattern for every engine move and hint (cancellable jobs on
+> one engine thread, results on the EDT); one Stockfish process per session; no Swing repaint off
+> the EDT (checked under Xvfb with a checking `RepaintManager`); `-Pstress` runs unattended
+> engine-vs-engine games (built-in and Stockfish) and a take-back/hint storm without a hang.
+> Split out as **Phase 4b**: faster move generation and the transposition table (Fork D1).
+
 **Goal.** Replace the four coexisting ad hoc concurrency patterns (ARCHITECTURE.md §5.5) with one
 consistent approach, and fix Stockfish's process/session handling so it stops restarting its UCI
 handshake every move (ARCHITECTURE.md §2.5) — very likely the actual cause of "Stockfish plays
@@ -399,6 +407,32 @@ games fine" as sufficient proof.
 **Exit criteria.** One documented concurrency pattern is used everywhere an engine move is
 computed; Stockfish keeps one process/session per game; no Swing component is touched off the
 EDT; computer-vs-computer mode can run unattended for many games without hanging or crashing.
+
+---
+
+## Phase 4b — Make the built-in search fast enough for its levels
+
+**Goal.** Let Levels 6-7 reach their intended depth (5-6 plies) inside the 5 s cap set in Phase 4.
+Today they usually finish only depth 4 in the middlegame, so they play like Level 5
+(docs/phase-4-research.md §3.3 and the increment 2+3 log).
+
+**Why separate.** Split out of Phase 4 by decision (docs/phase-4-research.md Fork D1): the cost is
+in move generation, which is the Phase 2 rules authority, so it needs its own safety net and
+should not ride along with a threading change.
+
+**Scope.** Cheaper legality checking (a JFR profile puts 68% of search time in
+`BitBoard.isCheckOn` / `getAllAttackedTiles` while building child boards), switching on the
+transposition table that exists but is commented out, and the remaining debug string building in
+move generation.
+
+**Research required before implementing.** A perft suite (move counts to fixed depths from
+standard positions) as the safety net for any move-generator change; a profile per change;
+whether the transposition table changes the moves the engine picks at a given depth (it can,
+through move ordering and mate scores), and if so how that is tested.
+
+**Exit criteria.** Perft counts match the published values; Levels 6 and 7 finish depth 5 and 6
+in typical middlegames within the cap on the owner's machine; the characterization tests keep
+their expected moves, or each change is justified in the phase notes.
 
 ---
 

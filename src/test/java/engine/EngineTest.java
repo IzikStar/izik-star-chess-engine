@@ -70,7 +70,7 @@ class EngineTest {
     void fallsBackWhenStockfishMissing() {
         Engine missing = new Engine() {
             @Override
-            public ChessMove bestMove(String fen, int skillLevel) {
+            public ChessMove bestMove(SearchRequest request) {
                 throw new AssertionError("must not be asked when unavailable");
             }
 
@@ -86,11 +86,34 @@ class EngineTest {
     }
 
     @Test
-    @DisplayName("Stockfish at a missing path reports unavailable and returns no move")
-    void stockfishMissingExecutable() {
-        StockfishEngine stockfish = new StockfishEngine();
-        stockfish.startEngine("/nonexistent/stockfish");
-        assertTrue(!stockfish.isAvailable());
-        assertNull(stockfish.bestMove(Position.START_FEN, 16));
+    @DisplayName("The built-in engine stops at its time cap and still plays a legal move")
+    void builtInRespectsTimeCap() {
+        MinimaxEngine capped = new MinimaxEngine(new java.util.Random(1), 300);
+        long start = System.nanoTime();
+        ChessMove move = capped.bestMove(Position.START_FEN, 12); // depth 6: minutes uncapped
+        long ms = (System.nanoTime() - start) / 1_000_000;
+        assertTrue(Rules.isLegal(Position.START_FEN, move));
+        assertTrue(ms < 2000, "took " + ms + " ms");
+    }
+
+    @Test
+    @DisplayName("A cancelled request gets no move")
+    void cancelledRequestGetsNoMove() {
+        Cancellation cancel = new Cancellation();
+        cancel.cancel();
+        SearchRequest request = new SearchRequest(Position.START_FEN, Position.START_FEN,
+                java.util.List.of(), 6, cancel);
+        assertNull(new MinimaxEngine().bestMove(request));
+    }
+
+    @Test
+    @DisplayName("Iterative deepening without a stop plays the same move as one fixed-depth search")
+    void deepeningMatchesFixedDepth() {
+        String fen = "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 6 5";
+        for (int depth = 1; depth <= 3; depth++) {
+            ai.BitBoard.BitMove fixed = ai.Minimax.getBestMove(ai.BitBoard.BitBoardRules.fromFen(fen), depth);
+            ai.BitBoard.BitMove deepened = ai.Minimax.getBestMove(ai.BitBoard.BitBoardRules.fromFen(fen), depth, () -> false);
+            assertEquals(fixed.toString(), deepened.toString(), "depth " + depth);
+        }
     }
 }

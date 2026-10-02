@@ -3,12 +3,36 @@ package engine;
 import rules.ChessMove;
 import rules.Rules;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
- * Stockfish over UCI. As an {@link Engine} it maps the UI's 0-18 level onto Stockfish's
- * "Skill Level" as {@code level - 1} (Phase 3 Fork 6; before, a never-written static forced 0).
- * The per-move UCI handshake and polling are unchanged here — that is Phase 4 work.
+ * Stockfish over UCI, as one long-lived session (Phase 4, docs/phase-4-research.md Fork C1).
+ *
+ * <ul>
+ *   <li>The process starts on first use and the UCI handshake runs once. A reader thread moves
+ *       Stockfish's output into a queue, so nothing polls with {@code sleep}.</li>
+ *   <li>Each move sends the whole game ({@code position fen <start> moves …}), so Stockfish sees
+ *       repetitions; {@code ucinewgame} is sent only when a different game starts.</li>
+ *   <li>The UI's level sets Stockfish's "Skill Level" ({@code level - 1}, 0-20) and how long it
+ *       thinks ({@link #moveTimeMs}).</li>
+ *   <li>A cancelled request sends {@code stop}. A crashed or silent process is killed and started
+ *       again on the next request; after {@link #MAX_FAILURES} failures in a row, or if the
+ *       executable cannot be launched, the engine reports itself unavailable and the caller falls
+ *       back to the built-in engine.</li>
+ * </ul>
+ *
+ * <p>Requests are served one at a time ({@code synchronized}); {@link #close()} may be called from
+ * any thread and ends a search in progress.
  */
 public class StockfishEngine implements Engine {
 
@@ -19,6 +43,15 @@ public class StockfishEngine implements Engine {
      * relative to the working directory.
      */
     public static final String DEFAULT_ENGINE_PATH = resolveEnginePath();
+
+    /** Consecutive failed requests after which Stockfish is given up on for this session. */
+    static final int MAX_FAILURES = 3;
+    /** How long to wait for {@code uciok} / {@code readyok}. */
+    static final long HANDSHAKE_TIMEOUT_MS = 5000;
+    /** Extra time allowed past the move time before Stockfish counts as not answering. */
+    static final long BESTMOVE_GRACE_MS = 3000;
+    /** End-of-output marker the reader thread puts in the queue. */
+    private static final String EOF = "\u0000eof";
 
     private static String resolveEnginePath() {
         String path = System.getProperty("stockfish.path");
@@ -31,181 +64,264 @@ public class StockfishEngine implements Engine {
         return path;
     }
 
-    private Process engineProcess;
-    private BufferedReader reader;
-    private BufferedWriter writer;
-    private boolean isEngineRunning;
-    /** Set once the executable could not be launched; we then stop retrying and report unavailable. */
-    private boolean startFailed;
-    public int skillLevel = 0;
+    /** Thinking time: UI Levels 8 / 9 / 10 (skill 14 / 16 / 18) think 300 / 600 / 1000 ms, hints (21) 1000 ms. */
+    static long moveTimeMs(int level) {
+        if (level <= 14) {
+            return 300;
+        }
+        if (level <= 16) {
+            return 600;
+        }
+        return 1000;
+    }
 
-    /** How long {@link #bestMove} keeps re-asking for a legal move before giving up. */
-    private static final long RETRY_BUDGET_MS = 1200;
+    static int skillFor(int level) {
+        return Math.max(0, Math.min(20, level - 1));
+    }
+
+    private final List<String> command;
+
+    private volatile Process process;
+    private BufferedWriter writer;
+    private final BlockingQueue<String> output = new LinkedBlockingQueue<>();
+    private volatile boolean unavailable;
+    private int failures;
+    private int skill = -1;
+    private String sessionStartFen;
+    private int sessionPly;
+    /** Set when the engine thread was interrupted mid-request; restored when the request ends. */
+    private boolean interrupted;
+
+    public StockfishEngine() {
+        this(List.of(DEFAULT_ENGINE_PATH));
+    }
+
+    /** @param command the program and arguments that start a UCI engine */
+    public StockfishEngine(List<String> command) {
+        this.command = List.copyOf(command);
+    }
 
     @Override
-    public ChessMove bestMove(String fen, int level) {
-        long start = System.currentTimeMillis();
-        while (isAvailable() && System.currentTimeMillis() - start < RETRY_BUDGET_MS) {
-            skillLevel = Math.max(0, Math.min(20, level - 1));
-            String uci = getBestMove(fen);
-            if (uci == null || uci.equals("unknown") || uci.equals("(none)")) {
-                continue;
+    public boolean isAvailable() {
+        return !unavailable;
+    }
+
+    @Override
+    public synchronized ChessMove bestMove(SearchRequest request) {
+        if (unavailable || request.cancel().isCancelled() || !ensureStarted()) {
+            return null;
+        }
+        try {
+            ChessMove move = search(request);
+            failures = 0;
+            return move;
+        } catch (UciFailure e) {
+            if (request.cancel().isCancelled()) {
+                kill(); // its state is unknown; start clean next time, but this is no engine fault
+                return null;
             }
-            try {
-                ChessMove move = ChessMove.fromUci(uci);
-                if (Rules.isLegal(fen, move)) {
-                    return move;
-                }
-            } catch (IllegalArgumentException e) {
-                // malformed reply — ask again
+            if (process == null) {
+                return null; // closed while searching
+            }
+            System.err.println("Stockfish: " + e.getMessage() + "; restarting it on the next move.");
+            kill();
+            if (++failures >= MAX_FAILURES) {
+                System.err.println("Stockfish failed " + failures + " times in a row; using the built-in engine.");
+                unavailable = true;
+            }
+            return null;
+        } finally {
+            if (interrupted) {
+                interrupted = false;
+                Thread.currentThread().interrupt();
             }
         }
-        return null;
     }
 
     @Override
     public void close() {
-        stopEngine();
+        kill();
     }
 
-    public boolean startEngine(String path) {
+    // ---- the session -------------------------------------------------------
+
+    private ChessMove search(SearchRequest request) throws UciFailure {
+        sync();
+        if (!request.startFen().equals(sessionStartFen) || request.moves().size() < sessionPly) {
+            send("ucinewgame");
+            sync();
+        }
+        sessionStartFen = request.startFen();
+        sessionPly = request.moves().size();
+
+        int wantedSkill = skillFor(request.skillLevel());
+        if (wantedSkill != skill) {
+            send("setoption name Skill Level value " + wantedSkill);
+            sync();
+            skill = wantedSkill;
+        }
+
+        String moves = request.moves().stream().map(ChessMove::toUci).collect(Collectors.joining(" "));
+        send("position fen " + request.startFen() + (moves.isEmpty() ? "" : " moves " + moves));
+        long moveTime = moveTimeMs(request.skillLevel());
+        send("go movetime " + moveTime);
+        String uci = awaitBestMove(request.cancel(), moveTime + BESTMOVE_GRACE_MS);
+        if (uci == null || request.cancel().isCancelled()) {
+            return null;
+        }
         try {
-            engineProcess = new ProcessBuilder(path).start();
-            reader = new BufferedReader(new InputStreamReader(engineProcess.getInputStream()));
-            writer = new BufferedWriter(new OutputStreamWriter(engineProcess.getOutputStream()));
-            isEngineRunning = true;
-            return true;
+            ChessMove move = ChessMove.fromUci(uci);
+            if (Rules.isLegal(request.fen(), move)) {
+                return move;
+            }
+        } catch (IllegalArgumentException e) {
+            // fall through
+        }
+        throw new UciFailure("answered an illegal move '" + uci + "' in " + request.fen());
+    }
+
+    /** Waits for {@code bestmove}; on cancel sends {@code stop} and returns {@code null}. */
+    private String awaitBestMove(Cancellation cancel, long timeoutMs) throws UciFailure {
+        long deadline = System.nanoTime() + timeoutMs * 1_000_000;
+        boolean stopped = false;
+        while (true) {
+            if (!stopped && cancel.isCancelled()) {
+                send("stop");
+                stopped = true;
+                deadline = System.nanoTime() + BESTMOVE_GRACE_MS * 1_000_000;
+            }
+            String line = next(20);
+            if (line != null && line.startsWith("bestmove")) {
+                String[] parts = line.trim().split("\\s+");
+                return stopped || parts.length < 2 ? null : parts[1];
+            }
+            if (System.nanoTime() > deadline) {
+                throw new UciFailure("no bestmove within " + timeoutMs + " ms");
+            }
+        }
+    }
+
+    /** Sends {@code isready} and drops everything before {@code readyok}, e.g. a stale bestmove. */
+    private void sync() throws UciFailure {
+        send("isready");
+        await("readyok");
+    }
+
+    private void await(String expected) throws UciFailure {
+        long deadline = System.nanoTime() + HANDSHAKE_TIMEOUT_MS * 1_000_000;
+        while (System.nanoTime() < deadline) {
+            String line = next(20);
+            if (line != null && line.trim().equals(expected)) {
+                return;
+            }
+        }
+        throw new UciFailure("no '" + expected + "' within " + HANDSHAKE_TIMEOUT_MS + " ms");
+    }
+
+    /** The next output line, or {@code null} if none came within {@code ms}. */
+    private String next(long ms) throws UciFailure {
+        if (process == null) {
+            throw new UciFailure("closed");
+        }
+        String line;
+        try {
+            line = output.poll(ms, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            // A cancelled job is also interrupted; the Cancellation flag decides what happens.
+            interrupted = true;
+            return null;
+        }
+        if (line == EOF) {
+            throw new UciFailure("the process exited");
+        }
+        return line;
+    }
+
+    private void send(String line) throws UciFailure {
+        try {
+            writer.write(line + "\n");
+            writer.flush();
         } catch (IOException e) {
-            System.err.println("Stockfish not available at '" + path + "' (" + e.getMessage()
+            throw new UciFailure("could not write to the process (" + e.getMessage() + ")");
+        }
+    }
+
+    // ---- process lifecycle --------------------------------------------------
+
+    private boolean ensureStarted() {
+        if (process != null && process.isAlive()) {
+            return true;
+        }
+        kill();
+        Process started;
+        try {
+            started = new ProcessBuilder(command).redirectError(ProcessBuilder.Redirect.DISCARD).start();
+        } catch (IOException e) {
+            System.err.println("Stockfish not available at '" + command.get(0) + "' (" + e.getMessage()
                     + "). Falling back to the built-in engine; see README to install Stockfish.");
-            isEngineRunning = false;
-            startFailed = true;
+            unavailable = true;
+            return false;
+        }
+        output.clear();
+        process = started;
+        writer = new BufferedWriter(new OutputStreamWriter(started.getOutputStream(), StandardCharsets.UTF_8));
+        Thread reader = new Thread(() -> readAll(started), "stockfish-output");
+        reader.setDaemon(true);
+        reader.start();
+        sessionStartFen = null;
+        skill = -1;
+        try {
+            send("uci");
+            await("uciok");
+            sync();
+            return true;
+        } catch (UciFailure e) {
+            System.err.println("'" + command.get(0) + "' does not speak UCI (" + e.getMessage()
+                    + "). Falling back to the built-in engine.");
+            kill();
+            unavailable = true;
             return false;
         }
     }
 
-    /** False once launching the Stockfish executable has failed (e.g. it was not downloaded). */
-    @Override
-    public boolean isAvailable() {
-        return !startFailed;
-    }
-
-    private boolean ensureRunning() {
-        if (isEngineRunning) return true;
-        if (startFailed) return false;
-        return startEngine(DEFAULT_ENGINE_PATH);
-    }
-
-    public void stopEngine() {
-        if (!isEngineRunning) return;
-        try {
-            sendCommand("quit");
-            reader.close();
-            writer.close();
-            engineProcess.destroy();
-            isEngineRunning = false;
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void sendCommand(String command) {
-        try {
-            if (!ensureRunning()) {
-                return;
-            }
-            writer.write(command + "\n");
-            writer.flush();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public String getOutput(long waitTime) {
-        StringBuilder output = new StringBuilder();
-        try {
-            Thread.sleep(waitTime);
-            while (reader != null && reader.ready()) {
-                String line = reader.readLine();
-                if (line != null) {
-                    output.append(line).append("\n");
+    private void readAll(Process p) {
+        try (BufferedReader in = new BufferedReader(
+                new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = in.readLine()) != null) {
+                if (process == p) {
+                    output.add(line);
                 }
             }
-        } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
+        } catch (IOException e) {
+            // the process went away
         }
-        return output.toString();
+        if (process == p) {
+            output.add(EOF);
+        }
     }
 
-    public void setSkillLevel(int skillLevel) {
-        this.skillLevel = skillLevel;
-        sendCommand("setoption name Skill Level value " + skillLevel);
-        waitForOutput("readyok", 10);
-    }
-
-    public String getBestMove(String fen) {
-        if (!ensureRunning()) {
-            return "unknown";
+    private void kill() {
+        Process p = process;
+        process = null;
+        if (p == null) {
+            return;
         }
-        sendCommand("uci");
-        waitForOutput("uciok", 10);
-
-        sendCommand("isready");
-        waitForOutput("readyok", 10);
-
-        sendCommand("ucinewgame");
-        waitForOutput("readyok", 10);
-
-        setSkillLevel(skillLevel);
-
-        sendCommand("position fen " + fen);
-        waitForOutput("readyok", 10);
-
-        long startTime = System.currentTimeMillis();
-        sendCommand("go movetime 150 nodes 100000000"); // הגבלת זמן ומספר הצמתים
-        String output = getOutput(180);
-        long endTime = System.currentTimeMillis();
-        System.out.println("Calculation time: " + (endTime - startTime) + " ms");
-
-
-        String[] lines = output.split("\n");
-        for (String line : lines) {
-            if (line.startsWith("bestmove")) {
-                return line.split(" ")[1];
+        try {
+            BufferedWriter w = writer;
+            if (w != null) {
+                w.write("quit\n");
+                w.flush();
             }
+        } catch (IOException e) {
+            // already gone
         }
-        return "unknown";
+        p.destroy();
     }
 
-    private void waitForOutput(String expectedOutput, long waitTime) {
-        long startTime = System.currentTimeMillis();
-        String output;
-        do {
-            output = getOutput(100);
-            if (output.contains(expectedOutput)) {
-                return;
-            }
-        } while (System.currentTimeMillis() - startTime < waitTime);
-    }
-
-    public static void main(String[] args) {
-        StockfishEngine engine = new StockfishEngine();
-        if (engine.startEngine(DEFAULT_ENGINE_PATH)) {
-            engine.setSkillLevel(10); // רמה 5 לדוגמה
-
-            String fen = "rnbqkbnr/ppppppPp/8/8/8/8/PPPPPP1P/RNBQKBNR w KQkq - 0 1";
-            String bestMove = engine.getBestMove(fen);
-            System.out.println("Best move: " + bestMove);
-
-            String output = engine.getOutput(500);
-            if (output.contains("mate")) {
-                System.out.println("Mate in sight!");
-            }
-
-            engine.stopEngine();
-        } else {
-            System.out.println("Failed to start the engine.");
+    private static final class UciFailure extends Exception {
+        UciFailure(String message) {
+            super(message);
         }
     }
-
 }

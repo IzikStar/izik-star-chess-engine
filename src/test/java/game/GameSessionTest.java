@@ -38,7 +38,7 @@ class GameSessionTest {
     }
 
     static final Engine NO_STOCKFISH = new Engine() {
-        @Override public ChessMove bestMove(String fen, int level) { return null; }
+        @Override public ChessMove bestMove(engine.SearchRequest request) { return null; }
         @Override public boolean isAvailable() { return false; }
     };
 
