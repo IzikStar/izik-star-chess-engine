@@ -42,6 +42,9 @@ public final class Tournament {
         return run(List.of(new Pairing(a, b)), openings, settings, onGame);
     }
 
+    /** One game to play: who has White, who has Black, from which opening, with which seed. */
+    public record Fixture(Player white, Player black, Opening opening, long seed) {}
+
     /**
      * Plays every pairing over every opening with both colours, {@code settings.threads()} games at
      * a time. {@code onGame} hears of each game as it ends (from the playing threads, in any order);
@@ -49,23 +52,35 @@ public final class Tournament {
      */
     public static List<GameRecord> run(List<Pairing> pairings, List<Opening> openings, Settings settings,
                                        Consumer<GameRecord> onGame) {
+        List<Fixture> fixtures = new ArrayList<>();
+        for (Pairing pairing : pairings) {
+            for (Opening opening : openings) {
+                fixtures.add(new Fixture(pairing.a(), pairing.b(), opening, 0));
+                fixtures.add(new Fixture(pairing.b(), pairing.a(), opening, 0));
+            }
+        }
+        List<Fixture> seeded = new ArrayList<>();
+        for (int i = 0; i < fixtures.size(); i++) {
+            Fixture f = fixtures.get(i);
+            seeded.add(new Fixture(f.white(), f.black(), f.opening(), settings.seed() * 1_000_003L + i));
+        }
+        return play(seeded, settings, onGame);
+    }
+
+    /**
+     * Plays {@code fixtures}, {@code settings.threads()} at a time (the settings' seed is not used:
+     * each fixture has its own). The returned list is in the fixtures' order.
+     */
+    public static List<GameRecord> play(List<Fixture> fixtures, Settings settings, Consumer<GameRecord> onGame) {
         ExecutorService pool = Executors.newFixedThreadPool(settings.threads());
         try {
             List<Future<GameRecord>> games = new ArrayList<>();
-            long index = 0;
-            for (Pairing pairing : pairings) {
-                for (Opening opening : openings) {
-                    for (boolean aIsWhite : new boolean[]{true, false}) {
-                        Player white = aIsWhite ? pairing.a() : pairing.b();
-                        Player black = aIsWhite ? pairing.b() : pairing.a();
-                        long seed = settings.seed() * 1_000_003L + index++;
-                        games.add(pool.submit(() -> {
-                            GameRecord game = Match.play(white, black, opening, settings.maxPlies(), seed);
-                            onGame.accept(game);
-                            return game;
-                        }));
-                    }
-                }
+            for (Fixture f : fixtures) {
+                games.add(pool.submit(() -> {
+                    GameRecord game = Match.play(f.white(), f.black(), f.opening(), settings.maxPlies(), f.seed());
+                    onGame.accept(game);
+                    return game;
+                }));
             }
             List<GameRecord> results = new ArrayList<>();
             for (Future<GameRecord> game : games) {

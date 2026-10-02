@@ -407,3 +407,20 @@ know which kind it is evolving.
    (93%, Elo +453 [+368, +603]) in 15 s; depth 4 +83 =13 -6 (88%, Elo +342 [+268, +452]) in 99 s,
    on 3 threads. Tests: a seed repeats a game, another seed differs, the ply cap, a mate is scored
    for the right side, colours swap, thread count does not change results, depth 3 beats depth 1.
+6. **Step 4 — record and runner (2026-10-02).** Package `evolution` is the owner's: the
+   `Evolution` interface (`firstGeneration`, `pairings` with a round-robin default,
+   `nextGeneration`), `Generation` (the population with its games: points, score, head-to-head,
+   ranking, champion), `Pairing`, and `RandomMutationExample` (keep the better half, refill with
+   mutated copies; for the tests and as an example only). Package `lab`: `RunStore` (one SQLite
+   file per run through `sqlite-jdbc`: tables `run`, `member`, `game`, `generation`),
+   `EvolutionRunner` (plays each generation's pairings over rotating openings with both colours,
+   stores every game, picks the champion, plays it against the default weights every N
+   generations, stores the next population and the generation row in one transaction),
+   `TrainingExport` (E12: `fen,result` per quiet position after ply 10) and `Cli`
+   (`run`, `resume`, `show`, `export`; Ctrl+C stops after the current generation). Every random
+   choice comes from the run's seed and the generation number, so a stopped and resumed run
+   records exactly what an uninterrupted one does (`EvolutionRunnerTest`, which also cuts a
+   generation off half way). A trial run, 3 generations of 8 at depth 2 with one opening per
+   pairing, took 13 s on 3 threads. It also showed how noisy short matches are: generation 0's
+   champion was the default weights themselves, and over 8 games against the defaults it scored
+   31% (Elo -137, interval -446 to +37). The guide (step 6) has to say this plainly.

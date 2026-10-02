@@ -39,3 +39,6 @@ bin/
 ### Stockfish binary (download separately, see README) ###
 engine/*
 !engine/README.md
+
+### Evolution runs (one SQLite file each, see docs/evolution-guide.md) ###
+runs/
