@@ -223,7 +223,6 @@ On Linux, `sudo apt install stockfish` installs it at `/usr/games/stockfish`.
 
 ## License
 
-There is no license file yet, so all rights are reserved by the author for now. If you would
-like to use the code, please open an issue.
+MIT, see [LICENSE](LICENSE).
 
 Stockfish is a separate project licensed under the GPLv3 and is not distributed here.
