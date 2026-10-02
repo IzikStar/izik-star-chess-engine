@@ -86,15 +86,6 @@ class EngineTest {
     }
 
     @Test
-    @DisplayName("Stockfish at a missing path reports unavailable and returns no move")
-    void stockfishMissingExecutable() {
-        StockfishEngine stockfish = new StockfishEngine();
-        stockfish.startEngine("/nonexistent/stockfish");
-        assertTrue(!stockfish.isAvailable());
-        assertNull(stockfish.bestMove(Position.START_FEN, 16));
-    }
-
-    @Test
     @DisplayName("The built-in engine stops at its time cap and still plays a legal move")
     void builtInRespectsTimeCap() {
         MinimaxEngine capped = new MinimaxEngine(new java.util.Random(1), 300);

@@ -251,3 +251,25 @@ Search times after this commit (ms, same positions as §3.3):
 Removing the debug check alone roughly halved every search. Levels 6 and 7 now answer in 5 s, but
 in the middlegame they usually finish only depth 4, so they play like Level 5 until the move
 generator gets faster (Phase 4b).
+
+### Increment 4 — one Stockfish session per game (2026-10-02)
+
+`engine.StockfishEngine` rewritten: the process starts on first use, the UCI handshake runs once,
+a reader thread feeds a queue (no `sleep` polling), `isready`/`readyok` before each search drops
+any stale output, `ucinewgame` only when the start position changes or the move list gets shorter
+(take-back), `position fen <start> moves …` every move, Skill Level resent only when it changes,
+`go movetime` 300 / 600 / 1000 ms for Levels 8 / 9 / 10 and 1000 ms for hints. Cancel sends
+`stop`; an interrupt of the engine thread is not treated as a failure. A crash, a silent process or
+an illegal answer kills it and the next request restarts it; after 3 failures in a row, or if the
+executable cannot be launched or does not speak UCI, it reports unavailable and the built-in engine
+answers.
+
+Tests: `engine.StockfishSessionTest` against `engine.FakeUci` (a fake UCI engine run as its own
+process, modes normal / hang / crash / illegal), plus one test against a real Stockfish that runs
+when `/usr/games/stockfish` (or `-Dstockfish.path`) exists. `mvn test` **90 green**, `-Psmoke` 3
+green.
+
+Same probe as §3.4 with Stockfish 16: the first move pays the process start (~1 s), after that
+each move takes its move time plus ~5 ms (Level 8: 309 ms, Level 9: 606 ms, Level 10 and hints:
+~1,005 ms); a forced mate comes back in 8-25 ms. Before: ~685 ms for every move, 150 ms of it
+thinking.
