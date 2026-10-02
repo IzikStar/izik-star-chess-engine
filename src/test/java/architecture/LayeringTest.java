@@ -26,10 +26,12 @@ class LayeringTest {
 
     /** Package -> import prefixes it must not use. */
     private static final String[][] RULES = {
-            {"rules", "javax.swing", "java.awt", "main.", "GUI.", "engine.", "game."},
-            {"ai", "javax.swing", "java.awt", "main.", "GUI.", "engine.", "game."},
-            {"engine", "javax.swing", "java.awt", "main.", "GUI.", "game."},
-            {"game", "javax.swing", "java.awt", "main.", "GUI."},
+            {"rules", "javax.swing", "java.awt", "main.", "GUI.", "engine.", "game.", "web."},
+            {"ai", "javax.swing", "java.awt", "main.", "GUI.", "engine.", "game.", "web."},
+            {"engine", "javax.swing", "java.awt", "main.", "GUI.", "game.", "web."},
+            {"game", "javax.swing", "java.awt", "main.", "GUI.", "web."},
+            // the web server (Phase 4c) is a client of the session like the Swing UI, not part of it
+            {"web", "javax.swing", "main.", "GUI."},
     };
 
     @Test

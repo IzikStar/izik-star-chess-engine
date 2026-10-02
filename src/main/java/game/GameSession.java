@@ -130,6 +130,16 @@ public final class GameSession {
         return !isOver() && config.isHuman(whiteToMove());
     }
 
+    /** True while the engine is computing its move (from the request until it is played or dropped). */
+    public boolean isEngineThinking() {
+        return engineBusy;
+    }
+
+    /** True while a hint has been asked for and has not arrived (or been dropped) yet. */
+    public boolean isHintPending() {
+        return hintFen != null;
+    }
+
     // ---- commands ----------------------------------------------------------
 
     /** Starts the engine if it is the engine's turn (call once after wiring the listeners). */
