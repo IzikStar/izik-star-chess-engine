@@ -291,7 +291,7 @@ public final class GameSession {
         cancelHint(); // the engine's own move goes first
         engineBusy = true;
         String fen = game.fen();
-        int level = config.skillLevel();
+        int level = config.skillLevelFor(whiteToMove());
         long gen = generation;
         long delay = level == 0 ? randomMoveDelayMs : 0;
         Cancellation cancel = new Cancellation();

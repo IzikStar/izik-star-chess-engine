@@ -15,8 +15,8 @@ refactor, which is documented phase by phase in this repository (see
 
 ## Features
 
-- **Play against the computer or a friend**, or watch the engine play itself. Pick White,
-  Black or a random colour in the *New game* dialog.
+- **Play against the computer or a friend**, or watch the engine play itself (each side at its
+  own level). Pick White, Black or a random colour in the *New game* dialog.
 - **10 difficulty levels.**
   - Level 1 plays random legal moves.
   - Levels 2-7 use the built-in engine and search deeper as the level rises.
@@ -26,13 +26,16 @@ refactor, which is documented phase by phase in this repository (see
   checkmate and stalemate. Draws are detected by the 50-move rule, threefold repetition and
   insufficient material.
 - **Click or drag** to move; the legal moves of the selected piece are marked.
+- **Premove.** While the engine thinks, queue your next move; it is played the moment it is
+  your turn, if it is still legal. Click an empty square to cancel it.
 - **Hints.** *Hint* draws an arrow for the engine's suggested move.
 - **Take-backs**, a **flip board** button, and a **status line** that says whose move it is
   and when the engine is thinking.
 - **Move list with review.** Click any move, or use the arrow keys, to see that position.
 - **Captured pieces and material** on each player's card; the result in the side panel when
   the game ends.
-- **Sound effects, light and dark themes**, and a layout that works on a narrow window.
+- **Sound effects** (synthesised in the browser), **light and dark themes**, and a layout
+  that works on a narrow window.
 
 ## How the engine works
 

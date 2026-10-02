@@ -19,11 +19,14 @@ async function dragMove(page: Page, from: string, to: string) {
   await page.mouse.up();
 }
 
-async function newGame(page: Page, opponent: 'Computer' | 'A friend' | 'Watch the engine', level?: number) {
+async function newGame(page: Page, opponent: 'Computer' | 'A friend' | 'Watch the engine', level?: number, blackLevel?: number) {
   await page.getByRole('button', { name: 'New game' }).click();
   const dialog = page.getByRole('dialog', { name: 'New game' });
   await dialog.getByRole('button', { name: opponent, exact: true }).click();
-  if (level !== undefined) await dialog.getByLabel('Strength').fill(String(level));
+  if (level !== undefined) {
+    await dialog.getByLabel(opponent === 'Watch the engine' ? "White's strength" : 'Strength', { exact: true }).fill(String(level));
+  }
+  if (blackLevel !== undefined) await dialog.getByLabel("Black's strength").fill(String(blackLevel));
   await dialog.getByRole('button', { name: 'Start game' }).click();
   await expect(dialog).toBeHidden();
 }
@@ -98,12 +101,24 @@ test('against the computer: it replies, and a take-back removes both moves', asy
 
 test('watching the engine play itself, then stopping it with a new game', async ({ page }) => {
   await page.goto('/');
-  await newGame(page, 'Watch the engine', 1);
+  await newGame(page, 'Watch the engine', 1, 3);
   await expect(page.getByTestId('player-white')).toContainText('Engine · Level 1');
-  await expect(moveList(page).getByRole('button')).toHaveCount(3, { timeout: 15_000 });
+  await expect(page.getByTestId('player-black')).toContainText('Engine · Level 3');
+  await expect.poll(() => moveList(page).getByRole('button').count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(3);
   await expect(page.getByRole('button', { name: 'Take back' })).toBeDisabled();
   await newGame(page, 'A friend');
   await expect(page.getByText('No moves yet.')).toBeVisible();
   await page.waitForTimeout(1500);
   await expect(page.getByText('No moves yet.')).toBeVisible();
+});
+
+test('a premove made while the engine thinks is played on the next turn', async ({ page }) => {
+  await page.goto('/');
+  await newGame(page, 'Computer', 1); // level 1 waits a second before moving: time to premove
+  await clickMove(page, 'e2', 'e4');
+  await expect(page.getByTestId('status')).toContainText('Engine is thinking');
+  await clickMove(page, 'd2', 'd4');
+  await expect(page.getByTestId('status')).toContainText('Premove d2–d4');
+  await expect(moveList(page).getByRole('button')).toHaveCount(3);
+  await expect(moveList(page).getByRole('button').nth(2)).toHaveText('d4');
 });

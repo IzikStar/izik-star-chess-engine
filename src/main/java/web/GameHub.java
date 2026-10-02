@@ -31,7 +31,7 @@ import java.util.function.Consumer;
  *
  * <p>Protocol, client to server ({@code type} field): {@code move} {uci}, {@code undo},
  * {@code hint}, {@code newGame} {mode: engine|friend|computer, color: white|black|random,
- * level: 1-10}. Server to client: {@code {"type":"state","events":[...],"state":{...}}}; an
+ * level: 1-10, blackLevel: 1-10 (computer mode: Black's level; level is then White's)}. Server to client: {@code {"type":"state","events":[...],"state":{...}}}; an
  * event is {@code {kind: move|reset|config|hint|gameOver|rejected, ...}}.
  */
 final class GameHub implements GameListener {
@@ -131,7 +131,10 @@ final class GameHub implements GameListener {
             default -> true;
         };
         int level = msg.has("level") ? GameStateJson.skillLevel(msg.get("level").getAsInt()) : old.skillLevel();
-        GameConfig config = new GameConfig(mode, white, level);
+        // engine vs engine: Black may play at its own level
+        int blackLevel = mode == GameConfig.Mode.ENGINE_VS_ENGINE && msg.has("blackLevel")
+                ? GameStateJson.skillLevel(msg.get("blackLevel").getAsInt()) : level;
+        GameConfig config = new GameConfig(mode, white, level, blackLevel);
         // reset first, so the engine does not start a move in the old position under the new config
         session.updateConfig(new GameConfig(GameConfig.Mode.HUMAN_VS_HUMAN, white, level));
         session.newGame();

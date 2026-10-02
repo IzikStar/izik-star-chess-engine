@@ -213,6 +213,20 @@ class WebServerTest {
     }
 
     @Test
+    @DisplayName("Watching the engine: each side keeps its own level")
+    void engineVsEngineLevels() throws Exception {
+        startServer();
+        Client c = new Client();
+        c.send("{\"type\":\"newGame\",\"mode\":\"computer\",\"level\":1,\"blackLevel\":3}");
+        JsonObject config = c.await(s -> s.getAsJsonObject("config").get("mode").getAsString().equals("computer"))
+                .getAsJsonObject("state").getAsJsonObject("config");
+        assertEquals(1, config.get("level").getAsInt());
+        assertEquals(3, config.get("blackLevel").getAsInt());
+        c.awaitPly(2); // both sides move on their own
+        newGame(c, "friend", "white", 1); // stop it
+    }
+
+    @Test
     @DisplayName("An illegal move is rejected and changes nothing")
     void illegalMoveRejected() throws Exception {
         startServer();

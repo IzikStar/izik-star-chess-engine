@@ -6,7 +6,23 @@ export interface NewGameChoice {
   mode: Mode;
   color: Color | 'random';
   level: number;
+  /** Black's level when watching the engine; level is then White's. */
+  blackLevel: number;
   autoFlip: boolean;
+}
+
+function LevelSlider({ id, label, value, onChange }: { id: string; label: string; value: number; onChange: (v: number) => void }) {
+  const level = LEVELS[value - 1];
+  return (
+    <div className="field">
+      <label htmlFor={id}>{label}</label>
+      <input id={id} type="range" min={1} max={10} value={value} onChange={(e) => onChange(Number(e.target.value))} />
+      <div className="level">
+        <span><strong>Level {value}</strong> · {level.name}</span>
+        <span className="muted">{level.engine}</span>
+      </div>
+    </div>
+  );
 }
 
 function Segmented<T extends string>({ label, value, options, onChange }: {
@@ -44,7 +60,6 @@ export function NewGameDialog({ initial, onStart, onCancel }: {
     if (d && !d.open) d.showModal();
   }, []);
 
-  const level = LEVELS[choice.level - 1];
   return (
     <dialog ref={dialog} className="dialog" aria-labelledby="new-game-title" onCancel={(e) => {
       e.preventDefault();
@@ -69,16 +84,16 @@ export function NewGameDialog({ initial, onStart, onCancel }: {
             onChange={(color) => set({ color })}
           />
         )}
-        {choice.mode !== 'friend' ? (
-          <div className="field">
-            <label htmlFor="level">Strength</label>
-            <input id="level" type="range" min={1} max={10} value={choice.level} onChange={(e) => set({ level: Number(e.target.value) })} />
-            <div className="level">
-              <span><strong>Level {choice.level}</strong> · {level.name}</span>
-              <span className="muted">{level.engine}</span>
-            </div>
-          </div>
-        ) : (
+        {choice.mode === 'engine' && (
+          <LevelSlider id="level" label="Strength" value={choice.level} onChange={(level) => set({ level })} />
+        )}
+        {choice.mode === 'computer' && (
+          <>
+            <LevelSlider id="level" label="White's strength" value={choice.level} onChange={(level) => set({ level })} />
+            <LevelSlider id="blackLevel" label="Black's strength" value={choice.blackLevel} onChange={(blackLevel) => set({ blackLevel })} />
+          </>
+        )}
+        {choice.mode === 'friend' && (
           <label className="check">
             <input type="checkbox" checked={choice.autoFlip} onChange={(e) => set({ autoFlip: e.target.checked })} />
             Turn the board to the side to move

@@ -31,6 +31,8 @@ export function App() {
   /** The ply being reviewed (0 = start position), or null for the live position. */
   const [view, setView] = useState<number | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  /** A move queued while the engine thinks (from + to squares), played as soon as it is our turn. */
+  const [premove, setPremove] = useState<string | null>(null);
   const soundRef = useRef(soundOn);
   soundRef.current = soundOn;
 
@@ -51,7 +53,9 @@ export function App() {
           play('hint', sound);
           break;
         case 'reset':
+        case 'config':
           setView(null);
+          setPremove(null);
           break;
         case 'rejected':
           play('invalid', sound);
@@ -67,6 +71,20 @@ export function App() {
     if (theme === 'system') delete root.dataset.theme;
     else root.dataset.theme = theme;
   }, [theme]);
+
+  // play the premove the moment it is our turn, if it is legal then
+  useEffect(() => {
+    if (!premove || !state) return;
+    if (!state.humanTurn) {
+      if (isOver(state)) setPremove(null);
+      return;
+    }
+    const options = state.legalMoves.filter((u) => u.startsWith(premove));
+    const uci = options.find((u) => u.length === 4) ?? options.find((u) => u.endsWith('q'));
+    setPremove(null);
+    if (uci) send({ type: 'move', uci });
+    else play('invalid', soundRef.current);
+  }, [state, premove, send]);
 
   const legal = useMemo(() => (state && state.humanTurn ? movesByFrom(state.legalMoves) : EMPTY), [state]);
 
@@ -109,15 +127,17 @@ export function App() {
   const baseOrientation: Color =
     config.mode === 'engine' ? config.humanColor : config.mode === 'friend' && autoFlip ? state.turn : 'white';
   const orientation = flipped ? other(baseOrientation) : baseOrientation;
+  const premoveColor = live && config.mode === 'engine' && !over && !state.humanTurn ? config.humanColor : null;
 
   const startNewGame = (choice: NewGameChoice) => {
     setDialogOpen(false);
     setFlipped(false);
     setView(null);
+    setPremove(null);
     setAutoFlip(choice.autoFlip);
     store('autoFlip', choice.autoFlip ? 'on' : 'off');
     play('start', soundOn);
-    send({ type: 'newGame', mode: choice.mode, color: choice.color, level: choice.level });
+    send({ type: 'newGame', mode: choice.mode, color: choice.color, level: choice.level, blackLevel: choice.blackLevel });
   };
 
   const canUndo = live && moves.length > 0 && config.mode !== 'computer'
@@ -151,6 +171,12 @@ export function App() {
             checkSquare={checkSquare}
             hint={live ? state.hint : null}
             onMove={(uci) => send({ type: 'move', uci })}
+            premoveColor={premoveColor}
+            premove={premoveColor ? premove : null}
+            onPremove={(uci) => {
+              setPremove(uci);
+              if (uci) play('select', soundOn);
+            }}
             onSelect={() => play('select', soundOn)}
             onIllegal={() => play('invalid', soundOn)}
           />
@@ -159,14 +185,14 @@ export function App() {
         <aside className="side">
           <PlayerCard state={state} color={other(orientation)} fen={fen} live={live} />
 
-          <StatusLine state={state} connection={connection} live={live} ply={ply} onReturn={() => goTo(moves.length)} />
+          <StatusLine state={state} connection={connection} live={live} ply={ply} premove={premoveColor ? premove : null} onReturn={() => goTo(moves.length)} />
 
           {live && over && (
             <section className="result" aria-label="Result" data-testid="result">
               <div className="score">{state.result === '1/2-1/2' ? '½ – ½' : state.result!.replace('-', ' – ')}</div>
               <div className="reason">{resultText(state.status, state.turn)}</div>
               <div className="row">
-                <button type="button" className="btn primary" onClick={() => startNewGame({ mode: config.mode, color: config.humanColor, level: config.level, autoFlip })}>Rematch</button>
+                <button type="button" className="btn primary" onClick={() => startNewGame({ mode: config.mode, color: config.humanColor, level: config.level, blackLevel: config.blackLevel, autoFlip })}>Rematch</button>
                 <button type="button" className="btn" onClick={() => goTo(0)}>Review game</button>
               </div>
             </section>
@@ -185,6 +211,7 @@ export function App() {
 
           <div className="controls" role="group" aria-label="Game controls">
             <button type="button" className="icon labelled" disabled={!canUndo} onClick={() => {
+              setPremove(null);
               play('back', soundOn);
               send({ type: 'undo' });
             }}><b aria-hidden="true">↶</b>Take back</button>
@@ -196,7 +223,7 @@ export function App() {
 
       {dialogOpen && (
         <NewGameDialog
-          initial={{ mode: config.mode, color: config.humanColor, level: config.level, autoFlip }}
+          initial={{ mode: config.mode, color: config.humanColor, level: config.level, blackLevel: config.blackLevel, autoFlip }}
           onStart={startNewGame}
           onCancel={() => setDialogOpen(false)}
         />
@@ -208,8 +235,9 @@ export function App() {
 function PlayerCard({ state, color, fen, live }: { state: GameState; color: Color; fen: string; live: boolean }) {
   const { config } = state;
   const isEngine = config.mode === 'computer' || (config.mode === 'engine' && color !== config.humanColor);
-  const name = isEngine ? `Engine · Level ${config.level}` : config.mode === 'engine' ? 'You' : colorName(color);
-  const detail = isEngine ? LEVELS[config.level - 1].engine : `Plays ${colorName(color)}`;
+  const level = config.mode === 'computer' && color === 'black' ? config.blackLevel : config.level;
+  const name = isEngine ? `Engine · Level ${level}` : config.mode === 'engine' ? 'You' : colorName(color);
+  const detail = isEngine ? LEVELS[level - 1].engine : `Plays ${colorName(color)}`;
   const taken = captured(fen)[color];
   const lead = materialOf(fen) * (color === 'white' ? 1 : -1);
   const toMove = live && !isOver(state) && state.turn === color;
@@ -230,11 +258,12 @@ function PlayerCard({ state, color, fen, live }: { state: GameState; color: Colo
 
 const GLYPHS: Record<string, string> = { p: '♟', n: '♞', b: '♝', r: '♜', q: '♛' };
 
-function StatusLine({ state, connection, live, ply, onReturn }: {
+function StatusLine({ state, connection, live, ply, premove, onReturn }: {
   state: GameState;
   connection: string;
   live: boolean;
   ply: number;
+  premove: string | null;
   onReturn: () => void;
 }) {
   let text: string;
@@ -250,7 +279,7 @@ function StatusLine({ state, connection, live, ply, onReturn }: {
   } else if (isOver(state)) {
     text = 'Game over';
   } else if (state.engineThinking) {
-    text = 'Engine is thinking…';
+    text = premove ? `Engine is thinking… Premove ${premove.slice(0, 2)}–${premove.slice(2, 4)}` : 'Engine is thinking…';
     busy = true;
   } else if (state.hintPending) {
     text = 'Looking for a hint…';

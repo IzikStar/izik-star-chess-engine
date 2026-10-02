@@ -30,7 +30,10 @@ export interface MoveInfo {
 export interface GameConfig {
   mode: Mode;
   humanColor: Color;
+  /** The engine's level; when the engine plays both sides, White's. */
   level: number;
+  /** Black's level when the engine plays both sides (otherwise equal to level). */
+  blackLevel: number;
 }
 
 export interface GameState {
@@ -67,7 +70,7 @@ export type Command =
   | { type: 'move'; uci: string }
   | { type: 'undo' }
   | { type: 'hint' }
-  | { type: 'newGame'; mode: Mode; color: Color | 'random'; level: number };
+  | { type: 'newGame'; mode: Mode; color: Color | 'random'; level: number; blackLevel: number };
 
 export type Connection = 'connecting' | 'open' | 'lost';
 

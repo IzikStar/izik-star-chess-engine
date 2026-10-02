@@ -14,10 +14,19 @@ interface Props {
   onMove: (uci: string) => void;
   onSelect: () => void;
   onIllegal: () => void;
+  /**
+   * While the engine thinks: the human's colour, so its pieces can be picked up to queue a
+   * premove (any target square; it is checked when it is played). Null otherwise.
+   */
+  premoveColor: Color | null;
+  /** The queued premove (from + to), shown on the board. */
+  premove: string | null;
+  onPremove: (uci: string | null) => void;
 }
 
-const LAST = 'rgba(205, 210, 106, 0.55)';
-const SELECTED = 'rgba(20, 85, 30, 0.5)';
+const LAST = 'rgba(235, 220, 90, 0.5)';
+const SELECTED = 'rgba(20, 85, 60, 0.5)';
+const PREMOVE = 'rgba(40, 70, 140, 0.5)';
 const DOT = 'radial-gradient(circle, rgba(20, 30, 20, 0.28) 22%, transparent 23%)';
 const RING = 'radial-gradient(circle, transparent 79%, rgba(20, 30, 20, 0.3) 80%)';
 const CHECK = 'radial-gradient(circle, rgba(255, 0, 0, 0.85) 0%, rgba(231, 0, 0, 0.5) 30%, rgba(169, 0, 0, 0) 75%)';
@@ -27,7 +36,7 @@ const CHECK = 'radial-gradient(circle, rgba(255, 0, 0, 0.85) 0%, rgba(231, 0, 0,
  * the hint as an arrow and a promotion picker over the promotion square. It only offers the
  * moves it is given.
  */
-export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, onMove, onSelect, onIllegal }: Props) {
+export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, onMove, onSelect, onIllegal, premoveColor, premove, onPremove }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
   const [promotion, setPromotion] = useState<{ from: string; to: string } | null>(null);
   const pieces = useMemo(() => boardOf(fen), [fen]);
@@ -37,6 +46,13 @@ export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, on
     setSelected(null);
     setPromotion(null);
   }, [fen, legal.size === 0]);
+
+  const premoving = legal.size === 0 && premoveColor !== null;
+  const isOwn = (square: string | null) => {
+    const p = square ? pieces[square] : undefined;
+    return !!p && (p === p.toUpperCase()) === (premoveColor === 'white');
+  };
+  const canPick = (square: string | null) => !!square && (premoving ? isOwn(square) : legal.has(square));
 
   const candidates = (from: string, to: string) => (legal.get(from) ?? []).filter((u) => u.slice(2, 4) === to);
 
@@ -64,6 +80,10 @@ export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, on
     add(lastMove.slice(2, 4), { backgroundColor: LAST });
   }
   if (checkSquare) add(checkSquare, { backgroundImage: CHECK });
+  if (premove) {
+    add(premove.slice(0, 2), { backgroundColor: PREMOVE });
+    add(premove.slice(2, 4), { backgroundColor: PREMOVE });
+  }
   if (selected) {
     add(selected, { backgroundColor: SELECTED });
     for (const uci of legal.get(selected) ?? []) {
@@ -93,12 +113,17 @@ export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, on
           lightSquareNotationStyle: { color: 'var(--sq-dark)' },
           darkSquareNotationStyle: { color: 'var(--sq-light)' },
           dropSquareStyle: { boxShadow: 'inset 0 0 0 4px rgba(255,255,255,0.6)' },
-          canDragPiece: ({ square }) => !!square && legal.has(square),
+          canDragPiece: ({ square }) => canPick(square),
           onPieceDrag: ({ square }) => {
-            if (square && legal.has(square)) setSelected(square);
+            if (canPick(square)) setSelected(square);
           },
           onPieceDrop: ({ sourceSquare, targetSquare }) => {
             if (!targetSquare || targetSquare === sourceSquare) return false;
+            if (premoving) {
+              setSelected(null);
+              onPremove(sourceSquare + targetSquare);
+              return false;
+            }
             if (candidates(sourceSquare, targetSquare).length === 0) {
               onIllegal();
               return false;
@@ -106,7 +131,18 @@ export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, on
             return tryMove(sourceSquare, targetSquare);
           },
           onSquareClick: ({ square }) => {
-            if (promotion) {
+            if (premoving) {
+              if (selected && selected !== square && !isOwn(square)) {
+                onPremove(selected + square);
+                setSelected(null);
+              } else if (isOwn(square) && square !== selected) {
+                setSelected(square);
+                onPremove(null);
+              } else {
+                setSelected(null);
+                onPremove(null);
+              }
+            } else if (promotion) {
               setPromotion(null);
             } else if (selected && selected !== square && candidates(selected, square).length) {
               tryMove(selected, square);

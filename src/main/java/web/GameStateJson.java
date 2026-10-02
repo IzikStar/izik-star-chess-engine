@@ -86,6 +86,7 @@ final class GameStateJson {
         });
         o.addProperty("humanColor", config.humanPlaysWhite() ? "white" : "black");
         o.addProperty("level", uiLevel(config.skillLevel()));
+        o.addProperty("blackLevel", uiLevel(config.skillLevelFor(false)));
         return o;
     }
 

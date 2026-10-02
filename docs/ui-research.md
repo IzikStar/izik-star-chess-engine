@@ -233,3 +233,18 @@ owner sign-off.
 4. **Browser tests** (`web/e2e/`, Playwright against the packaged jar on port 7071): fool's mate
    in two-player mode with a real drag and review; illegal move refused; promotion to a knight
    through the picker; engine reply, hint and take-back; engine-vs-engine stopped by a new game.
+5. **Owner's first play-through (2026-10-02): "amazing", plus four asks.** (a) Board colours
+   now match the app (sage green squares from the accent palette, in both themes). (b) Engine vs
+   engine takes a level per side: `GameConfig` gained `blackSkillLevel` (the 3-argument
+   constructor keeps one level for both, so the Swing UI and old tests are unchanged) and
+   `skillLevelFor(white)`, which `GameSession` uses for each engine move; the dialog shows a
+   slider per side. (c) Sounds are synthesised with the Web Audio API (wooden "tock"s for
+   moves, short chimes for check and results) instead of the old .wav files, which varied a
+   lot in loudness and length; the server still serves the .wav files for the Swing UI.
+   (d) Premove: while the engine thinks, the human can pick up their own pieces and queue one
+   move (any target square); it is sent the moment the server reports the human's turn, if it
+   is in the legal moves then (a promotion premove becomes a queen), and dropped with a soft
+   "invalid" sound otherwise. Purely client-side: the server still only accepts legal moves on
+   the human's turn. Tests: `GameSessionTest` per-side levels, `WebServerTest` per-side config,
+   e2e premove and per-side levels.
+

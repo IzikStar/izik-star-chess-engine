@@ -65,6 +65,30 @@ class GameSessionTest {
     }
 
     @Test
+    @DisplayName("Engine vs engine: each side searches at its own level (Phase 4c)")
+    void engineVsEngineLevelsPerSide() {
+        List<Integer> levels = new ArrayList<>();
+        Engine recording = new Engine() {
+            @Override public ChessMove bestMove(engine.SearchRequest request) {
+                if (levels.size() == 4) {
+                    return null; // stop the game here
+                }
+                levels.add(request.skillLevel());
+                return rules.Rules.legalMoves(request.fen()).get(0);
+            }
+            @Override public boolean isAvailable() { return true; }
+        };
+        DirectExecutor direct = new DirectExecutor();
+        GameSession s = new GameSession(new GameConfig(GameConfig.Mode.ENGINE_VS_ENGINE, true, 4, 10),
+                new EngineSelector(recording, NO_STOCKFISH), direct, direct);
+        s.start();
+        assertEquals(List.of(4, 10, 4, 10), levels);
+        assertEquals(10, new GameConfig(GameConfig.Mode.ENGINE_VS_ENGINE, true, 4, 10).skillLevelFor(false));
+        assertEquals(4, new GameConfig(GameConfig.Mode.HUMAN_VS_ENGINE, true, 4, 10).skillLevelFor(false),
+                "against a human the engine has one level");
+    }
+
+    @Test
     @DisplayName("Human vs engine: the engine answers a human move")
     void engineAnswers() {
         Recorder rec = new Recorder();
