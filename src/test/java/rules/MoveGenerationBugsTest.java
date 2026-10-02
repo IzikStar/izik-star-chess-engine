@@ -53,7 +53,6 @@ class MoveGenerationBugsTest {
     }
 
     @Test
-    @Tag("known-bug")
     @DisplayName("#3 an en-passant capture that exposes the own king along the rank is illegal")
     void enPassantCannotExposeTheKing() {
         assertEquals(Set.of("a5a4", "a5a6", "a5b6", "b5b6"),

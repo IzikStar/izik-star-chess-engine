@@ -102,6 +102,7 @@ public class BitBoard {
     public void setQueens(int color, long position) {
         if (color == 1) this.whiteQueens = position;
         else this.blackQueens = position;
+        updateOccupancy();
     }
     public long getQueens(int color) {
         return color == 1 ? whiteQueens : blackQueens;
@@ -109,6 +110,7 @@ public class BitBoard {
     public void setRooks(int color, long position) {
         if (color == 1) this.whiteRooks = position;
         else this.blackRooks = position;
+        updateOccupancy();
     }
     public long getRooks(int color) {
         return color == 1 ? whiteRooks : blackRooks;
@@ -116,6 +118,7 @@ public class BitBoard {
     public void setBishops(int color, long position) {
         if (color == 1) this.whiteBishops = position;
         else this.blackBishops = position;
+        updateOccupancy();
     }
     public long getBishops(int color) {
         return color == 1 ? whiteBishops : blackBishops;
@@ -123,6 +126,7 @@ public class BitBoard {
     public void setKnights(int color, long position) {
         if (color == 1) this.whiteKnights = position;
         else this.blackKnights = position;
+        updateOccupancy();
     }
     public long getKnights(int color) {
         return color == 1 ? whiteKnights : blackKnights;
@@ -130,9 +134,16 @@ public class BitBoard {
     public void setPawns(int color, long position) {
         if (color == 1) this.whitePawns = position;
         else this.blackPawns = position;
+        updateOccupancy();
     }
     public long getPawns(int color) {
         return color == 1 ? whitePawns : blackPawns;
+    }
+
+    // every move and attack is computed from these, so each setter keeps them current
+    private void updateOccupancy() {
+        whitePieces = whiteKings | whiteQueens | whiteRooks | whiteBishops | whiteKnights | whitePawns;
+        blackPieces = blackKings | blackQueens | blackRooks | blackBishops | blackKnights | blackPawns;
     }
 
     public void setPromotionChoice(char promotionChoice) {
