@@ -1,7 +1,6 @@
 package rules;
 
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import rules.PerftPositions.Position;
@@ -15,7 +14,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * player is offered, with every position re-read from FEN, so castling rights and en-passant
  * squares must also survive the FEN round trip (docs/phase-4b-research.md §2).
  */
-@Tag("known-bug")
 class RulesPerftTest {
 
     /** Each position runs to the deepest depth within this many nodes, about a second in all. */

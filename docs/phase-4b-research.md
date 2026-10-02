@@ -394,3 +394,12 @@ deeper perft and the Stockfish random-games check under `-Pstress`).
   Stockfish's moves. `ai.BitBoard.SearchEnPassantTest` covers #7.
 - All are tagged `known-bug`. On master, 18 of the 23 perft cases fail in each view, and all 11
   bug tests fail.
+
+**Increment 2, rules fixes.** One commit per root cause, each untagging its test: #1 and #8,
+#2, #3, #4 and #9, #5, #6, #7. After the last one, every perft count matches in both views, and
+the perft tests joined `mvn test`. Under `-Pstress`, `SearchPerftTest` also runs every position
+to its deepest reference count, and `StockfishRandomGamesTest` plays 300 seeded random games,
+checking both views against Stockfish at every ply (reverting the pawn fix fails it in the first
+game). `engine.SameMoveTest` holds the engine's moves at depths 1–4 for 56 positions, recorded
+from this rules-fixed engine. The fix for the flaky real-Stockfish test (PR #4) is ported here,
+because this branch's runs hit it.

@@ -3,6 +3,8 @@ package ai.BitBoard;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import static ai.BitBoard.SearchBoards.bit;
+import static ai.BitBoard.SearchBoards.pieces;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -13,19 +15,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class SearchEnPassantTest {
 
     private static final long EIGHTH_RANK = 0xFFL;
-
-    /** The bit of a square such as "e4" (a8 is bit 0, h1 is bit 63). */
-    static long bit(String square) {
-        int file = square.charAt(0) - 'a';
-        int rank = square.charAt(1) - '1';
-        return 1L << ((7 - rank) * 8 + file);
-    }
-
-    static long pieces(BitBoard b, boolean white) {
-        return white
-                ? b.whiteKings | b.whiteQueens | b.whiteRooks | b.whiteBishops | b.whiteKnights | b.whitePawns
-                : b.blackKings | b.blackQueens | b.blackRooks | b.blackBishops | b.blackKnights | b.blackPawns;
-    }
 
     /** The search's next board in which the side to move took its piece from {@code from} to {@code to}. */
     static BitBoard child(BitBoard board, String from, String to) {
