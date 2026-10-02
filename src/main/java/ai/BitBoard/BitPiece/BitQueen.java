@@ -52,7 +52,7 @@ public class BitQueen extends BitPiece{
                     counter++;
                     if ((!isSelfCapturing(leftMove)) && (!isCapturing(leftMove | otherSetTiles))) {
                         //Debug.log("left move");
-                        movements.add(leftMove);
+                        movements.add(leftMove | otherSetTiles);
                     } else {
                         if (isCapturing(leftMove)) movements.add(leftMove | otherSetTiles);
                         break;
@@ -65,7 +65,7 @@ public class BitQueen extends BitPiece{
                     counter++;
                     if ((!isSelfCapturing(rightMove)) && (!isCapturing(rightMove | otherSetTiles))) {
                         //Debug.log("right move");
-                        movements.add(rightMove);
+                        movements.add(rightMove | otherSetTiles);
                     } else {
                         if (isCapturing(rightMove)) movements.add(rightMove | otherSetTiles);
                         break;

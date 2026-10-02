@@ -74,7 +74,6 @@ class MoveGenerationBugsTest {
     }
 
     @Test
-    @Tag("known-bug")
     @DisplayName("#6 with two queens, each queen can still move sideways")
     void twoQueensMoveSideways() {
         Set<String> moves = legal("4k3/8/8/8/8/8/8/Q2QK3 w - - 0 1");
