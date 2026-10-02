@@ -451,7 +451,8 @@ their expected moves, or each change is justified in the phase notes.
 
 ## Phase 4c — Web UI
 
-> **Status: DONE on branch `phase-4c-web-ui`, pending merge (PR #6, 2026-10-02).** The owner
+> **Status: DONE — merged 2026-10-02** (PR #6 in the original private repository; this public
+> repository carries the same history from Phase 3 on). The owner
 > played it and asked for changes, which are in; the Swing UI (`main/`, `GUI/`, its sprites,
 > sounds and the FlatLaf dependency) is deleted, so the browser is the only UI. Research, decisions
 > (U1-U7, all approved by the owner) and the increment log are in
@@ -481,6 +482,12 @@ end-to-end test green; the existing suites unchanged; Swing UI deleted with the 
 ---
 
 ## Phase 5 — Build the originally-requested features
+
+> **Re-scoped 2026-10-02.** The owner defined "learning from past games" as evolving the
+> engine's parameters by self-play, and wants to write the evolution himself. Phase 5 is now the
+> groundwork for that (parameters, arena, record, lab page); the opening book moves later. All
+> decisions (E1-E12) are approved; see [docs/phase-5-research.md](docs/phase-5-research.md). The
+> text below is the original plan, kept for the history of why.
 
 **Goal.** Now that there's a clean, tested, headless rules/engine core, deliver the two
 capabilities that motivated this project in the first place: real opening-book integration and a

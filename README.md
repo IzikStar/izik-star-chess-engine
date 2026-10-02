@@ -6,12 +6,14 @@ in the browser: the jar starts a small local server and opens the game.
 
 ![IzikStar Chess in the browser: the board with the last move, a selected piece's moves and a hint arrow; the side panel shows the players, the status line and the move list](docs/images/web-ui.png)
 
-*Mid-game against the engine. Yellow marks the last move, dots show where the selected piece
-can go, and the green arrow is a hint the player asked for.*
+*An Italian Game in progress. Yellow marks the last move, dots show where the selected bishop
+can go, and the green arrow is a hint the player asked for (castle).*
 
 I started this as a personal project in 2024. It is now going through a planned, test-first
 refactor, which is documented phase by phase in this repository (see
-[Architecture and refactor](#architecture-and-the-ongoing-refactor)).
+[Architecture and refactor](#architecture-and-the-ongoing-refactor)). This public repository
+starts from a cleaned copy of the original private one; pull request numbers in the docs up to
+Phase 4c (#2 to #6) refer to that repository.
 
 ## Features
 
@@ -168,8 +170,8 @@ structure. Two documents describe it honestly instead of hiding the problems:
 | 3 | Decouple the UI from the rules; retire global state | Done ([research](docs/phase-3-research.md)) |
 | 4 | One concurrency model; a proper Stockfish session | Done ([research](docs/phase-4-research.md)) |
 | 4b | Fix the move generator's rule bugs; make the search fast enough for Levels 6-7 | Done ([research](docs/phase-4b-research.md)) |
-| 4c | Replace the Swing screens with a browser UI | Done, pending merge ([research](docs/ui-research.md)) |
-| 5 | Opening book in play; structured game database | Planned |
+| 4c | Replace the Swing screens with a browser UI | Done ([research](docs/ui-research.md)) |
+| 5 | Groundwork for an engine that learns by self-play evolution | Research approved ([research](docs/phase-5-research.md)) |
 
 Phase 2 is a good example of the approach:
 
@@ -260,8 +262,12 @@ On Linux, `sudo apt install stockfish` installs it at `/usr/games/stockfish`.
 
 ## Roadmap
 
-- **Phase 5:** use the opening book during play, and store games in a structured, queryable
-  form.
+- **Phase 5:** make every evaluation weight a parameter (about 500 of them), a self-play arena
+  that plays many games in parallel, a record of every run, and a lab screen to watch the
+  engine evolve and play its champion. The evolution algorithm itself is mine to write.
+- **Phase 6:** a small neural network that reads the board, trained and evolved on the games the
+  arena records.
+- **Later:** the online opening book.
 - **Longer term:** split the headless `rules`/engine core into a backend service behind the
   web front end that Phase 4c started.
 
@@ -269,11 +275,9 @@ On Linux, `sudo apt install stockfish` installs it at `/usr/games/stockfish`.
 
 MIT, see [LICENSE](LICENSE).
 
-The chess piece set is original artwork drawn for this project; its vector source is
-[`docs/art/pieces.svg`](docs/art/pieces.svg) and it is covered by the same MIT license.
-
-The sound effects (`src/main/resources/sounds/`) are third-party assets collected for a learning
-project. They are not covered by the MIT license, and their original authors keep their rights.
-If you are an author and want a sound credited or removed, please open an issue.
+The chess piece set is original artwork drawn for this project; the board draws it straight
+from its vector source, [`docs/art/pieces.svg`](docs/art/pieces.svg), and it is covered by the
+same MIT license. The sound effects are synthesised in the browser by
+[`web/src/sounds.ts`](web/src/sounds.ts), so the repository ships no third-party sound files.
 
 Stockfish is a separate project licensed under the GPLv3 and is not distributed here.

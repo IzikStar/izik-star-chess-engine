@@ -1,8 +1,8 @@
 # Phase 5 research — groundwork for an engine that learns by self-play evolution
 
-Status: **E1-E8 approved by the owner 2026-10-02**, who also asked for "dozens more parameters"
-and to research letting machine learning set them, or a neural network that reads the board
-(§8). E9-E12 (§8.5) await the owner. No code yet.
+Status: **all decisions (E1-E12) approved by the owner 2026-10-02**, E9-E12 after he asked for
+"dozens more parameters" and research into machine learning setting them or a neural network
+that reads the board (§8). Implementation follows §7.
 Written 2026-10-02 on top of Phase 4c (`phase-4c-web-ui`, PR #6).
 
 ## 1. What the owner asked for

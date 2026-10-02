@@ -11,6 +11,8 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    // the piece set's source lives in docs/art, outside web/
+    fs: { allow: ['..'] },
     proxy: {
       '/ws': { target: 'ws://127.0.0.1:7070', ws: true },
     },

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { Chessboard, defaultPieces, type Arrow } from 'react-chessboard';
+import { Chessboard, type Arrow } from 'react-chessboard';
 import type { Color } from './protocol';
 import { boardOf } from './chess';
+import { PIECES, PieceSvg } from './pieces';
 
 interface Props {
   fen: string;
@@ -113,6 +114,7 @@ export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, on
         options={{
           id: 'main',
           position: fen,
+          pieces: PIECES,
           boardOrientation: orientation,
           squareStyles,
           arrows,
@@ -201,10 +203,9 @@ function PromotionPicker({ square, orientation, color, onPick, onCancel }: {
         onClick={(e) => e.stopPropagation()}
       >
         {(['q', 'r', 'b', 'n'] as const).map((p) => {
-          const Piece = defaultPieces[color + p.toUpperCase()];
           return (
             <button key={p} type="button" className="promo-piece" aria-label={{ q: 'Queen', r: 'Rook', b: 'Bishop', n: 'Knight' }[p]} onClick={() => onPick(p)}>
-              <Piece />
+              <PieceSvg piece={color + p.toUpperCase()} />
             </button>
           );
         })}
