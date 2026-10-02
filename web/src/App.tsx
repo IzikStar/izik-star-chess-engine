@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Board } from './Board';
 import { NewGameDialog, type NewGameChoice } from './NewGameDialog';
+import { codeOf, PieceSvg } from './pieces';
 import { captured, colorName, isOver, kingSquare, LEVELS, materialOf, movesByFrom, other, resultText, turnOf, withPremoves } from './chess';
 import { useGame, type Color, type GameEvent, type GameState } from './protocol';
 import { play } from './sounds';
@@ -254,20 +255,18 @@ function PlayerCard({ state, color, fen, live }: { state: GameState; color: Colo
   const toMove = live && !isOver(state) && state.turn === color;
   return (
     <div className={'player' + (toMove ? ' to-move' : '')} data-testid={`player-${color}`}>
-      <div className="avatar" aria-hidden="true">{isEngine ? '⚙' : color === 'white' ? '♔' : '♚'}</div>
+      <div className="avatar" aria-hidden="true">{isEngine ? '⚙' : <PieceSvg code={color === 'white' ? 'wK' : 'bK'} />}</div>
       <div className="who">
         <div className="name">{name}</div>
         <div className="detail">{detail}</div>
       </div>
       <div className="taken" aria-label={`${colorName(color)} has taken`}>
-        <span className="glyphs">{taken.map((p) => GLYPHS[p.toLowerCase()]).join('')}</span>
+        <span className="glyphs">{taken.map((p, i) => <PieceSvg key={i} code={codeOf(p)} />)}</span>
         {lead > 0 && <span className="lead">+{lead}</span>}
       </div>
     </div>
   );
 }
-
-const GLYPHS: Record<string, string> = { p: '♟', n: '♞', b: '♝', r: '♜', q: '♛' };
 
 function StatusLine({ state, connection, live, ply, premoves, onReturn }: {
   state: GameState;
