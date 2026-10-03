@@ -25,7 +25,7 @@ class VarietyTest {
     }
 
     private static MinimaxEngine engine(long seed, int variety) {
-        return new MinimaxEngine(new Random(seed), MinimaxEngine.TIME_CAP_MS, BitBoardEvaluate.DEFAULT, variety);
+        return new MinimaxEngine(new Random(seed), MinimaxEngine.TIME_CAP_MS, BitBoardEvaluate.CLASSIC, variety);
     }
 
     /** The first {@code plies} moves of a game the engine plays against itself. */

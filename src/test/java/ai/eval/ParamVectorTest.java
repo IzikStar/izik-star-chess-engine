@@ -7,22 +7,25 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ParamVectorTest {
 
     private final ParamSchema schema = BitBoardEvaluate.SCHEMA;
 
     @Test
-    @DisplayName("The defaults are the weights the evaluation used to hard-code")
+    @DisplayName("The defaults are the Texel-tuned preset, most parameters filled in")
     void defaults() {
         ParamVector d = schema.defaults();
-        assertEquals(100, d.get("material.pawn.mg"));
-        assertEquals(100, d.get("material.pawn.eg"));
-        assertEquals(900, d.get("material.queen.mg"));
-        assertEquals(-250, d.get("king.exposed.eg"));
-        assertEquals(20, d.get("king.safetyUntilTurn"));
-        assertEquals(0, d.get("pawns.passed.rank6.mg"));
-        assertEquals(0, d.get("pst.knight.d4.eg"));
+        assertEquals(BitBoardEvaluate.preset("tuned-v1"), d);
+        int filled = 0;
+        for (int v : d.toArray()) {
+            filled += v != 0 ? 1 : 0;
+        }
+        assertTrue(filled > schema.size() / 2, filled + " of " + schema.size() + " non-zero");
+        int pawn = d.get("material.pawn.mg");
+        assertTrue(pawn > 50 && pawn < 150, "pawn " + pawn);
+        assertTrue(d.get("material.queen.mg") > d.get("material.rook.mg"));
         // 56 named features × (middlegame, endgame) + 3 gates + 6 piece types × 32 squares × 2 phases
         assertEquals(56 * 2 + 3 + 6 * 32 * 2, schema.size());
     }
@@ -43,7 +46,7 @@ class ParamVectorTest {
 
         ParamVector partial = ParamVector.fromJson(schema, "{\"unit\": \"centipawn\", \"material.queen.mg\": 950}");
         assertEquals(950, partial.get("material.queen.mg"));
-        assertEquals(900, partial.get("material.queen.eg"));
+        assertEquals(schema.defaults().get("material.queen.eg"), partial.get("material.queen.eg"));
 
         assertThrows(IllegalArgumentException.class, () -> ParamVector.fromJson(schema, "{\"material.qeen\": 95}"));
     }
@@ -54,7 +57,7 @@ class ParamVectorTest {
         ParamVector old = ParamVector.fromJson(schema, "{\"material.knight.mg\": 32, \"king.safetyUntilTurn\": 15}");
         assertEquals(320, old.get("material.knight.mg"));
         assertEquals(15, old.get("king.safetyUntilTurn"));
-        assertEquals(300, old.get("material.knight.eg")); // left out: the default
+        assertEquals(schema.defaults().get("material.knight.eg"), old.get("material.knight.eg")); // left out: the default
         assertThrows(IllegalArgumentException.class, () -> ParamVector.fromJson(schema, "{\"unit\": \"pawn\"}"));
     }
 
@@ -73,13 +76,14 @@ class ParamVectorTest {
     @DisplayName("A vector is immutable: with() returns a new one")
     void immutable() {
         ParamVector d = schema.defaults();
+        int first = d.get(0);
         ParamVector changed = d.with(0, 20);
-        assertEquals(100, d.get(0));
+        assertEquals(first, d.get(0));
         assertEquals(20, changed.get(0));
         assertNotEquals(d, changed);
         int[] copy = d.toArray();
         copy[0] = 99;
-        assertEquals(100, d.get(0));
+        assertEquals(first, d.get(0));
     }
 
     @Test

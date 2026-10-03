@@ -23,6 +23,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * java -cp target/izikstar-chess-3.1.0.jar lab.Cli show runs/first.db
  * java -cp target/izikstar-chess-3.1.0.jar lab.Cli export runs/first.db positions.csv
  * java -cp target/izikstar-chess-3.1.0.jar lab.Cli champion runs/first.db 19 champion.json
+ * java -cp target/izikstar-chess-3.1.0.jar lab.Cli selfplay positions.csv [--games N --nodes N --threads N --seed N]
+ * java -cp target/izikstar-chess-3.1.0.jar lab.Cli tune positions.csv tuned.json [--from classic --iterations N]
  * java -cp target/izikstar-chess-3.1.0.jar lab.Cli pgn runs/first.db games.pgn [--generation N --member M]
  * java -cp target/izikstar-chess-3.1.0.jar lab.Cli keep runs/first.db GENERATION MEMBER NAME [--note TEXT]
  * java -cp target/izikstar-chess-3.1.0.jar lab.Cli fame [runs/hall-of-fame]
@@ -51,7 +53,7 @@ public final class Cli {
         }
         Path file = Path.of(args[1]);
         Map<String, String> options = options(args, switch (args[0]) {
-            case "export", "pgn" -> 3;
+            case "export", "tune", "pgn" -> 3;
             case "champion" -> 4;
             case "keep" -> 5;
             default -> 2;
@@ -60,6 +62,13 @@ public final class Cli {
             case "run" -> run(file, options);
             case "resume" -> resume(file, options);
             case "show" -> show(file);
+            case "selfplay" -> selfPlay(file, options);
+            case "tune" -> {
+                if (args.length < 3) {
+                    usage();
+                }
+                tune(file, Path.of(args[2]), options);
+            }
             case "fame" -> fame(file);
             case "pgn" -> {
                 if (args.length < 3) {
@@ -169,6 +178,30 @@ public final class Cli {
         }
     }
 
+    /** Stockfish against itself: quiet positions with results, for {@code tune}. */
+    private static void selfPlay(Path out, Map<String, String> o) throws IOException {
+        int games = integer(o, "games", 4000);
+        long start = System.nanoTime();
+        try (Writer w = Files.newBufferedWriter(out)) {
+            int lines = Texel.selfPlay(games, integer(o, "nodes", 5000), integer(o, "threads",
+                            RunSettings.defaults().threads()), Long.parseLong(o.getOrDefault("seed", "1")), w,
+                    System.out::println);
+            System.out.printf("%d positions from %d games written to %s in %.0f s%n", lines, games, out,
+                    (System.nanoTime() - start) / 1e9);
+        }
+    }
+
+    /** Texel tuning: fits the weights to the positions' results. */
+    private static void tune(Path positions, Path out, Map<String, String> o) throws IOException {
+        List<Texel.Sample> samples = Texel.load(positions);
+        Texel.Result r = Texel.tune(samples, arena.Players.params(o.getOrDefault("from", "classic")),
+                integer(o, "iterations", 1000), Double.parseDouble(o.getOrDefault("regularization", "1e-7")),
+                System.out::println);
+        Files.writeString(out, r.params().toJson());
+        System.out.printf("error %.5f -> %.5f, held out %.5f -> %.5f (k %.3f, %d positions); written to %s%n",
+                r.startError(), r.endError(), r.holdOutStart(), r.holdOutEnd(), r.k(), r.samples(), out);
+    }
+
     /** A run's games as PGN: all, one generation's, or one member's. */
     private static void pgn(Path file, Path out, Map<String, String> o) throws IOException {
         try (RunStore store = RunStore.open(file); Writer w = Files.newBufferedWriter(out)) {
@@ -258,7 +291,8 @@ public final class Cli {
 
     private static void usage() {
         System.err.println("usage: lab.Cli run FILE --algorithm CLASS [options] | resume FILE | show FILE | export FILE OUT.csv"
-                + " | champion FILE GENERATION OUT.json | pgn FILE OUT.pgn | keep FILE GENERATION MEMBER NAME | fame DIR");
+                + " | champion FILE GENERATION OUT.json | pgn FILE OUT.pgn | keep FILE GENERATION MEMBER NAME | fame DIR"
+                + " | selfplay OUT.csv | tune POSITIONS.csv OUT.json");
         System.exit(2);
     }
 }

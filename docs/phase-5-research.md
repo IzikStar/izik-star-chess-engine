@@ -445,3 +445,18 @@ know which kind it is evolving.
    overfitting to the population, openings, depth), and methods worth trying (adaptive ES, SPSA,
    CMA-ES, Texel tuning on the export). `lab.Cli champion FILE N OUT.json` writes a champion's
    weights for `arena.Cli match`.
+9. **Texel tuning, `tuned-v1` (2026-10-03).** `lab.Cli selfplay`: Stockfish 16 against itself
+   at 5,000 nodes a move, from the start after 2-6 random plies; it keeps positions from ply 12 on
+   where the move played was not a capture or promotion and the side to move was not in check.
+   3,000 games gave 266,190 positions (30 min on 3 threads). `lab.Cli tune` (`lab.Texel`): fitted
+   K (0.815), full-batch Adam from `classic`, a light pull back toward it, 10% held out, then each
+   table's mean moved into material. Error 0.0786 → 0.0684 (held out 0.0784 → 0.0686, so no
+   overfitting); it settled by iteration 600. The material came out at pawn 98/114, knight
+   326/308, bishop 369/348, rook 499/505, queen 908/906 (mg/eg). PeSTO's tables were not imported
+   first: the evaluation is linear in its weights, so the fit has one minimum and lands there
+   from any start. Measured at depth 3, all 51 openings with both colours:
+   - `tuned-v1` vs `classic`: +71 =5 −26, 72.1%, Elo +165 [+97, +246].
+   - `tuned-v1` vs Stockfish 1320 @ 20,000 nodes: 67.2%, Elo +124 [+57, +201].
+   - `classic` vs the same Stockfish: 53.9%, Elo +27 [−37, +94].
+   The schema defaults are now `tuned-v1` (where evolution starts); the game still plays
+   `classic` until the difficulty ladder is re-measured with the new weights.

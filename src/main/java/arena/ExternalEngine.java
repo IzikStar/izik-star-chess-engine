@@ -2,7 +2,6 @@ package arena;
 
 import engine.StockfishLocator;
 
-import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -37,18 +36,29 @@ public record ExternalEngine(String command, Map<String, String> options, long n
         return stockfish(elo, STOCKFISH_NODES);
     }
 
+    /** Stockfish at full strength, {@code nodes} a move, one thread. */
+    public static ExternalEngine stockfishFull(long nodes) {
+        Map<String, String> options = new LinkedHashMap<>();
+        options.put("Threads", "1");
+        options.put("Hash", "16");
+        return new ExternalEngine(stockfishPath(), options, nodes, 0);
+    }
+
+    private static String stockfishPath() {
+        return StockfishLocator.find().orElseThrow(() ->
+                new IllegalStateException("Stockfish not found: install it, or download it from the game")).toString();
+    }
+
     public static ExternalEngine stockfish(int elo, long nodes) {
         if (elo < STOCKFISH_MIN_ELO || elo > STOCKFISH_MAX_ELO) {
             throw new IllegalArgumentException("Stockfish's UCI_Elo goes from " + STOCKFISH_MIN_ELO + " to "
                     + STOCKFISH_MAX_ELO + ", not " + elo);
         }
-        Path executable = StockfishLocator.find().orElseThrow(() ->
-                new IllegalStateException("Stockfish not found: install it, or download it from the game"));
         Map<String, String> options = new LinkedHashMap<>();
         options.put("Threads", "1");
         options.put("Hash", "16");
         options.put("UCI_LimitStrength", "true");
         options.put("UCI_Elo", String.valueOf(elo));
-        return new ExternalEngine(executable.toString(), options, nodes, 0);
+        return new ExternalEngine(stockfishPath(), options, nodes, 0);
     }
 }
