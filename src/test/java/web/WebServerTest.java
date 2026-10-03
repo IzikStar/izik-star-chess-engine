@@ -154,7 +154,7 @@ class WebServerTest {
         assertTrue(state.get("humanTurn").getAsBoolean());
         assertEquals(20, state.getAsJsonArray("legalMoves").size());
         assertEquals("engine", state.getAsJsonObject("config").get("mode").getAsString());
-        assertEquals(1, state.getAsJsonObject("config").get("level").getAsInt());
+        assertEquals(4, state.getAsJsonObject("config").get("level").getAsInt(), "the default is a real opponent, not random moves");
     }
 
     @Test

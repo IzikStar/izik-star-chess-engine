@@ -21,9 +21,12 @@ public record GameConfig(Mode mode, boolean humanPlaysWhite, int skillLevel, int
         this(mode, humanPlaysWhite, skillLevel, skillLevel);
     }
 
-    /** The application's defaults: play White against the engine at level 0. */
+    /**
+     * The application's defaults: play White against the engine at skill level 6 (the UI's
+     * Level 4, a 3-ply search): a real opponent from the first screen, not random moves.
+     */
     public static GameConfig defaults() {
-        return new GameConfig(Mode.HUMAN_VS_ENGINE, true, 0);
+        return new GameConfig(Mode.HUMAN_VS_ENGINE, true, 6);
     }
 
     public GameConfig withMode(Mode mode) {

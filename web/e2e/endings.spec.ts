@@ -152,3 +152,57 @@ test('PGN: copy and download the game, load another one', async ({ page, context
   await page.keyboard.press('ArrowLeft');
   await expect(page.getByTestId('status')).toContainText('Reviewing 16… Nxb8');
 });
+
+test('right-click marks squares for planning; a left click clears them', async ({ page }) => {
+  await page.goto('/');
+  await newGame(page, 'A friend');
+  const board = page.getByTestId('board');
+  await square(page, 'e5').click({ button: 'right' });
+  await square(page, 'f7').click({ button: 'right' });
+  await expect(board).toHaveAttribute('data-marks', 'e5 f7');
+  await square(page, 'f7').click({ button: 'right' }); // again: unmarks
+  await expect(board).toHaveAttribute('data-marks', 'e5');
+  await square(page, 'd5').click({ button: 'right' });
+  // right-drag draws an arrow, and does not mark a square
+  const a = await square(page, 'g1').boundingBox();
+  const b = await square(page, 'f3').boundingBox();
+  await page.mouse.move(a!.x + a!.width / 2, a!.y + a!.height / 2);
+  await page.mouse.down({ button: 'right' });
+  await page.mouse.move(b!.x + b!.width / 2, b!.y + b!.height / 2, { steps: 8 });
+  await page.mouse.up({ button: 'right' });
+  await expect(board).toHaveAttribute('data-marks', 'e5 d5');
+  await page.screenshot({ path: `${SHOTS}/marks.png` });
+
+  await square(page, 'a6').click(); // a left click clears the marks
+  await expect(board).toHaveAttribute('data-marks', '');
+  await square(page, 'e5').click({ button: 'right' });
+  await clickMove(page, 'e2', 'e4'); // and so does a move
+  await expect(board).toHaveAttribute('data-marks', '');
+});
+
+test('a dragged premove stays where it was dropped and never jumps back', async ({ page }) => {
+  await page.goto('/');
+  await newGame(page, 'Computer', 'Untimed', 1); // level 1 waits a second: time to premove
+  await clickMove(page, 'e2', 'e4');
+  await expect(page.getByTestId('status')).toContainText('Engine is thinking');
+  const a = await square(page, 'd2').boundingBox();
+  const b = await square(page, 'd4').boundingBox();
+  await page.mouse.move(a!.x + a!.width / 2, a!.y + a!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b!.x + b!.width / 2, b!.y + b!.height / 2, { steps: 12 });
+  await page.mouse.up();
+  await expect(page.locator('[data-square="d4"] svg[data-piece="wP"]')).toBeVisible();
+  // from here until the premove is played, d2 must never hold a piece again
+  await page.evaluate(() => {
+    const w = window as unknown as { d2Seen: boolean };
+    w.d2Seen = false;
+    const check = () => {
+      if (document.querySelector('[data-square="d2"] svg[data-piece]')) w.d2Seen = true;
+    };
+    new MutationObserver(check).observe(document.querySelector('[data-testid="board"]')!, { subtree: true, childList: true });
+  });
+  await expect(page.getByTestId('status')).toContainText('Premove d2–d4');
+  await expect(moveList(page).getByRole('button')).toHaveCount(3);
+  await expect(moveList(page).getByRole('button').nth(2)).toHaveText('d4');
+  expect(await page.evaluate(() => (window as unknown as { d2Seen: boolean }).d2Seen)).toBe(false);
+});

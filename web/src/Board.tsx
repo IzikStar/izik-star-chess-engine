@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Chessboard, type Arrow } from 'react-chessboard';
 import type { Color } from './protocol';
 import { boardOf } from './chess';
@@ -31,17 +31,24 @@ const SELECTED = 'rgba(20, 85, 60, 0.5)';
 const PREMOVE = 'rgba(40, 70, 140, 0.5)';
 const DOT = 'radial-gradient(circle, rgba(20, 30, 20, 0.28) 22%, transparent 23%)';
 const RING = 'radial-gradient(circle, transparent 79%, rgba(20, 30, 20, 0.3) 80%)';
+/** A square marked with a right click, drawn over whatever else the square shows. */
+const MARK = 'linear-gradient(rgba(235, 97, 80, 0.75), rgba(235, 97, 80, 0.75))';
 const CHECK = 'radial-gradient(circle, rgba(255, 0, 0, 0.85) 0%, rgba(231, 0, 0, 0.5) 30%, rgba(169, 0, 0, 0) 75%)';
 
 /**
  * The board: react-chessboard with click-to-move and drag-to-move, conventional highlights,
  * the hint as an arrow and a promotion picker over the promotion square. It only offers the
- * moves it is given.
+ * moves it is given. For planning: right-click a square to mark it, right-drag to draw an arrow;
+ * a left click or the next move clears them.
  */
 export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, onMove, onSelect, onIllegal, premoveColor, premoves, onPremove }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
   const [promotion, setPromotion] = useState<{ from: string; to: string; color: 'w' | 'b'; premove: boolean } | null>(null);
   const pieces = useMemo(() => boardOf(fen), [fen]);
+  const [marks, setMarks] = useState<string[]>([]);
+  const rightPress = useRef<string | null>(null);
+
+  useEffect(() => setMarks([]), [fen]);
 
   // a new position (or the end of our turn) drops any selection; a premove's promotion picker
   // stays open, since the engine replying is exactly what a premove waits for
@@ -98,6 +105,7 @@ export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, on
     add(uci.slice(0, 2), { backgroundColor: PREMOVE });
     add(uci.slice(2, 4), { backgroundColor: PREMOVE });
   }
+  for (const square of marks) add(square, { backgroundImage: MARK });
   if (selected) {
     add(selected, { backgroundColor: SELECTED });
     for (const uci of legal.get(selected) ?? []) {
@@ -109,7 +117,7 @@ export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, on
   const arrows: Arrow[] = hint ? [{ startSquare: hint.slice(0, 2), endSquare: hint.slice(2, 4), color: 'rgba(31, 122, 100, 0.85)' }] : [];
 
   return (
-    <div className="board" data-testid="board" data-hint={hint ?? ''}>
+    <div className="board" data-testid="board" data-hint={hint ?? ''} data-marks={marks.join(' ')}>
       <Chessboard
         options={{
           id: 'main',
@@ -126,6 +134,19 @@ export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, on
           darkSquareNotationStyle: { color: 'var(--sq-light)' },
           dropSquareStyle: { boxShadow: 'inset 0 0 0 4px rgba(255,255,255,0.6)' },
           canDragPiece: ({ square }) => canPick(square),
+          // a right press and release on the same square marks it (a right drag is an arrow). Not
+          // onSquareRightClick: on Linux the context menu fires on press, before a drag can start.
+          onSquareMouseDown: ({ square }, e) => {
+            if (e.button === 0) setMarks([]);
+            if (e.button === 2) rightPress.current = square;
+          },
+          onSquareMouseUp: ({ square }, e) => {
+            if (e.button !== 2) return;
+            if (rightPress.current === square) {
+              setMarks((m) => (m.includes(square) ? m.filter((s) => s !== square) : [...m, square]));
+            }
+            rightPress.current = null;
+          },
           onPieceDrag: ({ square }) => {
             if (canPick(square)) setSelected(square);
           },
@@ -133,7 +154,9 @@ export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, on
             if (!targetSquare || targetSquare === sourceSquare) return false;
             if (premoving) {
               queuePremove(sourceSquare, targetSquare);
-              return false;
+              // leave the piece where it was dropped (the queued premove shows it there), so it
+              // doesn't fly back to its square and jump forward again; a promotion waits for its piece
+              return !premovePromotes(sourceSquare, targetSquare);
             }
             if (candidates(sourceSquare, targetSquare).length === 0) {
               onIllegal();

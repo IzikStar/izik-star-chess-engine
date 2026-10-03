@@ -19,7 +19,7 @@ Phase 4c (#2 to #6) refer to that repository.
 
 - **Play against the computer or a friend**, or watch the engine play itself (each side at its
   own level). Pick White, Black or a random colour in the *New game* dialog.
-- **10 difficulty levels.**
+- **10 difficulty levels.** The app opens on Level 4, a real but beatable opponent.
   - Level 1 plays random legal moves.
   - Levels 2-7 use the built-in engine and search deeper as the level rises.
   - Levels 8-10 hand the move to Stockfish if it is installed, and fall back to the built-in
@@ -31,6 +31,8 @@ Phase 4c (#2 to #6) refer to that repository.
 - **Premoves.** While the engine thinks, queue your next moves (as many as you like, and a
   promotion asks for its piece); one is played each time it is your turn, if it is still legal,
   and an illegal one drops the rest. Click an empty square to cancel them.
+- **Planning marks.** Right-click a square to mark it, right-drag to draw an arrow; a left click
+  or the next move clears them.
 - **Hints.** *Hint* draws an arrow for the engine's suggested move.
 - **Take-backs**, a **flip board** button, and a **status line** that says whose move it is
   and when the engine is thinking.

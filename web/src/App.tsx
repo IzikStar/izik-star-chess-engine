@@ -43,6 +43,8 @@ export function App() {
   const [premoves, setPremoves] = useState<string[]>([]);
   /** The state a premove was last sent from, so the next one waits for the engine's reply. */
   const premoveSentFrom = useRef<GameState | null>(null);
+  /** The premove just sent, shown on the board until the server's answer arrives (no flicker back). */
+  const premoveSent = useRef<string | null>(null);
   const soundRef = useRef(soundOn);
   soundRef.current = soundOn;
   const [pgnOpen, setPgnOpen] = useState(false);
@@ -141,6 +143,7 @@ export function App() {
     const uci = options.find((u) => u.length === 4) ?? options.find((u) => u === next) ?? options.find((u) => u.endsWith('q'));
     if (uci) {
       premoveSentFrom.current = state;
+      premoveSent.current = uci;
       setPremoves(rest);
       send({ type: 'move', uci });
     } else {
@@ -191,6 +194,11 @@ export function App() {
     config.mode === 'engine' ? config.humanColor : config.mode === 'friend' && autoFlip ? state.turn : 'white';
   const orientation = flipped ? other(baseOrientation) : baseOrientation;
   const premoveColor = live && config.mode === 'engine' && !over && !state.humanTurn ? config.humanColor : null;
+  // the premoves as the board shows them: the queue, and the one on its way to the server. When
+  // the engine replies they stay on the board until the server has played them, so a premoved
+  // piece never jumps back to its square and forward again.
+  const inFlight = premoveSentFrom.current === state && premoveSent.current ? [premoveSent.current] : [];
+  const shownPremoves = live && config.mode === 'engine' && !over ? [...inFlight, ...premoves] : [];
 
   const startNewGame = (choice: NewGameChoice) => {
     setDialogOpen(false);
@@ -240,7 +248,7 @@ export function App() {
       <main className="game" hidden={page !== 'game'}>
         <section className="board-area" aria-label="Board">
           <Board
-            fen={premoveColor ? withPremoves(fen, premoves) : fen}
+            fen={shownPremoves.length ? withPremoves(fen, shownPremoves) : fen}
             orientation={orientation}
             legal={live ? legal : EMPTY}
             lastMove={lastMove}
