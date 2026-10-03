@@ -306,7 +306,7 @@ runs.
 | ~~`ai/BoardState.getAllPossibleMoves()` / `getAllPossibleMovesForASide()` / `makeMoveToCheckIt()` / `makeMoveAndGetStatus/Value/Fen()` / `cancelMove()` / `main()`~~ | **DELETED in Phase 2** — the mutate-a-fact-out-of-the-live-board family. Replaced by `BoardState.getLegalMoves()` → `rules.Rules`. |
 | `pieces/*.isValidMovement()` / `moveCollidesWithPiece()`, `King.canCastle()` | **Dead since Phase 2** (only `CheckScanner` and the old `isValidMove` pipeline called them). Left in place; removed in Phase 3 with the `pieces` / UI decouple. |
 | `ai/openingBook/*` (Retrofit/Lichess client, binary book reader) | Fully implemented but never invoked. **Deferred to Phase 5** (completion, not removal). |
-| `ai/TranspositionTable.java`, `ai/BitBoard/ZobristHashing.java` | Implemented; wired into `Minimax` only as commented-out lines (`ZobristHashing` is used by `BoardStateTracker` for the search's own repetition check). Left out of Phase 4b: the table stores alpha-beta bounds as exact scores and its key ignores castling rights and the en-passant square, and fixing it changes the engine's moves (docs/phase-4b-research.md §4). |
+| `ai/TranspositionTable.java`, `ai/BitBoard/ZobristHashing.java` | Wired into `Minimax` in Phase 5b: fixed-size table with bounds, keyed by `ZobristHashing.searchKey` (castling, en passant, move number included); docs/phase-5b-research.md. |
 | `ai/BoardState.convertPiecesToFEN()` / `convertPiecesToDrawFEN()` | Still used by `Board` / `SavedStatesForDraws`, but the rules path now uses the cleaner `BoardState.toRulesFen()`. Consolidate in Phase 3. |
 
 ## 4. How the pieces actually interact today
@@ -462,6 +462,8 @@ the game state (`rules.Game`). Nothing below the UI imports Swing or reads UI fl
 **After Phase 4b**, the move generator agrees with Stockfish (perft and 300 random games), and
 Levels 6-7 reach their full depth within the time cap.
 
-**Still open:** a correct transposition table and better move ordering, which would make the
-search faster again but change its moves (Phase 4b research §4); persistence is still a flat FEN
+**After Phase 5b**, the search has a working transposition table and killer/history move ordering
+(docs/phase-5b-research.md): about 5x faster in the middlegame, with the same score at every depth.
+
+**Still open:** persistence is still a flat FEN
 list and the opening book is unwired (Phase 5).

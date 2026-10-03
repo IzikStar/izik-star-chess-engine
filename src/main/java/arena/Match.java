@@ -33,8 +33,10 @@ public final class Match {
         while (!game.status().isGameOver() && game.plyCount() < maxPlies) {
             boolean whiteToMove = game.fen().split(" ")[1].equals("w");
             Player side = whiteToMove ? white : black;
-            ChessMove move = MinimaxEngine.searchAtDepth(game.fen(), side.depth(), side.evaluator(),
-                    whiteToMove ? whiteOptions : blackOptions);
+            Minimax.Options options = whiteToMove ? whiteOptions : blackOptions;
+            ChessMove move = side.moveMillis() > 0
+                    ? MinimaxEngine.searchWithin(game.fen(), side.depth(), side.evaluator(), options, side.moveMillis())
+                    : MinimaxEngine.searchAtDepth(game.fen(), side.depth(), side.evaluator(), options);
             game.play(move);
         }
         List<String> moves = game.moves().stream().map(MoveResult::move).map(ChessMove::toUci).toList();
@@ -56,6 +58,6 @@ public final class Match {
     }
 
     private static Minimax.Options options(Player player, Random random) {
-        return new Minimax.Options(player.variety(), random, player.quiescence());
+        return new Minimax.Options(player.variety(), random, player.quiescence(), player.speedups(), player.speedups());
     }
 }

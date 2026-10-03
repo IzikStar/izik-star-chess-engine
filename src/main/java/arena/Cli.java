@@ -27,6 +27,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  *   --variety N      how far below the best move (pawn = 10) a move may score (default 2)
  *   --seed N         the same seed repeats the same games (default 1)
  *   --old-search P   P = A or B: that player searches without quiescence, as before Phase 5
+ *   --no-speedups P  P = A or B: that player searches without the Phase 5b transposition table
+ *                    and move ordering
+ *   --move-ms N      give each move N ms, deepening up to --depth (an equal-time match; games then
+ *                    depend on the machine and are not repeatable)
  * </pre>
  *
  * It prints each game as it ends, then A's score against B with the Elo difference and its 95%
@@ -39,7 +43,8 @@ public final class Cli {
     public static void main(String[] args) throws IOException {
         if (args.length < 3 || !args[0].equals("match")) {
             System.err.println("usage: arena.Cli match A B [--depth N] [--openings N] [--threads N]"
-                    + " [--max-plies N] [--variety N] [--seed N] [--old-search A|B]");
+                    + " [--max-plies N] [--variety N] [--seed N] [--old-search A|B] [--no-speedups A|B]"
+                    + " [--move-ms N]");
             System.exit(2);
         }
         Map<String, String> options = new TreeMap<>();
@@ -52,6 +57,8 @@ public final class Cli {
         int depth = Integer.parseInt(options.getOrDefault("depth", "3"));
         int variety = Integer.parseInt(options.getOrDefault("variety", "2"));
         String oldSearch = options.getOrDefault("old-search", "");
+        String noSpeedups = options.getOrDefault("no-speedups", "");
+        long moveMillis = Long.parseLong(options.getOrDefault("move-ms", "0"));
         Tournament.Settings defaults = Tournament.Settings.defaults();
         Tournament.Settings settings = new Tournament.Settings(
                 Integer.parseInt(options.getOrDefault("max-plies", String.valueOf(defaults.maxPlies()))),
@@ -73,12 +80,19 @@ public final class Cli {
         } else if (oldSearch.equalsIgnoreCase("B")) {
             nameB += " old search";
         }
-        Player a = new Player(nameA, evaluator(args[1]), depth, variety, !oldSearch.equalsIgnoreCase("A"));
-        Player b = new Player(nameB, evaluator(args[2]), depth, variety, !oldSearch.equalsIgnoreCase("B"));
+        if (noSpeedups.equalsIgnoreCase("A")) {
+            nameA += " no TT";
+        } else if (noSpeedups.equalsIgnoreCase("B")) {
+            nameB += " no TT";
+        }
+        Player a = new Player(nameA, evaluator(args[1]), depth, variety, !oldSearch.equalsIgnoreCase("A"),
+                !noSpeedups.equalsIgnoreCase("A"), moveMillis);
+        Player b = new Player(nameB, evaluator(args[2]), depth, variety, !oldSearch.equalsIgnoreCase("B"),
+                !noSpeedups.equalsIgnoreCase("B"), moveMillis);
 
         int total = 2 * openings.size();
-        System.out.printf("%s vs %s: %d games at depth %d, %d at a time%n", a.name(), b.name(), total, depth,
-                settings.threads());
+        System.out.printf("%s vs %s: %d games at depth %d%s, %d at a time%n", a.name(), b.name(), total, depth,
+                moveMillis > 0 ? " within " + moveMillis + " ms a move" : "", settings.threads());
         AtomicInteger done = new AtomicInteger();
         long start = System.nanoTime();
         List<GameRecord> games = Tournament.match(a, b, openings, settings, game ->

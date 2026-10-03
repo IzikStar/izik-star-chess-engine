@@ -79,15 +79,21 @@ e.g. `e2e4`), the position status (check, mate, stalemate or draw) and the posit
 [`ai/Minimax.java`](src/main/java/ai/Minimax.java) runs a **minimax search with alpha-beta
 pruning** over bitboard positions:
 
-- **Move ordering.** Child positions are sorted by a cheap move score before they are searched,
-  which makes cut-offs happen sooner. Checks come first, then captures by the value of the
-  captured piece. Moves that give up castling rights score lower.
+- **Transposition table.** The depths of one search share a table keyed by a Zobrist hash of
+  everything the evaluation reads (pieces, side to move, castling rights, en passant, move
+  number). A position already searched deeply enough returns its stored score or bound, and every
+  position tries first the move that was best there one depth earlier. Up to 16 MB per search.
+- **Move ordering.** After the table's move: captures, most valuable victim first and cheapest
+  attacker first; then the two "killer" quiet moves that cut the search off at the same ply; then
+  quiet moves by how often they cut off elsewhere (history). With the table this makes the
+  middlegame search at depth 6 about 5 times faster, and it finds the same score as before at
+  every depth ([Phase 5b research](docs/phase-5b-research.md)).
 - **Depth and time.** Depth comes from the difficulty level, from 1 ply at level 2 to 6 plies at
   level 7, and 1-2 plies deeper once the board thins out to 12 or fewer pieces. The search
   deepens one ply at a time and stops after 5 seconds, playing the move of the deepest depth it
   finished; it also stops at once when the game moves on (take-back, new game). Level 6 finishes
-  its full depth within a second; Level 7 finishes depth 6 within the 5 seconds in most
-  positions, and in busy middlegames plays its depth-5 move.
+  its full depth in well under a second and Level 7 its depth 6 in under 1.5 seconds in the
+  benchmark positions.
 - **Quiescence.** When the depth runs out the search does not stop in the middle of an
   exchange: it plays on through captures and queen promotions until the position is quiet, so
   it never counts a piece that is about to be taken back. At the same depth this wins about 90%
@@ -98,13 +104,6 @@ pruning** over bitboard positions:
   repetition inside the search tree.
 - **Variety.** Any root move scoring within 0.2 pawn of the best may be played, picked at
   random, so the engine does not repeat the same game. It never passes up a forced mate.
-
-**Not wired in yet:**
-
-- A [`TranspositionTable`](src/main/java/ai/TranspositionTable.java) keyed by the same Zobrist
-  hash exists, but its calls in `minimax()` are commented out. As written it would return wrong
-  scores, and fixing it changes the moves the engine picks, so it is left for a later phase
-  ([Phase 4b research](docs/phase-4b-research.md) §4).
 
 ### Evaluation
 
