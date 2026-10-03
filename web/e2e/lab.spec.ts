@@ -19,6 +19,13 @@ test('the lab shows a run, replays a game and starts a game against its champion
   const yardsticks = page.getByTestId('yardsticks');
   await expect(yardsticks).toContainText('Default weights');
   await expect(yardsticks).toContainText('Classic weights');
+  // the run's last champion is in the hall of fame; keeping another adds it
+  const fame = page.getByTestId('fame');
+  await expect(fame).toContainText('last champion');
+  await page.getByLabel('Note').fill('e2e pick');
+  await page.getByRole('button', { name: /Keep champion #\d+ in the hall of fame/ }).click();
+  await expect(page.getByTestId('kept')).toContainText('hof:Demo-g1-m');
+  await expect(page.getByRole('link', { name: 'Download the games (PGN)' })).toBeVisible();
   await page.screenshot({ path: '../target/e2e-screens/lab-yardsticks.png', fullPage: true });
   await games.first().click();
   const replay = page.getByTestId('replay');

@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  *   --openings N     use the first N openings of the suite (default all, about 50); 2 games each
  *   --threads N      games at once (default: cores - 1)
  *   --max-plies N    a game still going after N plies is a draw (default 300)
+ *   --pgn FILE       where the games are written as PGN (default runs/arena/A-vs-B-TIME.pgn)
  *   --variety N      how far below the best move (pawn = 100) a move may score (default 20)
  *   --seed N         the same seed repeats the same games (default 1)
  *   --old-search P   P = A or B: that player searches without quiescence, as before Phase 5
@@ -101,6 +102,16 @@ public final class Cli {
                 System.out.printf("%3d/%d  %-30s %s - %s: %s (%s, %d plies)%n", done.incrementAndGet(), total,
                         game.opening(), game.white(), game.black(), game.result(), game.reason(), game.plies()));
         System.out.printf("%n%s%n%.0f s%n", Score.of(a.name(), games), (System.nanoTime() - start) / 1e9);
+        Path pgn = options.containsKey("pgn") ? Path.of(options.get("pgn"))
+                : Path.of("runs", "arena", (a.name() + "-vs-" + b.name()).replaceAll("[^A-Za-z0-9._-]+", "_") + "-"
+                + java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + ".pgn");
+        Files.createDirectories(pgn.toAbsolutePath().getParent());
+        StringBuilder text = new StringBuilder();
+        for (GameRecord g : games) {
+            text.append(GamePgn.write(g, a.name() + " vs " + b.name(), 1, a.isExternal() ? b.depth() : a.depth())).append('\n');
+        }
+        Files.writeString(pgn, text);
+        System.out.println("games written to " + pgn);
     }
 
     private static String name(String spec) {

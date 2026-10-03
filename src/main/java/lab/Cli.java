@@ -23,6 +23,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * java -cp target/izikstar-chess-3.1.0.jar lab.Cli show runs/first.db
  * java -cp target/izikstar-chess-3.1.0.jar lab.Cli export runs/first.db positions.csv
  * java -cp target/izikstar-chess-3.1.0.jar lab.Cli champion runs/first.db 19 champion.json
+ * java -cp target/izikstar-chess-3.1.0.jar lab.Cli pgn runs/first.db games.pgn [--generation N --member M]
+ * java -cp target/izikstar-chess-3.1.0.jar lab.Cli keep runs/first.db GENERATION MEMBER NAME [--note TEXT]
+ * java -cp target/izikstar-chess-3.1.0.jar lab.Cli fame [runs/hall-of-fame]
  *
  * run options (defaults in RunSettings.defaults()):
  *   --name TEXT --generations N --depth N --openings-per-pairing N --variety N --max-plies N
@@ -39,19 +42,37 @@ public final class Cli {
     private Cli() {}
 
     public static void main(String[] args) throws IOException {
+        if (args.length == 1 && args[0].equals("fame")) {
+            fame(arena.Players.HALL_OF_FAME);
+            return;
+        }
         if (args.length < 2) {
             usage();
         }
         Path file = Path.of(args[1]);
         Map<String, String> options = options(args, switch (args[0]) {
-            case "export" -> 3;
+            case "export", "pgn" -> 3;
             case "champion" -> 4;
+            case "keep" -> 5;
             default -> 2;
         });
         switch (args[0]) {
             case "run" -> run(file, options);
             case "resume" -> resume(file, options);
             case "show" -> show(file);
+            case "fame" -> fame(file);
+            case "pgn" -> {
+                if (args.length < 3) {
+                    usage();
+                }
+                pgn(file, Path.of(args[2]), options);
+            }
+            case "keep" -> {
+                if (args.length < 5) {
+                    usage();
+                }
+                keep(file, Integer.parseInt(args[2]), Integer.parseInt(args[3]), args[4], options);
+            }
             case "export" -> {
                 if (args.length < 3) {
                     usage();
@@ -148,6 +169,36 @@ public final class Cli {
         }
     }
 
+    /** A run's games as PGN: all, one generation's, or one member's. */
+    private static void pgn(Path file, Path out, Map<String, String> o) throws IOException {
+        try (RunStore store = RunStore.open(file); Writer w = Files.newBufferedWriter(out)) {
+            int games = RunPgn.write(store, integer(o, "generation", -1), integer(o, "member", -1), w);
+            System.out.println(games + " games written to " + out);
+        }
+    }
+
+    /** Keeps a member in the hall of fame beside the run, with its weights, results and games. */
+    private static void keep(Path file, int generation, int member, String name, Map<String, String> o) {
+        try (RunStore store = RunStore.open(file)) {
+            HallOfFame hall = HallOfFame.besides(file);
+            hall.add(HallOfFame.fromRun(store, file, generation, member, name, o.getOrDefault("note", "kept by hand")));
+            System.out.println("kept as hof:" + name + " in " + hall.dir());
+        }
+    }
+
+    /** Lists the hall of fame. */
+    private static void fame(Path dir) {
+        List<HallOfFame.Entry> entries = new HallOfFame(dir).list();
+        if (entries.isEmpty()) {
+            System.out.println("nothing in " + dir + " yet");
+        }
+        for (HallOfFame.Entry e : entries) {
+            System.out.printf("hof:%s  (%s, generation %d, #%d) %s%n", e.name(), e.runName(), e.generation(), e.member(),
+                    e.reason());
+            e.yardsticks().forEach(y -> System.out.println("    " + y));
+        }
+    }
+
     private static EvolutionRunner.Listener printer() {
         return new EvolutionRunner.Listener() {
             @Override
@@ -207,7 +258,7 @@ public final class Cli {
 
     private static void usage() {
         System.err.println("usage: lab.Cli run FILE --algorithm CLASS [options] | resume FILE | show FILE | export FILE OUT.csv"
-                + " | champion FILE GENERATION OUT.json");
+                + " | champion FILE GENERATION OUT.json | pgn FILE OUT.pgn | keep FILE GENERATION MEMBER NAME | fame DIR");
         System.exit(2);
     }
 }
