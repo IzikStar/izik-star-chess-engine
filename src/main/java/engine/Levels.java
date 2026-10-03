@@ -13,6 +13,8 @@ package engine;
  *   <li>9-12: Stockfish held to a UCI_Elo, half a second a move.</li>
  *   <li>13: Stockfish at full strength, a second a move.</li>
  * </ul>
+ * Hints ({@link #HINT}) are the strongest the app has: Stockfish at full strength for
+ * {@link #HINT_MOVE_TIME_MS}, or without Stockfish the built-in engine's top level.
  *
  * The steps between levels are about 250 Elo, on Stockfish's UCI_Elo scale (a computer rating
  * list, not a human federation's).
@@ -27,6 +29,8 @@ public final class Levels {
     public static final int STOCKFISH_FROM = TOP_BUILT_IN + 1;
     /** Hints: Stockfish at full strength. Not a level the player can pick. */
     public static final int HINT = MAX + 1;
+    /** How long Stockfish thinks about a hint. */
+    public static final long HINT_MOVE_TIME_MS = 4000;
 
     /** Level 1 plays this share of its moves at random, in percent. */
     public static final int LEVEL_1_RANDOM_PERCENT = 25;
@@ -67,8 +71,11 @@ public final class Levels {
         return i >= 0 && i < STOCKFISH_ELO.length ? STOCKFISH_ELO[i] : 0;
     }
 
-    /** How long Stockfish thinks at {@code level}: 0.5 s while held to an Elo, else 1 s. */
+    /** How long Stockfish thinks at {@code level}: 0.5 s while held to an Elo, 1 s at Level 13, 4 s for a hint. */
     public static long stockfishMoveTimeMs(int level) {
+        if (level >= HINT) {
+            return HINT_MOVE_TIME_MS;
+        }
         return stockfishElo(level) > 0 ? 500 : 1000;
     }
 }

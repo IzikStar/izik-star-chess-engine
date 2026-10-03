@@ -86,7 +86,7 @@ class StockfishSessionTest {
         assertTrue(sent.contains("go movetime 1000"), sent.toString());
         assertEquals(500, StockfishEngine.moveTimeMs(12), "Level 12");
         assertEquals(1000, StockfishEngine.moveTimeMs(13), "Level 13, full strength");
-        assertEquals(1000, StockfishEngine.moveTimeMs(EngineSelector.HINT_LEVEL), "hints");
+        assertEquals(4000, StockfishEngine.moveTimeMs(EngineSelector.HINT_LEVEL), "hints");
     }
 
     @Test

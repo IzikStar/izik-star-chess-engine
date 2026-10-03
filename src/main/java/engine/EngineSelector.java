@@ -18,8 +18,8 @@ public final class EngineSelector {
     static final int MOVE_FALLBACK_LEVEL = Levels.TOP_BUILT_IN;
     /** A quick move after a search failed outright (depth 1). */
     static final int QUICK_MOVE_LEVEL = 2;
-    /** Hints without Stockfish: the built-in engine at depth 5. */
-    static final int HINT_FALLBACK_LEVEL = 6;
+    /** Hints without Stockfish: the built-in engine's strongest level. */
+    static final int HINT_FALLBACK_LEVEL = Levels.TOP_BUILT_IN;
 
     private final Engine builtIn;
     private final Engine stockfish;
@@ -47,7 +47,7 @@ public final class EngineSelector {
         return hint(SearchRequest.of(fen, HINT_LEVEL));
     }
 
-    /** A hint for the side to move: Stockfish at full strength, else the built-in engine at 10. */
+    /** A hint for the side to move: Stockfish at full strength, else the built-in engine's strongest level. */
     public ChessMove hint(SearchRequest request) {
         return withFallback(request.withSkillLevel(HINT_LEVEL), HINT_FALLBACK_LEVEL);
     }
