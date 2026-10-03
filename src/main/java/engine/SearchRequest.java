@@ -12,7 +12,7 @@ import java.util.List;
  * @param fen        the position to move in: {@code startFen} after {@code moves}
  * @param startFen   the game's starting position
  * @param moves      the moves played since {@code startFen}
- * @param skillLevel the UI's 0-18 scale (hints use 21)
+ * @param skillLevel the level, 0-13 ({@link Levels}; hints use {@link Levels#HINT})
  * @param cancel     set when the answer is no longer wanted
  */
 public record SearchRequest(String fen, String startFen, List<ChessMove> moves, int skillLevel,

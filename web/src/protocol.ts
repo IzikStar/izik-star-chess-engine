@@ -84,7 +84,7 @@ export interface GameState {
   config: GameConfig;
   /** The evolved champion the engine plays as, or null for the usual engine. */
   opponent: Champion | null;
-  /** Whether Levels 8-10 really get Stockfish (absent when the server has no Stockfish slot). */
+  /** Whether Levels 9-13 really get Stockfish (absent when the server has no Stockfish slot). */
   stockfish?: StockfishInfo;
 }
 

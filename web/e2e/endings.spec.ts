@@ -182,7 +182,7 @@ test('right-click marks squares for planning; a left click clears them', async (
 
 test('a dragged premove stays where it was dropped and never jumps back', async ({ page }) => {
   await page.goto('/');
-  await newGame(page, 'Computer', 'Untimed', 1); // level 1 waits a second: time to premove
+  await newGame(page, 'Computer', 'Untimed', 0); // level 0 waits a second: time to premove
   await clickMove(page, 'e2', 'e4');
   await expect(page.getByTestId('status')).toContainText('Engine is thinking');
   const a = await square(page, 'd2').boundingBox();

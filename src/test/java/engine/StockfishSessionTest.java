@@ -71,21 +71,22 @@ class StockfishSessionTest {
     void oneSessionPerGame() throws Exception {
         Path log = dir.resolve("log");
         StockfishEngine sf = fake("normal", log);
-        assertNotNull(sf.bestMove(request(List.of(), 13, Cancellation.NONE)));
-        assertNotNull(sf.bestMove(request(List.of("e2e4", "e7e5"), 13, Cancellation.NONE)));
-        assertNotNull(sf.bestMove(request(List.of("e2e4", "e7e5", "g1f3", "b8c6"), 17, Cancellation.NONE)));
+        assertNotNull(sf.bestMove(request(List.of(), 9, Cancellation.NONE)));
+        assertNotNull(sf.bestMove(request(List.of("e2e4", "e7e5"), 9, Cancellation.NONE)));
+        assertNotNull(sf.bestMove(request(List.of("e2e4", "e7e5", "g1f3", "b8c6"), 13, Cancellation.NONE)));
         List<String> sent = lines(log);
         assertEquals(1, count(sent, "uci"), sent.toString());
         assertEquals(1, count(sent, "ucinewgame"), sent.toString());
         assertTrue(sent.contains("position fen " + Position.START_FEN + " moves e2e4 e7e5 g1f3 b8c6"), sent.toString());
-        assertTrue(sent.contains("setoption name Skill Level value 12"), sent.toString());
-        assertTrue(sent.contains("setoption name Skill Level value 16"), sent.toString());
-        assertEquals(1, count(sent, "setoption name Skill Level value 12"), "the skill is only resent when it changes");
-        assertTrue(sent.contains("go movetime 300"), sent.toString());
+        assertTrue(sent.contains("setoption name UCI_LimitStrength value true"), sent.toString());
+        assertTrue(sent.contains("setoption name UCI_Elo value 2150"), sent.toString());
+        assertTrue(sent.contains("setoption name UCI_LimitStrength value false"), sent.toString());
+        assertEquals(1, count(sent, "setoption name UCI_Elo value 2150"), "the strength is only resent when it changes");
+        assertTrue(sent.contains("go movetime 500"), sent.toString());
         assertTrue(sent.contains("go movetime 1000"), sent.toString());
-        assertEquals(300, StockfishEngine.moveTimeMs(14), "UI Level 8");
-        assertEquals(600, StockfishEngine.moveTimeMs(16), "UI Level 9");
-        assertEquals(1000, StockfishEngine.moveTimeMs(18), "UI Level 10");
+        assertEquals(500, StockfishEngine.moveTimeMs(12), "Level 12");
+        assertEquals(1000, StockfishEngine.moveTimeMs(13), "Level 13, full strength");
+        assertEquals(1000, StockfishEngine.moveTimeMs(EngineSelector.HINT_LEVEL), "hints");
     }
 
     @Test

@@ -66,7 +66,7 @@ class EngineJobsTest {
     void undoCancelsTheRunningSearch() {
         assertTimeoutPreemptively(Duration.ofSeconds(30), () -> {
             CountDownLatch replied = new CountDownLatch(1);
-            GameSession s = start(12, replied); // depth 6: minutes without a cap
+            GameSession s = start(7, replied); // depth 6: minutes without a cap
             onDispatcher(() -> s.playHumanMove(ChessMove.fromUci("e2e4")));
             Thread.sleep(300);
             onDispatcher(() -> {

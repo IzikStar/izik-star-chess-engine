@@ -50,12 +50,12 @@ class SearchSpeedTest {
             new Benchmark("kiwipete", "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"),
             new Benchmark("rook-endgame", "8/5pk1/6p1/8/3R4/6P1/5PK1/3r4 w - - 0 40"));
 
-    /** UI level, skill level (the 0-18 scale) and time limit. */
+    /** Level as shown, level passed to the engine (the same since the 0-13 ladder) and time limit. */
     record Level(int level, int skill, long limitMs) {}
 
     static final List<Level> LEVELS = List.of(
-            new Level(6, 10, 1000),
-            new Level(7, 12, MinimaxEngine.TIME_CAP_MS));
+            new Level(6, 6, 1000),
+            new Level(7, 7, MinimaxEngine.TIME_CAP_MS));
 
     static final String HEAP = "-Xmx300m";
 

@@ -55,7 +55,7 @@ class RepetitionTest {
     }
 
     @Test
-    @DisplayName("Level 6 with a queen up mates instead of drawing by repetition")
+    @DisplayName("Level 4 with a queen up mates instead of drawing by repetition")
     void winsTheGame() {
         Game game = new Game(QUEEN_UP);
         MinimaxEngine white = new MinimaxEngine(new Random(1), MinimaxEngine.TIME_CAP_MS, BitBoardEvaluate.DEFAULT, 0);
@@ -63,7 +63,7 @@ class RepetitionTest {
         while (!game.status().isGameOver() && game.plyCount() < 100) {
             boolean whiteToMove = game.fen().split(" ")[1].equals("w");
             List<ChessMove> moves = game.moves().stream().map(MoveResult::move).toList();
-            SearchRequest request = new SearchRequest(game.fen(), QUEEN_UP, moves, whiteToMove ? 6 : 4,
+            SearchRequest request = new SearchRequest(game.fen(), QUEEN_UP, moves, whiteToMove ? 4 : 3,
                     Cancellation.NONE);
             game.play((whiteToMove ? white : black).bestMove(request));
         }

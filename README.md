@@ -19,11 +19,14 @@ Phase 4c (#2 to #6) refer to that repository.
 
 - **Play against the computer or a friend**, or watch the engine play itself (each side at its
   own level). Pick White, Black or a random colour in the *New game* dialog.
-- **10 difficulty levels.** The app opens on Level 4, a real but beatable opponent.
-  - Level 1 plays random legal moves.
-  - Levels 2-7 use the built-in engine and search deeper as the level rises.
-  - Levels 8-10 hand the move to Stockfish if it is installed, and fall back to the built-in
-    engine at Level 7 if it is not (the game tells you).
+- **Difficulty Levels 0-13**, each about 250 Elo above the one below, with the Elo shown next to
+  the level ([table](docs/difficulty-ladder.md)). The app opens on Level 4, a real but beatable
+  opponent.
+  - Level 0 plays random legal moves; Level 1 is depth 1 with a quarter of its moves random.
+  - Levels 2-8 use the built-in engine and search one ply deeper per level, up to depth 7.
+  - Levels 9-13 hand the move to Stockfish if it is installed (held to a UCI_Elo of 2150-2900,
+    then full strength), and fall back to the built-in engine at Level 8 if it is not (the game
+    tells you).
 - **Full chess rules.** Castling, en passant, promotion (pick the piece on the board), check,
   checkmate and stalemate. Draws are detected by the 50-move rule, threefold repetition and
   insufficient material.
@@ -103,8 +106,8 @@ pruning** over bitboard positions:
   quiet moves by how often they cut off elsewhere (history). With the table this makes the
   middlegame search at depth 6 about 5 times faster, and it finds the same score as before at
   every depth ([Phase 5b research](docs/phase-5b-research.md)).
-- **Depth and time.** Depth comes from the difficulty level, from 1 ply at level 2 to 6 plies at
-  level 7, and 1-2 plies deeper once the board thins out to 12 or fewer pieces. The search
+- **Depth and time.** Depth comes from the difficulty level, from 1 ply at level 2 to 7 plies at
+  level 8, and 1-2 plies deeper once the board thins out to 12 or fewer pieces. The search
   deepens one ply at a time and stops after 5 seconds, playing the move of the deepest depth it
   finished; it also stops at once when the game moves on (take-back, new game). Level 6 finishes
   its full depth in well under a second and Level 7 its depth 6 in under 1.5 seconds in the
@@ -151,8 +154,8 @@ calls it, and wiring it in is planned for Phase 5.
 process and talks to it over the UCI protocol through stdin and stdout. The suggested move is
 checked against the program's own rules before it is played. One Stockfish process serves the
 whole session: the UCI handshake runs once, and each move sends the game's moves so far.
-Levels 8-10 set Stockfish's skill level to 13, 15 and 17 and let it think 300, 600 and 1000 ms;
-hints use full strength and 1000 ms. If Stockfish crashes it is restarted, and if it is missing or
+Levels 9-12 hold Stockfish to a UCI_Elo of 2150, 2400, 2650 and 2900 and let it think 500 ms;
+Level 13 and hints use full strength and 1000 ms. If Stockfish crashes it is restarted, and if it is missing or
 keeps failing the built-in engine takes over.
 
 ## Architecture and the ongoing refactor
@@ -310,12 +313,12 @@ Tests run with `-Djava.awt.headless=true`, so no display is needed.
 ## Optional: Stockfish
 
 Stockfish is **not** included in this repository. It is a large third-party GPLv3 binary.
-Without it the game is fully playable: levels 8-10 play the built-in engine at Level 7 and hints
+Without it the game is fully playable: levels 9-13 play the built-in engine at Level 8 and hints
 use the built-in engine. The New game dialog and the player card say so when Stockfish is missing,
 and the server prints which Stockfish it found when it starts.
 
 The easiest way: press **Download Stockfish** in the game (it appears in the New game dialog at
-Levels 8-10 and when you analyse a game). The game fetches Stockfish 17.1 from Stockfish's official
+Levels 9-13 and when you analyse a game). The game fetches Stockfish 17.1 from Stockfish's official
 GitHub releases into `engine/stockfish/` and uses it at once, no restart. Or do it by hand:
 
 1. Download Stockfish for your OS from <https://stockfishchess.org/download/>.

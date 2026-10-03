@@ -21,7 +21,7 @@ import java.util.function.Supplier;
  * </pre>
  *
  * When the download is done the game's Stockfish switches to it at once and every browser gets a
- * fresh state, so Levels 8-10 and game analysis work without a restart.
+ * fresh state, so Levels 9-13 and game analysis work without a restart.
  */
 final class StockfishApi {
 

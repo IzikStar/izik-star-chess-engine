@@ -7,7 +7,8 @@ package game;
  *
  * @param mode             who plays each side
  * @param humanPlaysWhite  in {@link Mode#HUMAN_VS_ENGINE}, the human's colour (ignored otherwise)
- * @param skillLevel       engine strength on the UI's 0-18 scale (0 = random moves); in
+ * @param skillLevel       engine strength, the level the player picks ({@code engine.Levels}: 0-13,
+ *                         0 = random moves); in
  *                         {@link Mode#ENGINE_VS_ENGINE}, White's
  * @param blackSkillLevel  in {@link Mode#ENGINE_VS_ENGINE}, Black's strength (Phase 4c: each
  *                         side can play at its own level); ignored otherwise
@@ -22,11 +23,11 @@ public record GameConfig(Mode mode, boolean humanPlaysWhite, int skillLevel, int
     }
 
     /**
-     * The application's defaults: play White against the engine at skill level 6 (the UI's
-     * Level 4, a 3-ply search): a real opponent from the first screen, not random moves.
+     * The application's defaults: play White against the engine at Level 4 (a 3-ply search): a
+     * real opponent from the first screen, not random moves.
      */
     public static GameConfig defaults() {
-        return new GameConfig(Mode.HUMAN_VS_ENGINE, true, 6);
+        return new GameConfig(Mode.HUMAN_VS_ENGINE, true, 4);
     }
 
     public GameConfig withMode(Mode mode) {

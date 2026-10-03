@@ -27,15 +27,6 @@ final class GameStateJson {
 
     private GameStateJson() {}
 
-    /** The UI's levels 1-10 are the session's skill levels 0, 2, ..., 18 (as in the Swing settings). */
-    static int uiLevel(int skillLevel) {
-        return skillLevel / 2 + 1;
-    }
-
-    static int skillLevel(int uiLevel) {
-        return (Math.max(1, Math.min(10, uiLevel)) - 1) * 2;
-    }
-
     /** @param opponentLabel the evolved champion the engine plays as, or null */
     static JsonObject snapshot(GameSession session, ChessMove hint, String opponentLabel) {
         JsonObject state = new JsonObject();
@@ -131,7 +122,7 @@ final class GameStateJson {
         if (opponentLabel != null && config.mode() == GameConfig.Mode.HUMAN_VS_ENGINE) {
             return opponentLabel;
         }
-        return "Engine, level " + uiLevel(config.skillLevelFor(white));
+        return "Engine, level " + config.skillLevelFor(white);
     }
 
     /** The ending in words, as chess sites write it in the Termination tag. */
@@ -180,8 +171,8 @@ final class GameStateJson {
             case ENGINE_VS_ENGINE -> "computer";
         });
         o.addProperty("humanColor", config.humanPlaysWhite() ? "white" : "black");
-        o.addProperty("level", uiLevel(config.skillLevel()));
-        o.addProperty("blackLevel", uiLevel(config.skillLevelFor(false)));
+        o.addProperty("level", config.skillLevel());
+        o.addProperty("blackLevel", config.skillLevelFor(false));
         return o;
     }
 
