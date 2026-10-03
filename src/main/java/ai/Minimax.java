@@ -37,6 +37,12 @@ import java.util.function.BooleanSupplier;
  * first), then the quiet moves that cut off the search at the same ply or elsewhere. Both only make
  * the search faster: at the same depth it finds the same value, but it may pick another move of
  * that value. All of it lives in the call, so searches on different threads share nothing.
+ *
+ * <p>Repetition: the search is given the game's positions before the root, and any position that
+ * already occurred (in the game or earlier on the line being searched) is scored as a draw, 0. So a
+ * side that is ahead steers away from repeating and a side that is behind may go for it. Before,
+ * the search saw no game history and only a third occurrence inside its own tree counted, so a
+ * winning engine happily walked into a threefold repetition.
  */
 public class Minimax {
 
@@ -69,6 +75,8 @@ public class Minimax {
     private final ArrayList<Integer> rootValues = new ArrayList<>();
     /** Shared by the depths of one {@code getBestMove} call; null searches as before Phase 5b. */
     private final SearchState state;
+    /** {@link ZobristHashing#computeHash} of the game's positions before the root. */
+    private final long[] gameHistory;
     private int nodesChecked = 0;
     /** The root's score after {@link #search}, from the root side's point of view. */
     private int rootValue;
@@ -110,8 +118,9 @@ public class Minimax {
     }
 
     private Minimax(int searchDepth, Evaluator evaluator, Options options, boolean rootIsBlack,
-                    BooleanSupplier stop, SearchState state) {
+                    BooleanSupplier stop, SearchState state, long[] gameHistory) {
         this.state = state;
+        this.gameHistory = gameHistory;
         this.searchDepth = searchDepth;
         this.evaluator = evaluator;
         this.variety = options.variety();
@@ -148,14 +157,27 @@ public class Minimax {
      */
     public static BitMove getBestMove(BitBoard bitboard, int maxDepth, Evaluator evaluator, Options options,
                                       BooleanSupplier stop) {
+        return getBestMove(bitboard, maxDepth, evaluator, options, NO_HISTORY, stop);
+    }
+
+    /** No game positions before the root. */
+    public static final long[] NO_HISTORY = new long[0];
+
+    /**
+     * Like {@link #getBestMove(BitBoard, int, Evaluator, Options, BooleanSupplier)}, knowing the game's
+     * positions before the root ({@link ZobristHashing#computeHash}, any order): a move back into one
+     * of them is scored as a draw.
+     */
+    public static BitMove getBestMove(BitBoard bitboard, int maxDepth, Evaluator evaluator, Options options,
+                                      long[] gameHistory, BooleanSupplier stop) {
         boolean rootIsBlack = !bitboard.getIsWhiteToMove();
         SearchState state = options.transpositionTable() || options.moveOrdering()
                 ? new SearchState(maxDepth, options) : null;
-        Minimax first = new Minimax(1, evaluator, options, rootIsBlack, () -> false, state);
+        Minimax first = new Minimax(1, evaluator, options, rootIsBlack, () -> false, state, gameHistory);
         BitMove best = first.search(bitboard);
         long nodes = first.nodesChecked;
         for (int depth = 2; depth <= maxDepth && !stop.getAsBoolean(); depth++) {
-            Minimax next = new Minimax(depth, evaluator, options, rootIsBlack, stop, state);
+            Minimax next = new Minimax(depth, evaluator, options, rootIsBlack, stop, state, gameHistory);
             try {
                 best = next.search(bitboard);
             } catch (Abandoned e) {
@@ -178,7 +200,7 @@ public class Minimax {
                 ? new SearchState(depth, options) : null;
         int value = 0;
         for (int d = 1; d <= depth; d++) {
-            Minimax search = new Minimax(d, evaluator, options, rootIsBlack, () -> false, state);
+            Minimax search = new Minimax(d, evaluator, options, rootIsBlack, () -> false, state, NO_HISTORY);
             search.search(bitboard);
             value = search.rootValue;
         }
@@ -186,7 +208,7 @@ public class Minimax {
     }
 
     private BitMove search(BitBoard bitboard) {
-        BoardStateTracker boardStateTracker = new BoardStateTracker();
+        BoardStateTracker boardStateTracker = new BoardStateTracker(gameHistory);
         MinimaxResult result = minimax(bitboard, searchDepth, true, Integer.MIN_VALUE, Integer.MAX_VALUE,
                 boardStateTracker);
         rootValue = result.value;
@@ -208,6 +230,12 @@ public class Minimax {
             throw ABANDONED;
         }
         boolean lastDepth = depth == searchDepth; // the root: its children are the candidate moves
+        // A position already on the path (in the game or on this line) is a draw: the side that
+        // wants it can repeat again. Checked before the table, whose entries don't know the path.
+        long repetitionHash = ZobristHashing.computeHash(board);
+        if (!lastDepth && boardStateTracker.contains(repetitionHash)) {
+            return new MinimaxResult(board.lastMove, DRAW);
+        }
         TranspositionTable table = state == null ? null : state.table;
         long key = 0;
         int hashMove = 0;
@@ -245,12 +273,7 @@ public class Minimax {
             return new MinimaxResult(board.lastMove, value);
         }
 
-        boardStateTracker.addBoardState(board); // leaves return above, so only nodes that search on are hashed
-        if (boardStateTracker.isThreefoldRepetition()) {
-            // a draw, worth 0 to both sides (was -1111111 whoever was to move)
-            boardStateTracker.removeLastBoardState();
-            return new MinimaxResult(board.lastMove, 0);
-        }
+        boardStateTracker.addBoardState(repetitionHash); // leaves return above, so only nodes that search on are on the path
 
         ArrayList<BitBoard> children = board.getSortedNextStates(); // sorted once, best-ordered first
         int ply = searchDepth - depth;
@@ -352,6 +375,9 @@ public class Minimax {
         }
         return value;
     }
+
+    /** A repetition's score: a draw, worth the same to both sides. */
+    private static final int DRAW = 0;
 
     /** Any score this far from MATE is a mate score, wherever in the search it was found. */
     private static final int MATE_THRESHOLD = BitBoardEvaluate.MATE - 1000;

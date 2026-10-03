@@ -35,8 +35,9 @@ public final class Match {
             Player side = whiteToMove ? white : black;
             Minimax.Options options = whiteToMove ? whiteOptions : blackOptions;
             ChessMove move = side.moveMillis() > 0
-                    ? MinimaxEngine.searchWithin(game.fen(), side.depth(), side.evaluator(), options, side.moveMillis())
-                    : MinimaxEngine.searchAtDepth(game.fen(), side.depth(), side.evaluator(), options);
+                    ? MinimaxEngine.searchWithin(game.fen(), game.history(), side.depth(), side.evaluator(), options,
+                            side.moveMillis())
+                    : MinimaxEngine.searchAtDepth(game.fen(), game.history(), side.depth(), side.evaluator(), options);
             game.play(move);
         }
         List<String> moves = game.moves().stream().map(MoveResult::move).map(ChessMove::toUci).toList();
