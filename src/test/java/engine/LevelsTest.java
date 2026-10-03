@@ -44,5 +44,6 @@ class LevelsTest {
         assertEquals(0, Levels.stockfishElo(Levels.HINT));
         assertEquals(500, Levels.stockfishMoveTimeMs(9));
         assertEquals(1000, Levels.stockfishMoveTimeMs(13));
+        assertEquals(4000, Levels.stockfishMoveTimeMs(Levels.HINT));
     }
 }
