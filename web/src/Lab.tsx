@@ -13,6 +13,7 @@ interface Weight { name: string; group: string; description: string; default: nu
 interface RunDetail extends Omit<RunSummary, 'generationsDone' | 'lastYardstick'> { generations: GenerationRow[]; weights: Weight[] }
 interface GameRow { index: number; kind: 'population' | 'yardstick'; white: string; black: string; opening: string; result: string; reason: string; plies: number; depth?: number }
 interface GenerationDetail { number: number; members: number; games: GameRow[] }
+interface FameEntry { name: string; reason: string; savedAt: string; run: string | null; runName: string | null; generation: number; member: number; yardsticks: string[]; games: number }
 interface Replay { white: string; black: string; opening: string; result: string; reason: string; startFen: string; moves: { uci: string; san: string; fenAfter: string }[] }
 
 const EMPTY = new Map<string, string[]>();
@@ -54,6 +55,7 @@ const elo = (y: Yardstick) => `${Math.round(y.elo) >= 0 ? '+' : ''}${Math.round(
 
 export function Lab({ onPlay }: { onPlay: (champion: Champion) => void }) {
   const [runs, runsError] = usePolled<{ folder: string; runs: RunSummary[] }>('/api/lab/runs');
+  const [fame] = usePolled<{ entries: FameEntry[] }>('/api/lab/fame');
   const [file, setFile] = useState<string | null>(null);
   const shown = file ?? runs?.runs[0]?.file ?? null;
   const [run] = usePolled<RunDetail>(shown ? `/api/lab/runs/${encodeURIComponent(shown)}` : null);
@@ -96,6 +98,7 @@ export function Lab({ onPlay }: { onPlay: (champion: Champion) => void }) {
             </li>
           ))}
         </ul>
+        <HallOfFame entries={fame?.entries ?? []} onPlay={onPlay} />
       </nav>
 
       {run && (
@@ -113,6 +116,7 @@ export function Lab({ onPlay }: { onPlay: (champion: Champion) => void }) {
                   run: run.file, generation: row.number, label: `Champion of ${run.name}, generation ${row.number}`,
                 })}>Play generation {row.number}'s champion</button>
               )}
+              <a className="btn" href={`/api/lab/runs/${encodeURIComponent(run.file)}/pgn`} download>Download the games (PGN)</a>
             </div>
             <h3>Champion against {player(run.settings.yardsticks?.[0] ?? 'default').replace(/^D/, 'd').replace(/^C(?=lassic)/, 'c')}</h3>
             <ProgressChart generations={run.generations} />
@@ -250,6 +254,7 @@ function GenerationGames({ file, generations, generation, onPick }: {
             ({Math.round(row.yardstick.eloLow)} to {Math.round(row.yardstick.eloHigh)})</>}.
         </p>
       )}
+      {row && <KeepButton key={`${base}-${row.champion}`} url={`${base}/keep`} member={row.champion} />}
       {row?.yardsticks && row.yardsticks.length > 0 && (
         <div className="table-wrap">
           <table data-testid="yardsticks">
@@ -332,5 +337,48 @@ function GameReplay({ url }: { url: string }) {
         ))}
       </p>
     </div>
+  );
+}
+
+/** Keeps the generation's champion in the hall of fame, with an optional note. */
+function KeepButton({ url, member }: { url: string; member: number }) {
+  const [note, setNote] = useState('');
+  const [kept, setKept] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const keep = async () => {
+    setError(null);
+    const r = await fetch(url, { method: 'POST', body: JSON.stringify({ member, note }) });
+    if (r.ok) setKept(((await r.json()) as { name: string }).name);
+    else setError(await r.text());
+  };
+  if (kept) return <p className="muted" data-testid="kept">Kept in the hall of fame as <code>hof:{kept}</code>.</p>;
+  return (
+    <div className="keep">
+      <input id="keep-note" type="text" placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} aria-label="Note" />
+      <button type="button" className="btn" onClick={keep}>Keep champion #{member} in the hall of fame</button>
+      {error && <span className="muted">{error}</span>}
+    </div>
+  );
+}
+
+/** Every individual kept from every run: play it, or download its games. */
+function HallOfFame({ entries, onPlay }: { entries: FameEntry[]; onPlay: (champion: Champion) => void }) {
+  return (
+    <section className="fame" data-testid="fame">
+      <h2>Hall of fame</h2>
+      {entries.length === 0 && <p className="muted">Champions that beat a yardstick, each run's last champion, and any you keep land here.</p>}
+      <ul>
+        {entries.map((e) => (
+          <li key={e.name}>
+            <strong title={e.yardsticks.join('\n')}>{e.name}</strong>
+            <span className="muted">{e.reason}{e.runName ? ` · ${e.runName}, generation ${e.generation}` : ''}</span>
+            <span className="fame-actions">
+              <button type="button" className="link" onClick={() => onPlay({ run: `hof:${e.name}`, generation: 0, label: `Hall of fame: ${e.name}` })}>Play</button>
+              {e.games > 0 && <a className="link" href={`/api/lab/fame/${encodeURIComponent(e.name)}/pgn`} download>PGN ({e.games})</a>}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

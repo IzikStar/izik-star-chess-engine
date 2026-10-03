@@ -12,6 +12,7 @@ import game.GameConfig;
 import game.GameSession;
 import io.javalin.http.NotFoundResponse;
 import lab.EvolutionRunner;
+import lab.HallOfFame;
 import lab.RunSettings;
 import lab.RunStore;
 import org.junit.jupiter.api.BeforeAll;
@@ -141,5 +142,27 @@ class LabApiTest {
     void unfinishedGeneration() {
         assertThrows(IllegalArgumentException.class, () -> lab.champion("tiny.db", 5));
         assertNotNull(lab.champion("tiny.db", 0));
+    }
+
+    @Test
+    @DisplayName("The hall of fame holds the run's last champion; a champion can be kept by hand and played")
+    void hallOfFame() throws Exception {
+        JsonObject fame = lab.fame();
+        String last = "Tiny-run-g1-m"
+                + lab.run("tiny.db").getAsJsonArray("generations").get(1).getAsJsonObject().get("champion").getAsInt();
+        boolean found = false;
+        for (var e : fame.getAsJsonArray("entries")) {
+            found |= e.getAsJsonObject().get("name").getAsString().equals(last);
+        }
+        assertTrue(found, last);
+
+        JsonObject body = JsonParser.parseString("{\"member\": 2, \"name\": \"my-pick\", \"note\": \"plays nice endgames\"}")
+                .getAsJsonObject();
+        assertEquals("my-pick", lab.keep("tiny.db", 0, body).get("name").getAsString());
+        HallOfFame.Entry entry = lab.hall().get("my-pick").orElseThrow();
+        assertEquals("plays nice endgames", entry.reason());
+        assertEquals(entry.params(), lab.champion("hof:my-pick", 0));
+        assertTrue(entry.pgn().contains("[White \"#2\"]") || entry.pgn().contains("[Black \"#2\"]"));
+        assertTrue(lab.runPgn("tiny.db").startsWith("[Event \"Tiny run\"]"));
     }
 }

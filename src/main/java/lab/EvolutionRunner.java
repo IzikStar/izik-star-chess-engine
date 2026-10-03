@@ -30,7 +30,8 @@ import java.util.function.BooleanSupplier;
  * pairings the algorithm asks for (a share of them deeper, more in later generations; see
  * {@link RunSettings}), stores every game, picks the champion, every few generations plays the
  * champion against the yardsticks (players that do not move: the default weights, the classic
- * weights, Stockfish), and asks the algorithm for the next population. A run stops between generations when {@code stop} says
+ * weights, Stockfish), keeps champions worth keeping in the {@link HallOfFame}, and asks the
+ * algorithm for the next population. A run stops between generations when {@code stop} says
  * so and continues later with {@link #resume}.
  */
 public final class EvolutionRunner {
@@ -168,7 +169,20 @@ public final class EvolutionRunner {
         RunStore.GenerationRow row = new RunStore.GenerationRow(number, champion, generation.score(champion),
                 games.size(), first, Instant.now().toString(), yardsticks);
         store.finishGeneration(row, nextPopulation);
+        keep(row, last);
         listener.generation(row);
+    }
+
+    /** Keeps the champion in the hall of fame if it beat a yardstick or is the run's last champion. */
+    private void keep(RunStore.GenerationRow row, boolean last) {
+        List<String> reasons = HallOfFame.reasonsToKeep(row, last);
+        if (reasons.isEmpty()) {
+            return;
+        }
+        String runName = store.run().map(RunStore.RunRow::name).orElse("run");
+        String name = HallOfFame.nameFor(runName, row.number(), row.champion());
+        HallOfFame.besides(store.file()).add(HallOfFame.fromRun(store, store.file(), row.number(), row.champion(), name,
+                String.join(", ", reasons)));
     }
 
     /**
@@ -237,7 +251,7 @@ public final class EvolutionRunner {
             int level = spec.equals(RunSettings.STOCKFISH_AUTO) ? stockfishLevel(store.generations(), number) : 0;
             String playing = level > 0 ? "sf:" + level : spec;
             if (!Players.isStockfish(playing)) {
-                ParamVector weights = Players.params(playing);
+                ParamVector weights = Players.params(playing, HallOfFame.besides(store.file()).dir());
                 String same = played.putIfAbsent(weights, spec);
                 if (same != null) { // the same weights as an earlier yardstick: the same result
                     for (RunStore.YardstickResult r : List.copyOf(results)) {
@@ -255,7 +269,8 @@ public final class EvolutionRunner {
             for (int k = 0; k < openings.size(); k++) {
                 int depth = deep[k] ? settings.deepDepth() : settings.depth();
                 Player candidate = player("champion", params, depth);
-                Player opponent = Players.parse(playing, "yardstick", depth, settings.variety());
+                Player opponent = Players.parse(playing, "yardstick", depth, settings.variety(),
+                        HallOfFame.besides(store.file()).dir());
                 fixtures.add(new Tournament.Fixture(candidate, opponent, openings.get(k), seed++));
                 fixtures.add(new Tournament.Fixture(opponent, candidate, openings.get(k), seed++));
                 depths.add(depth);

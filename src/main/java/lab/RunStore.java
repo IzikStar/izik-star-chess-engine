@@ -95,9 +95,16 @@ public final class RunStore implements AutoCloseable {
     public record RunRow(String name, String algorithm, RunSettings settings, String startedAt) {}
 
     private final Connection db;
+    private final Path file;
 
-    private RunStore(Connection db) {
+    private RunStore(Connection db, Path file) {
         this.db = db;
+        this.file = file;
+    }
+
+    /** The run file. */
+    public Path file() {
+        return file;
     }
 
     /** Opens (or creates) the run file at {@code file}. */
@@ -127,7 +134,7 @@ public final class RunStore implements AutoCloseable {
                 addColumn(db, "game", "depth", "INTEGER");
                 addColumn(db, "game", "opponent", "TEXT");
             }
-            return new RunStore(db);
+            return new RunStore(db, file);
         } catch (Exception e) {
             throw new IllegalStateException("cannot open run file " + file, e);
         }

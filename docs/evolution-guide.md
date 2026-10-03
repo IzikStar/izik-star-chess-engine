@@ -117,6 +117,18 @@ pairings, so 2 openings each means 112 games. Rough speed on a 4-core machine wi
 Depth 3 is the sweet spot for evolving. The weights you find there carry over to deeper search
 well enough.
 
+**Games and the hall of fame.** Every game is kept in the run file with its depth.
+`lab.Cli pgn runs/try1.db games.pgn` writes them as PGN (`--generation N`, `--member M` to narrow
+it), and the Lab tab has a download button. `arena.Cli match` writes its games to
+`runs/arena/*.pgn` (or `--pgn FILE`).
+
+The **hall of fame** (`runs/hall-of-fame/`, one JSON file per entry) keeps every individual worth
+keeping, from every run: its weights, where it came from, its yardstick results and its games. The
+runner keeps each run's last champion and every champion whose whole interval against a yardstick
+is above 0. Keep any member by hand with `lab.Cli keep runs/try1.db GENERATION MEMBER NAME --note
+"..."` or the button in the Lab tab. `lab.Cli fame` lists them. Anywhere a player is named
+(`arena.Cli match`, `--yardsticks`), `hof:NAME` is that entry, and the Lab tab plays against it.
+
 `lab.Cli export runs/try1.db positions.csv` writes every quiet position of every game with its
 result (`fen,result`), for fitting weights directly (section 6).
 

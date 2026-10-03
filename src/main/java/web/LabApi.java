@@ -11,7 +11,10 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import io.javalin.Javalin;
 import io.javalin.http.Context;
+import io.javalin.http.BadRequestResponse;
 import io.javalin.http.NotFoundResponse;
+import lab.HallOfFame;
+import lab.RunPgn;
 import lab.RunStore;
 import rules.Game;
 import rules.MoveResult;
@@ -35,6 +38,10 @@ import java.util.stream.Stream;
  * GET /api/lab/runs/{file}                           one run: settings, generations, how the weights moved
  * GET /api/lab/runs/{file}/generations/{n}           a generation's games
  * GET /api/lab/runs/{file}/generations/{n}/games/{i} one game, move by move, for replay
+ * GET /api/lab/runs/{file}/pgn                       every game of the run, PGN (a download)
+ * POST /api/lab/runs/{file}/generations/{n}/keep     {member, name?, note?}: into the hall of fame
+ * GET /api/lab/fame                                  the hall of fame, newest first
+ * GET /api/lab/fame/{name}/pgn                       an entry's games, PGN (a download)
  * </pre>
  */
 final class LabApi {
@@ -57,6 +64,72 @@ final class LabApi {
                 json(ctx, generation(ctx.pathParam("file"), Integer.parseInt(ctx.pathParam("n")))));
         app.get("/api/lab/runs/{file}/generations/{n}/games/{i}", ctx -> json(ctx, game(ctx.pathParam("file"),
                 Integer.parseInt(ctx.pathParam("n")), Integer.parseInt(ctx.pathParam("i")))));
+        app.get("/api/lab/runs/{file}/pgn", ctx -> download(ctx, ctx.pathParam("file").replaceFirst("\\.db$", ".pgn"),
+                runPgn(ctx.pathParam("file"))));
+        app.post("/api/lab/runs/{file}/generations/{n}/keep", ctx -> json(ctx, keep(ctx.pathParam("file"),
+                Integer.parseInt(ctx.pathParam("n")), JsonParser.parseString(ctx.body()).getAsJsonObject())));
+        app.get("/api/lab/fame", ctx -> json(ctx, fame()));
+        app.get("/api/lab/fame/{name}/pgn", ctx -> download(ctx, ctx.pathParam("name") + ".pgn",
+                hall().get(ctx.pathParam("name")).orElseThrow(() -> new NotFoundResponse("no such entry")).pgn()));
+    }
+
+    private static void download(Context ctx, String fileName, String text) {
+        ctx.header("Content-Disposition", "attachment; filename=\"" + fileName + "\"")
+                .contentType("application/x-chess-pgn").result(text);
+    }
+
+    // ---- the hall of fame ----------------------------------------------------
+
+    HallOfFame hall() {
+        return new HallOfFame(dir.resolve(HallOfFame.FOLDER));
+    }
+
+    JsonObject fame() {
+        JsonArray list = new JsonArray();
+        for (HallOfFame.Entry e : hall().list()) {
+            JsonObject o = new JsonObject();
+            o.addProperty("name", e.name());
+            o.addProperty("reason", e.reason());
+            o.addProperty("savedAt", e.savedAt());
+            o.addProperty("run", e.run());
+            o.addProperty("runName", e.runName());
+            o.addProperty("generation", e.generation());
+            o.addProperty("member", e.member());
+            JsonArray y = new JsonArray();
+            e.yardsticks().forEach(y::add);
+            o.add("yardsticks", y);
+            o.addProperty("games", e.pgn() == null ? 0 : e.pgn().split("\\[Event ", -1).length - 1);
+            list.add(o);
+        }
+        JsonObject out = new JsonObject();
+        out.add("entries", list);
+        return out;
+    }
+
+    JsonObject keep(String file, int generation, JsonObject body) {
+        try (RunStore store = open(file)) {
+            int member = body.get("member").getAsInt();
+            String runName = store.run().map(RunStore.RunRow::name).orElse(file);
+            String name = body.has("name") && !body.get("name").getAsString().isBlank()
+                    ? body.get("name").getAsString().trim() : HallOfFame.nameFor(runName, generation, member);
+            String note = body.has("note") && !body.get("note").getAsString().isBlank()
+                    ? body.get("note").getAsString().trim() : "kept by hand";
+            HallOfFame.Entry entry = HallOfFame.fromRun(store, dir.resolve(file), generation, member, name, note);
+            hall().add(entry);
+            JsonObject out = new JsonObject();
+            out.addProperty("name", entry.name());
+            return out;
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestResponse(e.getMessage());
+        }
+    }
+
+    String runPgn(String file) throws IOException {
+        try (RunStore store = open(file)) {
+            java.io.StringWriter out = new java.io.StringWriter();
+            RunPgn.write(store, -1, -1, out);
+            return out.toString();
+        }
     }
 
     private static void json(Context ctx, JsonObject body) {
@@ -247,8 +320,15 @@ final class LabApi {
 
     // ---- the champion as an opponent -----------------------------------------
 
-    /** The weights of generation {@code number}'s champion in run {@code file}. */
+    /**
+     * The weights of generation {@code number}'s champion in run {@code file}, or of the hall of
+     * fame's entry NAME when {@code file} is "hof:NAME".
+     */
     ParamVector champion(String file, int number) {
+        if (file.startsWith("hof:")) {
+            return hall().get(file.substring(4)).orElseThrow(() ->
+                    new IllegalArgumentException("no hall of fame entry " + file.substring(4))).params();
+        }
         try (RunStore store = open(file)) {
             RunStore.GenerationRow row = store.generations().stream().filter(r -> r.number() == number).findFirst()
                     .orElseThrow(() -> new IllegalArgumentException("generation " + number + " is not finished"));
@@ -258,6 +338,9 @@ final class LabApi {
 
     /** A run's name, for labels. */
     String name(String file) {
+        if (file.startsWith("hof:")) {
+            return "the hall of fame: " + file.substring(4);
+        }
         try (RunStore store = open(file)) {
             return store.run().map(RunStore.RunRow::name).orElse(file);
         }
