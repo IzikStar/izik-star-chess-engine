@@ -1,6 +1,6 @@
 // Display helpers only. Nothing here decides what is legal; that comes from the server.
 
-import type { Color, GameState, Status } from './protocol';
+import type { Color, GameState, Status, StockfishInfo } from './protocol';
 
 export const VALUES: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 const START_COUNT: Record<string, number> = { p: 8, n: 2, b: 2, r: 2, q: 1 };
@@ -160,3 +160,12 @@ export const LEVELS: { name: string; engine: string }[] = [
   { name: 'Master', engine: 'Stockfish if installed' },
   { name: 'Grandmaster', engine: 'Stockfish if installed' },
 ];
+
+/** Levels 8-10 play Stockfish: its skill and thinking time (engine.StockfishEngine). */
+const STOCKFISH_LEVELS: Record<number, string> = { 8: 'Stockfish, skill 13, 0.3 s a move', 9: 'Stockfish, skill 15, 0.6 s a move', 10: 'Stockfish, skill 17, 1 s a move' };
+
+/** Who really plays a level: for 8-10, Stockfish if the server found it, else the built-in engine at Level 7. */
+export function engineText(level: number, stockfish: StockfishInfo | undefined): string {
+  if (level < 8 || !stockfish) return LEVELS[level - 1].engine;
+  return stockfish.available ? STOCKFISH_LEVELS[level] : 'Stockfish not found: the built-in engine plays at Level 7';
+}

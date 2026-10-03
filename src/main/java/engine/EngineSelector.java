@@ -5,7 +5,8 @@ import rules.ChessMove;
 /**
  * Chooses which engine plays at a given level, with a fallback: levels at or above
  * {@link #STOCKFISH_FROM_LEVEL} ask Stockfish, and if it is missing or gives no legal move the
- * built-in engine answers at a lower level (the behaviour {@code main.Input} hard-coded).
+ * built-in engine answers at its strongest level, 7. (Until October 2026 the fallback was Level 2,
+ * so a missing Stockfish turned "Level 10" into one of the weakest opponents, and nothing said so.)
  */
 public final class EngineSelector {
 
@@ -13,7 +14,10 @@ public final class EngineSelector {
     public static final int STOCKFISH_FROM_LEVEL = 13;
     /** Stockfish's level for hints (Skill Level 20, its full strength). */
     public static final int HINT_LEVEL = 21;
-    static final int MOVE_FALLBACK_LEVEL = 3;
+    /** The built-in engine's strongest level (UI Level 7): what Levels 8-10 play without Stockfish. */
+    static final int MOVE_FALLBACK_LEVEL = STOCKFISH_FROM_LEVEL - 1;
+    /** A quick move after a search failed outright (UI Level 2). */
+    static final int QUICK_MOVE_LEVEL = 3;
     static final int HINT_FALLBACK_LEVEL = 10;
 
     private final Engine builtIn;
@@ -49,7 +53,12 @@ public final class EngineSelector {
 
     /** A quick move from the built-in engine, for when a search failed outright. */
     public ChessMove quickMove(SearchRequest request) {
-        return builtIn.bestMove(request.withSkillLevel(MOVE_FALLBACK_LEVEL));
+        return builtIn.bestMove(request.withSkillLevel(QUICK_MOVE_LEVEL));
+    }
+
+    /** Whether Stockfish can play: found, and not given up on after repeated failures. */
+    public boolean stockfishAvailable() {
+        return stockfish.isAvailable();
     }
 
     private ChessMove withFallback(SearchRequest request, int fallbackLevel) {

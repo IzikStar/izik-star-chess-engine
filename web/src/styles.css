@@ -194,3 +194,6 @@ input[type='range'] { width: 100%; accent-color: var(--accent); }
   .lab { grid-template-columns: 1fr; }
   .games-replay { grid-template-columns: 1fr; }
 }
+
+/* the New game dialog's note when Levels 8-10 cannot get Stockfish */
+.warn-note { margin: 6px 0 0; padding: 8px 10px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); font-size: 13px; line-height: 1.4; }

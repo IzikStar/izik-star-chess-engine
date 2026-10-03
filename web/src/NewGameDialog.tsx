@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { LEVELS } from './chess';
-import type { Champion, Color, Mode } from './protocol';
+import { engineText, LEVELS } from './chess';
+import type { Champion, Color, Mode, StockfishInfo } from './protocol';
 
 export interface NewGameChoice {
   mode: Mode;
@@ -16,11 +16,12 @@ export interface NewGameChoice {
 /** The champion is the built-in engine: level 1 plays random moves and 8-10 hand over to Stockfish. */
 export const CHAMPION_LEVELS = { min: 2, max: 7 };
 
-function LevelSlider({ id, label, value, onChange, min = 1, max = 10 }: {
+function LevelSlider({ id, label, value, onChange, stockfish, min = 1, max = 10 }: {
   id: string;
   label: string;
   value: number;
   onChange: (v: number) => void;
+  stockfish: StockfishInfo | undefined;
   min?: number;
   max?: number;
 }) {
@@ -31,8 +32,14 @@ function LevelSlider({ id, label, value, onChange, min = 1, max = 10 }: {
       <input id={id} type="range" min={min} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} />
       <div className="level">
         <span><strong>Level {value}</strong> · {level.name}</span>
-        <span className="muted">{level.engine}</span>
+        <span className="muted">{engineText(value, stockfish)}</span>
       </div>
+      {value >= 8 && stockfish && !stockfish.available && (
+        <p className="warn-note" data-testid="stockfish-missing">
+          Stockfish was not found, so this level is not Stockfish. Put the Stockfish download in the
+          <code> engine/</code> folder (any file named stockfish…) and restart the game.
+        </p>
+      )}
     </div>
   );
 }
@@ -58,8 +65,9 @@ function Segmented<T extends string>({ label, value, options, onChange }: {
 }
 
 /** Who plays, which colour, how strong: the one place a game is set up (replaces the Settings tab). */
-export function NewGameDialog({ initial, onStart, onCancel }: {
+export function NewGameDialog({ initial, stockfish, onStart, onCancel }: {
   initial: NewGameChoice;
+  stockfish: StockfishInfo | undefined;
   onStart: (choice: NewGameChoice) => void;
   onCancel: () => void;
 }) {
@@ -107,13 +115,13 @@ export function NewGameDialog({ initial, onStart, onCancel }: {
         )}
         {choice.mode === 'engine' && (
           <LevelSlider id="level" label="Strength" value={choice.level}
-            onChange={(level) => set({ level })}
+            onChange={(level) => set({ level })} stockfish={stockfish}
             min={choice.champion ? CHAMPION_LEVELS.min : 1} max={choice.champion ? CHAMPION_LEVELS.max : 10} />
         )}
         {choice.mode === 'computer' && (
           <>
-            <LevelSlider id="level" label="White's strength" value={choice.level} onChange={(level) => set({ level })} />
-            <LevelSlider id="blackLevel" label="Black's strength" value={choice.blackLevel} onChange={(blackLevel) => set({ blackLevel })} />
+            <LevelSlider id="level" label="White's strength" value={choice.level} onChange={(level) => set({ level })} stockfish={stockfish} />
+            <LevelSlider id="blackLevel" label="Black's strength" value={choice.blackLevel} onChange={(blackLevel) => set({ blackLevel })} stockfish={stockfish} />
           </>
         )}
         {choice.mode === 'friend' && (

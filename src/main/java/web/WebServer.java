@@ -79,8 +79,12 @@ public final class WebServer {
     private static GameSession defaultSession(GameHub hub) {
         MinimaxEngine builtIn = new MinimaxEngine();
         hub.useBuiltIn(builtIn); // so a new game can play an evolved champion
-        return new GameSession(GameConfig.defaults(),
-                new EngineSelector(builtIn, new StockfishEngine()), hub::execute);
+        StockfishEngine stockfish = new StockfishEngine();
+        hub.useStockfish(stockfish);
+        System.out.println(stockfish.path() != null
+                ? "Stockfish: " + stockfish.path()
+                : "Stockfish not found: Levels 8-10 will play the built-in engine at Level 7. Put it in engine/ (see engine/README.md).");
+        return new GameSession(GameConfig.defaults(), new EngineSelector(builtIn, stockfish), hub::execute);
     }
 
     /** A session factory, so tests can pass their own engines. */

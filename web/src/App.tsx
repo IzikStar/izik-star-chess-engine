@@ -3,7 +3,7 @@ import { Board } from './Board';
 import { Lab } from './Lab';
 import { NewGameDialog, type NewGameChoice } from './NewGameDialog';
 import { codeOf, PieceSvg } from './pieces';
-import { captured, colorName, isOver, kingSquare, LEVELS, materialOf, movesByFrom, other, resultText, turnOf, withPremoves } from './chess';
+import { captured, colorName, engineText, isOver, kingSquare, materialOf, movesByFrom, other, resultText, turnOf, withPremoves } from './chess';
 import { useGame, type Champion, type Color, type GameEvent, type GameState } from './protocol';
 import { play } from './sounds';
 
@@ -262,6 +262,7 @@ export function App() {
 
       {dialogOpen && (
         <NewGameDialog
+          stockfish={state.stockfish}
           initial={{ mode: dialogChampion ? 'engine' : config.mode, color: config.humanColor, level: config.level, blackLevel: config.blackLevel, autoFlip, champion: dialogChampion }}
           onStart={(choice) => {
             showPage('game');
@@ -280,7 +281,7 @@ function PlayerCard({ state, color, fen, live }: { state: GameState; color: Colo
   const level = config.mode === 'computer' && color === 'black' ? config.blackLevel : config.level;
   const name = isEngine ? (state.opponent && config.mode === 'engine' ? state.opponent.label : `Engine · Level ${level}`)
     : config.mode === 'engine' ? 'You' : colorName(color);
-  const detail = isEngine ? LEVELS[level - 1].engine : `Plays ${colorName(color)}`;
+  const detail = isEngine ? engineText(level, state.stockfish) : `Plays ${colorName(color)}`;
   const taken = captured(fen)[color];
   const lead = materialOf(fen) * (color === 'white' ? 1 : -1);
   const toMove = live && !isOver(state) && state.turn === color;

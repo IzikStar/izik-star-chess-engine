@@ -4,9 +4,11 @@ Drop a Stockfish executable here. It is not committed to the repository
 (it is a ~70 MB third-party GPLv3 binary); download it from
 <https://stockfishchess.org/download/>.
 
-By default the game looks for `engine/stockfish-windows-x86-64.exe`, relative to the
-directory you launch it from. To use any other file name or location (for example the
-Linux or macOS build), point the game at it with either:
+Any file whose name starts with `stockfish` is found, here or one folder down, so you can
+unzip the download as it comes (for example `engine/stockfish/stockfish-windows-x86-64-avx2.exe`).
+This folder is looked for next to the directory you run from and next to the jar. Stockfish on
+your `PATH` (`apt install stockfish`, `brew install stockfish`) is found too. To name the file
+yourself:
 
 ```
 java -Dstockfish.path=/path/to/stockfish -jar target/izikstar-chess-3.1.0.jar
@@ -14,5 +16,5 @@ java -Dstockfish.path=/path/to/stockfish -jar target/izikstar-chess-3.1.0.jar
 export STOCKFISH_PATH=/path/to/stockfish
 ```
 
-Without Stockfish the game still runs: the top difficulty levels fall back to the
-built-in engine.
+The server prints which Stockfish it found when it starts. Without Stockfish the game still
+runs: Levels 8-10 play the built-in engine at Level 7, and the New game dialog says so.
