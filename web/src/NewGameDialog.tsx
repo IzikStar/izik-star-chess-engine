@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { engineText, LEVELS } from './chess';
+import { engineText, LEVELS, TIME_CONTROLS } from './chess';
 import type { Champion, Color, Mode, StockfishInfo } from './protocol';
 
 export interface NewGameChoice {
@@ -11,6 +11,8 @@ export interface NewGameChoice {
   autoFlip: boolean;
   /** Play this evolved champion instead of the usual engine (levels 2-7, the built-in engine's). */
   champion: Champion | null;
+  /** A key of TIME_CONTROLS ("3+2"), or "none" for an untimed game. */
+  time: string;
 }
 
 /** The champion is the built-in engine: level 1 plays random moves and 8-10 hand over to Stockfish. */
@@ -130,6 +132,12 @@ export function NewGameDialog({ initial, stockfish, onStart, onCancel }: {
             Turn the board to the side to move
           </label>
         )}
+        <Segmented<string>
+          label="Time control"
+          value={choice.time}
+          options={[['none', 'Untimed'], ...TIME_CONTROLS.map((t): [string, string] => [t.key, t.key])]}
+          onChange={(time) => set({ time })}
+        />
         <div className="row end">
           <button type="button" className="btn" onClick={onCancel}>Cancel</button>
           <button type="submit" className="btn primary">Start game</button>

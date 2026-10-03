@@ -154,7 +154,7 @@ class WebServerTest {
         assertTrue(state.get("humanTurn").getAsBoolean());
         assertEquals(20, state.getAsJsonArray("legalMoves").size());
         assertEquals("engine", state.getAsJsonObject("config").get("mode").getAsString());
-        assertEquals(1, state.getAsJsonObject("config").get("level").getAsInt());
+        assertEquals(4, state.getAsJsonObject("config").get("level").getAsInt(), "the default is a real opponent, not random moves");
     }
 
     @Test
@@ -292,6 +292,96 @@ class WebServerTest {
         c.awaitEvent("rejected");
         c.move("e2e4"); // still working
         assertNotNull(c.awaitPly(1));
+    }
+
+    @Test
+    @DisplayName("A timed game: the snapshot carries the clock; it starts with the first move")
+    void timedGame() throws Exception {
+        startServer();
+        Client c = new Client();
+        c.send("{\"type\":\"newGame\",\"mode\":\"friend\",\"time\":{\"initialMs\":180000,\"incrementMs\":2000}}");
+        JsonObject clock = c.await(s -> !s.get("clock").isJsonNull()).getAsJsonObject("state").getAsJsonObject("clock");
+        assertEquals(180000, clock.get("initialMs").getAsLong());
+        assertEquals(2000, clock.get("incrementMs").getAsLong());
+        assertEquals(180000, clock.get("white").getAsLong());
+        assertTrue(clock.get("running").isJsonNull());
+        c.move("e2e4");
+        JsonObject after = c.awaitPly(1).getAsJsonObject("state");
+        assertEquals("black", after.getAsJsonObject("clock").get("running").getAsString());
+        assertTrue(after.get("pgn").getAsString().contains("[TimeControl \"180+2\"]"));
+        newGame(c, "friend", "white", 1);
+        assertTrue(c.await(s -> s.get("clock").isJsonNull()) != null, "a new game without time is untimed");
+    }
+
+    @Test
+    @DisplayName("A game played over the socket can run out of time")
+    void flagFallsOverTheSocket() throws Exception {
+        startServer();
+        Client c = new Client();
+        c.send("{\"type\":\"newGame\",\"mode\":\"friend\",\"time\":{\"initialMs\":300}}");
+        c.await(s -> !s.get("clock").isJsonNull());
+        c.move("e2e4");
+        JsonObject ended = c.awaitEvent("ended");
+        JsonObject state = ended.getAsJsonObject("state");
+        assertEquals("1-0", state.get("result").getAsString());
+        assertEquals("TIMEOUT", state.getAsJsonObject("end").get("reason").getAsString());
+        assertEquals("black", state.getAsJsonObject("end").get("side").getAsString());
+        assertEquals(0, state.getAsJsonObject("clock").get("black").getAsLong());
+        assertTrue(state.get("pgn").getAsString().contains("[Termination \"White won on time\"]"));
+    }
+
+    @Test
+    @DisplayName("Resigning against the engine ends the game; the PGN says so")
+    void resign() throws Exception {
+        startServer();
+        Client c = new Client();
+        newGame(c, "engine", "white", 1);
+        JsonObject start = c.await(s -> s.get("canResign").getAsBoolean()).getAsJsonObject("state");
+        assertTrue(start.get("canOfferDraw").getAsBoolean());
+        c.send("{\"type\":\"resign\"}");
+        JsonObject state = c.awaitEvent("ended").getAsJsonObject("state");
+        assertEquals("0-1", state.get("result").getAsString());
+        assertEquals("RESIGNATION", state.getAsJsonObject("end").get("reason").getAsString());
+        assertFalse(state.get("canResign").getAsBoolean());
+        assertTrue(state.get("pgn").getAsString().contains("[Termination \"Black won by resignation\"]"));
+        assertTrue(state.get("pgn").getAsString().contains("[White \"Player\"]\n[Black \"Engine, level 1\"]"));
+        c.send("{\"type\":\"resign\"}");
+        assertEquals("nobody can resign now", c.awaitEvent("rejected").getAsJsonArray("events").get(0)
+                .getAsJsonObject().get("reason").getAsString());
+    }
+
+    @Test
+    @DisplayName("Two players: a draw offer is shown to both, and accepting it ends the game")
+    void drawOfferBetweenFriends() throws Exception {
+        startServer();
+        Client c = new Client();
+        newGame(c, "friend", "white", 1);
+        c.await(s -> s.getAsJsonObject("config").get("mode").getAsString().equals("friend"));
+        c.send("{\"type\":\"offerDraw\"}");
+        JsonObject offered = c.awaitEvent("drawOffer").getAsJsonObject("state");
+        assertEquals("white", offered.get("drawOffer").getAsString());
+        c.send("{\"type\":\"answerDraw\",\"accept\":true}");
+        JsonObject state = c.awaitEvent("ended").getAsJsonObject("state");
+        assertEquals("1/2-1/2", state.get("result").getAsString());
+        assertEquals("AGREEMENT", state.getAsJsonObject("end").get("reason").getAsString());
+        assertTrue(state.get("drawOffer").isJsonNull());
+    }
+
+    @Test
+    @DisplayName("Loading a PGN: a bad one is refused with the reason, a good one becomes a two-player game")
+    void loadPgn() throws Exception {
+        startServer();
+        Client c = new Client();
+        c.await(s -> true);
+        c.send("{\"type\":\"loadPgn\",\"pgn\":\"1. e4 e5 2. Ke3\"}");
+        JsonObject rejected = c.awaitEvent("rejected");
+        assertEquals("Could not read the PGN: move 2. Ke3 is not a legal move",
+                rejected.getAsJsonArray("events").get(0).getAsJsonObject().get("reason").getAsString());
+        c.send("{\"type\":\"loadPgn\",\"pgn\":\"[White \\\"A\\\"]\\n1. f3 e5 2. g4 Qh4# 0-1\"}");
+        JsonObject state = c.awaitPly(4).getAsJsonObject("state");
+        assertEquals("friend", state.getAsJsonObject("config").get("mode").getAsString());
+        assertEquals("CHECKMATE", state.get("status").getAsString());
+        assertTrue(state.get("pgn").getAsString().endsWith("1. f3 e5 2. g4 Qh4# 0-1\n"));
     }
 
     @Test

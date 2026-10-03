@@ -36,12 +36,44 @@ export interface GameConfig {
   blackLevel: number;
 }
 
+/** How a game ended off the board; side is who resigned or ran out of time. */
+export type EndReason = 'RESIGNATION' | 'TIMEOUT' | 'TIMEOUT_VS_INSUFFICIENT_MATERIAL' | 'AGREEMENT';
+
+export interface GameEnd {
+  reason: EndReason;
+  side: Color;
+}
+
+/** The server's clock when the state was sent; the running side's time keeps going down from there. */
+export interface ClockState {
+  initialMs: number;
+  incrementMs: number;
+  white: number;
+  black: number;
+  running: Color | null;
+}
+
+export interface TimeControl {
+  initialMs: number;
+  incrementMs: number;
+}
+
 export interface GameState {
   startFen: string;
   fen: string;
   turn: Color;
   status: Status;
   result: '1-0' | '0-1' | '1/2-1/2' | null;
+  /** Set when the game ended by resignation, on time or by agreement (otherwise status says how). */
+  end: GameEnd | null;
+  /** Null in an untimed game. */
+  clock: ClockState | null;
+  /** Between two players: the side whose draw offer waits for an answer. */
+  drawOffer: Color | null;
+  canOfferDraw: boolean;
+  canResign: boolean;
+  /** The game so far in PGN. */
+  pgn: string;
   humanTurn: boolean;
   engineThinking: boolean;
   hintPending: boolean;
@@ -75,6 +107,9 @@ export type GameEvent =
   | { kind: 'reset' }
   | { kind: 'config' }
   | { kind: 'hint'; uci: string }
+  | { kind: 'ended'; reason: EndReason; side: Color; result: '1-0' | '0-1' | '1/2-1/2' }
+  | { kind: 'drawOffer'; by: Color }
+  | { kind: 'drawDeclined'; by: Color }
   | { kind: 'rejected'; reason: string };
 
 export interface ServerMessage {
@@ -87,7 +122,20 @@ export type Command =
   | { type: 'move'; uci: string }
   | { type: 'undo' }
   | { type: 'hint' }
-  | { type: 'newGame'; mode: Mode; color: Color | 'random'; level: number; blackLevel: number; champion?: { run: string; generation: number } | null };
+  | { type: 'resign' }
+  | { type: 'offerDraw' }
+  | { type: 'answerDraw'; accept: boolean }
+  | { type: 'loadPgn'; pgn: string }
+  | {
+      type: 'newGame';
+      mode: Mode;
+      color: Color | 'random';
+      level: number;
+      blackLevel: number;
+      champion?: { run: string; generation: number } | null;
+      /** Null or absent: untimed. */
+      time?: TimeControl | null;
+    };
 
 export type Connection = 'connecting' | 'open' | 'lost';
 
@@ -97,6 +145,8 @@ export type Connection = 'connecting' | 'open' | 'lost';
  */
 export function useGame(onEvents: (events: GameEvent[], state: GameState) => void) {
   const [state, setState] = useState<GameState | null>(null);
+  /** When the latest state arrived (performance.now()), for counting the clock down from it. */
+  const [receivedAt, setReceivedAt] = useState(0);
   const [connection, setConnection] = useState<Connection>('connecting');
   const socket = useRef<WebSocket | null>(null);
   const handler = useRef(onEvents);
@@ -112,6 +162,7 @@ export function useGame(onEvents: (events: GameEvent[], state: GameState) => voi
       ws.onopen = () => setConnection('open');
       ws.onmessage = (e) => {
         const msg = JSON.parse(e.data) as ServerMessage;
+        setReceivedAt(performance.now());
         setState(msg.state);
         if (msg.events.length) handler.current(msg.events, msg.state);
       };
@@ -135,5 +186,5 @@ export function useGame(onEvents: (events: GameEvent[], state: GameState) => voi
     }
   }, []);
 
-  return { state, connection, send };
+  return { state, receivedAt, connection, send };
 }

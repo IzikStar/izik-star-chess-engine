@@ -195,6 +195,29 @@ input[type='range'] { width: 100%; accent-color: var(--accent); }
   .games-replay { grid-template-columns: 1fr; }
 }
 
+/* ---- clocks, resign, draw offers, PGN ---- */
+.clock { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 22px; font-weight: 700; padding: 4px 10px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--line); color: var(--muted); min-width: 92px; text-align: right; flex: none; }
+.clock.running { background: var(--fg); border-color: var(--fg); color: var(--surface); }
+.clock.low { color: var(--warn); }
+.clock.running.low { background: var(--warn); border-color: var(--warn); color: var(--accent-fg); }
+.clock.flagged { text-decoration: line-through; }
+.ask { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px solid var(--accent); border-radius: 10px; background: var(--accent-soft); font-size: 14px; }
+.ask.warn { border-color: var(--warn); background: var(--warn-soft); }
+.ask .row { justify-content: flex-start; }
+.notice { margin: 0; padding: 8px 14px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); font-size: 14px; }
+.btn.danger { background: var(--warn); border-color: var(--warn); color: var(--accent-fg); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.dialog.wide { width: min(560px, calc(100% - 32px)); }
+.dialog .dialog-body { display: flex; flex-direction: column; gap: 18px; padding: 22px; }
+.dialog .dialog-body h2 { margin: 0; font-size: 20px; }
+.dialog .dialog-body form { padding: 0; gap: 8px; }
+textarea.pgn { width: 100%; font: 13px/1.45 var(--mono); padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); color: var(--fg); resize: vertical; }
+textarea.pgn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.small { font-size: 13px; margin: 0; }
+.error { margin: 0; color: var(--warn); font-weight: 600; font-size: 14px; }
+.row .muted { align-self: center; font-size: 13px; }
+.seg { flex-wrap: wrap; }
+
 /* the New game dialog's note when Levels 8-10 cannot get Stockfish */
 .warn-note { margin: 6px 0 0; padding: 8px 10px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); font-size: 13px; line-height: 1.4; }
 

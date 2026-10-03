@@ -29,4 +29,16 @@ public interface GameListener {
     /** The engine's suggestion for the side to move. */
     default void hint(ChessMove move) {
     }
+
+    /** The game ended off the board: a resignation, a flag fall, or a draw agreed. */
+    default void gameEnded(GameEnd end) {
+    }
+
+    /** Between two humans: this side offers a draw ({@code true} White). */
+    default void drawOffered(boolean byWhite) {
+    }
+
+    /** A draw offer by this side was declined (by the engine, or by the other human). */
+    default void drawDeclined(boolean offeredByWhite) {
+    }
 }

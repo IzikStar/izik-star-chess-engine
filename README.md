@@ -19,7 +19,7 @@ Phase 4c (#2 to #6) refer to that repository.
 
 - **Play against the computer or a friend**, or watch the engine play itself (each side at its
   own level). Pick White, Black or a random colour in the *New game* dialog.
-- **10 difficulty levels.**
+- **10 difficulty levels.** The app opens on Level 4, a real but beatable opponent.
   - Level 1 plays random legal moves.
   - Levels 2-7 use the built-in engine and search deeper as the level rises.
   - Levels 8-10 hand the move to Stockfish if it is installed, and fall back to the built-in
@@ -34,9 +34,21 @@ Phase 4c (#2 to #6) refer to that repository.
 - **Premoves.** While the engine thinks, queue your next moves (as many as you like, and a
   promotion asks for its piece); one is played each time it is your turn, if it is still legal,
   and an illegal one drops the rest. Click an empty square to cancel them.
+- **Planning marks.** Right-click a square to mark it, right-drag to draw an arrow; a left click
+  or the next move clears them.
 - **Hints.** *Hint* draws an arrow for the engine's suggested move.
 - **Take-backs**, a **flip board** button, and a **status line** that says whose move it is
   and when the engine is thinking.
+- **Chess clocks.** Pick a time control in the *New game* dialog: untimed (the default), 1+0,
+  3+2, 5+0, 10+0 or 15+10. The server keeps the time; the clocks start with the first move, and a
+  flag fall loses the game (or draws it when the other side has only a king, or a king and one
+  minor piece).
+- **Resign and offer a draw.** Resigning asks first. The engine accepts a draw when the
+  position has been seen before or its evaluation is +0.3 pawns or less for its side; once it
+  declines, you move before offering again. Between two players the other side accepts or
+  declines (a move declines it).
+- **PGN.** Copy or download the game as PGN, or paste a PGN to load it (it becomes a game between
+  two players, to review or play on from its last position).
 - **Move list with review.** Click any move, or use the arrow keys, to see that position.
 - **Captured pieces and material** on each player's card; the result in the side panel when
   the game ends.
@@ -289,7 +301,8 @@ any generation's best set of weights.
 - **Web server tests** ([`WebServerTest`](src/test/java/web/WebServerTest.java)) drive whole
   games through the WebSocket the way the browser does, with no browser.
 - **Browser tests** ([`web/e2e/`](web/e2e/)) play real games in Chromium against the packaged
-  jar: checkmate, drag and click moves, promotion, the engine's reply, take-back, review.
+  jar: checkmate, drag and click moves, promotion, the engine's reply, take-back, review,
+  clocks and a flag fall, resigning, draw offers, and PGN copy, download and load.
   After `./mvnw package`, run them in `web/` with `npx playwright install chromium` (once) and
   `npm run e2e`.
 
