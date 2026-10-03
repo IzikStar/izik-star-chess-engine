@@ -14,8 +14,8 @@ test('the lab shows a run, replays a game and starts a game against its champion
 
   // generation 1: 28 pairings × 2 colours, then the champion against the yardsticks
   const games = page.getByTestId('games').locator('tbody tr');
-  await expect(games).toHaveCount(56 + 4);
-  // the default and classic weights are the same today: one match, reported under both names
+  // two yardsticks (the default weights and the classic ones), 2 openings × 2 colours each
+  await expect(games).toHaveCount(56 + 8);
   const yardsticks = page.getByTestId('yardsticks');
   await expect(yardsticks).toContainText('Default weights');
   await expect(yardsticks).toContainText('Classic weights');

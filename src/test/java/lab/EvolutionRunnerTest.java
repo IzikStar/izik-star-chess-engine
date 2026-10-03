@@ -12,6 +12,7 @@ import rules.Position;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.file.Path;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -117,9 +118,12 @@ class EvolutionRunnerTest {
 
     @Test
     @DisplayName("A share of the games is played deeper, yardsticks too; the same weights listed twice play once")
-    void deepGamesAndYardsticks(@TempDir Path dir) {
+    void deepGamesAndYardsticks(@TempDir Path dir) throws IOException {
+        // the classic weights again under another name: the same weights, so one match
+        Path copy = dir.resolve("copy.json");
+        Files.writeString(copy, BitBoardEvaluate.CLASSIC.params().toJson());
         // 6 pairings × 2 openings = 12 units of two games; 50% of them at depth 2
-        RunSettings settings = new RunSettings(2, 1, 2, 2, 80, 2, 3, 1, 2, List.of("default", "classic"), 0, 2, 50, 50);
+        RunSettings settings = new RunSettings(2, 1, 2, 2, 80, 2, 3, 1, 2, List.of("classic", copy.toString()), 0, 2, 50, 50);
         try (RunStore store = RunStore.open(dir.resolve("run.db"))) {
             EvolutionRunner.start(store, "deep", example(), settings, EvolutionRunner.Listener.SILENT, () -> false);
             for (RunStore.GenerationRow row : store.generations()) {
@@ -128,15 +132,16 @@ class EvolutionRunnerTest {
                 assertEquals(12, depths.stream().filter(d -> d == 2).count());
                 assertEquals(12, depths.stream().filter(d -> d == 1).count());
 
-                // classic and default are the same weights today: one match, its result under both names
+                // classic and its copy are the same weights: one match, its result under both names
                 assertEquals(4, store.games(row.number(), "yardstick").size());
                 List<RunStore.YardstickResult> y = row.yardsticks();
-                assertEquals(Set.of(1, 2), y.stream().filter(r -> r.opponent().equals("default"))
+                assertEquals(Set.of(1, 2), y.stream().filter(r -> r.opponent().equals("classic"))
                         .map(RunStore.YardstickResult::depth).collect(java.util.stream.Collectors.toSet()));
-                assertEquals(RunStore.YardstickResult.combined(y, "default"), RunStore.YardstickResult.combined(y, "classic"));
-                assertEquals(row.yardstick(), RunStore.YardstickResult.combined(y, "default"));
+                assertEquals(RunStore.YardstickResult.combined(y, "classic"),
+                        RunStore.YardstickResult.combined(y, copy.toString()));
+                assertEquals(row.yardstick(), RunStore.YardstickResult.combined(y, "classic"));
                 assertTrue(store.games(row.number(), "yardstick").stream()
-                        .allMatch(g -> g.white().equals("default") || g.black().equals("default")));
+                        .allMatch(g -> g.white().equals("classic") || g.black().equals("classic")));
             }
         }
     }
