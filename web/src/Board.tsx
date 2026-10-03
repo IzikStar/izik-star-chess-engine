@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Chessboard, type Arrow } from 'react-chessboard';
 import type { Color } from './protocol';
+import { QUALITY, type Quality } from './Analysis';
 import { boardOf } from './chess';
 import { PieceSvg, pieceSet } from './pieces';
 
@@ -24,6 +25,8 @@ interface Props {
   premoves: string[];
   /** Queues one more premove, or with null drops them all. */
   onPremove: (uci: string | null) => void;
+  /** The analysis mark of the move shown, drawn on its destination square (as chess.com does). */
+  badge?: { square: string; quality: Quality } | null;
 }
 
 const LAST = 'rgba(235, 220, 90, 0.5)';
@@ -41,7 +44,7 @@ const CHECK = 'radial-gradient(circle, rgba(255, 0, 0, 0.85) 0%, rgba(231, 0, 0,
  * moves it is given. For planning: right-click a square to mark it, right-drag to draw an arrow;
  * a left click or the next move clears them.
  */
-export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, onMove, onSelect, onIllegal, premoveColor, premoves, onPremove }: Props) {
+export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, onMove, onSelect, onIllegal, premoveColor, premoves, onPremove, badge }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
   const [promotion, setPromotion] = useState<{ from: string; to: string; color: 'w' | 'b'; premove: boolean } | null>(null);
   const pieces = useMemo(() => boardOf(fen), [fen]);
@@ -187,6 +190,7 @@ export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, on
           },
         }}
       />
+      {badge && <QualityBadge square={badge.square} quality={badge.quality} orientation={orientation} />}
       {promotion && (
         <PromotionPicker
           square={promotion.to}
@@ -231,6 +235,21 @@ function PromotionPicker({ square, orientation, color, onPick, onCancel }: {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** A round mark in the top-right corner of a square: ★ best, ?? blunder and so on. */
+function QualityBadge({ square, quality, orientation }: { square: string; quality: Quality; orientation: Color }) {
+  const file = square.charCodeAt(0) - 97;
+  const rank = Number(square[1]) - 1;
+  const col = orientation === 'white' ? file : 7 - file;
+  const row = orientation === 'white' ? 7 - rank : rank;
+  const q = QUALITY[quality];
+  return (
+    <div className={'quality-badge q-bg-' + quality} data-testid="quality-badge" data-quality={quality} title={q.label}
+      style={{ left: `${(col + 1) * 12.5}%`, top: `${row * 12.5}%` }}>
+      {q.badge}
     </div>
   );
 }

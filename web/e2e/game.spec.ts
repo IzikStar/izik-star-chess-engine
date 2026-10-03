@@ -87,7 +87,7 @@ test('promotion asks which piece', async ({ page }) => {
 test('against the computer: it replies, and a take-back removes both moves', async ({ page }) => {
   await page.goto('/');
   await newGame(page, 'Computer', 3);
-  await expect(page.getByTestId('player-black')).toContainText('Engine · Level 3');
+  await expect(page.getByTestId('player-black')).toContainText('Black · Level 3');
   await clickMove(page, 'e2', 'e4');
   await expect(moveList(page).getByRole('button')).toHaveCount(2);
   await expect(page.getByTestId('status')).toHaveText('Your move');
@@ -102,8 +102,8 @@ test('against the computer: it replies, and a take-back removes both moves', asy
 test('watching the engine play itself, then stopping it with a new game', async ({ page }) => {
   await page.goto('/');
   await newGame(page, 'Watch the engine', 1, 3);
-  await expect(page.getByTestId('player-white')).toContainText('Engine · Level 1');
-  await expect(page.getByTestId('player-black')).toContainText('Engine · Level 3');
+  await expect(page.getByTestId('player-white')).toContainText('White · Level 1');
+  await expect(page.getByTestId('player-black')).toContainText('Black · Level 3');
   await expect.poll(() => moveList(page).getByRole('button').count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(3);
   await expect(page.getByRole('button', { name: 'Take back' })).toBeDisabled();
   await newGame(page, 'A friend');

@@ -38,5 +38,5 @@ test('the lab shows a run, replays a game and starts a game against its champion
   await page.getByRole('button', { name: 'New game' }).click();
   await dialog.getByRole('button', { name: 'Usual engine' }).click();
   await dialog.getByRole('button', { name: 'Start game' }).click();
-  await expect(page.getByTestId('player-black')).toContainText('Engine · Level');
+  await expect(page.getByTestId('player-black')).toContainText('Black · Level');
 });
