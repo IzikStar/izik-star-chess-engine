@@ -224,7 +224,7 @@ final class GameHub implements GameListener {
         }
         leaveGame(false);
         if (builtIn != null) {
-            builtIn.useEvaluator(BitBoardEvaluate.DEFAULT);
+            builtIn.useEvaluator(BitBoardEvaluate.CLASSIC);
         }
         opponent = null;
         session.updateConfig(session.config().withMode(GameConfig.Mode.HUMAN_VS_HUMAN));
@@ -283,7 +283,7 @@ final class GameHub implements GameListener {
             return;
         }
         if (run == null) {
-            builtIn.useEvaluator(BitBoardEvaluate.DEFAULT);
+            builtIn.useEvaluator(BitBoardEvaluate.CLASSIC);
             return;
         }
         if (lab == null) {

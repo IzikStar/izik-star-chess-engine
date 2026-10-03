@@ -5,8 +5,14 @@ import ai.eval.ParamSchema;
 import ai.eval.ParamSpec;
 import ai.eval.ParamVector;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * The hand-written evaluation, with every number a named parameter (Phase 5,
@@ -21,11 +27,14 @@ import java.util.List;
  * piece-square tables: a bonus for each piece type on each square (left-right mirrored, so 32
  * squares per piece type).
  *
- * <p>The defaults are the numbers the engine always used, with the same value for middlegame and
- * endgame (so the blend gives back exactly that value), and 0 for every feature added in Phase 5.
- * So {@link #DEFAULT} plays exactly the old moves ({@code engine.SameMoveTest}); evolution or
- * tuning decides what the new features are worth. Features whose weights are all 0 are not
- * computed, so the extra parameters cost nothing until they are used.
+ * <p>Scores are in centipawns: a pawn is 100. (Until the evolution groundwork's second round they
+ * were tenths of a pawn; old parameter files are converted when read, see {@link ParamVector}.)
+ *
+ * <p>{@link #CLASSIC} is the numbers the engine always used, times 10, with the same value for
+ * middlegame and endgame (so the blend gives back exactly that value), and 0 for every feature
+ * added in Phase 5. It plays exactly the old moves ({@code engine.SameMoveTest}). The schema
+ * defaults ({@link #DEFAULT}) are where tuning and evolution start. Features whose weights are
+ * all 0 are not computed, so the extra parameters cost nothing until they are used.
  *
  * <p>An instance holds only its weights; nothing is written while evaluating, so one instance can
  * serve searches on several threads.
@@ -55,71 +64,71 @@ public final class BitBoardEvaluate implements Evaluator {
     private record Feature(int index, String name, String group, int defaultValue, int min, int max, String description) {}
 
     // material
-    private static final Feature PAWNS = feature("material.pawn", "material", 10, 0, 300, "Value of a pawn");
-    private static final Feature KNIGHTS = feature("material.knight", "material", 30, 0, 900, "Value of a knight");
-    private static final Feature BISHOPS = feature("material.bishop", "material", 33, 0, 900, "Value of a bishop");
-    private static final Feature ROOKS = feature("material.rook", "material", 50, 0, 1500, "Value of a rook");
-    private static final Feature QUEENS = feature("material.queen", "material", 90, 0, 2700, "Value of a queen");
+    private static final Feature PAWNS = feature("material.pawn", "material", 100, 0, 3000, "Value of a pawn");
+    private static final Feature KNIGHTS = feature("material.knight", "material", 300, 0, 9000, "Value of a knight");
+    private static final Feature BISHOPS = feature("material.bishop", "material", 330, 0, 9000, "Value of a bishop");
+    private static final Feature ROOKS = feature("material.rook", "material", 500, 0, 15000, "Value of a rook");
+    private static final Feature QUEENS = feature("material.queen", "material", 900, 0, 27000, "Value of a queen");
     // pawn advance
-    private static final Feature PAWN_RANK7 = feature("pawns.rank7", "pawns", 9, -100, 300, "Pawn one step from promoting");
-    private static final Feature PAWN_RANK6 = feature("pawns.rank6", "pawns", 7, -100, 300, "Pawn two steps from promoting");
-    private static final Feature PAWN_RANK5 = feature("pawns.rank5", "pawns", 5, -100, 300, "Pawn three steps from promoting");
-    private static final Feature PAWN_RANK4 = feature("pawns.rank4", "pawns", 3, -100, 300, "Pawn four steps from promoting");
-    private static final Feature PAWN_RANK3 = feature("pawns.rank3", "pawns", 1, -100, 300, "Pawn that has made one step");
-    private static final Feature CENTER_PAWNS = feature("pawns.center", "pawns", 5, -100, 300, "Pawn on d4, e4, d5 or e5");
+    private static final Feature PAWN_RANK7 = feature("pawns.rank7", "pawns", 90, -1000, 3000, "Pawn one step from promoting");
+    private static final Feature PAWN_RANK6 = feature("pawns.rank6", "pawns", 70, -1000, 3000, "Pawn two steps from promoting");
+    private static final Feature PAWN_RANK5 = feature("pawns.rank5", "pawns", 50, -1000, 3000, "Pawn three steps from promoting");
+    private static final Feature PAWN_RANK4 = feature("pawns.rank4", "pawns", 30, -1000, 3000, "Pawn four steps from promoting");
+    private static final Feature PAWN_RANK3 = feature("pawns.rank3", "pawns", 10, -1000, 3000, "Pawn that has made one step");
+    private static final Feature CENTER_PAWNS = feature("pawns.center", "pawns", 50, -1000, 3000, "Pawn on d4, e4, d5 or e5");
     // pawn structure (Phase 5)
-    private static final Feature DOUBLED = feature("pawns.doubled", "pawnStructure", 0, -300, 300, "Each extra pawn on a file");
-    private static final Feature ISOLATED = feature("pawns.isolated", "pawnStructure", 0, -300, 300, "Pawn with no own pawn on the files beside it");
-    private static final Feature DEFENDED = feature("pawns.defended", "pawnStructure", 0, -300, 300, "Pawn defended by another pawn");
-    private static final Feature PASSED_R2 = feature("pawns.passed.rank2", "pawnStructure", 0, -300, 600, "Passed pawn on its second rank");
-    private static final Feature PASSED_R3 = feature("pawns.passed.rank3", "pawnStructure", 0, -300, 600, "Passed pawn on its third rank");
-    private static final Feature PASSED_R4 = feature("pawns.passed.rank4", "pawnStructure", 0, -300, 600, "Passed pawn on its fourth rank");
-    private static final Feature PASSED_R5 = feature("pawns.passed.rank5", "pawnStructure", 0, -300, 600, "Passed pawn on its fifth rank");
-    private static final Feature PASSED_R6 = feature("pawns.passed.rank6", "pawnStructure", 0, -300, 600, "Passed pawn on its sixth rank");
-    private static final Feature PASSED_R7 = feature("pawns.passed.rank7", "pawnStructure", 0, -300, 600, "Passed pawn on its seventh rank");
-    private static final Feature PASSED_PROTECTED = feature("pawns.passed.protected", "pawnStructure", 0, -300, 300, "Passed pawn defended by a pawn");
-    private static final Feature PASSED_BLOCKED = feature("pawns.passed.blocked", "pawnStructure", 0, -300, 300, "Passed pawn with a piece right in front of it");
+    private static final Feature DOUBLED = feature("pawns.doubled", "pawnStructure", 0, -3000, 3000, "Each extra pawn on a file");
+    private static final Feature ISOLATED = feature("pawns.isolated", "pawnStructure", 0, -3000, 3000, "Pawn with no own pawn on the files beside it");
+    private static final Feature DEFENDED = feature("pawns.defended", "pawnStructure", 0, -3000, 3000, "Pawn defended by another pawn");
+    private static final Feature PASSED_R2 = feature("pawns.passed.rank2", "pawnStructure", 0, -3000, 6000, "Passed pawn on its second rank");
+    private static final Feature PASSED_R3 = feature("pawns.passed.rank3", "pawnStructure", 0, -3000, 6000, "Passed pawn on its third rank");
+    private static final Feature PASSED_R4 = feature("pawns.passed.rank4", "pawnStructure", 0, -3000, 6000, "Passed pawn on its fourth rank");
+    private static final Feature PASSED_R5 = feature("pawns.passed.rank5", "pawnStructure", 0, -3000, 6000, "Passed pawn on its fifth rank");
+    private static final Feature PASSED_R6 = feature("pawns.passed.rank6", "pawnStructure", 0, -3000, 6000, "Passed pawn on its sixth rank");
+    private static final Feature PASSED_R7 = feature("pawns.passed.rank7", "pawnStructure", 0, -3000, 6000, "Passed pawn on its seventh rank");
+    private static final Feature PASSED_PROTECTED = feature("pawns.passed.protected", "pawnStructure", 0, -3000, 3000, "Passed pawn defended by a pawn");
+    private static final Feature PASSED_BLOCKED = feature("pawns.passed.blocked", "pawnStructure", 0, -3000, 3000, "Passed pawn with a piece right in front of it");
     // king placement (gated by king.safetyUntilTurn)
-    private static final Feature KING_CASTLED_SQUARE = feature("king.castledSquare", "king", 10, -300, 300, "King on g1/b1 (g8/b8), early in the game");
-    private static final Feature KING_NEAR_CASTLED = feature("king.nearCastledSquare", "king", 5, -300, 300, "King on f1/c1 (f8/c8), early in the game");
-    private static final Feature KING_BACK_RANK = feature("king.backRank", "king", 0, -300, 300, "King elsewhere on its back rank, early in the game");
-    private static final Feature KING_SECOND_RANK = feature("king.secondRank", "king", -7, -300, 300, "King on its second rank, early in the game");
-    private static final Feature KING_EXPOSED = feature("king.exposed", "king", -25, -300, 300, "King further up the board, early in the game");
+    private static final Feature KING_CASTLED_SQUARE = feature("king.castledSquare", "king", 100, -3000, 3000, "King on g1/b1 (g8/b8), early in the game");
+    private static final Feature KING_NEAR_CASTLED = feature("king.nearCastledSquare", "king", 50, -3000, 3000, "King on f1/c1 (f8/c8), early in the game");
+    private static final Feature KING_BACK_RANK = feature("king.backRank", "king", 0, -3000, 3000, "King elsewhere on its back rank, early in the game");
+    private static final Feature KING_SECOND_RANK = feature("king.secondRank", "king", -70, -3000, 3000, "King on its second rank, early in the game");
+    private static final Feature KING_EXPOSED = feature("king.exposed", "king", -250, -3000, 3000, "King further up the board, early in the game");
     // king safety (Phase 5)
-    private static final Feature SHIELD_NEAR = feature("kingSafety.shieldNear", "kingSafety", 0, -100, 100, "Own pawn on the three squares in front of the king");
-    private static final Feature SHIELD_FAR = feature("kingSafety.shieldFar", "kingSafety", 0, -100, 100, "Own pawn two squares in front of the king (three files)");
-    private static final Feature KING_OPEN_FILE = feature("kingSafety.openFile", "kingSafety", 0, -100, 100, "File at or beside the king with no pawns");
-    private static final Feature KING_HALF_OPEN_FILE = feature("kingSafety.halfOpenFile", "kingSafety", 0, -100, 100, "File at or beside the king with only enemy pawns");
-    private static final Feature KNIGHT_ATTACKER = feature("kingSafety.knightAttacker", "kingSafety", 0, -100, 100, "Enemy knight attacking the squares around the king");
-    private static final Feature BISHOP_ATTACKER = feature("kingSafety.bishopAttacker", "kingSafety", 0, -100, 100, "Enemy bishop attacking the squares around the king");
-    private static final Feature ROOK_ATTACKER = feature("kingSafety.rookAttacker", "kingSafety", 0, -100, 100, "Enemy rook attacking the squares around the king");
-    private static final Feature QUEEN_ATTACKER = feature("kingSafety.queenAttacker", "kingSafety", 0, -100, 100, "Enemy queen attacking the squares around the king");
+    private static final Feature SHIELD_NEAR = feature("kingSafety.shieldNear", "kingSafety", 0, -1000, 1000, "Own pawn on the three squares in front of the king");
+    private static final Feature SHIELD_FAR = feature("kingSafety.shieldFar", "kingSafety", 0, -1000, 1000, "Own pawn two squares in front of the king (three files)");
+    private static final Feature KING_OPEN_FILE = feature("kingSafety.openFile", "kingSafety", 0, -1000, 1000, "File at or beside the king with no pawns");
+    private static final Feature KING_HALF_OPEN_FILE = feature("kingSafety.halfOpenFile", "kingSafety", 0, -1000, 1000, "File at or beside the king with only enemy pawns");
+    private static final Feature KNIGHT_ATTACKER = feature("kingSafety.knightAttacker", "kingSafety", 0, -1000, 1000, "Enemy knight attacking the squares around the king");
+    private static final Feature BISHOP_ATTACKER = feature("kingSafety.bishopAttacker", "kingSafety", 0, -1000, 1000, "Enemy bishop attacking the squares around the king");
+    private static final Feature ROOK_ATTACKER = feature("kingSafety.rookAttacker", "kingSafety", 0, -1000, 1000, "Enemy rook attacking the squares around the king");
+    private static final Feature QUEEN_ATTACKER = feature("kingSafety.queenAttacker", "kingSafety", 0, -1000, 1000, "Enemy queen attacking the squares around the king");
     // castling
-    private static final Feature LOST_KING_SIDE = feature("castling.lostKingSide", "castling", -6, -300, 300, "Having lost the right to castle king-side");
-    private static final Feature LOST_QUEEN_SIDE = feature("castling.lostQueenSide", "castling", -4, -300, 300, "Having lost the right to castle queen-side");
-    private static final Feature CASTLED = feature("castling.castled", "castling", 16, -300, 300, "Having castled");
+    private static final Feature LOST_KING_SIDE = feature("castling.lostKingSide", "castling", -60, -3000, 3000, "Having lost the right to castle king-side");
+    private static final Feature LOST_QUEEN_SIDE = feature("castling.lostQueenSide", "castling", -40, -3000, 3000, "Having lost the right to castle queen-side");
+    private static final Feature CASTLED = feature("castling.castled", "castling", 160, -3000, 3000, "Having castled");
     // activity
-    private static final Feature ATTACKED_SQUARES = feature("activity.attackedSquare", "activity", 1, -30, 30, "Each square a side attacks");
-    private static final Feature ATTACKED_ENEMIES = feature("activity.attackedEnemyPiece", "activity", 2, -30, 30, "Each enemy piece attacked");
-    private static final Feature DEFENDED_PIECES = feature("activity.defendedOwnPiece", "activity", 1, -30, 30, "Each own piece defended");
+    private static final Feature ATTACKED_SQUARES = feature("activity.attackedSquare", "activity", 10, -300, 300, "Each square a side attacks");
+    private static final Feature ATTACKED_ENEMIES = feature("activity.attackedEnemyPiece", "activity", 20, -300, 300, "Each enemy piece attacked");
+    private static final Feature DEFENDED_PIECES = feature("activity.defendedOwnPiece", "activity", 10, -300, 300, "Each own piece defended");
     // mobility (Phase 5)
-    private static final Feature KNIGHT_MOBILITY = feature("mobility.knight", "mobility", 0, -30, 30, "Each square a knight can move to");
-    private static final Feature BISHOP_MOBILITY = feature("mobility.bishop", "mobility", 0, -30, 30, "Each square a bishop can move to");
-    private static final Feature ROOK_MOBILITY = feature("mobility.rook", "mobility", 0, -30, 30, "Each square a rook can move to");
-    private static final Feature QUEEN_MOBILITY = feature("mobility.queen", "mobility", 0, -30, 30, "Each square a queen can move to");
+    private static final Feature KNIGHT_MOBILITY = feature("mobility.knight", "mobility", 0, -300, 300, "Each square a knight can move to");
+    private static final Feature BISHOP_MOBILITY = feature("mobility.bishop", "mobility", 0, -300, 300, "Each square a bishop can move to");
+    private static final Feature ROOK_MOBILITY = feature("mobility.rook", "mobility", 0, -300, 300, "Each square a rook can move to");
+    private static final Feature QUEEN_MOBILITY = feature("mobility.queen", "mobility", 0, -300, 300, "Each square a queen can move to");
     // development
-    private static final Feature BISHOPS_HOME = feature("development.bishopsHome", "development", -15, -300, 300, "A bishop still on the back rank");
-    private static final Feature QUEEN_OUT_EARLY = feature("development.queenOutEarly", "development", -15, -300, 300, "Queen off its square in the opening");
-    private static final Feature KNIGHTS_HOME = feature("development.knightsHome", "development", -10, -300, 300, "A knight still on the back rank");
-    private static final Feature KNIGHT_GOOD_SQUARE = feature("development.knightOnC3F3", "development", 2, -300, 300, "Each knight on c3/f3 (c6/f6)");
-    private static final Feature KNIGHT_OUT_EARLY = feature("development.knightOutEarly", "development", -5, -300, 300, "A knight far up the board early on");
+    private static final Feature BISHOPS_HOME = feature("development.bishopsHome", "development", -150, -3000, 3000, "A bishop still on the back rank");
+    private static final Feature QUEEN_OUT_EARLY = feature("development.queenOutEarly", "development", -150, -3000, 3000, "Queen off its square in the opening");
+    private static final Feature KNIGHTS_HOME = feature("development.knightsHome", "development", -100, -3000, 3000, "A knight still on the back rank");
+    private static final Feature KNIGHT_GOOD_SQUARE = feature("development.knightOnC3F3", "development", 20, -3000, 3000, "Each knight on c3/f3 (c6/f6)");
+    private static final Feature KNIGHT_OUT_EARLY = feature("development.knightOutEarly", "development", -50, -3000, 3000, "A knight far up the board early on");
     // pieces (Phase 5)
-    private static final Feature BISHOP_PAIR = feature("pieces.bishopPair", "pieces", 0, -300, 300, "Having both bishops");
-    private static final Feature ROOK_OPEN_FILE = feature("pieces.rookOpenFile", "pieces", 0, -300, 300, "Rook on a file with no pawns");
-    private static final Feature ROOK_HALF_OPEN_FILE = feature("pieces.rookHalfOpenFile", "pieces", 0, -300, 300, "Rook on a file with only enemy pawns");
-    private static final Feature ROOK_ON_SEVENTH = feature("pieces.rookOnSeventh", "pieces", 0, -300, 300, "Rook on its seventh rank");
-    private static final Feature KNIGHT_OUTPOST = feature("pieces.knightOutpost", "pieces", 0, -300, 300, "Knight in the enemy half, defended by a pawn, no enemy pawn can chase it");
-    private static final Feature TEMPO = feature("pieces.tempo", "pieces", 0, -100, 100, "Being the side to move");
+    private static final Feature BISHOP_PAIR = feature("pieces.bishopPair", "pieces", 0, -3000, 3000, "Having both bishops");
+    private static final Feature ROOK_OPEN_FILE = feature("pieces.rookOpenFile", "pieces", 0, -3000, 3000, "Rook on a file with no pawns");
+    private static final Feature ROOK_HALF_OPEN_FILE = feature("pieces.rookHalfOpenFile", "pieces", 0, -3000, 3000, "Rook on a file with only enemy pawns");
+    private static final Feature ROOK_ON_SEVENTH = feature("pieces.rookOnSeventh", "pieces", 0, -3000, 3000, "Rook on its seventh rank");
+    private static final Feature KNIGHT_OUTPOST = feature("pieces.knightOutpost", "pieces", 0, -3000, 3000, "Knight in the enemy half, defended by a pawn, no enemy pawn can chase it");
+    private static final Feature TEMPO = feature("pieces.tempo", "pieces", 0, -1000, 1000, "Being the side to move");
 
     /** Settings that switch features on and off; one value, not tapered. */
     private record Gate(String name, String group, int defaultValue, int min, int max, String description) {}
@@ -153,15 +162,38 @@ public final class BitBoardEvaluate implements Evaluator {
             for (int piece = 0; piece < 6; piece++) {
                 for (int i = 0; i < 32; i++) {
                     specs.add(new ParamSpec("pst." + PIECE_NAMES[piece] + "." + pstSquareName(i) + "." + phase, "pst." + PIECE_NAMES[piece],
-                            0, -200, 200, "A " + PIECE_NAMES[piece] + " on " + pstSquareName(i) + " or its mirror (" + phase + ")"));
+                            0, -2000, 2000, "A " + PIECE_NAMES[piece] + " on " + pstSquareName(i) + " or its mirror (" + phase + ")"));
                 }
             }
         }
-        SCHEMA = new ParamSchema(specs);
+        Set<String> gates = new HashSet<>();
+        for (Gate g : GATES) {
+            gates.add(g.name());
+        }
+        SCHEMA = new ParamSchema(specs, gates);
     }
 
-    /** The evaluation with the weights the engine has always used. */
+    /** The evaluation with every parameter at its schema default: where tuning and evolution start. */
     public static final BitBoardEvaluate DEFAULT = new BitBoardEvaluate(SCHEMA.defaults());
+
+    /**
+     * The hand-written weights the engine has always played with ({@code presets/classic.json}),
+     * kept as they are so they can be compared against and improved by hand. The game plays with
+     * these until other weights beat them in the arena.
+     */
+    public static final BitBoardEvaluate CLASSIC = new BitBoardEvaluate(preset("classic"));
+
+    /** A saved set of weights from {@code src/main/resources/presets/<name>.json}. */
+    public static ParamVector preset(String name) {
+        try (InputStream in = BitBoardEvaluate.class.getResourceAsStream("/presets/" + name + ".json")) {
+            if (in == null) {
+                throw new IllegalArgumentException("no preset " + name);
+            }
+            return ParamVector.fromJson(SCHEMA, new String(in.readAllBytes(), StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
 
     /** Table index 0-31 → square name from White's side, files a-d (e-h mirror them). */
     private static String pstSquareName(int i) {

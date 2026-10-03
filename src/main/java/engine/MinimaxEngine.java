@@ -37,8 +37,8 @@ public final class MinimaxEngine implements Engine {
     /** Longest a built-in search may think, at any level. */
     public static final long TIME_CAP_MS = 5000;
 
-    /** How far below the best move (pawn = 10) a move may score and still be played: 0.2 pawn. */
-    public static final int DEFAULT_VARIETY = 2;
+    /** How far below the best move (pawn = 100) a move may score and still be played: 0.2 pawn. */
+    public static final int DEFAULT_VARIETY = 20;
 
     private final Random random;
     private final long timeCapMs;
@@ -56,7 +56,7 @@ public final class MinimaxEngine implements Engine {
 
     /** For tests: a different time cap. */
     public MinimaxEngine(Random random, long timeCapMs) {
-        this(random, timeCapMs, BitBoardEvaluate.DEFAULT);
+        this(random, timeCapMs, BitBoardEvaluate.CLASSIC);
     }
 
     /** The engine playing with {@code evaluator}'s weights. */
@@ -108,7 +108,7 @@ public final class MinimaxEngine implements Engine {
 
     /** The minimax search's move at exactly {@code depth} (no time cap), or {@code null} if there is no legal move. */
     public static ChessMove searchAtDepth(String fen, int depth) {
-        return searchAtDepth(fen, depth, BitBoardEvaluate.DEFAULT);
+        return searchAtDepth(fen, depth, BitBoardEvaluate.CLASSIC);
     }
 
     /** The minimax search's move at exactly {@code depth} with {@code evaluator}, or {@code null} if there is no legal move. */
