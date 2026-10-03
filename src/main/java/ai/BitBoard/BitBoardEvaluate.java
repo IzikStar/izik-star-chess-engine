@@ -33,7 +33,7 @@ import java.util.Set;
  * <p>{@link #CLASSIC} is the numbers the engine always used, times 10, with the same value for
  * middlegame and endgame (so the blend gives back exactly that value), and 0 for every feature
  * added in Phase 5. It plays exactly the old moves ({@code engine.SameMoveTest}). The schema
- * defaults ({@link #DEFAULT}) are where tuning and evolution start. Features whose weights are
+ * defaults ({@link #DEFAULT}) are the Texel-tuned weights, where evolution starts. Features whose weights are
  * all 0 are not computed, so the extra parameters cost nothing until they are used.
  *
  * <p>An instance holds only its weights; nothing is written while evaluating, so one instance can
@@ -170,10 +170,22 @@ public final class BitBoardEvaluate implements Evaluator {
         for (Gate g : GATES) {
             gates.add(g.name());
         }
-        SCHEMA = new ParamSchema(specs, gates);
+        // The defaults are the Texel-tuned weights (presets/tuned-v1.json), where evolution starts.
+        ParamSchema untuned = new ParamSchema(specs, gates);
+        int[] tuned = preset(untuned, "tuned-v1").toArray();
+        List<ParamSpec> tunedSpecs = new ArrayList<>();
+        for (int i = 0; i < specs.size(); i++) {
+            ParamSpec s = specs.get(i);
+            tunedSpecs.add(new ParamSpec(s.name(), s.group(), tuned[i], s.min(), s.max(), s.description()));
+        }
+        SCHEMA = new ParamSchema(tunedSpecs, gates);
     }
 
-    /** The evaluation with every parameter at its schema default: where tuning and evolution start. */
+    /**
+     * The evaluation with every parameter at its schema default: the Texel-tuned weights
+     * ({@code presets/tuned-v1.json}, fitted by {@code lab.Cli tune} to Stockfish self-play), where
+     * evolution starts.
+     */
     public static final BitBoardEvaluate DEFAULT = new BitBoardEvaluate(SCHEMA.defaults());
 
     /**
@@ -185,11 +197,15 @@ public final class BitBoardEvaluate implements Evaluator {
 
     /** A saved set of weights from {@code src/main/resources/presets/<name>.json}. */
     public static ParamVector preset(String name) {
+        return preset(SCHEMA, name);
+    }
+
+    private static ParamVector preset(ParamSchema schema, String name) {
         try (InputStream in = BitBoardEvaluate.class.getResourceAsStream("/presets/" + name + ".json")) {
             if (in == null) {
                 throw new IllegalArgumentException("no preset " + name);
             }
-            return ParamVector.fromJson(SCHEMA, new String(in.readAllBytes(), StandardCharsets.UTF_8));
+            return ParamVector.fromJson(schema, new String(in.readAllBytes(), StandardCharsets.UTF_8));
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

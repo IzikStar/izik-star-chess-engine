@@ -15,8 +15,9 @@ evaluation (`ai.eval.ParamVector`, over the schema `BitBoardEvaluate.SCHEMA`).
 - The evaluation's unit is a centipawn, a hundredth of a pawn: `material.pawn` is 100. (It was a
   tenth of a pawn before; a parameter file without `"unit": "centipawn"` is read the old way and
   converted.)
-- `schema.defaults()` is where tuning and evolution start. The hand-written weights the engine
-  has always played with are kept as the preset `classic` (`BitBoardEvaluate.CLASSIC`,
+- `schema.defaults()` is where evolution starts: the Texel-tuned weights, preset `tuned-v1`
+  (`src/main/resources/presets/tuned-v1.json`, see section 6). The hand-written weights the
+  engine has always played with are kept as the preset `classic` (`BitBoardEvaluate.CLASSIC`,
   `src/main/resources/presets/classic.json`), and the game plays with them. Edit that file to
   improve them by hand; `engine.SameMoveTest` records the moves they play.
 - Most terms come in pairs, `.mg` (middlegame) and `.eg` (endgame). The engine blends the two by
@@ -25,7 +26,8 @@ evaluation (`ai.eval.ParamVector`, over the schema `BitBoardEvaluate.SCHEMA`).
   `pieces` 6, `mobility` 4, `activity` 3, `castling` 3. Each term has an mg and an eg weight.
   On top of those come three "until turn N" gates and the piece-square tables `pst.*`: 384
   numbers, 6 pieces × 32 squares × 2 phases. The tables are mirrored, so a–d files only.
-- Terms added in Phase 5 start at 0, which means "off". Evolution can switch them on.
+- In `classic`, the terms added in Phase 5 are 0, which means "off". Texel tuning gave them
+  values in `tuned-v1`.
 - `vector.get("material.knight.mg")`, `vector.with(name, value)` and `toArray()` / `new
   ParamVector(schema, int[])` are all you need. Values are clamped to each parameter's range.
 - A vector saves as JSON (`toJson()`), and `arena.Cli` can play a JSON file against anything.
@@ -190,9 +192,27 @@ These are well-known methods that suit this setup:
   just two players per step.
 - **CMA-ES**: learns which parameters move together. It is the strongest general method,
   but needs many more games per generation.
-- **Texel tuning** (not evolution, but a great starting point): fit the weights so that
-  `sigmoid(eval)` predicts the results in `export`'s positions. It runs in minutes on a few
-  hundred thousand positions, and evolution can then refine the result.
+- **Texel tuning** (not evolution, but the starting point it refines; see below).
+
+### Texel tuning
+
+Texel tuning fits the weights so that `sigmoid(K · eval)` predicts each position's game result.
+The evaluation is a sum of weights times feature counts, so the error has a single minimum: the
+fit lands in the same place whatever weights it starts from. This is why the defaults were
+fitted directly rather than first copying another engine's tables (PeSTO): those would only be a
+different starting point for the same answer.
+
+```bash
+# Stockfish against itself from randomized openings; keeps quiet positions (no capture, no check)
+java -cp target/izikstar-chess-3.1.0.jar lab.Cli selfplay positions.csv --games 3000 --nodes 5000
+# fit; 10% of the positions are held out to check it is not memorizing
+java -cp target/izikstar-chess-3.1.0.jar lab.Cli tune positions.csv tuned.json --iterations 1000
+java -cp target/izikstar-chess-3.1.0.jar arena.Cli match tuned.json classic --depth 3
+```
+
+`--from` sets the starting weights (default `classic`), `--regularization` how strongly the
+weights are pulled back toward them. `lab.Cli export` positions from a run's games work too.
+`tuned-v1` came from this recipe; the numbers are in `docs/phase-5-research.md`.
 
 ## 7. Where things are
 
