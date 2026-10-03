@@ -9,21 +9,26 @@ import engine.EngineSelector;
 import engine.Levels;
 import engine.MinimaxEngine;
 import engine.StockfishEngine;
+import game.GameArchive;
 import game.GameConfig;
 import game.GameListener;
 import game.GameSession;
 import game.GameEnd;
+import game.SavedGame;
 import game.TimeControl;
 import rules.ChessMove;
 import rules.MoveResult;
 import rules.Pgn;
 
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 /**
@@ -43,10 +48,16 @@ import java.util.function.Consumer;
  * champion: {run, generation} (optional: the built-in engine plays with that evolved champion's
  * weights, at the built-in engine's levels only), time: {initialMs, incrementMs} (optional; absent or null is
  * untimed)}, {@code resign}, {@code offerDraw}, {@code answerDraw} {accept}, {@code loadPgn}
- * {pgn} (the game becomes a two-player game from its last position). Server to client: {@code {"type":"state","events":[...],"state":{...}}};
+ * {pgn} (the game becomes a two-player game from its last position), {@code resumeGame} {id} (carries on an
+ * unfinished saved game, see {@link GamesApi}). Server to client: {@code {"type":"state","events":[...],"state":{...}}};
  * the state's {@code opponent} is the champion being played ({run, generation, label}), or null;
  * {@code stockfish} is {available, path} (whether Stockfish's levels really get Stockfish). An event is
  * {@code {kind: move|reset|config|hint|gameOver|ended|drawOffer|drawDeclined|rejected, ...}}.
+ *
+ * <p>Saved games: every game a person plays (not engine against engine, not a loaded PGN) is saved
+ * to the {@link GameArchive} after each task that changed its moves or result, and once more when
+ * it is left (a new game, a resumed one, the server stopping), so an unfinished game keeps its
+ * clocks and can be carried on. The state's {@code savedId} names the current game's file.
  */
 final class GameHub implements GameListener {
 
@@ -71,6 +82,17 @@ final class GameHub implements GameListener {
     private LabApi lab;
     /** The champion the engine plays as ({run, generation, label}), or null; game thread only. */
     private JsonObject opponent;
+
+    /** Where games are saved, or null to save nothing. */
+    private GameArchive archive;
+    /** The current game's id in the archive, or null before its first save; game thread only. */
+    private String recordId;
+    /** When the current game began. */
+    private Instant recordStarted = Instant.now();
+    /** False for games that are not saved (engine against engine, a loaded PGN). */
+    private boolean recording = true;
+    /** Moves and result at the last save, so a task that changed neither saves nothing. */
+    private String savedSignature;
 
     /** The Stockfish that plays Levels 9-13, or null if the session was built without one (tests). */
     private StockfishEngine stockfish;
@@ -99,14 +121,22 @@ final class GameHub implements GameListener {
         this.lab = lab;
     }
 
+    void useArchive(GameArchive archive) {
+        this.archive = archive;
+    }
+
     /** The dispatcher to hand the session: runs a task on the game thread, then broadcasts. */
     void execute(Runnable task) {
+        if (gameThread.isShutdown()) {
+            return; // the server is stopping: a late message or engine result has nowhere to go
+        }
         gameThread.execute(() -> {
             try {
                 task.run();
             } catch (RuntimeException e) {
                 e.printStackTrace();
             }
+            record(false);
             flush();
         });
     }
@@ -140,8 +170,16 @@ final class GameHub implements GameListener {
     }
 
     void shutdown() {
-        gameThread.execute(session::shutdown);
+        gameThread.execute(() -> {
+            record(true); // the clocks as they stand, for carrying the game on later
+            session.shutdown();
+        });
         gameThread.shutdown();
+        try {
+            gameThread.awaitTermination(5, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     // ---- commands ----------------------------------------------------------
@@ -165,6 +203,7 @@ final class GameHub implements GameListener {
             case "offerDraw" -> refuseUnless(session.offerDraw(), "a draw cannot be offered now");
             case "answerDraw" -> refuseUnless(session.answerDraw(msg.get("accept").getAsBoolean()), "no draw offer is waiting");
             case "loadPgn" -> loadPgn(msg.get("pgn").getAsString());
+            case "resumeGame" -> resume(msg.get("id").getAsString());
             default -> throw new IllegalArgumentException("unknown message type: " + type);
         }
     }
@@ -183,6 +222,7 @@ final class GameHub implements GameListener {
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Could not read the PGN: " + e.getMessage());
         }
+        leaveGame(false);
         if (builtIn != null) {
             builtIn.useEvaluator(BitBoardEvaluate.DEFAULT);
         }
@@ -216,33 +256,129 @@ final class GameHub implements GameListener {
         // engine vs engine: Black may play at its own level
         int blackLevel = mode == GameConfig.Mode.ENGINE_VS_ENGINE && msg.has("blackLevel")
                 ? Levels.clamp(msg.get("blackLevel").getAsInt()) : level;
-        JsonObject newOpponent = null;
+        leaveGame(mode != GameConfig.Mode.ENGINE_VS_ENGINE);
         JsonElement champion = msg.get("champion");
-        if (builtIn != null) {
-            if (champion != null && !champion.isJsonNull()) {
-                if (lab == null) {
-                    throw new IllegalStateException("no lab to play a champion from");
-                }
-                String run = champion.getAsJsonObject().get("run").getAsString();
-                int generation = champion.getAsJsonObject().get("generation").getAsInt();
-                builtIn.useEvaluator(new BitBoardEvaluate(lab.champion(run, generation)));
-                newOpponent = new JsonObject();
-                newOpponent.addProperty("run", run);
-                newOpponent.addProperty("generation", generation);
-                newOpponent.addProperty("label", "Champion of " + lab.name(run) + ", generation " + generation);
-                // the champion is the built-in engine; Stockfish's levels would hand the game to Stockfish
-                level = Math.min(level, EngineSelector.STOCKFISH_FROM_LEVEL - 1);
-                blackLevel = Math.min(blackLevel, EngineSelector.STOCKFISH_FROM_LEVEL - 1);
-            } else {
-                builtIn.useEvaluator(BitBoardEvaluate.DEFAULT);
-            }
+        boolean playsChampion = champion != null && !champion.isJsonNull();
+        playAs(playsChampion ? champion.getAsJsonObject().get("run").getAsString() : null,
+                playsChampion ? champion.getAsJsonObject().get("generation").getAsInt() : 0);
+        if (opponent != null) {
+            // the champion is the built-in engine; Stockfish's levels would hand the game to Stockfish
+            level = Math.min(level, EngineSelector.STOCKFISH_FROM_LEVEL - 1);
+            blackLevel = Math.min(blackLevel, EngineSelector.STOCKFISH_FROM_LEVEL - 1);
         }
-        opponent = newOpponent;
         GameConfig config = new GameConfig(mode, white, level, blackLevel);
         // reset first, so the engine does not start a move in the old position under the new config
         session.updateConfig(new GameConfig(GameConfig.Mode.HUMAN_VS_HUMAN, white, level));
         session.newGame(rules.Position.START_FEN, timeControl(msg));
         session.updateConfig(config);
+    }
+
+    /**
+     * The engine plays as an evolved champion ({@code run} and {@code generation}), or with its usual
+     * weights when {@code run} is null. Sets {@link #opponent}.
+     */
+    private void playAs(String run, int generation) {
+        opponent = null;
+        if (builtIn == null) {
+            return;
+        }
+        if (run == null) {
+            builtIn.useEvaluator(BitBoardEvaluate.DEFAULT);
+            return;
+        }
+        if (lab == null) {
+            throw new IllegalStateException("no lab to play a champion from");
+        }
+        builtIn.useEvaluator(new BitBoardEvaluate(lab.champion(run, generation)));
+        opponent = new JsonObject();
+        opponent.addProperty("run", run);
+        opponent.addProperty("generation", generation);
+        opponent.addProperty("label", "Champion of " + lab.name(run) + ", generation " + generation);
+    }
+
+    /** Carries on an unfinished saved game where it was left, clocks included. */
+    private void resume(String id) {
+        if (archive == null) {
+            throw new IllegalStateException("games are not being saved");
+        }
+        SavedGame saved = archive.get(id).orElseThrow(() -> new IllegalArgumentException("no saved game " + id));
+        if (saved.finished()) {
+            throw new IllegalArgumentException("that game is over");
+        }
+        List<ChessMove> moves = saved.moves().stream().map(ChessMove::fromUci).toList();
+        rules.Game check = new rules.Game(saved.startFen()); // a damaged file fails here, before anything changes
+        moves.forEach(check::play);
+        record(true);
+        playAs(saved.championRun(), saved.championGeneration() == null ? 0 : saved.championGeneration());
+        TimeControl control = saved.timeControl();
+        long initial = control.initialMs();
+        session.updateConfig(new GameConfig(GameConfig.Mode.HUMAN_VS_HUMAN, saved.config().humanPlaysWhite(), saved.config().skillLevel()));
+        session.resume(saved.startFen(), moves, control,
+                saved.whiteMs() == null ? initial : saved.whiteMs(), saved.blackMs() == null ? initial : saved.blackMs(),
+                saved.started().atZone(ZoneId.systemDefault()).toLocalDate());
+        session.updateConfig(saved.config());
+        recordId = saved.id();
+        recordStarted = saved.started();
+        recording = true;
+        savedSignature = signature();
+    }
+
+    /** Saves the game being left one last time; the next one is saved if {@code recordNext}. */
+    private void leaveGame(boolean recordNext) {
+        record(true);
+        recordId = null;
+        recordStarted = Instant.now();
+        recording = recordNext;
+        savedSignature = null;
+    }
+
+    private String signature() {
+        return session.moves().size() + " " + session.result();
+    }
+
+    /**
+     * Saves the current game if its moves or result changed since the last save (or always, when
+     * {@code force}). A game taken back to no moves at all is removed again. A failure to save is
+     * reported and the game goes on.
+     */
+    private void record(boolean force) {
+        if (archive == null || !recording || session.config().mode() == GameConfig.Mode.ENGINE_VS_ENGINE) {
+            return;
+        }
+        String signature = signature();
+        if (!force && signature.equals(savedSignature)) {
+            return;
+        }
+        try {
+            List<MoveResult> moves = session.moves();
+            if (moves.isEmpty()) {
+                if (recordId != null) {
+                    archive.delete(recordId);
+                }
+            } else {
+                if (recordId == null) {
+                    recordId = archive.newId(recordStarted);
+                }
+                archive.save(savedGame());
+            }
+            savedSignature = signature;
+        } catch (RuntimeException e) {
+            System.err.println("Could not save the game: " + e);
+        }
+    }
+
+    private SavedGame savedGame() {
+        String label = opponent == null ? null : opponent.get("label").getAsString();
+        game.Clock clock = session.clock();
+        String result = session.result();
+        return new SavedGame(recordId, recordStarted, Instant.now(), session.config(),
+                opponent == null ? null : opponent.get("run").getAsString(),
+                opponent == null ? null : opponent.get("generation").getAsInt(), label,
+                session.timeControl(),
+                clock == null ? null : clock.remainingMs(true), clock == null ? null : clock.remainingMs(false),
+                session.startFen(), session.moves().stream().map(m -> m.move().toUci()).toList(),
+                result, result == null ? null : GameStateJson.termination(session),
+                GameStateJson.pgn(session, label));
     }
 
     private static String string(JsonObject msg, String key, String fallback) {
@@ -335,6 +471,7 @@ final class GameHub implements GameListener {
         JsonObject state = GameStateJson.snapshot(session, hint,
                 opponent == null ? null : opponent.get("label").getAsString());
         state.add("opponent", opponent == null ? null : opponent.deepCopy());
+        state.addProperty("savedId", recording ? recordId : null);
         if (stockfish != null) {
             JsonObject sf = new JsonObject();
             sf.addProperty("available", stockfish.isAvailable());

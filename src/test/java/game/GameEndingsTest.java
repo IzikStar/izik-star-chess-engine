@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Clocks, resigning and draw offers: the endings off the board. */
@@ -300,5 +301,28 @@ class GameEndingsTest {
         assertEquals("a6", s.moves().get(5).san());
         assertTrue(s.whiteToMove());
         assertNull(s.clock());
+    }
+
+    // ---- carrying on a saved game ------------------------------------------
+
+    @Test
+    @DisplayName("Resume: the moves are replayed, each side keeps its time, and the side to move's clock runs")
+    void resumeKeepsTimes() {
+        GameSession s = session(FRIENDS, new Ends());
+        s.resume(Position.START_FEN, List.of(ChessMove.fromUci("e2e4"), ChessMove.fromUci("e7e5")),
+                new TimeControl(180_000, 2_000), 90_000, 120_000, java.time.LocalDate.of(2026, 10, 1));
+        assertEquals(2, s.moves().size());
+        assertEquals(Boolean.TRUE, s.clock().running());
+        assertEquals(java.time.LocalDate.of(2026, 10, 1), s.date());
+        advanceMs(10_000);
+        assertEquals(80_000, s.clock().remainingMs(true));
+        assertEquals(120_000, s.clock().remainingMs(false));
+        play(s, "g1f3");
+        assertEquals(82_000, s.clock().remainingMs(true));
+
+        // an illegal saved game changes nothing
+        assertThrows(IllegalArgumentException.class, () -> s.resume(Position.START_FEN, List.of(ChessMove.fromUci("e2e5")),
+                TimeControl.NONE, 0, 0, java.time.LocalDate.now()));
+        assertEquals(3, s.moves().size());
     }
 }

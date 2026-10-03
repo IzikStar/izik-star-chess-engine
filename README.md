@@ -52,6 +52,11 @@ Phase 4c (#2 to #6) refer to that repository.
   declines (a move declines it).
 - **PGN.** Copy or download the game as PGN, or paste a PGN to load it (it becomes a game between
   two players, to review or play on from its last position).
+- **My games.** Every game you play is saved on your computer (in `games/`, one JSON file per
+  game) after each move, so a game you leave unfinished is kept too. The *My games* tab lists them
+  with a filter by level and result and your score against each level. Open one to step through
+  it and analyse it with Stockfish, copy or download its PGN, or carry an unfinished game on with
+  its clocks where they were.
 - **Move list with review.** Click any move, or use the arrow keys, to see that position.
 - **Captured pieces and material** on each player's card; the result in the side panel when
   the game ends.
@@ -216,7 +221,7 @@ java -jar target/izikstar-chess-3.1.0.jar # play: opens http://localhost:7070/ i
 On Windows use `.\mvnw.cmd` (PowerShell needs the `.\`); double-clicking the jar works too. The first `package` downloads its
 own Node.js into `target/` to build the browser UI (`-Dskip.web=true` skips that step). The
 server listens on this computer only; stop it with Ctrl+C or by closing its console. Options:
-`--port N`, `--no-browser`.
+`--port N`, `--no-browser`, `--games DIR` (where your games are saved, default `games`).
 
 Run the jar from the repository root if you want it to find Stockfish at the default path.
 
@@ -304,7 +309,8 @@ any generation's best set of weights.
   games through the WebSocket the way the browser does, with no browser.
 - **Browser tests** ([`web/e2e/`](web/e2e/)) play real games in Chromium against the packaged
   jar: checkmate, drag and click moves, promotion, the engine's reply, take-back, review,
-  clocks and a flag fall, resigning, draw offers, and PGN copy, download and load.
+  clocks and a flag fall, resigning, draw offers, PGN copy, download and load, and saved games
+  (listed, reviewed and carried on).
   After `./mvnw package`, run them in `web/` with `npx playwright install chromium` (once) and
   `npm run e2e`.
 

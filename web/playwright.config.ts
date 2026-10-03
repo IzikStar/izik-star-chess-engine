@@ -15,10 +15,10 @@ export default defineConfig({
   },
   webServer: {
     // first a tiny evolution run for the lab page to show (lab.spec.ts), then the server
-    command: 'node -e "require(\'fs\').rmSync(\'../target/e2e-runs\', { recursive: true, force: true })"'
+    command: 'node -e "for (const d of [\'../target/e2e-runs\', \'../target/e2e-games\']) require(\'fs\').rmSync(d, { recursive: true, force: true })"'
       + ' && java -cp ../target/izikstar-chess-3.1.0.jar lab.Cli run ../target/e2e-runs/demo.db --name Demo'
       + ' --generations 2 --depth 1 --openings-per-pairing 1 --yardstick-every 1 --yardstick-openings 2 --threads 2'
-      + ' && java -jar ../target/izikstar-chess-3.1.0.jar --port 7071 --no-browser --runs ../target/e2e-runs',
+      + ' && java -jar ../target/izikstar-chess-3.1.0.jar --port 7071 --no-browser --runs ../target/e2e-runs --games ../target/e2e-games',
     url: 'http://127.0.0.1:7071/',
     reuseExistingServer: false,
     timeout: 90_000,

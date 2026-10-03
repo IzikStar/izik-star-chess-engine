@@ -1,0 +1,103 @@
+package web;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import game.GameArchive;
+import game.GameConfig;
+import game.SavedGame;
+import io.javalin.Javalin;
+import io.javalin.http.Context;
+import io.javalin.http.NotFoundResponse;
+import rules.Game;
+
+/**
+ * The "My games" page's API over the saved games ({@link GameArchive}; {@link GameHub} saves them):
+ * <ul>
+ *   <li>{@code GET /api/games}: {folder, games: [summary...]}, newest first</li>
+ *   <li>{@code GET /api/games/{id}}: one game in full: its summary plus startFen, moves (as the
+ *       game screen gets them: uci, san, fenAfter...), clock {white, black} (time left, or null)
+ *       and pgn</li>
+ *   <li>{@code DELETE /api/games/{id}}</li>
+ * </ul>
+ * A summary is {id, started, updated, mode: engine|friend, humanColor, level, opponent (a
+ * champion's name, or null), time {initialMs, incrementMs} or null, plies, result (null while
+ * unfinished), termination}. Carrying a game on goes over the game's WebSocket ({@code resumeGame}).
+ */
+final class GamesApi {
+
+    private final GameArchive archive;
+
+    GamesApi(GameArchive archive) {
+        this.archive = archive;
+    }
+
+    void routes(Javalin app) {
+        app.get("/api/games", ctx -> {
+            JsonObject out = new JsonObject();
+            out.addProperty("folder", archive.dir().toAbsolutePath().normalize().toString());
+            JsonArray games = new JsonArray();
+            archive.list().forEach(g -> games.add(summary(g)));
+            out.add("games", games);
+            json(ctx, out);
+        });
+        app.get("/api/games/{id}", ctx -> json(ctx, detail(find(ctx))));
+        app.delete("/api/games/{id}", ctx -> {
+            if (!archive.delete(ctx.pathParam("id"))) {
+                throw new NotFoundResponse("no saved game " + ctx.pathParam("id"));
+            }
+            ctx.status(204);
+        });
+    }
+
+    private SavedGame find(Context ctx) {
+        return archive.get(ctx.pathParam("id")).orElseThrow(() -> new NotFoundResponse("no saved game " + ctx.pathParam("id")));
+    }
+
+    static JsonObject summary(SavedGame g) {
+        JsonObject o = new JsonObject();
+        o.addProperty("id", g.id());
+        o.addProperty("started", g.started().toString());
+        o.addProperty("updated", g.updated().toString());
+        GameConfig config = g.config();
+        JsonObject c = GameStateJson.config(config);
+        o.addProperty("mode", c.get("mode").getAsString());
+        o.addProperty("humanColor", c.get("humanColor").getAsString());
+        o.addProperty("level", config.skillLevel());
+        o.addProperty("opponent", g.opponentLabel());
+        if (g.timeControl().isTimed()) {
+            JsonObject time = new JsonObject();
+            time.addProperty("initialMs", g.timeControl().initialMs());
+            time.addProperty("incrementMs", g.timeControl().incrementMs());
+            o.add("time", time);
+        } else {
+            o.add("time", null);
+        }
+        o.addProperty("plies", g.moves().size());
+        o.addProperty("result", g.result());
+        o.addProperty("termination", g.termination());
+        return o;
+    }
+
+    private static JsonObject detail(SavedGame g) {
+        JsonObject o = summary(g);
+        o.addProperty("startFen", g.startFen());
+        Game game = new Game(g.startFen());
+        JsonArray moves = new JsonArray();
+        g.moves().forEach(uci -> moves.add(GameStateJson.move(game.play(uci))));
+        o.add("moves", moves);
+        if (g.whiteMs() != null && g.blackMs() != null) {
+            JsonObject clock = new JsonObject();
+            clock.addProperty("white", g.whiteMs());
+            clock.addProperty("black", g.blackMs());
+            o.add("clock", clock);
+        } else {
+            o.add("clock", null);
+        }
+        o.addProperty("pgn", g.pgn());
+        return o;
+    }
+
+    private static void json(Context ctx, JsonObject body) {
+        ctx.contentType("application/json").result(body.toString());
+    }
+}

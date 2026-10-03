@@ -42,3 +42,6 @@ engine/*
 
 ### Evolution runs (one SQLite file each, see docs/evolution-guide.md) ###
 runs/
+
+### Saved games (one JSON file each, see web.GamesApi) ###
+games/

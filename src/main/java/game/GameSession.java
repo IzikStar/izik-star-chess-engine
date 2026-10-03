@@ -279,6 +279,35 @@ public final class GameSession {
     }
 
     /**
+     * Carries on a saved game ({@link GameArchive}): replays its moves from {@code startFen}, gives
+     * each side the time it had left, and goes on from its last position (the side to move's clock
+     * runs at once). Set the game's {@link GameConfig} first.
+     *
+     * @param whiteMs White's time left, ignored when untimed
+     * @param blackMs Black's time left, ignored when untimed
+     * @param started the day the game began, for its PGN
+     * @throws IllegalArgumentException if a move is not legal (nothing changes then)
+     */
+    public void resume(String startFen, List<ChessMove> moves, TimeControl control, long whiteMs, long blackMs,
+                       LocalDate started) {
+        Game loaded = new Game(startFen);
+        moves.forEach(loaded::play);
+        cancelEngine();
+        game = loaded;
+        resetEnding(control);
+        date = started;
+        if (clock != null) {
+            clock.restore(whiteMs, blackMs);
+            if (game.plyCount() > 0 && !game.status().isGameOver()) {
+                clock.startFor(whiteToMove());
+            }
+            watchFlag();
+        }
+        listeners.forEach(GameListener::positionReset);
+        maybeStartEngine();
+    }
+
+    /**
      * The human resigns: against the engine, the human's side; between two humans, the side to
      * move. Returns false if nobody can resign now (see {@link #canResign()}).
      */
