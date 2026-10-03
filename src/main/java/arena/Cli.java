@@ -19,12 +19,13 @@ import java.util.concurrent.atomic.AtomicInteger;
  * mvn package -DskipTests
  * java -cp target/izikstar-chess-3.1.0.jar arena.Cli match A B [options]
  *
- *   A, B             "default" (the built-in weights) or a parameter file (JSON, see ParamVector)
+ *   A, B             "default" (the schema defaults), a preset ("classic": the hand-written weights)
+ *                    or a parameter file (JSON, see ParamVector)
  *   --depth N        search depth of both players (default 3)
  *   --openings N     use the first N openings of the suite (default all, about 50); 2 games each
  *   --threads N      games at once (default: cores - 1)
  *   --max-plies N    a game still going after N plies is a draw (default 300)
- *   --variety N      how far below the best move (pawn = 10) a move may score (default 2)
+ *   --variety N      how far below the best move (pawn = 100) a move may score (default 20)
  *   --seed N         the same seed repeats the same games (default 1)
  *   --old-search P   P = A or B: that player searches without quiescence, as before Phase 5
  *   --no-speedups P  P = A or B: that player searches without the Phase 5b transposition table
@@ -55,7 +56,7 @@ public final class Cli {
             options.put(args[i].substring(2), args[i + 1]);
         }
         int depth = Integer.parseInt(options.getOrDefault("depth", "3"));
-        int variety = Integer.parseInt(options.getOrDefault("variety", "2"));
+        int variety = Integer.parseInt(options.getOrDefault("variety", "20"));
         String oldSearch = options.getOrDefault("old-search", "");
         String noSpeedups = options.getOrDefault("no-speedups", "");
         long moveMillis = Long.parseLong(options.getOrDefault("move-ms", "0"));
@@ -102,12 +103,16 @@ public final class Cli {
     }
 
     private static String name(String spec) {
-        return spec.equals("default") ? "default" : Path.of(spec).getFileName().toString().replaceFirst("\\.json$", "");
+        return Files.exists(Path.of(spec)) ? Path.of(spec).getFileName().toString().replaceFirst("\\.json$", "") : spec;
     }
 
+    /** "default" (the schema defaults), a preset name such as "classic", or a parameter file. */
     private static Evaluator evaluator(String spec) throws IOException {
         if (spec.equals("default")) {
             return BitBoardEvaluate.DEFAULT;
+        }
+        if (!Files.exists(Path.of(spec))) {
+            return new BitBoardEvaluate(BitBoardEvaluate.preset(spec));
         }
         return new BitBoardEvaluate(ParamVector.fromJson(BitBoardEvaluate.SCHEMA, Files.readString(Path.of(spec))));
     }

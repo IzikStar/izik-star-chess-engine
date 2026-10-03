@@ -11,8 +11,8 @@ import ai.BitBoard.BitBoardRules;
  */
 public final class DrawOffers {
 
-    /** The default weights count a pawn as about 10, so 0.3 pawns is 3. */
-    static final int ACCEPT_AT_MOST = 3;
+    /** The classic weights count a pawn as 100 (centipawns), so 0.3 pawns is 30. */
+    static final int ACCEPT_AT_MOST = 30;
 
     private DrawOffers() {}
 
@@ -23,6 +23,6 @@ public final class DrawOffers {
 
     /** The static evaluation from the engine's side (positive: the engine is better). */
     static int engineScore(String fen, boolean engineIsWhite) {
-        return BitBoardEvaluate.DEFAULT.evaluate(BitBoardRules.fromFen(fen), !engineIsWhite);
+        return BitBoardEvaluate.CLASSIC.evaluate(BitBoardRules.fromFen(fen), !engineIsWhite);
     }
 }

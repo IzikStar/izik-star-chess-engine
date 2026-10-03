@@ -9,7 +9,7 @@ import ai.eval.Evaluator;
  * @param name       how results name this player
  * @param evaluator  the evaluation, e.g. a {@link BitBoardEvaluate} built from a parameter vector
  * @param depth      fixed search depth (fixed depth keeps results independent of the machine's load)
- * @param variety    how far below the best move (pawn = 10) a move may score and still be played;
+ * @param variety    how far below the best move (pawn = 100) a move may score and still be played;
  *                   the arena seeds it, so a game is varied yet repeatable
  * @param quiescence false plays the search as it was before Phase 5, to compare against
  * @param speedups   false searches without the Phase 5b transposition table and move ordering, to

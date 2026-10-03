@@ -11,8 +11,14 @@ An individual is a **parameter vector**: one integer for each of the 499 weights
 evaluation (`ai.eval.ParamVector`, over the schema `BitBoardEvaluate.SCHEMA`).
 
 - Every parameter has a name, a group, a default, a `min`/`max` range and a description
-  (`ParamSpec`). `schema.defaults()` is today's hand-tuned engine.
-- The evaluation's unit is a tenth of a pawn: `material.pawn` defaults to 10.
+  (`ParamSpec`). See below for the defaults.
+- The evaluation's unit is a centipawn, a hundredth of a pawn: `material.pawn` is 100. (It was a
+  tenth of a pawn before; a parameter file without `"unit": "centipawn"` is read the old way and
+  converted.)
+- `schema.defaults()` is where tuning and evolution start. The hand-written weights the engine
+  has always played with are kept as the preset `classic` (`BitBoardEvaluate.CLASSIC`,
+  `src/main/resources/presets/classic.json`), and the game plays with them. Edit that file to
+  improve them by hand; `engine.SameMoveTest` records the moves they play.
 - Most terms come in pairs, `.mg` (middlegame) and `.eg` (endgame). The engine blends the two by
   the material left on the board.
 - Groups: `material` 5 terms, `pawns` 17, `kingSafety` 8, `king` 5, `development` 5,
@@ -73,7 +79,7 @@ java -jar target/izikstar-chess-3.1.0.jar                                  # the
 | `--generations` | how many generations | 20 |
 | `--depth` | fixed search depth of every game | 3 |
 | `--openings-per-pairing` | each pairing plays this many openings, each with both colours | 2 |
-| `--variety` | moves within this much of the best may be played (pawn = 10) | 2 |
+| `--variety` | moves within this much of the best may be played (pawn = 100) | 20 |
 | `--max-plies` | a longer game is scored a draw | 300 |
 | `--threads` | games at once | cores − 1 |
 | `--seed` | same seed, same run | 1 |
@@ -127,7 +133,7 @@ That is about 100 games, with both colours for every opening.
    across generations all help.
 2. **Mutation size.** At 5% of each parameter's range, every mutant was worse than the
    defaults, so the defaults stayed champion forever. At 1%, the mutants were close enough to
-   compete. Ranges are wide on purpose: a queen can be worth 0 to 2700. Step sizes should
+   compete. Ranges are wide on purpose: a queen can be worth 0 to 27000. Step sizes should
    follow how sensitive a parameter is, not its range.
 3. **Too many parameters at once.** 499 numbers evolved together with a few hundred games each
    generation is hopeless. Evolve one group at a time (`spec.group()`), or start with

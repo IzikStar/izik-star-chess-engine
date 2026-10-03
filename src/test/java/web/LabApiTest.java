@@ -118,7 +118,7 @@ class LabApiTest {
 
             hub.onMessage(client, "{\"type\":\"newGame\",\"mode\":\"engine\",\"color\":\"white\",\"level\":3}");
             until(messages, s -> s.get("opponent").isJsonNull());
-            assertSame(BitBoardEvaluate.DEFAULT, builtIn.evaluator());
+            assertSame(BitBoardEvaluate.CLASSIC, builtIn.evaluator());
         } finally {
             hub.shutdown();
         }
