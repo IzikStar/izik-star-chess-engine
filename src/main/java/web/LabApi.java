@@ -126,6 +126,15 @@ final class LabApi {
                 g.addProperty("games", row.games());
                 g.addProperty("finishedAt", row.finishedAt());
                 row.yardstick().ifPresent(score -> g.add("yardstick", score(score)));
+                JsonArray yardsticks = new JsonArray();
+                for (RunStore.YardstickResult y : row.yardsticks()) {
+                    JsonObject j = score(y.score());
+                    j.addProperty("opponent", y.opponent());
+                    j.addProperty("label", y.label());
+                    j.addProperty("depth", y.depth());
+                    yardsticks.add(j);
+                }
+                g.add("yardsticks", yardsticks);
                 generations.add(g);
                 champions.add(store.members(row.number(), SCHEMA).get(row.champion()));
             }
@@ -169,7 +178,7 @@ final class LabApi {
 
     // ---- games ---------------------------------------------------------------
 
-    /** A generation's games: the population's, then the champion's against the default weights. */
+    /** A generation's games: the population's, then the champion's against the yardsticks. */
     private static List<GameRecord> games(RunStore store, int generation) {
         List<GameRecord> games = new ArrayList<>(store.games(generation, "population"));
         games.addAll(store.games(generation, "yardstick"));
@@ -180,6 +189,8 @@ final class LabApi {
         try (RunStore store = open(file)) {
             int population = store.games(number, "population").size();
             List<GameRecord> games = games(store, number);
+            List<Integer> depths = new ArrayList<>(store.gameDepths(number, "population"));
+            depths.addAll(store.gameDepths(number, "yardstick"));
             JsonObject out = new JsonObject();
             out.addProperty("number", number);
             out.addProperty("members", store.members(number, SCHEMA).size());
@@ -195,6 +206,9 @@ final class LabApi {
                 o.addProperty("result", g.result().name());
                 o.addProperty("reason", g.reason());
                 o.addProperty("plies", g.plies());
+                if (depths.get(i) > 0) {
+                    o.addProperty("depth", depths.get(i));
+                }
                 list.add(o);
             }
             out.add("games", list);

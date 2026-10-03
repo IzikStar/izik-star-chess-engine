@@ -30,15 +30,24 @@ public final class Match {
         }
         Minimax.Options whiteOptions = options(white, new Random(seed));
         Minimax.Options blackOptions = options(black, new Random(~seed));
-        while (!game.status().isGameOver() && game.plyCount() < maxPlies) {
-            boolean whiteToMove = game.fen().split(" ")[1].equals("w");
-            Player side = whiteToMove ? white : black;
-            Minimax.Options options = whiteToMove ? whiteOptions : blackOptions;
-            ChessMove move = side.moveMillis() > 0
-                    ? MinimaxEngine.searchWithin(game.fen(), game.history(), side.depth(), side.evaluator(), options,
-                            side.moveMillis())
-                    : MinimaxEngine.searchAtDepth(game.fen(), game.history(), side.depth(), side.evaluator(), options);
-            game.play(move);
+        try (UciSession whiteUci = white.isExternal() ? new UciSession(white.external()) : null;
+             UciSession blackUci = black.isExternal() ? new UciSession(black.external()) : null) {
+            while (!game.status().isGameOver() && game.plyCount() < maxPlies) {
+                boolean whiteToMove = game.fen().split(" ")[1].equals("w");
+                Player side = whiteToMove ? white : black;
+                UciSession uci = whiteToMove ? whiteUci : blackUci;
+                Minimax.Options options = whiteToMove ? whiteOptions : blackOptions;
+                ChessMove move;
+                if (uci != null) {
+                    move = uci.move(game.moves().stream().map(MoveResult::move).map(ChessMove::toUci).toList());
+                } else if (side.moveMillis() > 0) {
+                    move = MinimaxEngine.searchWithin(game.fen(), game.history(), side.depth(), side.evaluator(), options,
+                            side.moveMillis());
+                } else {
+                    move = MinimaxEngine.searchAtDepth(game.fen(), game.history(), side.depth(), side.evaluator(), options);
+                }
+                game.play(move);
+            }
         }
         List<String> moves = game.moves().stream().map(MoveResult::move).map(ChessMove::toUci).toList();
         GameStatus status = game.status();

@@ -8,6 +8,8 @@ import java.io.IOException;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -25,6 +27,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * run options (defaults in RunSettings.defaults()):
  *   --name TEXT --generations N --depth N --openings-per-pairing N --variety N --max-plies N
  *   --threads N --seed N --yardstick-every N --yardstick-openings N
+ *   --yardsticks default,classic,sf:auto   who the champion is measured against (see RunSettings)
+ *   --stockfish-from N   Stockfish yardsticks from this generation on
+ *   --deep-depth N --deep-share 10-40      percent of games at the deep depth, first-last generation
  * </pre>
  *
  * Ctrl+C stops a run after the generation in progress; {@code resume} continues it.
@@ -80,7 +85,10 @@ public final class Cli {
                 integer(o, "openings-per-pairing", d.openingsPerPairing()), integer(o, "variety", d.variety()),
                 integer(o, "max-plies", d.maxPlies()), integer(o, "threads", d.threads()),
                 Long.parseLong(o.getOrDefault("seed", String.valueOf(d.seed()))),
-                integer(o, "yardstick-every", d.yardstickEvery()), integer(o, "yardstick-openings", d.yardstickOpenings()));
+                integer(o, "yardstick-every", d.yardstickEvery()), integer(o, "yardstick-openings", d.yardstickOpenings()),
+                o.containsKey("yardsticks") ? List.of(o.get("yardsticks").split(",")) : d.yardsticks(),
+                integer(o, "stockfish-from", d.stockfishFrom()), integer(o, "deep-depth", d.deepDepth()),
+                share(o, 0, d.deepShareFirst()), share(o, 1, d.deepShareLast()));
         Evolution evolution = EvolutionRunner.algorithm(o.getOrDefault("algorithm", "evolution.RandomMutationExample"));
         String name = o.getOrDefault("name", file.getFileName().toString().replaceFirst("\\.db$", ""));
         try (RunStore store = RunStore.open(file)) {
@@ -108,9 +116,28 @@ public final class Cli {
         store.run().ifPresent(r -> System.out.printf("%s (%s), started %s%n%s%n", r.name(), r.algorithm(),
                 r.startedAt(), r.settings()));
         for (RunStore.GenerationRow row : store.generations()) {
-            System.out.printf("generation %3d: champion #%d scored %.0f%% in %d games%s%n", row.number(),
-                    row.champion(), 100 * row.championScore(), row.games(),
-                    row.yardstick().map(s -> "; vs default weights " + s).orElse(""));
+            System.out.printf("generation %3d: champion #%d scored %.0f%% in %d games%n", row.number(),
+                    row.champion(), 100 * row.championScore(), row.games());
+            yardsticks(row);
+        }
+    }
+
+    /** Each yardstick's score, all depths together and then per depth. */
+    private static void yardsticks(RunStore.GenerationRow row) {
+        List<String> seen = new ArrayList<>();
+        for (RunStore.YardstickResult y : row.yardsticks()) {
+            if (seen.contains(y.opponent())) {
+                continue;
+            }
+            seen.add(y.opponent());
+            List<RunStore.YardstickResult> mine = row.yardsticks().stream()
+                    .filter(r -> r.opponent().equals(y.opponent())).toList();
+            StringBuilder depths = new StringBuilder();
+            if (mine.size() > 1) {
+                mine.forEach(r -> depths.append(String.format("; depth %d: %.0f%%", r.depth(), 100 * r.score().fraction())));
+            }
+            System.out.printf("    vs %-10s %s%s%n", y.label(),
+                    RunStore.YardstickResult.combined(mine, y.opponent()).orElseThrow(), depths);
         }
     }
 
@@ -131,8 +158,9 @@ public final class Cli {
 
             @Override
             public void generation(RunStore.GenerationRow row) {
-                System.out.printf("== generation %d done: champion #%d, %.0f%%%s%n", row.number(), row.champion(),
-                        100 * row.championScore(), row.yardstick().map(Score::toString).map(s -> "; " + s).orElse(""));
+                System.out.printf("== generation %d done: champion #%d, %.0f%%%n", row.number(), row.champion(),
+                        100 * row.championScore());
+                yardsticks(row);
             }
         };
     }
@@ -162,6 +190,15 @@ public final class Cli {
             options.put(args[i].substring(2), args[i + 1]);
         }
         return options;
+    }
+
+    /** {@code --deep-share 10-40}: percent of deep games in the first and the last generation. */
+    private static int share(Map<String, String> options, int which, int fallback) {
+        if (!options.containsKey("deep-share")) {
+            return fallback;
+        }
+        String[] parts = options.get("deep-share").split("-");
+        return Integer.parseInt(parts[Math.min(which, parts.length - 1)]);
     }
 
     private static int integer(Map<String, String> options, String name, int fallback) {

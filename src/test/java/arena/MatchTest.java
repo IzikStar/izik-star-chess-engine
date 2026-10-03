@@ -85,4 +85,27 @@ class MatchTest {
         Score score = Score.of("depth 3", games);
         assertTrue(score.fraction() > 0.7, score.toString());
     }
+
+    @Test
+    @DisplayName("Players are named by text: default, a preset, Stockfish at a UCI_Elo")
+    void playersByName() {
+        assertEquals(BitBoardEvaluate.SCHEMA.defaults(), Players.params("default"));
+        assertEquals(BitBoardEvaluate.CLASSIC.params(), Players.params("classic"));
+        assertEquals("sf1500", Players.label("sf:1500"));
+        assertTrue(Players.isStockfish("sf:auto"));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> Players.params("no-such-preset"));
+    }
+
+    @Test
+    @DisplayName("Stockfish plays an arena game as an outside engine")
+    void stockfishPlays() {
+        org.junit.jupiter.api.Assumptions.assumeTrue(engine.StockfishLocator.find().isPresent(), "Stockfish not installed");
+        Player sf = Players.parse("sf:1320@500", 2, 2);
+        assertTrue(sf.isExternal());
+        GameRecord game = Match.play(A, sf, ITALIAN, 30, 1);
+        assertEquals("sf1320@500", game.black());
+        assertTrue(game.plies() > ITALIAN.moves().size());
+        rules.Game replay = new rules.Game();
+        game.moves().forEach(replay::play); // every move legal
+    }
 }

@@ -22,7 +22,10 @@ import java.util.Random;
  */
 public interface Evolution {
 
-    /** The first population. Its size is up to you; {@code schema.defaults()} is today's engine. */
+    /**
+     * The first population. Its size is up to you. {@code schema.defaults()} is where tuning starts;
+     * {@code BitBoardEvaluate.preset("classic")} is the hand-written weights the game plays with.
+     */
     List<ParamVector> firstGeneration(ParamSchema schema, Random random);
 
     /** Who plays whom this generation. The default is a round robin: everyone meets everyone once. */

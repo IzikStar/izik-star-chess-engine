@@ -5,12 +5,13 @@ import type { Champion } from './protocol';
 // The lab page: evolution runs recorded by `lab.Cli` (web.LabApi serves them), read only.
 
 interface Yardstick { wins: number; draws: number; losses: number; fraction: number; elo: number; eloLow: number; eloHigh: number }
-interface Settings { generations: number; depth: number; openingsPerPairing: number; variety: number; maxPlies: number; threads: number; seed: number; yardstickEvery: number; yardstickOpenings: number }
+interface Settings { generations: number; depth: number; openingsPerPairing: number; variety: number; maxPlies: number; threads: number; seed: number; yardstickEvery: number; yardstickOpenings: number; yardsticks?: string[]; deepDepth?: number; deepShareFirst?: number; deepShareLast?: number }
 interface RunSummary { file: string; name: string; algorithm: string; startedAt: string; settings: Settings; generationsDone: number; lastYardstick?: Yardstick }
-interface GenerationRow { number: number; champion: number; championScore: number; games: number; finishedAt: string; yardstick?: Yardstick }
+interface YardstickResult extends Yardstick { opponent: string; label: string; depth: number }
+interface GenerationRow { number: number; champion: number; championScore: number; games: number; finishedAt: string; yardstick?: Yardstick; yardsticks?: YardstickResult[] }
 interface Weight { name: string; group: string; description: string; default: number; min: number; max: number; values: number[] }
 interface RunDetail extends Omit<RunSummary, 'generationsDone' | 'lastYardstick'> { generations: GenerationRow[]; weights: Weight[] }
-interface GameRow { index: number; kind: 'population' | 'yardstick'; white: string; black: string; opening: string; result: string; reason: string; plies: number }
+interface GameRow { index: number; kind: 'population' | 'yardstick'; white: string; black: string; opening: string; result: string; reason: string; plies: number; depth?: number }
 interface GenerationDetail { number: number; members: number; games: GameRow[] }
 interface Replay { white: string; black: string; opening: string; result: string; reason: string; startFen: string; moves: { uci: string; san: string; fenAfter: string }[] }
 
@@ -42,7 +43,12 @@ function usePolled<T>(url: string | null): [T | null, string | null] {
   return [data, error];
 }
 
-const player = (name: string) => (name === 'default' ? 'Default weights' : name === 'champion' ? 'Champion' : `#${name}`);
+const player = (name: string) =>
+  name === 'default' ? 'Default weights'
+    : name === 'classic' ? 'Classic weights'
+      : name === 'champion' ? 'Champion'
+        : /^sf\d/.test(name) ? `Stockfish ${name.slice(2)}`
+          : /^\d+$/.test(name) ? `#${name}` : name;
 const resultText = (r: string) => (r === 'WHITE_WINS' ? '1–0' : r === 'BLACK_WINS' ? '0–1' : '½–½');
 const elo = (y: Yardstick) => `${Math.round(y.elo) >= 0 ? '+' : ''}${Math.round(y.elo)}`;
 
@@ -99,7 +105,7 @@ export function Lab({ onPlay }: { onPlay: (champion: Champion) => void }) {
               <div>
                 <h2>{run.name}</h2>
                 <p className="muted">
-                  {run.algorithm.replace(/^.*\./, '')} · depth {run.settings.depth} · {run.generations.length}/{run.settings.generations} generations · seed {run.settings.seed}
+                  {run.algorithm.replace(/^.*\./, '')} · depth {run.settings.depth}{run.settings.deepDepth ? ` (${run.settings.deepShareFirst}–${run.settings.deepShareLast}% at ${run.settings.deepDepth})` : ''} · {run.generations.length}/{run.settings.generations} generations · seed {run.settings.seed}
                 </p>
               </div>
               {row && (
@@ -108,7 +114,7 @@ export function Lab({ onPlay }: { onPlay: (champion: Champion) => void }) {
                 })}>Play generation {row.number}'s champion</button>
               )}
             </div>
-            <h3>Champion against the default weights</h3>
+            <h3>Champion against {player(run.settings.yardsticks?.[0] ?? 'default').replace(/^D/, 'd').replace(/^C(?=lassic)/, 'c')}</h3>
             <ProgressChart generations={run.generations} />
           </section>
 
@@ -240,20 +246,39 @@ function GenerationGames({ file, generations, generation, onPick }: {
       {row && (
         <p className="muted">
           {detail ? `${detail.members} members, ` : ''}{row.games} games. Champion #{row.champion} scored {Math.round(row.championScore * 100)}%
-          {row.yardstick && <>; against the default weights +{row.yardstick.wins} ={row.yardstick.draws} -{row.yardstick.losses}, {elo(row.yardstick)} Elo
+          {row.yardstick && !row.yardsticks?.length && <>; against the default weights +{row.yardstick.wins} ={row.yardstick.draws} -{row.yardstick.losses}, {elo(row.yardstick)} Elo
             ({Math.round(row.yardstick.eloLow)} to {Math.round(row.yardstick.eloHigh)})</>}.
         </p>
+      )}
+      {row?.yardsticks && row.yardsticks.length > 0 && (
+        <div className="table-wrap">
+          <table data-testid="yardsticks">
+            <thead><tr><th>Champion against</th><th>Depth</th><th>Games</th><th>Score</th><th>Elo (95%)</th></tr></thead>
+            <tbody>
+              {row.yardsticks.map((y) => (
+                <tr key={y.opponent + y.depth}>
+                  <td>{player(y.label)}</td>
+                  <td>{y.depth}</td>
+                  <td>+{y.wins} ={y.draws} -{y.losses}</td>
+                  <td>{Math.round(y.fraction * 100)}%</td>
+                  <td>{elo(y)} ({Math.round(y.eloLow)} to {Math.round(y.eloHigh)})</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
       <div className="games-replay">
         <div className="table-wrap games">
           <table data-testid="games">
-            <thead><tr><th>White</th><th>Black</th><th>Opening</th><th>Result</th><th>Plies</th></tr></thead>
+            <thead><tr><th>White</th><th>Black</th><th>Opening</th><th>Depth</th><th>Result</th><th>Plies</th></tr></thead>
             <tbody>
               {detail?.games.map((g) => (
                 <tr key={g.index} className={(g.index === game ? 'on ' : '') + g.kind} onClick={() => setGame(g.index)}>
                   <td>{player(g.white)}</td>
                   <td>{player(g.black)}</td>
                   <td>{g.opening}</td>
+                  <td>{g.depth ?? ''}</td>
                   <td title={g.reason}>{resultText(g.result)}</td>
                   <td>{g.plies}</td>
                 </tr>

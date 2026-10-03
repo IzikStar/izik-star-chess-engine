@@ -114,4 +114,109 @@ class EvolutionRunnerTest {
             }
         }
     }
+
+    @Test
+    @DisplayName("A share of the games is played deeper, yardsticks too; the same weights listed twice play once")
+    void deepGamesAndYardsticks(@TempDir Path dir) {
+        // 6 pairings × 2 openings = 12 units of two games; 50% of them at depth 2
+        RunSettings settings = new RunSettings(2, 1, 2, 2, 80, 2, 3, 1, 2, List.of("default", "classic"), 0, 2, 50, 50);
+        try (RunStore store = RunStore.open(dir.resolve("run.db"))) {
+            EvolutionRunner.start(store, "deep", example(), settings, EvolutionRunner.Listener.SILENT, () -> false);
+            for (RunStore.GenerationRow row : store.generations()) {
+                List<Integer> depths = store.gameDepths(row.number(), "population");
+                assertEquals(24, depths.size());
+                assertEquals(12, depths.stream().filter(d -> d == 2).count());
+                assertEquals(12, depths.stream().filter(d -> d == 1).count());
+
+                // classic and default are the same weights today: one match, its result under both names
+                assertEquals(4, store.games(row.number(), "yardstick").size());
+                List<RunStore.YardstickResult> y = row.yardsticks();
+                assertEquals(Set.of(1, 2), y.stream().filter(r -> r.opponent().equals("default"))
+                        .map(RunStore.YardstickResult::depth).collect(java.util.stream.Collectors.toSet()));
+                assertEquals(RunStore.YardstickResult.combined(y, "default"), RunStore.YardstickResult.combined(y, "classic"));
+                assertEquals(row.yardstick(), RunStore.YardstickResult.combined(y, "default"));
+                assertTrue(store.games(row.number(), "yardstick").stream()
+                        .allMatch(g -> g.white().equals("default") || g.black().equals("default")));
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("An algorithm can set a pairing's depth itself")
+    void pairingDepth(@TempDir Path dir) {
+        evolution.Evolution deeper = new evolution.Evolution() {
+            final RandomMutationExample inner = example();
+
+            @Override
+            public List<ParamVector> firstGeneration(ai.eval.ParamSchema schema, java.util.Random random) {
+                return inner.firstGeneration(schema, random);
+            }
+
+            @Override
+            public List<evolution.Pairing> pairings(List<ParamVector> population, java.util.Random random) {
+                return List.of(new evolution.Pairing(0, 1, 2), new evolution.Pairing(2, 3));
+            }
+
+            @Override
+            public List<ParamVector> nextGeneration(evolution.Generation generation, java.util.Random random) {
+                return inner.nextGeneration(generation, random);
+            }
+        };
+        try (RunStore store = RunStore.open(dir.resolve("run.db"))) {
+            EvolutionRunner.start(store, "set", deeper, new RunSettings(1, 1, 1, 2, 60, 2, 1, 0, 0),
+                    EvolutionRunner.Listener.SILENT, () -> false);
+            assertEquals(List.of(2, 2, 1, 1), store.gameDepths(0, "population"));
+        }
+    }
+
+    @Test
+    @DisplayName("sf:auto starts at the lowest level, climbs above 70%, drops below 30%")
+    void stockfishLevels() {
+        java.util.function.BiFunction<Integer, arena.Score, RunStore.GenerationRow> row = (level, score) ->
+                new RunStore.GenerationRow(0, 0, 0.5, 0, java.util.Optional.empty(), "",
+                        List.of(new RunStore.YardstickResult(RunSettings.STOCKFISH_AUTO, level, 3, score)));
+        assertEquals(1320, EvolutionRunner.stockfishLevel(List.of(), 0));
+        assertEquals(1500, EvolutionRunner.stockfishLevel(List.of(row.apply(1320, new arena.Score("c", 8, 0, 2))), 1));
+        assertEquals(1500, EvolutionRunner.stockfishLevel(List.of(row.apply(1700, new arena.Score("c", 2, 0, 8))), 1));
+        assertEquals(1700, EvolutionRunner.stockfishLevel(List.of(row.apply(1700, new arena.Score("c", 5, 0, 5))), 1));
+        assertEquals(1320, EvolutionRunner.stockfishLevel(List.of(row.apply(1320, new arena.Score("c", 0, 0, 10))), 1));
+    }
+
+    @Test
+    @DisplayName("Stockfish as a yardstick, from the generation the settings say")
+    void stockfishYardstick(@TempDir Path dir) {
+        org.junit.jupiter.api.Assumptions.assumeTrue(engine.StockfishLocator.find().isPresent(), "Stockfish not installed");
+        RunSettings settings = new RunSettings(2, 1, 1, 2, 60, 2, 1, 1, 1, List.of("default", "sf:auto"), 1, 0, 0, 0);
+        try (RunStore store = RunStore.open(dir.resolve("run.db"))) {
+            EvolutionRunner.start(store, "sf", example(), settings, EvolutionRunner.Listener.SILENT, () -> false);
+            List<RunStore.GenerationRow> rows = store.generations();
+            assertTrue(RunStore.YardstickResult.combined(rows.get(0).yardsticks(), "sf:auto").isEmpty());
+            RunStore.YardstickResult sf = rows.get(1).yardsticks().stream()
+                    .filter(y -> y.opponent().equals("sf:auto")).findFirst().orElseThrow();
+            assertEquals(1320, sf.level());
+            assertEquals("sf1320", sf.label());
+            assertEquals(2, sf.score().games());
+            assertEquals(2, store.games(1, "yardstick").stream()
+                    .filter(g -> g.white().equals("sf1320") || g.black().equals("sf1320")).count());
+        }
+    }
+
+    @Test
+    @DisplayName("A run file from before yardstick lists and game depths still opens and reads")
+    void olderRunFile(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("old.db");
+        try (java.sql.Connection db = java.sql.DriverManager.getConnection("jdbc:sqlite:" + file);
+             java.sql.Statement s = db.createStatement()) {
+            s.execute("CREATE TABLE game (id INTEGER PRIMARY KEY, generation INTEGER, kind TEXT, white INTEGER,"
+                    + " black INTEGER, opening TEXT, moves TEXT, result TEXT, reason TEXT, plies INTEGER, seed INTEGER)");
+            s.execute("INSERT INTO game (generation, kind, white, black, opening, moves, result, reason, plies, seed)"
+                    + " VALUES (0, 'yardstick', 3, -1, 'Italian', 'e2e4 e7e5', 'DRAW', 'PLY_CAP', 2, 7)");
+        }
+        try (RunStore store = RunStore.open(file)) {
+            GameRecord g = store.games(0, "yardstick").getFirst();
+            assertEquals("3", g.white());
+            assertEquals("default", g.black());
+            assertEquals(List.of(0), store.gameDepths(0, "yardstick"));
+        }
+    }
 }
