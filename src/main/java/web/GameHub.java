@@ -7,6 +7,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import engine.EngineSelector;
 import engine.MinimaxEngine;
+import engine.StockfishEngine;
 import game.GameConfig;
 import game.GameListener;
 import game.GameSession;
@@ -42,7 +43,8 @@ import java.util.function.Consumer;
  * weights, at level 7 at most), time: {initialMs, incrementMs} (optional; absent or null is
  * untimed)}, {@code resign}, {@code offerDraw}, {@code answerDraw} {accept}, {@code loadPgn}
  * {pgn} (the game becomes a two-player game from its last position). Server to client: {@code {"type":"state","events":[...],"state":{...}}};
- * the state's {@code opponent} is the champion being played ({run, generation, label}), or null. An event is
+ * the state's {@code opponent} is the champion being played ({run, generation, label}), or null;
+ * {@code stockfish} is {available, path} (whether Levels 8-10 really get Stockfish). An event is
  * {@code {kind: move|reset|config|hint|gameOver|ended|drawOffer|drawDeclined|rejected, ...}}.
  */
 final class GameHub implements GameListener {
@@ -68,6 +70,14 @@ final class GameHub implements GameListener {
     private LabApi lab;
     /** The champion the engine plays as ({run, generation, label}), or null; game thread only. */
     private JsonObject opponent;
+
+    /** The Stockfish that plays Levels 8-10, or null if the session was built without one (tests). */
+    private StockfishEngine stockfish;
+
+    /** Reports whether Levels 8-10 really get Stockfish ({@code state.stockfish}). */
+    void useStockfish(StockfishEngine stockfish) {
+        this.stockfish = stockfish;
+    }
 
     /** Lets new games play an evolved champion: {@code builtIn} is the session's built-in engine. */
     void useBuiltIn(MinimaxEngine builtIn) {
@@ -314,6 +324,12 @@ final class GameHub implements GameListener {
         JsonObject state = GameStateJson.snapshot(session, hint,
                 opponent == null ? null : opponent.get("label").getAsString());
         state.add("opponent", opponent == null ? null : opponent.deepCopy());
+        if (stockfish != null) {
+            JsonObject sf = new JsonObject();
+            sf.addProperty("available", stockfish.isAvailable());
+            sf.addProperty("path", stockfish.path());
+            state.add("stockfish", sf);
+        }
         msg.add("state", state);
         return msg.toString();
     }
