@@ -86,6 +86,32 @@ class EngineTest {
     }
 
     @Test
+    @DisplayName("Without Stockfish, Levels 8-10 get the built-in engine at its strongest level, not Level 2")
+    void fallbackIsTheStrongestBuiltInLevel() {
+        Engine missing = new Engine() {
+            @Override
+            public ChessMove bestMove(SearchRequest request) {
+                throw new AssertionError("must not be asked when unavailable");
+            }
+
+            @Override
+            public boolean isAvailable() {
+                return false;
+            }
+        };
+        java.util.List<Integer> levels = new java.util.ArrayList<>();
+        Engine builtIn = request -> {
+            levels.add(request.skillLevel());
+            return minimax.bestMove(request.withSkillLevel(1));
+        };
+        EngineSelector selector = new EngineSelector(builtIn, missing);
+        selector.move(Position.START_FEN, 14);
+        selector.move(Position.START_FEN, 18);
+        assertEquals(java.util.List.of(12, 12), levels);
+        assertTrue(!selector.stockfishAvailable());
+    }
+
+    @Test
     @DisplayName("The built-in engine stops at its time cap and still plays a legal move")
     void builtInRespectsTimeCap() {
         MinimaxEngine capped = new MinimaxEngine(new java.util.Random(1), 300);

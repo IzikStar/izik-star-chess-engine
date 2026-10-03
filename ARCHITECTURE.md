@@ -245,9 +245,11 @@ controller that drives the Swing board.
 ### 2.5 Stockfish integration (`ai.StockfishEngine`)
 
 > **Update (showcase prep):** the Stockfish binary is no longer committed. The path resolves
-> from `-Dstockfish.path`, then `STOCKFISH_PATH`, then `engine/stockfish-windows-x86-64.exe`; if
-> it can't be launched, `StockfishEngine.isAvailable()` turns false and `Input` drops straight
-> into its existing built-in-engine fallback. See the README.
+> from `-Dstockfish.path`, then `STOCKFISH_PATH`, then any `stockfish*` file in an `engine/`
+> folder near the working directory or the jar, then the `PATH` (`engine.StockfishLocator`,
+> October 2026; before that only the exact `engine/stockfish-windows-x86-64.exe` worked). If none
+> is found or it can't be launched, `StockfishEngine.isAvailable()` turns false and Levels 8-10
+> play the built-in engine at Level 7. See the README.
 
 A thin wrapper around a `ProcessBuilder`-launched `stockfish-windows-x86-64.exe`
 ([`ai/StockfishEngine.java`](src/ai/StockfishEngine.java)), talking UCI over stdin/stdout.

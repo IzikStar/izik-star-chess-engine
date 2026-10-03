@@ -36,14 +36,6 @@ import java.util.stream.Collectors;
  */
 public class StockfishEngine implements Engine {
 
-    /**
-     * Location of the Stockfish executable. Stockfish is not shipped with the repository; see
-     * the README. Resolution order: the {@code -Dstockfish.path=...} system property, then the
-     * {@code STOCKFISH_PATH} environment variable, then {@code engine/stockfish-windows-x86-64.exe}
-     * relative to the working directory.
-     */
-    public static final String DEFAULT_ENGINE_PATH = resolveEnginePath();
-
     /** Consecutive failed requests after which Stockfish is given up on for this session. */
     static final int MAX_FAILURES = 3;
     /** How long to wait for {@code uciok} / {@code readyok}. */
@@ -52,17 +44,6 @@ public class StockfishEngine implements Engine {
     static final long BESTMOVE_GRACE_MS = 3000;
     /** End-of-output marker the reader thread puts in the queue. */
     private static final String EOF = "\u0000eof";
-
-    private static String resolveEnginePath() {
-        String path = System.getProperty("stockfish.path");
-        if (path == null || path.isBlank()) {
-            path = System.getenv("STOCKFISH_PATH");
-        }
-        if (path == null || path.isBlank()) {
-            path = "engine/stockfish-windows-x86-64.exe";
-        }
-        return path;
-    }
 
     /** Thinking time: UI Levels 8 / 9 / 10 (skill 14 / 16 / 18) think 300 / 600 / 1000 ms, hints (21) 1000 ms. */
     static long moveTimeMs(int level) {
@@ -92,13 +73,20 @@ public class StockfishEngine implements Engine {
     /** Set when the engine thread was interrupted mid-request; restored when the request ends. */
     private boolean interrupted;
 
+    /** Stockfish wherever {@link StockfishLocator} finds it; unavailable from the start if it finds none. */
     public StockfishEngine() {
-        this(List.of(DEFAULT_ENGINE_PATH));
+        this(StockfishLocator.find().map(p -> List.of(p.toString())).orElse(List.of()));
     }
 
     /** @param command the program and arguments that start a UCI engine */
     public StockfishEngine(List<String> command) {
         this.command = List.copyOf(command);
+        this.unavailable = command.isEmpty();
+    }
+
+    /** The executable this engine runs, or {@code null} if none was found. */
+    public String path() {
+        return command.isEmpty() ? null : command.get(0);
     }
 
     @Override

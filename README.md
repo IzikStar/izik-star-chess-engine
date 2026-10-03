@@ -23,11 +23,14 @@ Phase 4c (#2 to #6) refer to that repository.
   - Level 1 plays random legal moves.
   - Levels 2-7 use the built-in engine and search deeper as the level rises.
   - Levels 8-10 hand the move to Stockfish if it is installed, and fall back to the built-in
-    engine if it is not.
+    engine at Level 7 if it is not (the game tells you).
 - **Full chess rules.** Castling, en passant, promotion (pick the piece on the board), check,
   checkmate and stalemate. Draws are detected by the 50-move rule, threefold repetition and
   insufficient material.
 - **Click or drag** to move; the legal moves of the selected piece are marked.
+- **Game analysis** with Stockfish: an evaluation bar beside the board, a graph, a mark on every
+  move (best, inaccuracy, mistake, blunder) and per side an accuracy and a rough Elo estimate
+  ([how it is computed](docs/game-analysis.md)).
 - **Premoves.** While the engine thinks, queue your next moves (as many as you like, and a
   promotion asks for its piece); one is played each time it is your turn, if it is still legal,
   and an illegal one drops the rest. Click an empty square to cancel them.
@@ -295,16 +298,21 @@ Tests run with `-Djava.awt.headless=true`, so no display is needed.
 ## Optional: Stockfish
 
 Stockfish is **not** included in this repository. It is a large third-party GPLv3 binary.
-Without it the game is fully playable: levels 8-10 and hints fall back to the built-in engine.
+Without it the game is fully playable: levels 8-10 play the built-in engine at Level 7 and hints
+use the built-in engine. The New game dialog and the player card say so when Stockfish is missing,
+and the server prints which Stockfish it found when it starts.
 
 1. Download Stockfish for your OS from <https://stockfishchess.org/download/>.
-2. Tell the game where it is, using any one of these:
-   - put the Windows build at `engine/stockfish-windows-x86-64.exe` (the default path, relative
-     to the directory you run from);
-   - pass a system property: `java -Dstockfish.path=/path/to/stockfish -jar target/izikstar-chess-3.1.0.jar`;
-   - set an environment variable: `export STOCKFISH_PATH=/path/to/stockfish`.
+2. Unzip it into the `engine/` folder of the repository. Any file whose name starts with
+   `stockfish` is found, also one folder down, so the download's own
+   `engine/stockfish/stockfish-windows-x86-64-avx2.exe` works as it is. The `engine/` folder is
+   looked for next to the directory you run from and next to the jar, so double-clicking
+   `target/izikstar-chess-3.1.0.jar` finds it too.
+3. Or install it so that `stockfish` is on your `PATH` (Linux: `sudo apt install stockfish`;
+   macOS: `brew install stockfish`).
+4. Or name the file yourself: `java -Dstockfish.path=/path/to/stockfish -jar target/izikstar-chess-3.1.0.jar`,
+   or the `STOCKFISH_PATH` environment variable.
 
-On Linux, `sudo apt install stockfish` installs it at `/usr/games/stockfish`.
 
 ## Roadmap
 

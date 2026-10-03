@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnalysisPanel, EvalBar, gameKey, QUALITY, useAnalysis, type Quality } from './Analysis';
 import { Board } from './Board';
 import { Lab } from './Lab';
 import { NewGameDialog, type NewGameChoice } from './NewGameDialog';
 import { codeOf, PieceSvg } from './pieces';
-import { captured, colorName, isOver, kingSquare, LEVELS, materialOf, movesByFrom, other, resultText, turnOf, withPremoves } from './chess';
+import { captured, colorName, engineText, isOver, kingSquare, materialOf, movesByFrom, other, resultText, turnOf, withPremoves } from './chess';
 import { useGame, type Champion, type Color, type GameEvent, type GameState } from './protocol';
 import { play } from './sounds';
 
@@ -73,6 +74,13 @@ export function App() {
   }, []);
 
   const { state, connection, send } = useGame(onEvents);
+  const { analysis, start: startAnalysis, clear: clearAnalysis } = useAnalysis();
+  const currentKey = state ? gameKey(state.startFen, state.moves.map((m) => m.uci)) : '';
+
+  // an analysis stays while the game only grows past it; a take-back or a new game drops it
+  useEffect(() => {
+    if (analysis.status !== 'idle' && currentKey !== analysis.key && !currentKey.startsWith(analysis.key + ' ')) clearAnalysis();
+  }, [currentKey, analysis, clearAnalysis]);
 
   useEffect(() => {
     const onHash = () => setPage(location.hash === '#lab' ? 'lab' : 'game');
@@ -150,6 +158,13 @@ export function App() {
   const lastMove = ply === 0 ? null : moves[ply - 1].uci;
   const checkSquare = shownStatus === 'CHECK' || shownStatus === 'CHECKMATE' ? kingSquare(fen, turnOf(fen)) : null;
   const over = isOver(state);
+  const report = analysis.status === 'done' ? analysis.report : null;
+  const shownEval = report && ply < report.evals.length ? report.evals[ply] : null;
+  // what the engine would have played instead of the move just shown (as the analysis line says);
+  // never in a live game still being played
+  const shownMove = report && (!live || over) && ply > 0 && ply <= report.moves.length ? report.moves[ply - 1] : null;
+  const bestArrow = shownMove && shownMove.quality !== 'best' ? shownMove.bestUci : null;
+  const analyse = () => startAnalysis(state.startFen, moves.map((m) => m.uci));
 
   const baseOrientation: Color =
     config.mode === 'engine' ? config.humanColor : config.mode === 'friend' && autoFlip ? state.turn : 'white';
@@ -202,13 +217,14 @@ export function App() {
 
       <main className="game" hidden={page !== 'game'}>
         <section className="board-area" aria-label="Board">
+          {report && <EvalBar score={shownEval} orientation={orientation} />}
           <Board
             fen={premoveColor ? withPremoves(fen, premoves) : fen}
             orientation={orientation}
             legal={live ? legal : EMPTY}
             lastMove={lastMove}
             checkSquare={checkSquare}
-            hint={live ? state.hint : null}
+            hint={bestArrow ?? (live ? state.hint : null)}
             onMove={(uci) => send({ type: 'move', uci })}
             premoveColor={premoveColor}
             premoves={premoveColor ? premoves : []}
@@ -233,11 +249,17 @@ export function App() {
               <div className="row">
                 <button type="button" className="btn primary" onClick={() => startNewGame({ mode: config.mode, color: config.humanColor, level: config.level, blackLevel: config.blackLevel, autoFlip, champion: state.opponent })}>Rematch</button>
                 <button type="button" className="btn" onClick={() => goTo(0)}>Review game</button>
+                <button type="button" className="btn" disabled={analysis.status === 'running'} onClick={() => {
+                  analyse();
+                  goTo(0);
+                }}>Analyse game</button>
               </div>
             </section>
           )}
 
-          <MoveList state={state} ply={ply} onPick={goTo} />
+          <AnalysisPanel analysis={analysis} ply={ply} onPick={goTo} onRetry={analyse} />
+
+          <MoveList state={state} ply={ply} onPick={goTo} qualities={report?.moves.map((m) => m.quality)} />
 
           <div className="nav" role="group" aria-label="Review moves">
             <button type="button" className="icon" aria-label="First position" disabled={ply === 0} onClick={() => goTo(0)}>⏮</button>
@@ -256,12 +278,14 @@ export function App() {
             }}><b aria-hidden="true">↶</b>Take back</button>
             <button type="button" className="icon labelled" disabled={!live || !state.humanTurn || state.hintPending} onClick={() => send({ type: 'hint' })}><b aria-hidden="true">✦</b>Hint</button>
             <button type="button" className="icon labelled" onClick={() => setFlipped(!flipped)}><b aria-hidden="true">⇅</b>Flip board</button>
+            <button type="button" className="icon labelled" disabled={moves.length === 0 || analysis.status === 'running'} onClick={analyse}><b aria-hidden="true">≋</b>Analyse</button>
           </div>
         </aside>
       </main>
 
       {dialogOpen && (
         <NewGameDialog
+          stockfish={state.stockfish}
           initial={{ mode: dialogChampion ? 'engine' : config.mode, color: config.humanColor, level: config.level, blackLevel: config.blackLevel, autoFlip, champion: dialogChampion }}
           onStart={(choice) => {
             showPage('game');
@@ -280,7 +304,7 @@ function PlayerCard({ state, color, fen, live }: { state: GameState; color: Colo
   const level = config.mode === 'computer' && color === 'black' ? config.blackLevel : config.level;
   const name = isEngine ? (state.opponent && config.mode === 'engine' ? state.opponent.label : `Engine · Level ${level}`)
     : config.mode === 'engine' ? 'You' : colorName(color);
-  const detail = isEngine ? LEVELS[level - 1].engine : `Plays ${colorName(color)}`;
+  const detail = isEngine ? engineText(level, state.stockfish) : `Plays ${colorName(color)}`;
   const taken = captured(fen)[color];
   const lead = materialOf(fen) * (color === 'white' ? 1 : -1);
   const toMove = live && !isOver(state) && state.turn === color;
@@ -340,7 +364,7 @@ function StatusLine({ state, connection, live, ply, premoves, onReturn }: {
   );
 }
 
-function MoveList({ state, ply, onPick }: { state: GameState; ply: number; onPick: (ply: number) => void }) {
+function MoveList({ state, ply, onPick, qualities }: { state: GameState; ply: number; onPick: (ply: number) => void; qualities?: Quality[] }) {
   const list = useRef<HTMLOListElement>(null);
   const { moves } = state;
   useEffect(() => {
@@ -367,6 +391,9 @@ function MoveList({ state, ply, onPick }: { state: GameState; ply: number; onPic
                 c ? (
                   <button key={i} type="button" className={'mv' + (c.ply === ply ? ' current' : '')} onClick={() => onPick(c.ply)}>
                     {c.san}
+                    {qualities?.[c.ply - 1] && QUALITY[qualities[c.ply - 1]].glyph && (
+                      <span className={'glyph q-' + qualities[c.ply - 1]} title={QUALITY[qualities[c.ply - 1]].label}>{QUALITY[qualities[c.ply - 1]].glyph}</span>
+                    )}
                   </button>
                 ) : (
                   <span key={i} className="mv" />
