@@ -3,12 +3,15 @@ package engine;
 import ai.BitBoard.BitBoardEvaluate;
 import ai.BitBoard.BitBoardRules;
 import ai.BitBoard.BitMove;
+import ai.BitBoard.ZobristHashing;
 import ai.Minimax;
 import ai.eval.Evaluator;
 import rules.ChessMove;
 import rules.Position;
 import rules.Rules;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
@@ -25,6 +28,9 @@ import java.util.Random;
  * with its usual weights. It no longer plays the same game every time: among the moves scoring
  * within {@link #DEFAULT_VARIETY} of the best it picks one at random ({@code searchAtDepth} stays
  * deterministic, for the tests that record moves).
+ *
+ * <p>It reads the game behind the position ({@link SearchRequest#moves()}), so a move back into a
+ * position the game already had is scored as a draw: when it is ahead it does not repeat.
  */
 public final class MinimaxEngine implements Engine {
 
@@ -93,8 +99,10 @@ public final class MinimaxEngine implements Engine {
         int depth = searchDepth(Position.fromFen(fen), level);
         long deadline = System.nanoTime() + timeCapMs * 1_000_000;
         Evaluator weights = evaluator;
+        long[] history = gameHistory(gameFens(request.startFen(), request.moves()), fen);
         BitMove bitMove = Minimax.getBestMove(BitBoardRules.fromFen(fen), depth, weights,
-                new Minimax.Options(variety, random, true), () -> request.cancel().isCancelled() || System.nanoTime() > deadline);
+                new Minimax.Options(variety, random, true), history,
+                () -> request.cancel().isCancelled() || System.nanoTime() > deadline);
         return request.cancel().isCancelled() ? null : toLegalMove(bitMove, legal);
     }
 
@@ -118,11 +126,22 @@ public final class MinimaxEngine implements Engine {
      * (variety, quiescence), or {@code null} if there is no legal move. The arena plays with this.
      */
     public static ChessMove searchAtDepth(String fen, int depth, Evaluator evaluator, Minimax.Options options) {
+        return searchAtDepth(fen, List.of(), depth, evaluator, options);
+    }
+
+    /**
+     * Like {@link #searchAtDepth(String, int, Evaluator, Minimax.Options)} in a game whose positions so
+     * far are {@code gameFens} (oldest first; the current one may be last): moving back into one of
+     * them is scored as a draw.
+     */
+    public static ChessMove searchAtDepth(String fen, List<String> gameFens, int depth, Evaluator evaluator,
+                                          Minimax.Options options) {
         List<ChessMove> legal = Rules.legalMoves(fen);
         if (legal.isEmpty()) {
             return null;
         }
-        BitMove bitMove = Minimax.getBestMove(BitBoardRules.fromFen(fen), depth, evaluator, options, () -> false);
+        BitMove bitMove = Minimax.getBestMove(BitBoardRules.fromFen(fen), depth, evaluator, options,
+                gameHistory(gameFens, fen), () -> false);
         return toLegalMove(bitMove, legal);
     }
 
@@ -132,14 +151,59 @@ public final class MinimaxEngine implements Engine {
      */
     public static ChessMove searchWithin(String fen, int maxDepth, Evaluator evaluator, Minimax.Options options,
                                          long millis) {
+        return searchWithin(fen, List.of(), maxDepth, evaluator, options, millis);
+    }
+
+    /** {@link #searchWithin(String, int, Evaluator, Minimax.Options, long)} knowing the game's positions so far. */
+    public static ChessMove searchWithin(String fen, List<String> gameFens, int maxDepth, Evaluator evaluator,
+                                         Minimax.Options options, long millis) {
         List<ChessMove> legal = Rules.legalMoves(fen);
         if (legal.isEmpty()) {
             return null;
         }
         long deadline = System.nanoTime() + millis * 1_000_000;
         BitMove bitMove = Minimax.getBestMove(BitBoardRules.fromFen(fen), maxDepth, evaluator, options,
-                () -> System.nanoTime() > deadline);
+                gameHistory(gameFens, fen), () -> System.nanoTime() > deadline);
         return toLegalMove(bitMove, legal);
+    }
+
+    /** The positions of the game {@code startFen} + {@code moves}, oldest first (the last is the current one). */
+    static List<String> gameFens(String startFen, List<ChessMove> moves) {
+        List<String> fens = new ArrayList<>(moves.size() + 1);
+        String fen = startFen;
+        fens.add(fen);
+        for (ChessMove move : moves) {
+            fen = Rules.applyMove(fen, move);
+            fens.add(fen);
+        }
+        return fens;
+    }
+
+    /**
+     * The search's repetition keys of the game positions before {@code fen} that it could still
+     * repeat: those since the last capture or pawn move (as many as {@code fen}'s half-move clock).
+     * {@code gameFens} may end with {@code fen} itself; it is left out (the search adds the root).
+     */
+    static long[] gameHistory(List<String> gameFens, String fen) {
+        int end = gameFens.size();
+        if (end > 0 && samePosition(gameFens.get(end - 1), fen)) {
+            end--;
+        }
+        String[] fields = fen.split(" ");
+        int halfMoves = fields.length > 4 ? Integer.parseInt(fields[4]) : end;
+        int start = Math.max(0, end - halfMoves);
+        long[] keys = new long[end - start];
+        for (int i = start; i < end; i++) {
+            keys[i - start] = ZobristHashing.computeHash(BitBoardRules.fromFen(gameFens.get(i)));
+        }
+        return keys;
+    }
+
+    /** Same placement, side to move, castling and en passant (move counters aside). */
+    private static boolean samePosition(String a, String b) {
+        String[] x = a.split(" ");
+        String[] y = b.split(" ");
+        return Arrays.equals(x, 0, Math.min(4, x.length), y, 0, Math.min(4, y.length));
     }
 
     /** The level's depth ({@link Levels#builtInDepth}), plus 2 with at most 8 pieces left, plus 1 with at most 12. */
