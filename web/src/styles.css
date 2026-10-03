@@ -58,7 +58,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 
 /* the board takes what the window leaves after the side panel */
 .game[hidden] { display: none; }
-.game { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; padding: 20px; max-width: 1400px; width: 100%; margin: 0 auto; }
+.game { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 360px); gap: 24px; padding: 20px; max-width: 1400px; width: 100%; margin: 0 auto; }
 .board-area { display: flex; justify-content: center; align-items: flex-start; min-width: 0; }
 .board { position: relative; width: min(100%, calc(100vh - 110px)); min-width: 280px; aspect-ratio: 1; border-radius: 4px; overflow: hidden; box-shadow: 0 3px 14px rgba(0, 0, 0, 0.22); }
 @media (max-width: 900px) {
@@ -68,7 +68,14 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 
 .side { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 
-.player { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+/* name and engine on top, taken pieces on a row of their own, the clock at the right: nothing
+   squeezes the name, and taking a piece never changes the card's height */
+.player { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "avatar who clock" "avatar taken clock"; align-items: center; column-gap: 12px; row-gap: 2px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.player .avatar { grid-area: avatar; }
+.player .who { grid-area: who; }
+.player .who .name, .player .who .detail { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player .taken { grid-area: taken; height: 24px; min-width: 0; overflow: hidden; }
+.player .clock { grid-area: clock; }
 .player.to-move { border-color: var(--accent); box-shadow: inset 4px 0 0 var(--accent); }
 .avatar { width: 38px; height: 38px; border-radius: 8px; display: grid; place-items: center; font-size: 22px; background: var(--surface-2); border: 1px solid var(--line); flex: none; }
 .avatar svg { width: 30px; height: 30px; }
@@ -82,6 +89,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 .taken .lead { font-size: 13px; font-weight: 600; color: var(--fg); padding-left: 4px; }
 
 .status { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; background: var(--accent-soft); font-weight: 600; min-height: 44px; }
+/* one line, whatever the move's length: stepping through a game must not move anything */
+.status > span:not(.spinner) { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .status.warn { background: var(--warn-soft); color: var(--warn); }
 .status .link { margin-left: auto; white-space: nowrap; background: none; border: 0; color: var(--accent); cursor: pointer; font-weight: 600; padding: 0; text-decoration: underline; }
 .spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin 0.9s linear infinite; flex: none; }
@@ -223,7 +232,9 @@ textarea.pgn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1
 
 /* ---- game analysis (Analysis.tsx) ---- */
 .board-area { gap: 10px; }
-.eval-bar { position: relative; flex: 0 0 26px; align-self: stretch; max-height: min(100vh - 110px, 100%); aspect-ratio: auto; border-radius: 4px; overflow: hidden; background: #3a3a3a; display: flex; flex-direction: column-reverse; box-shadow: 0 3px 14px rgba(0, 0, 0, 0.22); }
+/* the bar and the board side by side; the board sets the height, the bar takes all of it */
+.board-wrap { display: flex; align-items: stretch; justify-content: center; gap: 10px; width: 100%; min-width: 0; }
+.eval-bar { position: relative; flex: 0 0 26px; border-radius: 4px; overflow: hidden; background: #3a3a3a; display: flex; flex-direction: column-reverse; box-shadow: 0 3px 14px rgba(0, 0, 0, 0.22); }
 .eval-bar.flipped { flex-direction: column; }
 .eval-white { background: #f4f4f1; transition: height 0.3s ease; }
 .eval-text { position: absolute; left: 0; right: 0; text-align: center; font-size: 10px; font-weight: 700; padding: 3px 0; }
@@ -243,7 +254,7 @@ textarea.pgn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1
 .graph-white { fill: #f1f1ee; }
 .graph-mid { stroke: rgba(127, 127, 127, 0.6); stroke-width: 0.5; }
 .graph-ply { stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; }
-.analysis-move { margin: 0; font-size: 13px; }
+.analysis-move { margin: 0; font-size: 13px; height: 2.8em; line-height: 1.4; overflow: hidden; }
 .muted.small { font-size: 12px; margin: 0; color: var(--muted); }
 .glyph { margin-left: 3px; font-weight: 700; font-size: 12px; }
 .q-best { color: #2e8b57; }
@@ -261,3 +272,18 @@ textarea.pgn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1
 .install-progress > span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--fg); }
 .install-error { color: var(--warn); font-weight: 600; }
 .ok-note { margin: 6px 0 0; font-size: 13px; color: var(--accent); }
+
+/* the analysis mark of the shown move, on its square (Board.tsx QualityBadge) */
+.quality-badge { position: absolute; z-index: 3; width: 4.2%; aspect-ratio: 1; min-width: 20px; transform: translate(-65%, -35%); border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: clamp(10px, 1.3vw, 15px); line-height: 1; letter-spacing: -0.05em; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45); border: 2px solid #fff; pointer-events: none; }
+.q-bg-best { background: #2e9b5f; }
+.q-bg-excellent { background: #5aa86b; }
+.q-bg-good { background: #7f9a87; }
+.q-bg-inaccuracy { background: #d4a42a; }
+.q-bg-mistake { background: #e07b29; }
+.q-bg-blunder { background: #d03b3b; }
+
+/* phones: the top bar wraps instead of pushing the page sideways */
+@media (max-width: 600px) {
+  .topbar { flex-wrap: wrap; padding: 8px 12px; row-gap: 4px; }
+  .topbar .spacer { display: none; }
+}

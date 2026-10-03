@@ -44,6 +44,13 @@ test("analysing Scholar's mate: eval bar, Elo per side, and ...Nf6 marked a blun
   await expect(page.getByTestId('move-list').getByTitle('Blunder')).toHaveCount(1);
   await page.getByTestId('move-list').getByRole('button', { name: /^Nf6/ }).click();
   await expect(page.getByTestId('analysis-move')).toContainText('Nf6 · Blunder');
+  // the mark is on the board too, on Nf6's square
+  await expect(page.getByTestId('quality-badge')).toHaveAttribute('data-quality', 'blunder');
+  // the bar is exactly as tall as the board
+  const barBox = (await bar.boundingBox())!;
+  const boardBox = (await page.getByTestId('board').boundingBox())!;
+  expect(Math.abs(barBox.height - boardBox.height)).toBeLessThan(2);
+  expect(Math.abs(barBox.y - boardBox.y)).toBeLessThan(2);
   await expect(bar).toHaveAttribute('data-score', 'M1');
   // the arrow shows what Black should have played instead
   await expect(page.getByTestId('board')).not.toHaveAttribute('data-hint', '');
@@ -55,6 +62,15 @@ test("analysing Scholar's mate: eval bar, Elo per side, and ...Nf6 marked a blun
 
   // the final position: the bar is all White
   await expect(bar).toHaveAttribute('aria-valuenow', '100');
+
+  // holding the back button steps back again and again, to the start
+  const back = page.getByRole('button', { name: 'Previous move' });
+  await back.scrollIntoViewIfNeeded();
+  const box = (await back.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await expect(page.getByTestId('status')).toContainText('Reviewing the start position', { timeout: 3000 });
+  await page.mouse.up();
 
   // a new game drops the analysis
   await page.getByRole('button', { name: 'New game' }).click();

@@ -116,13 +116,14 @@ export function scoreText(s: Score): string {
   return cp > 0 ? '+' + pawns : cp < 0 ? '−' + pawns : '0.0';
 }
 
-export const QUALITY: Record<Quality, { label: string; glyph: string }> = {
-  best: { label: 'Best move', glyph: '★' },
-  excellent: { label: 'Excellent', glyph: '' },
-  good: { label: 'Good', glyph: '' },
-  inaccuracy: { label: 'Inaccuracy', glyph: '?!' },
-  mistake: { label: 'Mistake', glyph: '?' },
-  blunder: { label: 'Blunder', glyph: '??' },
+/** glyph: beside the move in the list (none for the unremarkable); badge: on the board. */
+export const QUALITY: Record<Quality, { label: string; glyph: string; badge: string }> = {
+  best: { label: 'Best move', glyph: '★', badge: '★' },
+  excellent: { label: 'Excellent', glyph: '', badge: '!' },
+  good: { label: 'Good', glyph: '', badge: '✓' },
+  inaccuracy: { label: 'Inaccuracy', glyph: '?!', badge: '?!' },
+  mistake: { label: 'Mistake', glyph: '?', badge: '?' },
+  blunder: { label: 'Blunder', glyph: '??', badge: '??' },
 };
 
 /** The bar beside the board: White's share grows from White's side of the board. */

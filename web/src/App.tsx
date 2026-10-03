@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AnalysisPanel, EvalBar, gameKey, QUALITY, useAnalysis, type Quality } from './Analysis';
 import { Board } from './Board';
 import { ClockFace } from './Clock';
@@ -167,6 +167,14 @@ export function App() {
   const ply = live ? moves.length : view!;
 
   const goTo = useCallback((p: number) => setView(p >= moves.length ? null : Math.max(0, p)), [moves.length]);
+  // one ply back or forward from wherever the view is now; a held button calls it many times, so
+  // it reads the current view instead of a ply captured when the button was pressed
+  const step = useCallback((delta: number) => setView((v) => {
+    const p = (v ?? moves.length) + delta;
+    return p >= moves.length ? null : Math.max(0, p);
+  }), [moves.length]);
+  const stepRef = useRef(step);
+  stepRef.current = step;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -262,6 +270,7 @@ export function App() {
 
       <main className="game" hidden={page !== 'game'}>
         <section className="board-area" aria-label="Board">
+          <div className="board-wrap">
           {report && <EvalBar score={shownEval} orientation={orientation} />}
           <Board
             fen={shownPremoves.length ? withPremoves(fen, shownPremoves) : fen}
@@ -279,7 +288,9 @@ export function App() {
             }}
             onSelect={() => play('select', soundOn)}
             onIllegal={() => play('invalid', soundOn)}
+            badge={shownMove ? { square: shownMove.uci.slice(2, 4), quality: shownMove.quality } : null}
           />
+          </div>
         </section>
 
         <aside className="side">
@@ -312,7 +323,7 @@ export function App() {
             </section>
           )}
 
-          {live && over && (
+          {over && (
             <section className="result" aria-label="Result" data-testid="result">
               <div className="score">{state.result === '1/2-1/2' ? '½ – ½' : state.result!.replace('-', ' – ')}</div>
               <div className="reason">{resultText(state.status, state.turn, state.end)}</div>
@@ -333,8 +344,8 @@ export function App() {
 
           <div className="nav" role="group" aria-label="Review moves">
             <button type="button" className="icon" aria-label="First position" disabled={ply === 0} onClick={() => goTo(0)}>⏮</button>
-            <button type="button" className="icon" aria-label="Previous move" disabled={ply === 0} onClick={() => goTo(ply - 1)}>◀</button>
-            <button type="button" className="icon" aria-label="Next move" disabled={live} onClick={() => goTo(ply + 1)}>▶</button>
+            <RepeatButton label="Previous move" disabled={ply === 0} onStep={() => stepRef.current(-1)}>◀</RepeatButton>
+            <RepeatButton label="Next move" disabled={live} onStep={() => stepRef.current(1)}>▶</RepeatButton>
             <button type="button" className="icon" aria-label="Latest move" disabled={live} onClick={() => goTo(moves.length)}>⏭</button>
           </div>
 
@@ -392,13 +403,50 @@ export function App() {
   );
 }
 
+/** A button that acts once on press and, held down, again and again (like a held arrow key). */
+function RepeatButton({ label, disabled, onStep, children }: { label: string; disabled: boolean; onStep: () => void; children: ReactNode }) {
+  const timer = useRef<number | undefined>(undefined);
+  const stop = () => {
+    window.clearTimeout(timer.current);
+    window.clearInterval(timer.current);
+    timer.current = undefined;
+  };
+  useEffect(() => stop, []);
+  useEffect(() => {
+    if (disabled) stop();
+  }, [disabled]);
+  return (
+    <button type="button" className="icon" aria-label={label} disabled={disabled}
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        stop();
+        onStep();
+        timer.current = window.setTimeout(() => {
+          timer.current = window.setInterval(onStep, 70);
+        }, 350);
+      }}
+      onPointerUp={stop}
+      onPointerLeave={stop}
+      onPointerCancel={stop}
+      onContextMenu={(e) => e.preventDefault()}
+      // keyboard (Enter / Space) gives a click with detail 0; mouse and touch were handled on press
+      onClick={(e) => {
+        if (e.detail === 0) onStep();
+      }}>
+      {children}
+    </button>
+  );
+}
+
 function PlayerCard({ state, color, fen, live, receivedAt }: { state: GameState; color: Color; fen: string; live: boolean; receivedAt: number }) {
   const { config } = state;
   const isEngine = config.mode === 'computer' || (config.mode === 'engine' && color !== config.humanColor);
   const level = config.mode === 'computer' && color === 'black' ? config.blackLevel : config.level;
-  const name = isEngine ? (state.opponent && config.mode === 'engine' ? state.opponent.label : `Engine · Level ${level}`)
-    : config.mode === 'engine' ? 'You' : colorName(color);
-  const detail = isEngine ? engineText(level, state.stockfish) : `Plays ${colorName(color)}`;
+  // every card says which colour it is and who plays it: you, a friend, or which engine
+  const who = isEngine ? (state.opponent && config.mode === 'engine' ? state.opponent.label : `Level ${level}`)
+    : config.mode === 'engine' ? 'You' : 'Player';
+  const name = `${colorName(color)} · ${who}`;
+  const detail = isEngine ? engineText(level, state.stockfish) : config.mode === 'engine' ? 'Human player' : 'Human player, same board';
   const taken = captured(fen)[color];
   const lead = materialOf(fen) * (color === 'white' ? 1 : -1);
   const toMove = live && !isOver(state) && state.turn === color;
