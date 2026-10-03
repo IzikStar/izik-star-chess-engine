@@ -144,7 +144,9 @@ colours (102 games), variety 2, 3 games at a time:
 
 - **Same depth (4):** with speedups +42 =30 -30, 55.9%, Elo +41 [-15, +100]. Within the noise of
   equal strength, as expected: same scores, only different picks among ties. 86 s in all.
-- **Same time (300 ms a move, deepening as far as the time allows):** RESULT_TIMED
+- **Same time (300 ms a move, deepening as far as the time allows):** with speedups +56 =28 -18,
+  68.6%, Elo +136 [+79, +201]. Clearly stronger: 5-8 times fewer nodes buy about one more ply in the same time.
+  1222 s in all.
 
 ## 7. Tests
 
@@ -152,4 +154,5 @@ colours (102 games), variety 2, 3 games at a time:
   the 56 positions and 1-5 for the mates; slot-pair replacement; same seed, same move.
 - `engine.SameMoveTest`: re-recorded (§5).
 - `engine.SearchSpeedTest` (`-Pstress`): Level 7 limit back to the 5 s cap.
-- `mvn test`: TESTS_MAIN. `mvn test -Pstress`: TESTS_STRESS.
+- `mvn test`: 371 run, 0 failures (1 skipped, as before). `mvn test -Pstress`: 29 run, 0 failures
+  (2 skipped: the ones that need Stockfish installed); SearchSpeedTest worst Level 7 time 1106 ms.
