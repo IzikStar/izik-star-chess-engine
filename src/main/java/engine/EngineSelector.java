@@ -3,22 +3,23 @@ package engine;
 import rules.ChessMove;
 
 /**
- * Chooses which engine plays at a given level, with a fallback: levels at or above
- * {@link #STOCKFISH_FROM_LEVEL} ask Stockfish, and if it is missing or gives no legal move the
- * built-in engine answers at its strongest level, 7. (Until October 2026 the fallback was Level 2,
- * so a missing Stockfish turned "Level 10" into one of the weakest opponents, and nothing said so.)
+ * Chooses which engine plays at a given level ({@link Levels}), with a fallback: Stockfish's levels
+ * ask Stockfish, and if it is missing or gives no legal move the built-in engine answers at its
+ * strongest level. (Until October 2026 the fallback was a weak level, so a missing Stockfish turned
+ * the top level into one of the weakest opponents, and nothing said so.)
  */
 public final class EngineSelector {
 
-    /** The UI's levels 8-10 (skill 14, 16, 18) use Stockfish. */
-    public static final int STOCKFISH_FROM_LEVEL = 13;
-    /** Stockfish's level for hints (Skill Level 20, its full strength). */
-    public static final int HINT_LEVEL = 21;
-    /** The built-in engine's strongest level (UI Level 7): what Levels 8-10 play without Stockfish. */
-    static final int MOVE_FALLBACK_LEVEL = STOCKFISH_FROM_LEVEL - 1;
-    /** A quick move after a search failed outright (UI Level 2). */
-    static final int QUICK_MOVE_LEVEL = 3;
-    static final int HINT_FALLBACK_LEVEL = 10;
+    /** Levels from here up use Stockfish. */
+    public static final int STOCKFISH_FROM_LEVEL = Levels.STOCKFISH_FROM;
+    /** Stockfish's level for hints: its full strength. */
+    public static final int HINT_LEVEL = Levels.HINT;
+    /** The built-in engine's strongest level: what Stockfish's levels play without Stockfish. */
+    static final int MOVE_FALLBACK_LEVEL = Levels.TOP_BUILT_IN;
+    /** A quick move after a search failed outright (depth 1). */
+    static final int QUICK_MOVE_LEVEL = 2;
+    /** Hints without Stockfish: the built-in engine at depth 5. */
+    static final int HINT_FALLBACK_LEVEL = 6;
 
     private final Engine builtIn;
     private final Engine stockfish;

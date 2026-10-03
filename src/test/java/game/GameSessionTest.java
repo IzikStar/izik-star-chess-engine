@@ -79,10 +79,10 @@ class GameSessionTest {
             @Override public boolean isAvailable() { return true; }
         };
         DirectExecutor direct = new DirectExecutor();
-        GameSession s = new GameSession(new GameConfig(GameConfig.Mode.ENGINE_VS_ENGINE, true, 4, 10),
+        GameSession s = new GameSession(new GameConfig(GameConfig.Mode.ENGINE_VS_ENGINE, true, 4, 7),
                 new EngineSelector(recording, NO_STOCKFISH), direct, direct);
         s.start();
-        assertEquals(List.of(4, 10, 4, 10), levels);
+        assertEquals(List.of(4, 7, 4, 7), levels);
         assertEquals(10, new GameConfig(GameConfig.Mode.ENGINE_VS_ENGINE, true, 4, 10).skillLevelFor(false));
         assertEquals(4, new GameConfig(GameConfig.Mode.HUMAN_VS_ENGINE, true, 4, 10).skillLevelFor(false),
                 "against a human the engine has one level");

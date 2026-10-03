@@ -194,24 +194,43 @@ export function formatClock(ms: number): string {
   return `${m}:${s}`;
 }
 
-export const LEVELS: { name: string; engine: string }[] = [
-  { name: 'Random moves', engine: 'Plays any legal move' },
-  { name: 'Beginner', engine: 'Built-in engine, looks 1 move ahead' },
-  { name: 'Novice', engine: 'Built-in engine, 2 plies' },
-  { name: 'Casual', engine: 'Built-in engine, 3 plies' },
-  { name: 'Improving', engine: 'Built-in engine, 4 plies' },
-  { name: 'Club player', engine: 'Built-in engine, 5 plies' },
-  { name: 'Strong club player', engine: 'Built-in engine, 6 plies' },
-  { name: 'Expert', engine: 'Stockfish if installed' },
-  { name: 'Master', engine: 'Stockfish if installed' },
-  { name: 'Grandmaster', engine: 'Stockfish if installed' },
+/**
+ * The difficulty ladder, Levels 0-13 (engine.Levels). elo is the measured strength on Stockfish's
+ * UCI_Elo scale, a computer rating list (docs/difficulty-ladder.md); Level 0 sits below the ladder.
+ */
+export const LEVELS: { name: string; engine: string; elo: number | null }[] = [
+  { name: 'Random moves', engine: 'Plays any legal move', elo: null },
+  { name: 'Beginner', engine: 'Built-in engine, 1 ply, a quarter of its moves random', elo: 100 },
+  { name: 'Novice', engine: 'Built-in engine, looks 1 move ahead', elo: 460 },
+  { name: 'Casual', engine: 'Built-in engine, 2 plies', elo: 750 },
+  { name: 'Improving', engine: 'Built-in engine, 3 plies', elo: 1070 },
+  { name: 'Club player', engine: 'Built-in engine, 4 plies', elo: 1260 },
+  { name: 'Strong club player', engine: 'Built-in engine, 5 plies', elo: 1530 },
+  { name: 'Expert', engine: 'Built-in engine, 6 plies', elo: 1690 },
+  { name: 'Strong expert', engine: 'Built-in engine, 7 plies (its deepest)', elo: 1910 },
+  { name: 'Master', engine: 'Stockfish at 2150, 0.5 s a move', elo: 2150 },
+  { name: 'International master', engine: 'Stockfish at 2400, 0.5 s a move', elo: 2400 },
+  { name: 'Grandmaster', engine: 'Stockfish at 2650, 0.5 s a move', elo: 2650 },
+  { name: 'Super grandmaster', engine: 'Stockfish at 2900, 0.5 s a move', elo: 2900 },
+  { name: 'Full strength', engine: 'Stockfish at full strength, 1 s a move', elo: 3190 },
 ];
 
-/** Levels 8-10 play Stockfish: its skill and thinking time (engine.StockfishEngine). */
-const STOCKFISH_LEVELS: Record<number, string> = { 8: 'Stockfish, skill 13, 0.3 s a move', 9: 'Stockfish, skill 15, 0.6 s a move', 10: 'Stockfish, skill 17, 1 s a move' };
+export const MIN_LEVEL = 0;
+export const MAX_LEVEL = LEVELS.length - 1;
+/** Levels from here up are played by Stockfish. */
+export const STOCKFISH_FROM_LEVEL = 9;
+/** The built-in engine's strongest level: what Stockfish's levels play when it is missing. */
+export const TOP_BUILT_IN_LEVEL = STOCKFISH_FROM_LEVEL - 1;
 
-/** Who really plays a level: for 8-10, Stockfish if the server found it, else the built-in engine at Level 7. */
+/** "≈ 1530 Elo", "3190+ Elo" for the top level, or "" for Level 0. */
+export function eloText(level: number): string {
+  const elo = LEVELS[level].elo;
+  if (elo === null) return '';
+  return level === MAX_LEVEL ? `${elo}+ Elo` : `≈ ${elo} Elo`;
+}
+
+/** Who really plays a level: for Stockfish's levels, Stockfish if the server found it, else the built-in engine at its top level. */
 export function engineText(level: number, stockfish: StockfishInfo | undefined): string {
-  if (level < 8 || !stockfish) return LEVELS[level - 1].engine;
-  return stockfish.available ? STOCKFISH_LEVELS[level] : 'Stockfish not found: the built-in engine plays at Level 7';
+  if (level < STOCKFISH_FROM_LEVEL || !stockfish || stockfish.available) return LEVELS[level].engine;
+  return `Stockfish not found: the built-in engine plays at Level ${TOP_BUILT_IN_LEVEL}`;
 }

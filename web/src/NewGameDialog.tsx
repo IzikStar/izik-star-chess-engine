@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { engineText, LEVELS, TIME_CONTROLS } from './chess';
+import { eloText, engineText, LEVELS, MAX_LEVEL, MIN_LEVEL, STOCKFISH_FROM_LEVEL, TIME_CONTROLS, TOP_BUILT_IN_LEVEL } from './chess';
 import type { Champion, Color, Mode, StockfishInfo } from './protocol';
 import { StockfishInstall } from './StockfishInstall';
 
@@ -10,16 +10,16 @@ export interface NewGameChoice {
   /** Black's level when watching the engine; level is then White's. */
   blackLevel: number;
   autoFlip: boolean;
-  /** Play this evolved champion instead of the usual engine (levels 2-7, the built-in engine's). */
+  /** Play this evolved champion instead of the usual engine (the built-in engine's levels). */
   champion: Champion | null;
   /** A key of TIME_CONTROLS ("3+2"), or "none" for an untimed game. */
   time: string;
 }
 
-/** The champion is the built-in engine: level 1 plays random moves and 8-10 hand over to Stockfish. */
-export const CHAMPION_LEVELS = { min: 2, max: 7 };
+/** The champion is the built-in engine: Levels 0-1 are (partly) random moves and 9 up hand over to Stockfish. */
+export const CHAMPION_LEVELS = { min: 2, max: TOP_BUILT_IN_LEVEL };
 
-function LevelSlider({ id, label, value, onChange, stockfish, min = 1, max = 10 }: {
+function LevelSlider({ id, label, value, onChange, stockfish, min = MIN_LEVEL, max = MAX_LEVEL }: {
   id: string;
   label: string;
   value: number;
@@ -28,18 +28,19 @@ function LevelSlider({ id, label, value, onChange, stockfish, min = 1, max = 10 
   min?: number;
   max?: number;
 }) {
-  const level = LEVELS[value - 1];
+  const level = LEVELS[value];
+  const elo = eloText(value);
   return (
     <div className="field">
       <label htmlFor={id}>{label}</label>
       <input id={id} type="range" min={min} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} />
       <div className="level">
-        <span><strong>Level {value}</strong> · {level.name}</span>
+        <span><strong>Level {value}</strong> · {level.name}{elo && <span className="muted" data-testid="level-elo"> · {elo}</span>}</span>
         <span className="muted">{engineText(value, stockfish)}</span>
       </div>
-      {value >= 8 && stockfish && !stockfish.available && (
+      {value >= STOCKFISH_FROM_LEVEL && stockfish && !stockfish.available && (
         <div data-testid="stockfish-missing">
-          <StockfishInstall why="Stockfish is not installed, so this level plays the built-in engine at Level 7." />
+          <StockfishInstall why={`Stockfish is not installed, so this level plays the built-in engine at Level ${TOP_BUILT_IN_LEVEL}.`} />
         </div>
       )}
     </div>
@@ -74,8 +75,8 @@ export function NewGameDialog({ initial, stockfish, onStart, onCancel }: {
   onCancel: () => void;
 }) {
   const [choice, setChoice] = useState<NewGameChoice>(() => initial.champion
-    // level 1 (random moves) would hide the champion's weights: start it at Casual
-    ? { ...initial, mode: 'engine', level: initial.level <= 1 ? 4 : Math.min(CHAMPION_LEVELS.max, initial.level) }
+    // Levels 0-1 (random moves) would hide the champion's weights: start it at Improving
+    ? { ...initial, mode: 'engine', level: initial.level < CHAMPION_LEVELS.min ? 4 : Math.min(CHAMPION_LEVELS.max, initial.level) }
     : initial);
   const dialog = useRef<HTMLDialogElement>(null);
   const set = (patch: Partial<NewGameChoice>) => setChoice({ ...choice, ...patch });
@@ -118,7 +119,7 @@ export function NewGameDialog({ initial, stockfish, onStart, onCancel }: {
         {choice.mode === 'engine' && (
           <LevelSlider id="level" label="Strength" value={choice.level}
             onChange={(level) => set({ level })} stockfish={stockfish}
-            min={choice.champion ? CHAMPION_LEVELS.min : 1} max={choice.champion ? CHAMPION_LEVELS.max : 10} />
+            min={choice.champion ? CHAMPION_LEVELS.min : MIN_LEVEL} max={choice.champion ? CHAMPION_LEVELS.max : MAX_LEVEL} />
         )}
         {choice.mode === 'computer' && (
           <>

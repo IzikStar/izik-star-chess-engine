@@ -113,7 +113,7 @@ class LabApiTest {
             JsonObject state = until(messages, s -> s.has("opponent") && !s.get("opponent").isJsonNull());
             JsonObject opponent = state.getAsJsonObject("opponent");
             assertEquals("Champion of Tiny run, generation 1", opponent.get("label").getAsString());
-            assertEquals(7, state.getAsJsonObject("config").get("level").getAsInt()); // capped: no Stockfish
+            assertEquals(8, state.getAsJsonObject("config").get("level").getAsInt()); // capped: no Stockfish
             assertEquals(lab.champion("tiny.db", 1), builtIn.evaluator().params());
 
             hub.onMessage(client, "{\"type\":\"newGame\",\"mode\":\"engine\",\"color\":\"white\",\"level\":3}");

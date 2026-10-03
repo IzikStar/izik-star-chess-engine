@@ -1,6 +1,7 @@
 package game;
 
 import engine.EngineSelector;
+import engine.Levels;
 import engine.MinimaxEngine;
 import engine.StockfishEngine;
 import org.junit.jupiter.api.DisplayName;
@@ -125,19 +126,19 @@ class StressTest {
 
     @Test
     @Tag("stress")
-    @DisplayName("Engine-vs-engine at the app's computer-game level (skill 6) ends, 5 games")
+    @DisplayName("Engine-vs-engine at the app's computer-game level (Level 4) ends, 5 games")
     void computerGameLevel() throws Exception {
-        assertEquals(5, engineVsEngine(builtInOnly(), 6, 5, 600));
+        assertEquals(5, engineVsEngine(builtInOnly(), 4, 5, 600));
     }
 
     @Test
     @Tag("stress")
-    @DisplayName("Stockfish vs Stockfish (when installed), 3 games at Level 8")
+    @DisplayName("Stockfish vs Stockfish (when installed), 3 games at Level 9")
     void stockfishGames() throws Exception {
         String path = System.getProperty("stockfish.path", "/usr/games/stockfish");
         assumeTrue(Files.isExecutable(Path.of(path)), "Stockfish not installed");
         EngineSelector engines = new EngineSelector(new MinimaxEngine(), new StockfishEngine(List.of(path)));
-        assertEquals(3, engineVsEngine(engines, 14, 3, 600));
+        assertEquals(3, engineVsEngine(engines, Levels.STOCKFISH_FROM, 3, 600));
     }
 
     @Test

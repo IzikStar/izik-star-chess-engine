@@ -8,7 +8,7 @@
 > rules   Rules / Game / Position / ChessMove / San / MoveResult / GameStatus / Square
 >         FEN in, legal UCI moves + status + SAN out; Game = one game's history (undo, threefold)
 > ai      BitBoard move generator, evaluation, Minimax (per-search instances, no statics read)
-> engine  Engine interface; MinimaxEngine, StockfishEngine (real skill level), EngineSelector
+> engine  Engine interface; MinimaxEngine, StockfishEngine (UCI_Elo or full strength), EngineSelector, Levels (the difficulty ladder)
 > game    GameConfig (immutable), GameListener, GameSession (turn-taking, engine thread,
 >         stale-result guard, results delivered on a dispatcher = GameHub's game thread)
 > web     WebServer: Javalin on 127.0.0.1, serves the React app (web/ -> /webapp in

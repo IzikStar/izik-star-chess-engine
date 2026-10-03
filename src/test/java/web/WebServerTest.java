@@ -385,13 +385,11 @@ class WebServerTest {
     }
 
     @Test
-    @DisplayName("UI levels 1-10 map to the session's skill levels 0-18 and back")
+    @DisplayName("Levels outside 0-13 are clamped to the ladder")
     void levels() {
-        for (int ui = 1; ui <= 10; ui++) {
-            assertEquals(ui, GameStateJson.uiLevel(GameStateJson.skillLevel(ui)));
-        }
-        assertEquals(0, GameStateJson.skillLevel(1));
-        assertEquals(18, GameStateJson.skillLevel(10));
+        assertEquals(0, engine.Levels.clamp(-3));
+        assertEquals(13, engine.Levels.clamp(99));
+        assertEquals(7, engine.Levels.clamp(7));
         assertNull(GameStateJson.result(rules.GameStatus.CHECK, true));
     }
 

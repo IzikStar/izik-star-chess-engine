@@ -59,10 +59,13 @@ class EngineTest {
     }
 
     @Test
-    @DisplayName("Search depth follows the old myEngine formula")
+    @DisplayName("Search depth: level - 1, deeper with few pieces left, at most depth 7")
     void depthFormula() {
-        assertEquals(3, MinimaxEngine.searchDepth(Position.fromFen(Position.START_FEN), 6));
-        assertEquals(5, MinimaxEngine.searchDepth(Position.fromFen(PROMOTION), 6));
+        assertEquals(3, MinimaxEngine.searchDepth(Position.fromFen(Position.START_FEN), 4));
+        assertEquals(5, MinimaxEngine.searchDepth(Position.fromFen(PROMOTION), 4));
+        assertEquals(1, MinimaxEngine.searchDepth(Position.fromFen(Position.START_FEN), 1));
+        assertEquals(7, MinimaxEngine.searchDepth(Position.fromFen(Position.START_FEN), Levels.TOP_BUILT_IN));
+        assertEquals(7, MinimaxEngine.searchDepth(Position.fromFen(Position.START_FEN), Levels.MAX));
     }
 
     @Test
@@ -105,9 +108,9 @@ class EngineTest {
             return minimax.bestMove(request.withSkillLevel(1));
         };
         EngineSelector selector = new EngineSelector(builtIn, missing);
-        selector.move(Position.START_FEN, 14);
-        selector.move(Position.START_FEN, 18);
-        assertEquals(java.util.List.of(12, 12), levels);
+        selector.move(Position.START_FEN, Levels.STOCKFISH_FROM);
+        selector.move(Position.START_FEN, Levels.MAX);
+        assertEquals(java.util.List.of(Levels.TOP_BUILT_IN, Levels.TOP_BUILT_IN), levels);
         assertTrue(!selector.stockfishAvailable());
     }
 

@@ -6,6 +6,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import engine.EngineSelector;
+import engine.Levels;
 import engine.MinimaxEngine;
 import engine.StockfishEngine;
 import game.GameConfig;
@@ -38,13 +39,13 @@ import java.util.function.Consumer;
  *
  * <p>Protocol, client to server ({@code type} field): {@code move} {uci}, {@code undo},
  * {@code hint}, {@code newGame} {mode: engine|friend|computer, color: white|black|random,
- * level: 1-10, blackLevel: 1-10 (computer mode: Black's level; level is then White's),
+ * level: 0-13, blackLevel: 0-13 (engine.Levels) (computer mode: Black's level; level is then White's),
  * champion: {run, generation} (optional: the built-in engine plays with that evolved champion's
- * weights, at level 7 at most), time: {initialMs, incrementMs} (optional; absent or null is
+ * weights, at the built-in engine's levels only), time: {initialMs, incrementMs} (optional; absent or null is
  * untimed)}, {@code resign}, {@code offerDraw}, {@code answerDraw} {accept}, {@code loadPgn}
  * {pgn} (the game becomes a two-player game from its last position). Server to client: {@code {"type":"state","events":[...],"state":{...}}};
  * the state's {@code opponent} is the champion being played ({run, generation, label}), or null;
- * {@code stockfish} is {available, path} (whether Levels 8-10 really get Stockfish). An event is
+ * {@code stockfish} is {available, path} (whether Stockfish's levels really get Stockfish). An event is
  * {@code {kind: move|reset|config|hint|gameOver|ended|drawOffer|drawDeclined|rejected, ...}}.
  */
 final class GameHub implements GameListener {
@@ -71,10 +72,10 @@ final class GameHub implements GameListener {
     /** The champion the engine plays as ({run, generation, label}), or null; game thread only. */
     private JsonObject opponent;
 
-    /** The Stockfish that plays Levels 8-10, or null if the session was built without one (tests). */
+    /** The Stockfish that plays Levels 9-13, or null if the session was built without one (tests). */
     private StockfishEngine stockfish;
 
-    /** Reports whether Levels 8-10 really get Stockfish ({@code state.stockfish}). */
+    /** Reports whether Levels 9-13 really get Stockfish ({@code state.stockfish}). */
     void useStockfish(StockfishEngine stockfish) {
         this.stockfish = stockfish;
     }
@@ -211,10 +212,10 @@ final class GameHub implements GameListener {
             case "random" -> ThreadLocalRandom.current().nextBoolean();
             default -> true;
         };
-        int level = msg.has("level") ? GameStateJson.skillLevel(msg.get("level").getAsInt()) : old.skillLevel();
+        int level = msg.has("level") ? Levels.clamp(msg.get("level").getAsInt()) : old.skillLevel();
         // engine vs engine: Black may play at its own level
         int blackLevel = mode == GameConfig.Mode.ENGINE_VS_ENGINE && msg.has("blackLevel")
-                ? GameStateJson.skillLevel(msg.get("blackLevel").getAsInt()) : level;
+                ? Levels.clamp(msg.get("blackLevel").getAsInt()) : level;
         JsonObject newOpponent = null;
         JsonElement champion = msg.get("champion");
         if (builtIn != null) {
@@ -229,7 +230,7 @@ final class GameHub implements GameListener {
                 newOpponent.addProperty("run", run);
                 newOpponent.addProperty("generation", generation);
                 newOpponent.addProperty("label", "Champion of " + lab.name(run) + ", generation " + generation);
-                // the champion is the built-in engine; levels from 8 up would hand the game to Stockfish
+                // the champion is the built-in engine; Stockfish's levels would hand the game to Stockfish
                 level = Math.min(level, EngineSelector.STOCKFISH_FROM_LEVEL - 1);
                 blackLevel = Math.min(blackLevel, EngineSelector.STOCKFISH_FROM_LEVEL - 1);
             } else {

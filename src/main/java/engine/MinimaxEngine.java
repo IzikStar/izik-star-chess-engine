@@ -14,7 +14,8 @@ import java.util.Random;
 
 /**
  * The built-in engine: a random legal move at level 0, otherwise the bitboard minimax search at a
- * depth derived from the level and the game stage (the formula {@code ai.myEngine} used).
+ * depth derived from the level and the game stage ({@link Levels}). Levels above the built-in
+ * ladder play its top level.
  *
  * <p>Phase 4 (docs/phase-4-research.md Fork A1): the depth is still the strength knob, but the
  * search deepens one ply at a time and stops at {@link #TIME_CAP_MS}, playing the move of the
@@ -85,10 +86,11 @@ public final class MinimaxEngine implements Engine {
         if (legal.isEmpty() || request.cancel().isCancelled()) {
             return null;
         }
-        if (request.skillLevel() <= 0) {
+        int level = Math.min(Levels.TOP_BUILT_IN, request.skillLevel());
+        if (level <= Levels.RANDOM || random.nextInt(100) < Levels.randomPercent(level)) {
             return legal.get(random.nextInt(legal.size()));
         }
-        int depth = Math.max(1, searchDepth(Position.fromFen(fen), request.skillLevel()));
+        int depth = searchDepth(Position.fromFen(fen), level);
         long deadline = System.nanoTime() + timeCapMs * 1_000_000;
         Evaluator weights = evaluator;
         BitMove bitMove = Minimax.getBestMove(BitBoardRules.fromFen(fen), depth, weights,
@@ -140,16 +142,17 @@ public final class MinimaxEngine implements Engine {
         return toLegalMove(bitMove, legal);
     }
 
-    /** Depth = level / 2, plus 2 with at most 8 pieces left, plus 1 with at most 12. */
-    static int searchDepth(Position position, int skillLevel) {
+    /** The level's depth ({@link Levels#builtInDepth}), plus 2 with at most 8 pieces left, plus 1 with at most 12. */
+    static int searchDepth(Position position, int level) {
+        int depth = Levels.builtInDepth(level);
         int pieces = position.pieces().size();
         if (pieces <= 8) {
-            return skillLevel / 2 + 2;
+            return depth + 2;
         }
         if (pieces <= 12) {
-            return skillLevel / 2 + 1;
+            return depth + 1;
         }
-        return skillLevel / 2;
+        return depth;
     }
 
     /** Maps the search's {@link BitMove} onto the matching entry of the legal-move list. */

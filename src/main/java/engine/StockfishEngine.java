@@ -23,8 +23,8 @@ import java.util.stream.Collectors;
  *       Stockfish's output into a queue, so nothing polls with {@code sleep}.</li>
  *   <li>Each move sends the whole game ({@code position fen <start> moves …}), so Stockfish sees
  *       repetitions; {@code ucinewgame} is sent only when a different game starts.</li>
- *   <li>The UI's level sets Stockfish's "Skill Level" ({@code level - 1}, 0-20) and how long it
- *       thinks ({@link #moveTimeMs}).</li>
+ *   <li>The level sets Stockfish's strength, a UCI_Elo or full strength, and how long it thinks
+ *       ({@link Levels}).</li>
  *   <li>A cancelled request sends {@code stop}. A crashed or silent process is killed and started
  *       again on the next request; after {@link #MAX_FAILURES} failures in a row, or if the
  *       executable cannot be launched, the engine reports itself unavailable and the caller falls
@@ -45,19 +45,9 @@ public class StockfishEngine implements Engine {
     /** End-of-output marker the reader thread puts in the queue. */
     private static final String EOF = "\u0000eof";
 
-    /** Thinking time: UI Levels 8 / 9 / 10 (skill 14 / 16 / 18) think 300 / 600 / 1000 ms, hints (21) 1000 ms. */
+    /** Thinking time at {@code level} ({@link Levels#stockfishMoveTimeMs}). */
     static long moveTimeMs(int level) {
-        if (level <= 14) {
-            return 300;
-        }
-        if (level <= 16) {
-            return 600;
-        }
-        return 1000;
-    }
-
-    static int skillFor(int level) {
-        return Math.max(0, Math.min(20, level - 1));
+        return Levels.stockfishMoveTimeMs(level);
     }
 
     private volatile List<String> command;
@@ -67,7 +57,8 @@ public class StockfishEngine implements Engine {
     private final BlockingQueue<String> output = new LinkedBlockingQueue<>();
     private volatile boolean unavailable;
     private int failures;
-    private int skill = -1;
+    /** The UCI_Elo last set, 0 for full strength, -1 before the first request. */
+    private int elo = -1;
     private String sessionStartFen;
     private int sessionPly;
     /** Set when the engine thread was interrupted mid-request; restored when the request ends. */
@@ -164,11 +155,16 @@ public class StockfishEngine implements Engine {
         sessionStartFen = request.startFen();
         sessionPly = request.moves().size();
 
-        int wantedSkill = skillFor(request.skillLevel());
-        if (wantedSkill != skill) {
-            send("setoption name Skill Level value " + wantedSkill);
+        int wantedElo = Levels.stockfishElo(request.skillLevel());
+        if (wantedElo != elo) {
+            if (wantedElo > 0) {
+                send("setoption name UCI_LimitStrength value true");
+                send("setoption name UCI_Elo value " + wantedElo);
+            } else {
+                send("setoption name UCI_LimitStrength value false");
+            }
             sync();
-            skill = wantedSkill;
+            elo = wantedElo;
         }
 
         String moves = request.moves().stream().map(ChessMove::toUci).collect(Collectors.joining(" "));
@@ -279,7 +275,7 @@ public class StockfishEngine implements Engine {
         reader.setDaemon(true);
         reader.start();
         sessionStartFen = null;
-        skill = -1;
+        elo = -1;
         try {
             send("uci");
             await("uciok");

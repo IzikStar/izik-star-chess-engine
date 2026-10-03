@@ -19,14 +19,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
- * Stockfish really plays Levels 8-10 (October 2026: the owner's Level 6 beat "Stockfish" at Level
+ * Stockfish really plays its levels (October 2026: the owner's Level 6 beat "Stockfish" at Level
  * 10, because the game never found Stockfish and Levels 8-10 quietly fell back to Level 2).
  */
 class StockfishStrengthTest {
 
-    /** UI Level 10 and UI Level 6, on the session's 0-18 scale. */
-    private static final int LEVEL_10 = 18;
-    private static final int LEVEL_6 = 10;
+    /** Stockfish's top level and the built-in engine's Level 6 (depth 5). */
+    private static final int LEVEL_10 = Levels.MAX;
+    private static final int LEVEL_6 = 6;
 
     private static boolean installed() {
         return Files.isExecutable(Path.of("/usr/games/stockfish")) || System.getProperty("stockfish.path") != null
@@ -50,7 +50,7 @@ class StockfishStrengthTest {
 
     @Test
     @Tag("stress")
-    @DisplayName("Stockfish at Level 10 beats the built-in engine at Level 6 with either colour")
+    @DisplayName("Stockfish at the top level beats the built-in engine at Level 6 with either colour")
     void level10BeatsLevel6() {
         assumeTrue(installed(), "Stockfish not installed");
         EngineSelector engines = new EngineSelector(new MinimaxEngine(), new StockfishEngine());
