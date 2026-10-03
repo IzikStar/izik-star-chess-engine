@@ -124,6 +124,22 @@ public final class MinimaxEngine implements Engine {
         return toLegalMove(bitMove, legal);
     }
 
+    /**
+     * Like {@link #searchAtDepth(String, int, Evaluator, Minimax.Options)}, but deepening only while
+     * {@code millis} have not passed: the move of the deepest depth finished in time.
+     */
+    public static ChessMove searchWithin(String fen, int maxDepth, Evaluator evaluator, Minimax.Options options,
+                                         long millis) {
+        List<ChessMove> legal = Rules.legalMoves(fen);
+        if (legal.isEmpty()) {
+            return null;
+        }
+        long deadline = System.nanoTime() + millis * 1_000_000;
+        BitMove bitMove = Minimax.getBestMove(BitBoardRules.fromFen(fen), maxDepth, evaluator, options,
+                () -> System.nanoTime() > deadline);
+        return toLegalMove(bitMove, legal);
+    }
+
     /** Depth = level / 2, plus 2 with at most 8 pieces left, plus 1 with at most 12. */
     static int searchDepth(Position position, int skillLevel) {
         int pieces = position.pieces().size();

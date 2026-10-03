@@ -3,13 +3,15 @@
 # any of these moves (docs/phase-4b-research.md, section 6, item 5). The first six are the benchmark
 # positions; the other 50 are every 20th position sampled from seeded random games.
 # Re-recorded in Phase 5 step 2, when the quiescence search was added (docs/phase-5-research.md §9).
+# Re-recorded in Phase 5b for the transposition table and move ordering: 6 of the 224 moves changed,
+# each to another move of exactly the same score (ai.TranspositionTableTest; docs/phase-5b-research.md §5).
 # Re-record only for a change that is meant to alter the engine's play:
 #   mvn -o test-compile && java -cp target/classes:target/test-classes engine.SameMoveTest > moves.txt
 # fen | depth 1 | depth 2 | depth 3 | depth 4
 rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 | d2d4 | d2d4 | b1c3 | e2e4
 rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1 | e7e5 | d7d5 | b8c6 | d7d5
 r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 6 5 | e1g1 | e1g1 | c4f7 | f3e5
-r2q1rk1/pp2bppp/2n1pn2/3p4/3P4/2NBPN2/PP3PPP/R2Q1RK1 w - - 0 10 | d1a4 | d1a4 | d1a4 | d1b3
+r2q1rk1/pp2bppp/2n1pn2/3p4/3P4/2NBPN2/PP3PPP/R2Q1RK1 w - - 0 10 | d1a4 | d1a4 | d1a4 | d1a4
 r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1 | e2a6 | e2a6 | e2a6 | e2a6
 8/5pk1/6p1/8/3R4/6P1/5PK1/3r4 w - - 0 40 | d4d1 | d4d1 | d4d1 | d4d1
 rnbqkb1r/pppppppp/7n/8/8/3P4/PPPNPPPP/R1BQKBNR b KQkq - 2 2 | b8c6 | b8c6 | b8c6 | b8c6
@@ -19,7 +21,7 @@ r1b1k3/p2n3r/1ppB3b/nN5p/1q2PP2/1PP4N/P5PP/RQ2KBR1 b Q - 3 23 | b4b5 | b4b5 | b4
 8/1BQqnr2/4kppr/PN2p1P1/b2pP2p/6RP/3P1P2/4K1N1 b - - 19 44 | h4g3 | d7b5 | d7b5 | d7b5
 r7/4k1B1/B3b3/1P4p1/p5P1/nP6/P1Q2nKP/1r5R w - - 0 55 | c2c7 | c2c7 | c2c7 | c2c7
 rnbqk1nr/1pp1bpp1/p3p3/3p3p/3P2P1/N7/PPP1PP1P/R1BQKBNR w KQkq - 0 6 | g4h5 | g4h5 | g4h5 | g4h5
-2b1kbnr/1rq1np1p/p2p2P1/1Np1p3/1P2Q2P/B1P2NP1/P2PP3/R3KB1R b KQk - 0 16 | b7b5 | b7b5 | a6b5 | b7b5
+2b1kbnr/1rq1np1p/p2p2P1/1Np1p3/1P2Q2P/B1P2NP1/P2PP3/R3KB1R b KQk - 0 16 | a6b5 | a6b5 | a6b5 | a6b5
 1n1k1br1/2r3pp/p3p1p1/1P1pN3/2pPn2R/P3P1P1/2P1BQ2/R1B1K3 w - - 4 27 | f2f3 | e5f7 | h4e4 | h4e4
 r1b2r2/2qp3p/p1n1pbkP/P1p1P1p1/1N4n1/5p2/RPPRBP2/1QB1K3 b - - 2 37 | c6b4 | c5b4 | c5b4 | c5b4
 1n1r1b2/2k5/8/p1P5/p1n1p2R/P1Kp3P/8/3R4 w - - 1 48 | c3c4 | c3c4 | c3c4 | c3c4
@@ -29,7 +31,7 @@ r1bqkbnr/5ppp/1p2p3/p2p4/1npP4/N2Q1PBN/PPP1P1PP/R3KB1R b KQkq - 1 9 | c4d3 | c4d
 r3r3/p2p3p/bppkPK1p/8/P3P1P1/R6n/2PPB3/BNQ1nR2 b - - 1 30 | e8e6 | e8e6 | e8e6 | e8e6
 4kb2/4P2B/p1r1q3/P2N1bp1/p5P1/3p2Kp/7P/R1r3NR w - - 0 41 | g1f3 | d5c7 | a1c1 | a1c1
 r7/pb3Bbp/4p3/N3n1p1/2k5/6KP/6PR/2N3R1 b - - 0 51 | c4b4 | c4b4 | c4b4 | c4b4
-r1bqkbnr/pppppppp/2n5/8/6P1/7P/PPPPPP2/RNBQKBNR b KQkq - 0 2 | g8f6 | g8f6 | e7e5 | g8f6
+r1bqkbnr/pppppppp/2n5/8/6P1/7P/PPPPPP2/RNBQKBNR b KQkq - 0 2 | g8f6 | g8f6 | e7e5 | d7d5
 rnb1kb2/p2npp2/3p3r/2p3pp/p1B3P1/Pq2PP2/1PPP1K1P/R1B2QNR w q - 0 13 | c2b3 | c2b3 | c2b3 | c2b3
 rnbqkbnr/pp1ppppp/2p5/8/8/2N5/PPPPPPPP/1RBQKBNR b Kkq - 1 2 | e7e5 | e7e5 | b8a6 | b7b5
 1n2k1nr/1pq1pp1p/2ppb1p1/r3B1PP/8/p1PP1P2/PP1NP3/R2QKBNR w KQk - 1 13 | e5h8 | e5h8 | e5h8 | e5h8
@@ -47,7 +49,7 @@ r1b3rb/3pkp2/p3p2n/P2pN1pp/1P1P1P1P/4P3/RP1RK3/2B3q1 w - - 0 27 | h4g5 | h4g5 | 
 rnb5/3pnk2/P2r4/2p1p1Pp/4P1P1/P2P4/1PKN1PB1/RNq4R w - - 0 20 | h1c1 | h1c1 | h1c1 | c2c1
 5bn1/1b2k3/rq3pPQ/2N1np1B/1p1p1P1P/1PPP4/PpR3K1/R7 w - - 4 41 | c5b7 | c5b7 | c5b7 | g2g3
 1k6/6Bp/1P2R3/3pPp2/1n6/Ppp5/1R4B1/1K4N1 b - - 4 51 | c3b2 | c3b2 | c3c2 | c3c2
-1nb1k2r/rpppnppp/p3P2q/8/P1P5/1R1PP3/1P1K2P1/1NBQ1BNR w k - 4 13 | e6f7 | e6f7 | e6f7 | e6f7
+1nb1k2r/rpppnppp/p3P2q/8/P1P5/1R1PP3/1P1K2P1/1NBQ1BNR w k - 4 13 | h1h6 | h1h6 | h1h6 | h1h6
 q3kbr1/r1ppp3/Qp3ppp/2Pb4/3P3P/PpN1BNP1/R4P2/4KBR1 b - - 0 23 | a7a6 | b3a2 | b3a2 | b3a2
 r4n1r/5kbp/p6P/1ppp2P1/2P5/PPpb2KB/3NP2R/1RQ5 w - - 3 34 | h6g7 | h6g7 | h6g7 | h6g7
 5r2/1p1b3k/2p1P2p/Pr3PpP/N7/b2p1Q2/3R1K2/7N b - - 2 44 | f8f5 | b5f5 | b5f5 | b5f5

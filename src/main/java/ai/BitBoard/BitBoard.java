@@ -510,6 +510,39 @@ public class BitBoard {
     }
 
     /**
+     * How the search orders this position among {@code parent}'s children: a capture scores its
+     * victim first, then the cheaper attacker first (MVV-LVA), and a queen promotion counts as winning
+     * a queen. Quiet moves (and under-promotions) score -1. Uses the same fixed values as the
+     * quiescence search, whatever the evaluation's weights.
+     */
+    public int captureScore(BitBoard parent) {
+        long both = lastMove.piece.position & lastMove.newPosition;
+        long from = lastMove.piece.position & ~both;
+        long to = lastMove.newPosition & ~both;
+        if (from == 0 || to == 0) {
+            return -1;
+        }
+        long enemy = parent.isWhiteToMove ? parent.blackPieces : parent.whitePieces;
+        int toSquare = Long.numberOfTrailingZeros(to);
+        int attacker = parent.roughValueOn(Long.numberOfTrailingZeros(from));
+        int victim = 0;
+        if ((enemy & to) != 0) {
+            victim = parent.roughValueOn(toSquare);
+        } else if (attacker == ROUGH_VALUE[6] && toSquare == parent.enPassantTile
+                && ((parent.whitePawns | parent.blackPawns) & from) != 0) {
+            victim = ROUGH_VALUE[6];
+        }
+        if (attacker == ROUGH_VALUE[6] && (to & (BoardParts.getPromotionRow(0) | BoardParts.getPromotionRow(1))) != 0
+                && Character.toLowerCase(lastMove.promotionChoice) == 'q') {
+            victim += ROUGH_VALUE[2];
+        }
+        if (victim == 0) {
+            return -1;
+        }
+        return victim * 16 + 15 - Math.min(attacker, 10); // the king (1000) attacks last
+    }
+
+    /**
      * Textbook piece values (king 1 … pawn 6), only for skipping captures that lose material. They
      * are fixed rather than the evaluation's weights, so the search prunes the same way whatever
      * weights it is given.

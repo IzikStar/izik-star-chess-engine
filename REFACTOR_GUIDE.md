@@ -533,6 +533,25 @@ position); both features are covered by tests in the Phase 0 suite's style.
 
 ---
 
+## Phase 5b — Transposition table and move ordering
+
+> **Status: in review** (branch `phase-5b-search-tt`). Research, decisions and numbers are in
+> [docs/phase-5b-research.md](docs/phase-5b-research.md).
+
+**Goal.** Win back the speed the Phase 5 quiescence search cost, so Level 7 finishes depth 6
+inside the 5 s cap again. Picks up what Phase 4b left for later (Fork B2).
+
+**Scope.** A sound transposition table (bounds, mate scores, a key that covers castling, en
+passant and what the evaluation reads), shared by the depths of one search; move ordering by the
+table's move, MVV-LVA captures, killers and history. Engine code only; search stays per call,
+thread-safe and repeatable with a seed.
+
+**Exit criteria.** Same root score as the search without them at every tested depth; Level 7
+within the 5 s cap in `SearchSpeedTest`; equal or better in the arena at equal depth and stronger at
+equal time; every changed move in `same-moves.txt` explained.
+
+---
+
 ## Cross-phase notes
 
 - **Do not parallelize phases 2–4.** They each assume the previous phase's exit criteria are

@@ -3,9 +3,11 @@ package ai;
 import ai.BitBoard.BitBoard;
 import ai.BitBoard.BitBoardEvaluate;
 import ai.BitBoard.BitMove;
+import ai.BitBoard.ZobristHashing;
 import ai.eval.Evaluator;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Random;
 import java.util.function.BooleanSupplier;
 
@@ -27,6 +29,14 @@ import java.util.function.BooleanSupplier;
  * does not stop in the middle of an exchange: a quiescence search plays on the captures and
  * promotions (and every reply to a check) until the position is quiet, so a leaf never counts a
  * piece that is about to be taken back.
+ *
+ * <p>Transposition table and move ordering (Phase 5b, docs/phase-5b-research.md): the depths of one
+ * {@code getBestMove} call share a {@link TranspositionTable}, killer moves and a history table.
+ * A position already searched deeply enough returns its stored result, and every position tries
+ * first the move that was best there in the previous depth, then captures (most valuable victim
+ * first), then the quiet moves that cut off the search at the same ply or elsewhere. Both only make
+ * the search faster: at the same depth it finds the same value, but it may pick another move of
+ * that value. All of it lives in the call, so searches on different threads share nothing.
  */
 public class Minimax {
 
@@ -57,15 +67,21 @@ public class Minimax {
     private final boolean quiescence;
     private final ArrayList<BitMove> rootMoves = new ArrayList<>();
     private final ArrayList<Integer> rootValues = new ArrayList<>();
+    /** Shared by the depths of one {@code getBestMove} call; null searches as before Phase 5b. */
+    private final SearchState state;
     private int nodesChecked = 0;
+    /** The root's score after {@link #search}, from the root side's point of view. */
+    private int rootValue;
 
     /**
      * How a search picks its move. {@code variety}: how far below the best score (pawn = 10) a root
      * move may be and still be played, picked with {@code random}; 0 always plays the best.
      * {@code quiescence}: play on through captures past the depth (off only to compare with the
-     * search as it was before Phase 5).
+     * search as it was before Phase 5). {@code transpositionTable} and {@code moveOrdering}: the
+     * Phase 5b speedups (off only to compare with the search as it was before).
      */
-    public record Options(int variety, Random random, boolean quiescence) {
+    public record Options(int variety, Random random, boolean quiescence, boolean transpositionTable,
+                          boolean moveOrdering) {
         public static final Options DEFAULT = new Options(0, null, true);
 
         public Options {
@@ -73,10 +89,29 @@ public class Minimax {
                 throw new IllegalArgumentException("variety needs a non-negative margin and a Random");
             }
         }
+
+        /** With the Phase 5b transposition table and move ordering. */
+        public Options(int variety, Random random, boolean quiescence) {
+            this(variety, random, quiescence, true, true);
+        }
+
+        /** The same options with the Phase 5b speedups on or off. */
+        public Options withSpeedups(boolean on) {
+            return new Options(variety, random, quiescence, on, on);
+        }
+    }
+
+    /** The searched-node count of the last finished depth on this thread, for benchmarks. */
+    private static final ThreadLocal<long[]> LAST_NODES = ThreadLocal.withInitial(() -> new long[1]);
+
+    /** Nodes (main search and quiescence) the last {@code getBestMove} call on this thread visited. */
+    public static long lastNodeCount() {
+        return LAST_NODES.get()[0];
     }
 
     private Minimax(int searchDepth, Evaluator evaluator, Options options, boolean rootIsBlack,
-                    BooleanSupplier stop) {
+                    BooleanSupplier stop, SearchState state) {
+        this.state = state;
         this.searchDepth = searchDepth;
         this.evaluator = evaluator;
         this.variety = options.variety();
@@ -114,22 +149,47 @@ public class Minimax {
     public static BitMove getBestMove(BitBoard bitboard, int maxDepth, Evaluator evaluator, Options options,
                                       BooleanSupplier stop) {
         boolean rootIsBlack = !bitboard.getIsWhiteToMove();
-        BitMove best = new Minimax(1, evaluator, options, rootIsBlack, () -> false).search(bitboard);
+        SearchState state = options.transpositionTable() || options.moveOrdering()
+                ? new SearchState(maxDepth, options) : null;
+        Minimax first = new Minimax(1, evaluator, options, rootIsBlack, () -> false, state);
+        BitMove best = first.search(bitboard);
+        long nodes = first.nodesChecked;
         for (int depth = 2; depth <= maxDepth && !stop.getAsBoolean(); depth++) {
+            Minimax next = new Minimax(depth, evaluator, options, rootIsBlack, stop, state);
             try {
-                best = new Minimax(depth, evaluator, options, rootIsBlack, stop).search(bitboard);
+                best = next.search(bitboard);
             } catch (Abandoned e) {
                 break;
+            } finally {
+                nodes += next.nodesChecked;
             }
         }
+        LAST_NODES.get()[0] = nodes;
         return best;
+    }
+
+    /**
+     * The score of the best move at exactly {@code depth}, deepening as {@code getBestMove} does.
+     * For tests: the Phase 5b speedups must not change it.
+     */
+    static int searchValue(BitBoard bitboard, int depth, Evaluator evaluator, Options options) {
+        boolean rootIsBlack = !bitboard.getIsWhiteToMove();
+        SearchState state = options.transpositionTable() || options.moveOrdering()
+                ? new SearchState(depth, options) : null;
+        int value = 0;
+        for (int d = 1; d <= depth; d++) {
+            Minimax search = new Minimax(d, evaluator, options, rootIsBlack, () -> false, state);
+            search.search(bitboard);
+            value = search.rootValue;
+        }
+        return value;
     }
 
     private BitMove search(BitBoard bitboard) {
         BoardStateTracker boardStateTracker = new BoardStateTracker();
-        TranspositionTable transpositionTable = new TranspositionTable();
         MinimaxResult result = minimax(bitboard, searchDepth, true, Integer.MIN_VALUE, Integer.MAX_VALUE,
-                boardStateTracker, transpositionTable);
+                boardStateTracker);
+        rootValue = result.value;
         if (variety == 0 || Math.abs(result.value) >= BitBoardEvaluate.MATE) {
             return result.move;
         }
@@ -142,18 +202,30 @@ public class Minimax {
         return candidates.isEmpty() ? result.move : candidates.get(random.nextInt(candidates.size()));
     }
 
-    private MinimaxResult minimax(BitBoard board, int depth, boolean isMaximizingPlayer, int alpha, int beta, BoardStateTracker boardStateTracker, TranspositionTable transpositionTable) {
-        // long zobristHash = ZobristHashing.computeHash(board);
-
-        // בדיקה אם המצב כבר קיים בטבלת טרנספוזיציות
-//        TranspositionTable.TranspositionTableEntry entry = transpositionTable.get(zobristHash);
-//        if (entry != null && entry.depth >= depth) {
-//            System.out.println("this state has already been checked. returning saved result");
-//            return new MinimaxResult(entry.bestMove, entry.value);
-//        }
-
+    private MinimaxResult minimax(BitBoard board, int depth, boolean isMaximizingPlayer, int alpha, int beta,
+                                  BoardStateTracker boardStateTracker) {
         if (++nodesChecked % STOP_CHECK_INTERVAL == 0 && stop.getAsBoolean()) {
             throw ABANDONED;
+        }
+        boolean lastDepth = depth == searchDepth; // the root: its children are the candidate moves
+        TranspositionTable table = state == null ? null : state.table;
+        long key = 0;
+        int hashMove = 0;
+        if (table != null && depth > 0) {
+            key = ZobristHashing.searchKey(board);
+            int slot = table.find(key);
+            if (slot >= 0) {
+                hashMove = table.move(slot);
+                if (!lastDepth && table.depth(slot) >= depth) {
+                    int value = fromTable(table.value(slot), depth);
+                    int bound = table.bound(slot);
+                    if (bound == TranspositionTable.EXACT
+                            || bound == TranspositionTable.LOWER && value >= beta
+                            || bound == TranspositionTable.UPPER && value <= alpha) {
+                        return new MinimaxResult(null, value); // only the root's move is ever read
+                    }
+                }
+            }
         }
         if (depth == 0 && quiescence) {
             return new MinimaxResult(board.lastMove, quiescence(board, 0, isMaximizingPlayer, alpha, beta));
@@ -167,6 +239,9 @@ public class Minimax {
             } else if (value <= -BitBoardEvaluate.MATE) {
                 value -= depth;
             }
+            if (table != null && depth > 0) {
+                table.put(key, depth, toTable(value, depth), TranspositionTable.EXACT, 0);
+            }
             return new MinimaxResult(board.lastMove, value);
         }
 
@@ -178,43 +253,51 @@ public class Minimax {
         }
 
         ArrayList<BitBoard> children = board.getSortedNextStates(); // sorted once, best-ordered first
+        int ply = searchDepth - depth;
+        if (state != null) {
+            state.order(children, board, hashMove, ply);
+        }
         BitMove bestMove = children.getFirst().lastMove;
-        boolean lastDepth = depth == searchDepth; // the root: its children are the candidate moves
+        BitBoard bestChild = children.getFirst();
+        int alphaBefore = alpha;
+        int betaBefore = beta;
         int bestValue;
 
         if (isMaximizingPlayer) {
             bestValue = Integer.MIN_VALUE;
-            for (BitBoard state : children) {
-                MinimaxResult result = minimax(state, depth - 1, false, alpha, beta, boardStateTracker, transpositionTable);
+            for (BitBoard child : children) {
+                MinimaxResult result = minimax(child, depth - 1, false, alpha, beta, boardStateTracker);
 
                 if (result.value > bestValue) {
-                    bestMove = state.lastMove;
+                    bestMove = child.lastMove;
+                    bestChild = child;
                     bestValue = result.value;
                 }
                 if (lastDepth && variety > 0) {
-                    rootMoves.add(state.lastMove);
+                    rootMoves.add(child.lastMove);
                     rootValues.add(result.value);
                 }
                 // at the root, keep the window open by `variety` so near-best moves get exact scores
                 alpha = Math.max(alpha, lastDepth && variety > 0 && bestValue > Integer.MIN_VALUE + variety
                         ? bestValue - variety - 1 : bestValue);
                 if (beta <= alpha) {
-                    // prunings += 1 * (maxDepth - depth);
+                    cutoff(board, child, depth, ply);
                     break; // אלפא-בטא גיזום
                 }
             }
         } else {
             bestValue = Integer.MAX_VALUE;
-            for (BitBoard state : children) {
-                MinimaxResult result = minimax(state, depth - 1, true, alpha, beta, boardStateTracker, transpositionTable);
+            for (BitBoard child : children) {
+                MinimaxResult result = minimax(child, depth - 1, true, alpha, beta, boardStateTracker);
 
                 if (result.value < bestValue) {
                     bestValue = result.value;
-                    bestMove = state.lastMove;
+                    bestMove = child.lastMove;
+                    bestChild = child;
                 }
                 beta = Math.min(beta, bestValue);
                 if (beta <= alpha) {
-                    // prunings += 1 * (maxDepth - depth);
+                    cutoff(board, child, depth, ply);
                     break; // אלפא-בטא גיזום
                 }
             }
@@ -224,11 +307,156 @@ public class Minimax {
         if (!lastDepth) {
             board.releaseNextStates(); // searched: let its subtree go; the root keeps its moves between depths
         }
-//
-//        // שמירת התוצאה בטבלת טרנספוזיציות
-//        transpositionTable.put(zobristHash, depth, bestValue, bestMove);
+        if (table != null) {
+            int bound = bestValue <= alphaBefore ? TranspositionTable.UPPER
+                    : bestValue >= betaBefore ? TranspositionTable.LOWER : TranspositionTable.EXACT;
+            if (lastDepth) {
+                bound = TranspositionTable.EXACT; // the root searches with the full window
+            }
+            // a fail-low has no best move worth remembering; keep the one an earlier visit found
+            int move = bound == TranspositionTable.UPPER ? 0 : moveCode(bestChild.lastMove);
+            table.put(key, depth, toTable(bestValue, depth), bound, move);
+        }
 
         return new MinimaxResult(bestMove, bestValue);
+    }
+
+    /** Remembers a quiet move that cut the search off, as a killer at its ply and in the history. */
+    private void cutoff(BitBoard parent, BitBoard child, int depth, int ply) {
+        if (state != null && state.moveOrdering && child.captureScore(parent) < 0) {
+            state.rememberCutoff(moveCode(child.lastMove), parent.getIsWhiteToMove(), depth, ply);
+        }
+    }
+
+    /**
+     * Mate scores count the plies to the mate from the root (see the leaf above); the table stores
+     * them counted from the position itself, so a position reached at another ply reads them right.
+     * The search's mate value at {@code depth} to go is MATE + depth - plies to the mate.
+     */
+    private static int toTable(int value, int depth) {
+        if (value >= MATE_THRESHOLD) {
+            return value - depth;
+        }
+        if (value <= -MATE_THRESHOLD) {
+            return value + depth;
+        }
+        return value;
+    }
+
+    private static int fromTable(int value, int depth) {
+        if (value >= MATE_THRESHOLD) {
+            return value + depth;
+        }
+        if (value <= -MATE_THRESHOLD) {
+            return value - depth;
+        }
+        return value;
+    }
+
+    /** Any score this far from MATE is a mate score, wherever in the search it was found. */
+    private static final int MATE_THRESHOLD = BitBoardEvaluate.MATE - 1000;
+
+    /**
+     * A move as a number the table, the killers and the history can store: from-square, to-square
+     * and the promotion piece. Never 0.
+     */
+    static int moveCode(BitMove move) {
+        long both = move.piece.position & move.newPosition;
+        int from = Long.numberOfTrailingZeros(move.piece.position & ~both) & 63;
+        int to = Long.numberOfTrailingZeros(move.newPosition & ~both) & 63;
+        return from | to << 6 | (Character.toLowerCase(move.promotionChoice) & 0x1F) << 12;
+    }
+
+    /**
+     * What the depths of one {@code getBestMove} call share (Phase 5b): the transposition table, two
+     * killer moves per ply and the history of quiet moves that cut the search off.
+     */
+    private static final class SearchState {
+        final TranspositionTable table;
+        final boolean moveOrdering;
+        final int[][] killers;
+        /** [side to move][from][to]: how much a quiet move has cut off, weighted by depth squared. */
+        final int[][][] history = new int[2][64][64];
+
+        SearchState(int maxDepth, Options options) {
+            table = options.transpositionTable() ? new TranspositionTable(tableBits(maxDepth)) : null;
+            moveOrdering = options.moveOrdering();
+            killers = new int[maxDepth + 1][2];
+        }
+
+        /**
+         * 2^16 slots (1 MB) for shallow searches up to 2^20 (16 MB) from depth 5: enough for the
+         * positions a search visits, without allocating 16 MB for every quick depth-3 arena move.
+         */
+        static int tableBits(int maxDepth) {
+            return Math.min(20, 14 + maxDepth);
+        }
+
+        void rememberCutoff(int move, boolean whiteToMove, int depth, int ply) {
+            if (killers[ply][0] != move) {
+                killers[ply][1] = killers[ply][0];
+                killers[ply][0] = move;
+            }
+            int[] row = history[whiteToMove ? 1 : 0][move & 63];
+            row[move >> 6 & 63] += depth * depth;
+            if (row[move >> 6 & 63] > HISTORY_MAX) {
+                for (int[][] side : history) {
+                    for (int[] r : side) {
+                        for (int i = 0; i < r.length; i++) {
+                            r[i] /= 2;
+                        }
+                    }
+                }
+            }
+        }
+
+        private static final int HISTORY_MAX = 1 << 20;
+
+        /**
+         * Orders the children: the table's move, captures by MVV-LVA, the two killers of this ply,
+         * then quiet moves by history. Ties keep the move generator's order (checks first).
+         */
+        void order(ArrayList<BitBoard> children, BitBoard parent, int hashMove, int ply) {
+            int n = children.size();
+            if (!moveOrdering) {
+                if (hashMove != 0) {
+                    for (int i = 0; i < n; i++) {
+                        if (moveCode(children.get(i).lastMove) == hashMove) {
+                            children.addFirst(children.remove(i));
+                            break;
+                        }
+                    }
+                }
+                return;
+            }
+            boolean white = parent.getIsWhiteToMove();
+            long[] keyed = new long[n];
+            for (int i = 0; i < n; i++) {
+                BitBoard child = children.get(i);
+                int code = moveCode(child.lastMove);
+                long score;
+                int capture;
+                if (code == hashMove) {
+                    score = 4L << 40;
+                } else if ((capture = child.captureScore(parent)) >= 0) {
+                    score = (3L << 40) + capture;
+                } else if (code == killers[ply][0]) {
+                    score = (2L << 40) + 1;
+                } else if (code == killers[ply][1]) {
+                    score = 2L << 40;
+                } else {
+                    score = history[white ? 1 : 0][code & 63][code >> 6 & 63];
+                }
+                keyed[i] = (-score) << 8 | i; // descending score, then generator order
+            }
+            Arrays.sort(keyed);
+            ArrayList<BitBoard> ordered = new ArrayList<>(n);
+            for (long k : keyed) {
+                ordered.add(children.get((int) (k & 0xFF)));
+            }
+            children.clear();
+            children.addAll(ordered);
+        }
     }
 
     /**

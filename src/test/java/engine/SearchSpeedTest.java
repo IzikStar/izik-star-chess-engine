@@ -27,10 +27,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * within 1 s, so it never falls back to a shallower move. That is depths 5 and 6, or 7 and 8 in the
  * rook endgame.
  *
- * <p>Level 7 has to finish within twice the engine's 5 s cap. Phase 4b had it within the cap, but
- * the quiescence search of Phase 5 makes every leaf dearer: the busiest benchmark (the middlegame)
- * now takes about 8 s at depth 6, so there the cap plays the depth-5 move. A transposition table and
- * better move ordering are the planned way back under the cap.
+ * <p>Level 7 has to finish within the engine's 5 s cap. Phase 4b had it there; the quiescence search
+ * of Phase 5 pushed the busiest benchmark (the middlegame) to about 6 s at depth 6, so the limit was
+ * twice the cap for a while. The transposition table and move ordering of Phase 5b brought it back
+ * to about 1.2 s (docs/phase-5b-research.md §4), and the limit back to the cap.
  *
  * <p>The searches run in a separate JVM with a 300 MB heap, so a search that needs more memory
  * fails with {@code OutOfMemoryError}. Before Phase 4b one search held the whole searched tree,
@@ -55,7 +55,7 @@ class SearchSpeedTest {
 
     static final List<Level> LEVELS = List.of(
             new Level(6, 10, 1000),
-            new Level(7, 12, 2 * MinimaxEngine.TIME_CAP_MS));
+            new Level(7, 12, MinimaxEngine.TIME_CAP_MS));
 
     static final String HEAP = "-Xmx300m";
 
