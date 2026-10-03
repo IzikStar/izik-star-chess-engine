@@ -12,7 +12,9 @@ import java.util.Map;
 /**
  * A value for every parameter of a {@link ParamSchema}: one individual, in evolution terms.
  * Immutable; values are kept inside each parameter's range. Saved as a JSON object of
- * {@code name: value}, readable and editable by hand.
+ * {@code name: value}, readable and editable by hand, plus {@code "unit": "centipawn"}: scores are
+ * in hundredths of a pawn (a pawn is 100). Files written before that marker existed were in tenths
+ * of a pawn and are converted when read.
  */
 public final class ParamVector {
 
@@ -72,8 +74,12 @@ public final class ParamVector {
         return with(i, value);
     }
 
+    /** The value of {@code "unit"} in saved files: scores are in hundredths of a pawn. */
+    public static final String UNIT = "centipawn";
+
     public String toJson() {
         JsonObject o = new JsonObject();
+        o.addProperty("unit", UNIT);
         for (int i = 0; i < values.length; i++) {
             o.addProperty(schema.spec(i).name(), values[i]);
         }
@@ -83,16 +89,26 @@ public final class ParamVector {
     /**
      * Reads {@code name: value} pairs; parameters the JSON leaves out keep their defaults (so a
      * file written before a parameter existed still loads). An unknown name is an error, since it
-     * is most likely a typo.
+     * is most likely a typo. A file without {@code "unit": "centipawn"} is from before the unit
+     * changed and its scores are read as tenths of a pawn ({@link ParamSchema#fromTenths}).
      */
     public static ParamVector fromJson(ParamSchema schema, String json) {
         int[] values = schema.defaults().toArray();
-        for (Map.Entry<String, JsonElement> e : JsonParser.parseString(json).getAsJsonObject().entrySet()) {
+        JsonObject o = JsonParser.parseString(json).getAsJsonObject();
+        boolean tenths = !o.has("unit");
+        if (!tenths && !UNIT.equals(o.get("unit").getAsString())) {
+            throw new IllegalArgumentException("unknown unit " + o.get("unit").getAsString());
+        }
+        for (Map.Entry<String, JsonElement> e : o.entrySet()) {
+            if (e.getKey().equals("unit")) {
+                continue;
+            }
             int i = schema.indexOf(e.getKey());
             if (i < 0) {
                 throw new IllegalArgumentException("unknown parameter " + e.getKey());
             }
-            values[i] = e.getValue().getAsInt();
+            int value = e.getValue().getAsInt();
+            values[i] = tenths ? schema.fromTenths(i, value) : value;
         }
         return new ParamVector(schema, values);
     }

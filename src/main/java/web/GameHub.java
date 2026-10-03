@@ -184,7 +184,7 @@ final class GameHub implements GameListener {
             throw new IllegalArgumentException("Could not read the PGN: " + e.getMessage());
         }
         if (builtIn != null) {
-            builtIn.useEvaluator(BitBoardEvaluate.DEFAULT);
+            builtIn.useEvaluator(BitBoardEvaluate.CLASSIC);
         }
         opponent = null;
         session.updateConfig(session.config().withMode(GameConfig.Mode.HUMAN_VS_HUMAN));
@@ -234,7 +234,7 @@ final class GameHub implements GameListener {
                 level = Math.min(level, EngineSelector.STOCKFISH_FROM_LEVEL - 1);
                 blackLevel = Math.min(blackLevel, EngineSelector.STOCKFISH_FROM_LEVEL - 1);
             } else {
-                builtIn.useEvaluator(BitBoardEvaluate.DEFAULT);
+                builtIn.useEvaluator(BitBoardEvaluate.CLASSIC);
             }
         }
         opponent = newOpponent;

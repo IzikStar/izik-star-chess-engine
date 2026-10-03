@@ -25,7 +25,7 @@ import java.util.function.BooleanSupplier;
  * line being searched and the root's moves stay in memory, not the whole tree.
  *
  * <p>Evaluation (Phase 5): the leaves are scored by an {@link Evaluator} the caller chooses; the
- * overloads without one use {@link BitBoardEvaluate#DEFAULT}. When the depth runs out the search
+ * overloads without one use {@link BitBoardEvaluate#CLASSIC}. When the depth runs out the search
  * does not stop in the middle of an exchange: a quiescence search plays on the captures and
  * promotions (and every reply to a check) until the position is quiet, so a leaf never counts a
  * piece that is about to be taken back.
@@ -82,7 +82,7 @@ public class Minimax {
     private int rootValue;
 
     /**
-     * How a search picks its move. {@code variety}: how far below the best score (pawn = 10) a root
+     * How a search picks its move. {@code variety}: how far below the best score (pawn = 100) a root
      * move may be and still be played, picked with {@code random}; 0 always plays the best.
      * {@code quiescence}: play on through captures past the depth (off only to compare with the
      * search as it was before Phase 5). {@code transpositionTable} and {@code moveOrdering}: the
@@ -137,7 +137,7 @@ public class Minimax {
 
     /** {@link #getBestMove(BitBoard, int, Evaluator, BooleanSupplier)} with the default evaluation. */
     public static BitMove getBestMove(BitBoard bitboard, int maxDepth, BooleanSupplier stop) {
-        return getBestMove(bitboard, maxDepth, BitBoardEvaluate.DEFAULT, stop);
+        return getBestMove(bitboard, maxDepth, BitBoardEvaluate.CLASSIC, stop);
     }
 
     /**
