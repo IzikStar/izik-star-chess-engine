@@ -10,8 +10,11 @@ import engine.MinimaxEngine;
 import game.GameConfig;
 import game.GameListener;
 import game.GameSession;
+import game.GameEnd;
+import game.TimeControl;
 import rules.ChessMove;
 import rules.MoveResult;
+import rules.Pgn;
 
 import java.util.List;
 import java.util.Set;
@@ -36,9 +39,11 @@ import java.util.function.Consumer;
  * {@code hint}, {@code newGame} {mode: engine|friend|computer, color: white|black|random,
  * level: 1-10, blackLevel: 1-10 (computer mode: Black's level; level is then White's),
  * champion: {run, generation} (optional: the built-in engine plays with that evolved champion's
- * weights, at level 7 at most)}. Server to client: {@code {"type":"state","events":[...],"state":{...}}};
+ * weights, at level 7 at most), time: {initialMs, incrementMs} (optional; absent or null is
+ * untimed)}, {@code resign}, {@code offerDraw}, {@code answerDraw} {accept}, {@code loadPgn}
+ * {pgn} (the game becomes a two-player game from its last position). Server to client: {@code {"type":"state","events":[...],"state":{...}}};
  * the state's {@code opponent} is the champion being played ({run, generation, label}), or null. An event is
- * {@code {kind: move|reset|config|hint|gameOver|rejected, ...}}.
+ * {@code {kind: move|reset|config|hint|gameOver|ended|drawOffer|drawDeclined|rejected, ...}}.
  */
 final class GameHub implements GameListener {
 
@@ -125,7 +130,8 @@ final class GameHub implements GameListener {
         switch (type) {
             case "move" -> {
                 String uci = msg.get("uci").getAsString();
-                if (session.playHumanMove(ChessMove.fromUci(uci)) == null) {
+                // a move that comes after the flag fell is answered by the loss on time, not a rejection
+                if (session.playHumanMove(ChessMove.fromUci(uci)) == null && session.end() == null) {
                     JsonObject e = event("rejected");
                     e.addProperty("reason", "illegal or not your turn: " + uci);
                     pending.add(e);
@@ -134,8 +140,43 @@ final class GameHub implements GameListener {
             case "undo" -> session.undo();
             case "hint" -> session.requestHint();
             case "newGame" -> newGame(msg);
+            case "resign" -> refuseUnless(session.resign(), "nobody can resign now");
+            case "offerDraw" -> refuseUnless(session.offerDraw(), "a draw cannot be offered now");
+            case "answerDraw" -> refuseUnless(session.answerDraw(msg.get("accept").getAsBoolean()), "no draw offer is waiting");
+            case "loadPgn" -> loadPgn(msg.get("pgn").getAsString());
             default -> throw new IllegalArgumentException("unknown message type: " + type);
         }
+    }
+
+    private void refuseUnless(boolean done, String reason) {
+        if (!done) {
+            JsonObject e = event("rejected");
+            e.addProperty("reason", reason);
+            pending.add(e);
+        }
+    }
+
+    private void loadPgn(String pgn) {
+        try {
+            Pgn.read(pgn); // check it before touching the game
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Could not read the PGN: " + e.getMessage());
+        }
+        if (builtIn != null) {
+            builtIn.useEvaluator(BitBoardEvaluate.DEFAULT);
+        }
+        opponent = null;
+        session.updateConfig(session.config().withMode(GameConfig.Mode.HUMAN_VS_HUMAN));
+        session.loadPgn(pgn);
+    }
+
+    private static TimeControl timeControl(JsonObject msg) {
+        JsonElement time = msg.get("time");
+        if (time == null || time.isJsonNull()) {
+            return TimeControl.NONE;
+        }
+        JsonObject t = time.getAsJsonObject();
+        return new TimeControl(t.get("initialMs").getAsLong(), t.has("incrementMs") ? t.get("incrementMs").getAsLong() : 0);
     }
 
     private void newGame(JsonObject msg) {
@@ -179,7 +220,7 @@ final class GameHub implements GameListener {
         GameConfig config = new GameConfig(mode, white, level, blackLevel);
         // reset first, so the engine does not start a move in the old position under the new config
         session.updateConfig(new GameConfig(GameConfig.Mode.HUMAN_VS_HUMAN, white, level));
-        session.newGame();
+        session.newGame(rules.Position.START_FEN, timeControl(msg));
         session.updateConfig(config);
     }
 
@@ -219,6 +260,29 @@ final class GameHub implements GameListener {
     }
 
     @Override
+    public void gameEnded(GameEnd end) {
+        JsonObject e = event("ended");
+        e.addProperty("reason", end.reason().name());
+        e.addProperty("side", end.white() ? "white" : "black");
+        e.addProperty("result", end.result());
+        pending.add(e);
+    }
+
+    @Override
+    public void drawOffered(boolean byWhite) {
+        JsonObject e = event("drawOffer");
+        e.addProperty("by", byWhite ? "white" : "black");
+        pending.add(e);
+    }
+
+    @Override
+    public void drawDeclined(boolean offeredByWhite) {
+        JsonObject e = event("drawDeclined");
+        e.addProperty("by", offeredByWhite ? "white" : "black");
+        pending.add(e);
+    }
+
+    @Override
     public void hint(ChessMove move) {
         hint = move;
         JsonObject e = event("hint");
@@ -247,7 +311,8 @@ final class GameHub implements GameListener {
         JsonObject msg = new JsonObject();
         msg.addProperty("type", "state");
         msg.add("events", events);
-        JsonObject state = GameStateJson.snapshot(session, hint);
+        JsonObject state = GameStateJson.snapshot(session, hint,
+                opponent == null ? null : opponent.get("label").getAsString());
         state.add("opponent", opponent == null ? null : opponent.deepCopy());
         msg.add("state", state);
         return msg.toString();

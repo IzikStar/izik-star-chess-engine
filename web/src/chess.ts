@@ -1,6 +1,6 @@
 // Display helpers only. Nothing here decides what is legal; that comes from the server.
 
-import type { Color, GameState, Status } from './protocol';
+import type { Color, GameEnd, GameState, Status } from './protocol';
 
 export const VALUES: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 const START_COUNT: Record<string, number> = { p: 8, n: 2, b: 2, r: 2, q: 1 };
@@ -126,8 +126,22 @@ export function colorName(color: Color): string {
   return color === 'white' ? 'White' : 'Black';
 }
 
-/** "Checkmate · Black wins", "Draw by threefold repetition", ... for a finished game. */
-export function resultText(status: Status, turn: Color): string {
+/** "Checkmate · Black wins", "White resigns · Black wins", "Draw by agreement", ... for a finished game. */
+export function resultText(status: Status, turn: Color, end: GameEnd | null = null): string {
+  if (end) {
+    const side = colorName(end.side);
+    const winner = colorName(other(end.side));
+    switch (end.reason) {
+      case 'RESIGNATION':
+        return `${side} resigns · ${winner} wins`;
+      case 'TIMEOUT':
+        return `${side} ran out of time · ${winner} wins`;
+      case 'TIMEOUT_VS_INSUFFICIENT_MATERIAL':
+        return `${side} ran out of time · Draw, ${winner} cannot mate`;
+      case 'AGREEMENT':
+        return 'Draw by agreement';
+    }
+  }
   switch (status) {
     case 'CHECKMATE':
       return `Checkmate · ${colorName(other(turn))} wins`;
@@ -146,6 +160,38 @@ export function resultText(status: Status, turn: Color): string {
 
 export function isOver(state: GameState): boolean {
   return state.result !== null;
+}
+
+/** The time controls the New game dialog offers, in minutes + seconds of increment. */
+export const TIME_CONTROLS: { key: string; minutes: number; increment: number }[] = [
+  { key: '1+0', minutes: 1, increment: 0 },
+  { key: '3+2', minutes: 3, increment: 2 },
+  { key: '5+0', minutes: 5, increment: 0 },
+  { key: '10+0', minutes: 10, increment: 0 },
+  { key: '15+10', minutes: 15, increment: 10 },
+];
+
+/** "3+2" for a clock of 3 minutes with 2 seconds a move, or "none" for an untimed game. */
+export function timeKey(clock: { initialMs: number; incrementMs: number } | null): string {
+  if (!clock) return 'none';
+  const key = `${clock.initialMs / 60_000}+${clock.incrementMs / 1000}`;
+  return TIME_CONTROLS.some((t) => t.key === key) ? key : 'none';
+}
+
+export function timeControlOf(key: string): { initialMs: number; incrementMs: number } | null {
+  const t = TIME_CONTROLS.find((c) => c.key === key);
+  return t ? { initialMs: t.minutes * 60_000, incrementMs: t.increment * 1000 } : null;
+}
+
+/** 5:00, 0:42, and tenths under ten seconds: 0:09.4. */
+export function formatClock(ms: number): string {
+  const tenths = Math.floor(ms / 100);
+  const seconds = Math.floor(ms / 1000);
+  const m = Math.floor(seconds / 60);
+  const s = String(seconds % 60).padStart(2, '0');
+  if (ms < 10_000) return `${m}:${s}.${tenths % 10}`;
+  if (m >= 60) return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}:${s}`;
+  return `${m}:${s}`;
 }
 
 export const LEVELS: { name: string; engine: string }[] = [

@@ -1,20 +1,27 @@
 package game;
 
 import engine.Cancellation;
+import engine.DrawOffers;
 import engine.EngineSelector;
 import engine.SearchRequest;
 import rules.ChessMove;
 import rules.Game;
 import rules.GameStatus;
 import rules.MoveResult;
+import rules.Pgn;
 import rules.Position;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
 
 /**
  * One game being played: the {@link Game} (position + history), the {@link GameConfig}, and the
@@ -39,7 +46,12 @@ import java.util.concurrent.Future;
  *   <li>A job that fails, with an exception or an {@code Error}, is reported on stderr. A failed
  *       engine move is replaced by a quick built-in move so the game goes on (Phase 4b); a failed
  *       hint simply doesn't arrive and can be asked for again.</li>
+ *   <li>The clock's flag is watched by a timer thread that only wakes the dispatcher, which
+ *       checks the clock itself; a move that arrives after the flag fell loses on time.</li>
  * </ul>
+ *
+ * <p>A game ends on the board ({@link #status()}: mate and the automatic draws, threefold and
+ * fifty moves included) or off it ({@link #end()}: resignation, time, a draw agreed).
  */
 public final class GameSession {
 
@@ -65,6 +77,20 @@ public final class GameSession {
     private boolean engineBusy;
     private long randomMoveDelayMs = RANDOM_MOVE_DELAY_MS;
 
+    private TimeControl timeControl = TimeControl.NONE;
+    /** The game's clock, or {@code null} in an untimed game. */
+    private Clock clock;
+    private LongSupplier nanoTime = System::nanoTime;
+    private ScheduledExecutorService clockTimer;
+    private ScheduledFuture<?> flagWatch;
+    /** How the game ended off the board, or {@code null}. */
+    private GameEnd end;
+    /** Between two humans: the side whose draw offer waits for an answer, or {@code null}. */
+    private Boolean drawOfferBy;
+    /** Against the engine: the ply at which it last declined a draw (no new offer until the human moves). */
+    private int drawDeclinedAtPly = -1;
+    private LocalDate date = LocalDate.now();
+
     public GameSession(GameConfig config, EngineSelector engines, Executor dispatcher) {
         this(config, engines, dispatcher, Executors.newSingleThreadExecutor(r -> {
             Thread t = new Thread(r, "engine");
@@ -85,6 +111,11 @@ public final class GameSession {
     /** For tests: skip the cosmetic pause before random moves. */
     void setRandomMoveDelayMs(long ms) {
         this.randomMoveDelayMs = ms;
+    }
+
+    /** For tests: the clock's time source. Takes effect from the next new game. */
+    void setNanoTime(LongSupplier nanoTime) {
+        this.nanoTime = nanoTime;
     }
 
     public void addListener(GameListener listener) {
@@ -110,7 +141,61 @@ public final class GameSession {
     }
 
     public boolean isOver() {
-        return game.status().isGameOver();
+        return end != null || game.status().isGameOver();
+    }
+
+    /** How the game ended off the board (resignation, time, agreement), or {@code null}. */
+    public GameEnd end() {
+        return end;
+    }
+
+    /** {@code "1-0"}, {@code "0-1"}, {@code "1/2-1/2"}, or {@code null} while the game is on. */
+    public String result() {
+        if (end != null) {
+            return end.result();
+        }
+        GameStatus status = game.status();
+        if (status == GameStatus.CHECKMATE) {
+            return whiteToMove() ? "0-1" : "1-0";
+        }
+        return status.isDraw() ? "1/2-1/2" : null;
+    }
+
+    public TimeControl timeControl() {
+        return timeControl;
+    }
+
+    /** The clock, or {@code null} in an untimed game. Read it on the dispatcher thread only. */
+    public Clock clock() {
+        return clock;
+    }
+
+    /** The day the game started (for its PGN). */
+    public LocalDate date() {
+        return date;
+    }
+
+    public String startFen() {
+        return game.history().get(0);
+    }
+
+    /** Between two humans: the side whose draw offer is waiting ({@code TRUE} White), or {@code null}. */
+    public Boolean drawOfferBy() {
+        return drawOfferBy;
+    }
+
+    /** True if a draw can be offered now: a game with a human in it, not over, no offer waiting. */
+    public boolean canOfferDraw() {
+        return switch (config.mode()) {
+            case ENGINE_VS_ENGINE -> false;
+            case HUMAN_VS_HUMAN -> !isOver() && drawOfferBy == null;
+            case HUMAN_VS_ENGINE -> !isOver() && game.plyCount() != drawDeclinedAtPly;
+        };
+    }
+
+    /** True if someone can resign now: a game with a human in it that is not over. */
+    public boolean canResign() {
+        return !isOver() && config.mode() != GameConfig.Mode.ENGINE_VS_ENGINE;
     }
 
     public List<ChessMove> legalMoves() {
@@ -152,7 +237,7 @@ public final class GameSession {
      * move is illegal. A promotion without a piece promotes to a queen.
      */
     public MoveResult playHumanMove(ChessMove move) {
-        if (!isHumanTurn() || !isLegal(move)) {
+        if (flagFell() || !isHumanTurn() || !isLegal(move)) {
             return null;
         }
         MoveResult result = apply(move, false);
@@ -165,10 +250,87 @@ public final class GameSession {
     }
 
     public void newGame(String fen) {
+        newGame(fen, timeControl);
+    }
+
+    /** A new game from {@code fen} with this time control ({@link TimeControl#NONE}: untimed). */
+    public void newGame(String fen, TimeControl control) {
         cancelEngine();
         game = new Game(fen);
+        resetEnding(control);
         listeners.forEach(GameListener::positionReset);
         maybeStartEngine();
+    }
+
+    /**
+     * Loads a game written in PGN, untimed, to look through or play on from its last position.
+     *
+     * @throws IllegalArgumentException if it is not a legal game (nothing changes then)
+     */
+    public void loadPgn(String pgn) {
+        Pgn.Parsed parsed = Pgn.read(pgn);
+        Game loaded = new Game(parsed.startFen());
+        parsed.moves().forEach(loaded::play);
+        cancelEngine();
+        game = loaded;
+        resetEnding(TimeControl.NONE);
+        listeners.forEach(GameListener::positionReset);
+        maybeStartEngine();
+    }
+
+    /**
+     * The human resigns: against the engine, the human's side; between two humans, the side to
+     * move. Returns false if nobody can resign now (see {@link #canResign()}).
+     */
+    public boolean resign() {
+        if (!canResign()) {
+            return false;
+        }
+        boolean white = config.mode() == GameConfig.Mode.HUMAN_VS_ENGINE ? config.humanPlaysWhite() : whiteToMove();
+        finish(GameEnd.resigned(white));
+        return true;
+    }
+
+    /**
+     * A draw offer. Against the engine it is answered at once: accepted when the position has
+     * been seen before or the engine is not better ({@link DrawOffers}); once declined, the human
+     * moves before offering again. Between two humans, the side to move offers and the other side
+     * answers with {@link #answerDraw}; a move by the other side declines it. Returns false if no
+     * offer can be made now.
+     */
+    public boolean offerDraw() {
+        if (!canOfferDraw()) {
+            return false;
+        }
+        if (config.mode() == GameConfig.Mode.HUMAN_VS_HUMAN) {
+            drawOfferBy = whiteToMove();
+            boolean by = drawOfferBy;
+            listeners.forEach(l -> l.drawOffered(by));
+            return true;
+        }
+        boolean human = config.humanPlaysWhite();
+        if (currentPositionRepeated() || DrawOffers.engineAccepts(game.fen(), !human)) {
+            finish(GameEnd.agreed());
+        } else {
+            drawDeclinedAtPly = game.plyCount();
+            listeners.forEach(l -> l.drawDeclined(human));
+        }
+        return true;
+    }
+
+    /** Between two humans: accepts or declines the waiting draw offer. False if none is waiting. */
+    public boolean answerDraw(boolean accept) {
+        if (drawOfferBy == null || isOver()) {
+            return false;
+        }
+        boolean by = drawOfferBy;
+        drawOfferBy = null;
+        if (accept) {
+            finish(GameEnd.agreed());
+        } else {
+            listeners.forEach(l -> l.drawDeclined(by));
+        }
+        return true;
     }
 
     public void updateConfig(GameConfig newConfig) {
@@ -183,13 +345,24 @@ public final class GameSession {
      * reply plus the human's move). Returns false if there was nothing to take back.
      */
     public boolean undo() {
-        if (game.plyCount() == 0 || config.mode() == GameConfig.Mode.ENGINE_VS_ENGINE) {
+        if (game.plyCount() == 0 || end != null || config.mode() == GameConfig.Mode.ENGINE_VS_ENGINE) {
             return false;
         }
         cancelEngine();
         game.undo();
         while (game.plyCount() > 0 && !config.isHuman(whiteToMove())) {
             game.undo();
+        }
+        drawOfferBy = null;
+        drawDeclinedAtPly = -1;
+        if (clock != null) {
+            // the clocks keep the time they have; the side to move runs again (none before move one)
+            if (game.plyCount() == 0) {
+                clock.stop();
+            } else {
+                clock.startFor(whiteToMove());
+            }
+            watchFlag();
         }
         listeners.forEach(GameListener::positionReset);
         maybeStartEngine();
@@ -232,6 +405,9 @@ public final class GameSession {
     public void shutdown() {
         cancelEngine();
         engineExecutor.shutdownNow();
+        if (clockTimer != null) {
+            clockTimer.shutdownNow();
+        }
         engines.close();
     }
 
@@ -251,11 +427,101 @@ public final class GameSession {
         MoveResult result = game.play(move);
         generation++;
         cancelHint(); // it was for the position before this move
+        if (drawOfferBy != null && drawOfferBy != result.whiteMoved()) {
+            drawOfferBy = null; // answered with a move: declined
+        }
+        if (clock != null) {
+            if (result.status().isGameOver()) {
+                clock.stop();
+            } else {
+                clock.moveMade(result.whiteMoved());
+            }
+            watchFlag();
+        }
         listeners.forEach(l -> l.moveMade(result, byEngine));
         if (result.status().isGameOver()) {
             listeners.forEach(l -> l.gameOver(result));
         }
         return result;
+    }
+
+    private void resetEnding(TimeControl control) {
+        timeControl = control;
+        clock = control.isTimed() ? new Clock(control, () -> nanoTime.getAsLong()) : null;
+        end = null;
+        drawOfferBy = null;
+        drawDeclinedAtPly = -1;
+        date = LocalDate.now();
+        watchFlag();
+    }
+
+    /** Ends the game off the board. */
+    private void finish(GameEnd how) {
+        cancelEngine();
+        end = how;
+        drawOfferBy = null;
+        if (clock != null) {
+            clock.stop();
+        }
+        watchFlag();
+        listeners.forEach(l -> l.gameEnded(how));
+    }
+
+    private boolean currentPositionRepeated() {
+        String key = game.position().repetitionKey();
+        return game.history().stream().filter(f -> Position.fromFen(f).repetitionKey().equals(key)).count() >= 2;
+    }
+
+    /** If the running side's time is up, ends the game on time and returns true. */
+    private boolean flagFell() {
+        if (end != null || clock == null || !clock.flagged()) {
+            return false;
+        }
+        boolean white = clock.running();
+        finish(GameEnd.flagged(white, canMate(game.position(), !white)));
+        return true;
+    }
+
+    /** Whether this side has the material to mate at all (a lone king or king and one minor piece cannot). */
+    static boolean canMate(Position position, boolean white) {
+        int minors = 0;
+        for (char piece : position.pieces()) {
+            if (Character.isUpperCase(piece) != white) {
+                continue;
+            }
+            switch (Character.toLowerCase(piece)) {
+                case 'p', 'r', 'q' -> {
+                    return true;
+                }
+                case 'n', 'b' -> minors++;
+                default -> { }
+            }
+        }
+        return minors >= 2;
+    }
+
+    /** (Re)arms the timer that wakes the dispatcher when the running side's time should run out. */
+    private void watchFlag() {
+        if (flagWatch != null) {
+            flagWatch.cancel(false);
+            flagWatch = null;
+        }
+        if (clock == null || clock.running() == null || end != null) {
+            return;
+        }
+        if (clockTimer == null) {
+            clockTimer = Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "clock");
+                t.setDaemon(true);
+                return t;
+            });
+        }
+        Clock watched = clock;
+        flagWatch = clockTimer.schedule(() -> dispatcher.execute(() -> {
+            if (watched == clock && !flagFell()) {
+                watchFlag(); // woke a little early: wait for the rest
+            }
+        }), clock.msUntilFlag() + 1, TimeUnit.MILLISECONDS);
     }
 
     /** Cancels the engine's move and any hint; their results, if they still arrive, are dropped. */
@@ -347,6 +613,9 @@ public final class GameSession {
             return; // stale: the game moved on while the engine was thinking
         }
         engineBusy = false;
+        if (flagFell()) {
+            return; // the engine thought past its time
+        }
         if (move == null) {
             System.err.println("Engine found no move in " + fen);
             return;

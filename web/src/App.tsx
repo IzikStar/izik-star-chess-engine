@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Board } from './Board';
+import { ClockFace } from './Clock';
+import { PgnDialog } from './PgnDialog';
 import { Lab } from './Lab';
 import { NewGameDialog, type NewGameChoice } from './NewGameDialog';
 import { codeOf, PieceSvg } from './pieces';
-import { captured, colorName, isOver, kingSquare, LEVELS, materialOf, movesByFrom, other, resultText, turnOf, withPremoves } from './chess';
+import { captured, colorName, isOver, kingSquare, LEVELS, materialOf, movesByFrom, other, resultText, timeControlOf, timeKey, turnOf, withPremoves } from './chess';
 import { useGame, type Champion, type Color, type GameEvent, type GameState } from './protocol';
 import { play } from './sounds';
 
@@ -43,6 +45,16 @@ export function App() {
   const premoveSentFrom = useRef<GameState | null>(null);
   const soundRef = useRef(soundOn);
   soundRef.current = soundOn;
+  const [pgnOpen, setPgnOpen] = useState(false);
+  /** Why the server refused the pasted PGN. */
+  const [pgnError, setPgnError] = useState<string | null>(null);
+  /** A pasted PGN was sent and its answer has not come yet. */
+  const [pgnLoading, setPgnLoading] = useState(false);
+  const pgnLoadingRef = useRef(false);
+  pgnLoadingRef.current = pgnLoading;
+  const [confirmResign, setConfirmResign] = useState(false);
+  /** A short message under the status line (a declined draw), cleared by the next move. */
+  const [notice, setNotice] = useState<string | null>(null);
 
   const onEvents = useCallback((events: GameEvent[], state: GameState) => {
     const sound = soundRef.current;
@@ -50,6 +62,7 @@ export function App() {
       switch (e.kind) {
         case 'move':
           setView(null);
+          setNotice(null);
           play(e.move.status === 'CHECK' ? 'check' : e.move.capture ? 'capture' : e.move.castling ? 'castle' : 'move', sound);
           break;
         case 'gameOver': {
@@ -57,22 +70,45 @@ export function App() {
           play(e.status === 'CHECKMATE' ? (humanLost ? 'lose' : 'win') : 'draw', sound);
           break;
         }
+        case 'ended': {
+          const humanLost = state.config.mode === 'engine' && e.result !== '1/2-1/2' && e.side === state.config.humanColor;
+          play(e.result === '1/2-1/2' ? 'draw' : humanLost ? 'lose' : 'win', sound);
+          setConfirmResign(false);
+          setNotice(null);
+          break;
+        }
+        case 'drawDeclined':
+          setNotice(state.config.mode === 'engine' ? 'The engine declines the draw.' : `${colorName(other(e.by))} declines the draw.`);
+          break;
         case 'hint':
           play('hint', sound);
           break;
         case 'reset':
+          if (pgnLoadingRef.current) {
+            setPgnLoading(false);
+            setPgnOpen(false);
+          }
+          setNotice(null);
+          setConfirmResign(false);
+          setView(null);
+          setPremoves([]);
+          break;
         case 'config':
           setView(null);
           setPremoves([]);
           break;
         case 'rejected':
+          if (e.reason.startsWith('Could not read the PGN')) {
+            setPgnError(e.reason.replace('Could not read the PGN: ', 'Could not load it: '));
+            setPgnLoading(false);
+          }
           play('invalid', sound);
           break;
       }
     }
   }, []);
 
-  const { state, connection, send } = useGame(onEvents);
+  const { state, receivedAt, connection, send } = useGame(onEvents);
 
   useEffect(() => {
     const onHash = () => setPage(location.hash === '#lab' ? 'lab' : 'game');
@@ -123,7 +159,7 @@ export function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (dialogOpen || page !== 'game' || (e.target as HTMLElement).closest('input, select, textarea')) return;
+      if (dialogOpen || pgnOpen || page !== 'game' || (e.target as HTMLElement).closest('input, select, textarea')) return;
       if (e.key === 'ArrowLeft') goTo(ply - 1);
       else if (e.key === 'ArrowRight') goTo(ply + 1);
       else if (e.key === 'Home') goTo(0);
@@ -134,7 +170,7 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [goTo, ply, moves.length, dialogOpen, page]);
+  }, [goTo, ply, moves.length, dialogOpen, pgnOpen, page]);
 
   if (!state) {
     return (
@@ -165,7 +201,7 @@ export function App() {
     store('autoFlip', choice.autoFlip ? 'on' : 'off');
     play('start', soundOn);
     const champion = choice.mode === 'engine' && choice.champion ? { run: choice.champion.run, generation: choice.champion.generation } : null;
-    send({ type: 'newGame', mode: choice.mode, color: choice.color, level: choice.level, blackLevel: choice.blackLevel, champion });
+    send({ type: 'newGame', mode: choice.mode, color: choice.color, level: choice.level, blackLevel: choice.blackLevel, champion, time: timeControlOf(choice.time) });
   };
 
   const openDialog = (champion: Champion | null) => {
@@ -173,7 +209,8 @@ export function App() {
     setDialogOpen(true);
   };
 
-  const canUndo = live && moves.length > 0 && config.mode !== 'computer'
+  // a resignation, a loss on time or an agreed draw cannot be taken back (a mate can)
+  const canUndo = live && moves.length > 0 && config.mode !== 'computer' && !state.end
     && !(config.mode === 'engine' && moves.length === 1 && config.humanColor === 'black');
 
   return (
@@ -222,16 +259,41 @@ export function App() {
         </section>
 
         <aside className="side">
-          <PlayerCard state={state} color={other(orientation)} fen={fen} live={live} />
+          <PlayerCard state={state} color={other(orientation)} fen={fen} live={live} receivedAt={receivedAt} />
 
           <StatusLine state={state} connection={connection} live={live} ply={ply} premoves={premoveColor ? premoves : []} onReturn={() => goTo(moves.length)} />
+
+          {notice && <p className="notice" role="status" data-testid="notice">{notice}</p>}
+
+          {state.drawOffer && !over && (
+            <section className="ask" aria-label="Draw offer" data-testid="draw-offer">
+              <span><strong>{colorName(state.drawOffer)} offers a draw.</strong> {colorName(other(state.drawOffer))}, do you accept?</span>
+              <div className="row">
+                <button type="button" className="btn primary" onClick={() => send({ type: 'answerDraw', accept: true })}>Accept draw</button>
+                <button type="button" className="btn" onClick={() => send({ type: 'answerDraw', accept: false })}>Decline</button>
+              </div>
+            </section>
+          )}
+
+          {confirmResign && state.canResign && (
+            <section className="ask warn" aria-label="Resign" data-testid="confirm-resign">
+              <span><strong>{config.mode === 'friend' ? `Resign for ${colorName(state.turn)}?` : 'Resign this game?'}</strong></span>
+              <div className="row">
+                <button type="button" className="btn danger" onClick={() => {
+                  setConfirmResign(false);
+                  send({ type: 'resign' });
+                }}>Resign</button>
+                <button type="button" className="btn" onClick={() => setConfirmResign(false)}>Keep playing</button>
+              </div>
+            </section>
+          )}
 
           {live && over && (
             <section className="result" aria-label="Result" data-testid="result">
               <div className="score">{state.result === '1/2-1/2' ? '½ – ½' : state.result!.replace('-', ' – ')}</div>
-              <div className="reason">{resultText(state.status, state.turn)}</div>
+              <div className="reason">{resultText(state.status, state.turn, state.end)}</div>
               <div className="row">
-                <button type="button" className="btn primary" onClick={() => startNewGame({ mode: config.mode, color: config.humanColor, level: config.level, blackLevel: config.blackLevel, autoFlip, champion: state.opponent })}>Rematch</button>
+                <button type="button" className="btn primary" onClick={() => startNewGame({ mode: config.mode, color: config.humanColor, level: config.level, blackLevel: config.blackLevel, autoFlip, champion: state.opponent, time: timeKey(state.clock) })}>Rematch</button>
                 <button type="button" className="btn" onClick={() => goTo(0)}>Review game</button>
               </div>
             </section>
@@ -246,7 +308,7 @@ export function App() {
             <button type="button" className="icon" aria-label="Latest move" disabled={live} onClick={() => goTo(moves.length)}>⏭</button>
           </div>
 
-          <PlayerCard state={state} color={orientation} fen={fen} live={live} />
+          <PlayerCard state={state} color={orientation} fen={fen} live={live} receivedAt={receivedAt} />
 
           <div className="controls" role="group" aria-label="Game controls">
             <button type="button" className="icon labelled" disabled={!canUndo} onClick={() => {
@@ -256,13 +318,22 @@ export function App() {
             }}><b aria-hidden="true">↶</b>Take back</button>
             <button type="button" className="icon labelled" disabled={!live || !state.humanTurn || state.hintPending} onClick={() => send({ type: 'hint' })}><b aria-hidden="true">✦</b>Hint</button>
             <button type="button" className="icon labelled" onClick={() => setFlipped(!flipped)}><b aria-hidden="true">⇅</b>Flip board</button>
+            <button type="button" className="icon labelled" disabled={!live || !state.canOfferDraw} onClick={() => {
+              setNotice(null);
+              send({ type: 'offerDraw' });
+            }}><b aria-hidden="true">½</b>Offer draw</button>
+            <button type="button" className="icon labelled" disabled={!state.canResign} onClick={() => setConfirmResign(true)}><b aria-hidden="true">⚑</b>Resign</button>
+            <button type="button" className="icon labelled" onClick={() => {
+              setPgnError(null);
+              setPgnOpen(true);
+            }}><b aria-hidden="true">⎘</b>PGN</button>
           </div>
         </aside>
       </main>
 
       {dialogOpen && (
         <NewGameDialog
-          initial={{ mode: dialogChampion ? 'engine' : config.mode, color: config.humanColor, level: config.level, blackLevel: config.blackLevel, autoFlip, champion: dialogChampion }}
+          initial={{ mode: dialogChampion ? 'engine' : config.mode, color: config.humanColor, level: config.level, blackLevel: config.blackLevel, autoFlip, champion: dialogChampion, time: timeKey(state.clock) }}
           onStart={(choice) => {
             showPage('game');
             startNewGame(choice);
@@ -270,11 +341,26 @@ export function App() {
           onCancel={() => setDialogOpen(false)}
         />
       )}
+
+      {pgnOpen && (
+        <PgnDialog
+          pgn={state.pgn}
+          error={pgnError}
+          loading={pgnLoading}
+          onLoad={(pgn) => {
+            setPgnError(null);
+            setPgnLoading(true);
+            setFlipped(false);
+            send({ type: 'loadPgn', pgn });
+          }}
+          onClose={() => setPgnOpen(false)}
+        />
+      )}
     </div>
   );
 }
 
-function PlayerCard({ state, color, fen, live }: { state: GameState; color: Color; fen: string; live: boolean }) {
+function PlayerCard({ state, color, fen, live, receivedAt }: { state: GameState; color: Color; fen: string; live: boolean; receivedAt: number }) {
   const { config } = state;
   const isEngine = config.mode === 'computer' || (config.mode === 'engine' && color !== config.humanColor);
   const level = config.mode === 'computer' && color === 'black' ? config.blackLevel : config.level;
@@ -295,6 +381,7 @@ function PlayerCard({ state, color, fen, live }: { state: GameState; color: Colo
         <span className="glyphs">{taken.map((p, i) => <PieceSvg key={i} code={codeOf(p)} />)}</span>
         {lead > 0 && <span className="lead">+{lead}</span>}
       </div>
+      {state.clock && <ClockFace clock={state.clock} color={color} receivedAt={receivedAt} />}
     </div>
   );
 }
