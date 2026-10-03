@@ -314,6 +314,10 @@ Without it the game is fully playable: levels 8-10 play the built-in engine at L
 use the built-in engine. The New game dialog and the player card say so when Stockfish is missing,
 and the server prints which Stockfish it found when it starts.
 
+The easiest way: press **Download Stockfish** in the game (it appears in the New game dialog at
+Levels 8-10 and when you analyse a game). The game fetches Stockfish 17.1 from Stockfish's official
+GitHub releases into `engine/stockfish/` and uses it at once, no restart. Or do it by hand:
+
 1. Download Stockfish for your OS from <https://stockfishchess.org/download/>.
 2. Unzip it into the `engine/` folder of the repository. Any file whose name starts with
    `stockfish` is found, also one folder down, so the download's own

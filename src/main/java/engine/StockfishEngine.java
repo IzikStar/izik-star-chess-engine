@@ -60,7 +60,7 @@ public class StockfishEngine implements Engine {
         return Math.max(0, Math.min(20, level - 1));
     }
 
-    private final List<String> command;
+    private volatile List<String> command;
 
     private volatile Process process;
     private BufferedWriter writer;
@@ -82,6 +82,17 @@ public class StockfishEngine implements Engine {
     public StockfishEngine(List<String> command) {
         this.command = List.copyOf(command);
         this.unavailable = command.isEmpty();
+    }
+
+    /**
+     * Switches to another executable, e.g. one just downloaded ({@link StockfishInstaller}):
+     * stops the running process and forgets earlier failures.
+     */
+    public synchronized void use(java.nio.file.Path executable) {
+        kill();
+        command = List.of(executable.toString());
+        failures = 0;
+        unavailable = false;
     }
 
     /** The executable this engine runs, or {@code null} if none was found. */

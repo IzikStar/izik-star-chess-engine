@@ -86,7 +86,8 @@ public final class WebServer {
         hub.useStockfish(stockfish);
         System.out.println(stockfish.path() != null
                 ? "Stockfish: " + stockfish.path()
-                : "Stockfish not found: Levels 8-10 will play the built-in engine at Level 7. Put it in engine/ (see engine/README.md).");
+                : "Stockfish not found: Levels 8-10 will play the built-in engine at Level 7. Download it from the game"
+                        + " (New game, or Analyse) or put it in engine/ (see engine/README.md).");
         return new GameSession(GameConfig.defaults(), new EngineSelector(builtIn, stockfish), hub::execute);
     }
 
@@ -134,6 +135,7 @@ public final class WebServer {
         lab.routes(app);
         AnalysisApi analysis = new AnalysisApi();
         analysis.routes(app);
+        new StockfishApi(hub::stockfish, hub::refresh).routes(app);
         app.ws("/ws", ws -> {
             ws.onConnect(ctx -> {
                 GameHub.Client client = ctx::send;

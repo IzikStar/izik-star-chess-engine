@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Color } from './protocol';
+import { StockfishInstall } from './StockfishInstall';
 
 // Game analysis with Stockfish (web.AnalysisApi, analysis.GameAnalyzer): the server judges every
 // position; this file only shows what it said. Formulas: docs/game-analysis.md.
@@ -46,7 +47,7 @@ export type AnalysisState =
   | { status: 'idle' }
   | { status: 'running'; key: string; progress: number; total: number }
   | { status: 'done'; key: string; report: Report }
-  | { status: 'error'; key: string; error: string };
+  | { status: 'error'; key: string; error: string; noStockfish?: boolean };
 
 /** Which game an analysis belongs to: its start and moves. */
 export function gameKey(startFen: string, moves: string[]): string {
@@ -66,13 +67,13 @@ export function useAnalysis() {
     const mine = ++run.current;
     const key = gameKey(startFen, moves);
     setState({ status: 'running', key, progress: 0, total: moves.length + 1 });
-    const fail = (error: string) => {
-      if (run.current === mine) setState({ status: 'error', key, error });
+    const fail = (error: string, noStockfish = false) => {
+      if (run.current === mine) setState({ status: 'error', key, error, noStockfish });
     };
     try {
       const res = await fetch('/api/analysis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ startFen, moves }) });
       const body = await res.json();
-      if (!res.ok) return fail(body.error ?? `The server answered ${res.status}`);
+      if (!res.ok) return fail(body.error ?? `The server answered ${res.status}`, body.noStockfish === true);
       const id: number = body.id;
       while (run.current === mine) {
         await new Promise((r) => setTimeout(r, 250));
@@ -179,8 +180,14 @@ export function AnalysisPanel({ analysis, ply, onPick, onRetry }: {
   if (analysis.status === 'error') {
     return (
       <section className="analysis" aria-label="Analysis" data-testid="analysis">
-        <p className="warn-note">{analysis.error}</p>
-        <button type="button" className="btn" onClick={onRetry}>Try again</button>
+        {analysis.noStockfish ? (
+          <StockfishInstall why="Analysis needs Stockfish, and it is not installed yet." onInstalled={onRetry} />
+        ) : (
+          <>
+            <p className="warn-note">{analysis.error}</p>
+            <button type="button" className="btn" onClick={onRetry}>Try again</button>
+          </>
+        )}
       </section>
     );
   }

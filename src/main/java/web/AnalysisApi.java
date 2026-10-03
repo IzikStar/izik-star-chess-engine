@@ -83,7 +83,10 @@ final class AnalysisApi {
         List<String> engine = command.get();
         if (engine == null) {
             ctx.status(503);
-            error(ctx, "Stockfish was not found. Put it in the engine/ folder (see engine/README.md) and restart.");
+            JsonObject o = new JsonObject();
+            o.addProperty("error", "Analysis needs Stockfish, and it is not installed yet.");
+            o.addProperty("noStockfish", true);
+            json(ctx, o);
             return;
         }
         String startFen;
