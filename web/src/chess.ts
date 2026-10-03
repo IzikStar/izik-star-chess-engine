@@ -1,6 +1,6 @@
 // Display helpers only. Nothing here decides what is legal; that comes from the server.
 
-import type { Color, GameEnd, GameState, Status, StockfishInfo } from './protocol';
+import type { Color, GameEnd, GameState, Status, StockfishInfo, Weights } from './protocol';
 
 export const VALUES: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 const START_COUNT: Record<string, number> = { p: 8, n: 2, b: 2, r: 2, q: 1 };
@@ -222,9 +222,23 @@ export const STOCKFISH_FROM_LEVEL = 9;
 /** The built-in engine's strongest level: what Stockfish's levels play when it is missing. */
 export const TOP_BUILT_IN_LEVEL = STOCKFISH_FROM_LEVEL - 1;
 
-/** "≈ 1530 Elo", "3190+ Elo" for the top level, or "" for Level 0. */
-export function eloText(level: number): string {
+/**
+ * How much stronger the tuned weights are than the classic ones at each built-in level (1-8):
+ * tuned against classic head to head, depth 1-7, all openings with both colours
+ * (docs/difficulty-ladder.md). LEVELS' Elo is the classic weights'.
+ */
+export const TUNED_ELO_GAIN: Record<number, number> = {};
+
+/** A level's Elo with {@code weights}; Stockfish's levels are the same for both. */
+export function levelElo(level: number, weights: Weights = 'tuned'): number | null {
   const elo = LEVELS[level].elo;
+  if (elo === null || weights === 'classic') return elo;
+  return elo + (TUNED_ELO_GAIN[level] ?? 0);
+}
+
+/** "≈ 1530 Elo", "3190+ Elo" for the top level, or "" for Level 0. */
+export function eloText(level: number, weights: Weights = 'tuned'): string {
+  const elo = levelElo(level, weights);
   if (elo === null) return '';
   return level === MAX_LEVEL ? `${elo}+ Elo` : `≈ ${elo} Elo`;
 }

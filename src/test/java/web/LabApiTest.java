@@ -6,6 +6,7 @@ import com.google.gson.JsonParser;
 import engine.Engine;
 import engine.EngineSelector;
 import engine.MinimaxEngine;
+import engine.Weights;
 import engine.SearchRequest;
 import evolution.RandomMutationExample;
 import game.GameConfig;
@@ -94,7 +95,7 @@ class LabApiTest {
     }
 
     @Test
-    @DisplayName("A new game can be played against a champion, and the next one against the usual engine")
+    @DisplayName("A new game can be played against a champion, the next against the usual engine, with the weights picked")
     void playTheChampion() throws Exception {
         Engine noStockfish = new Engine() {
             @Override public ChessMove bestMove(SearchRequest request) { return null; }
@@ -118,8 +119,19 @@ class LabApiTest {
             assertEquals(lab.champion("tiny.db", 1), builtIn.evaluator().params());
 
             hub.onMessage(client, "{\"type\":\"newGame\",\"mode\":\"engine\",\"color\":\"white\",\"level\":3}");
-            until(messages, s -> s.get("opponent").isJsonNull());
-            assertSame(BitBoardEvaluate.CLASSIC, builtIn.evaluator());
+            JsonObject usual = until(messages, s -> s.get("opponent").isJsonNull());
+            assertEquals("tuned", usual.get("weights").getAsString()); // the app's default
+            assertSame(Weights.TUNED.evaluator(), builtIn.evaluator());
+
+            // the classic weights, picked in the New game dialog, stay until another pick
+            hub.onMessage(client, "{\"type\":\"newGame\",\"mode\":\"engine\",\"color\":\"white\",\"level\":3,"
+                    + "\"weights\":\"classic\"}");
+            until(messages, s -> s.get("weights").getAsString().equals("classic"));
+            assertEquals(BitBoardEvaluate.CLASSIC.params(), builtIn.evaluator().params());
+            hub.onMessage(client, "{\"type\":\"newGame\",\"mode\":\"engine\",\"color\":\"black\",\"level\":3}");
+            JsonObject again = until(messages, s -> s.getAsJsonObject("config").get("humanColor").getAsString().equals("black"));
+            assertEquals("classic", again.get("weights").getAsString());
+            assertSame(Weights.CLASSIC.evaluator(), builtIn.evaluator());
         } finally {
             hub.shutdown();
         }

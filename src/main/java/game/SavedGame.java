@@ -22,14 +22,17 @@ import java.util.List;
  * @param result             {@code "1-0"}, {@code "0-1"}, {@code "1/2-1/2"}, or {@code null} if unfinished
  * @param termination        how it ended, in words ("White won by checkmate"), or {@code null}
  * @param pgn                the game in PGN
+ * @param weights            the built-in engine's weights ({@code engine.Weights}: "tuned" or
+ *                           "classic"); games saved before the choice existed were "classic"
  */
 public record SavedGame(String id, Instant started, Instant updated, GameConfig config,
                         String championRun, Integer championGeneration, String opponentLabel,
                         TimeControl timeControl, Long whiteMs, Long blackMs,
-                        String startFen, List<String> moves, String result, String termination, String pgn) {
+                        String startFen, List<String> moves, String result, String termination, String pgn, String weights) {
 
     public SavedGame {
         moves = List.copyOf(moves);
+        weights = weights == null ? "classic" : weights;
     }
 
     public boolean finished() {

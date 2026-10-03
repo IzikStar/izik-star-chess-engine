@@ -9,7 +9,7 @@ import { MoveList, RepeatButton } from './MoveList';
 import { NewGameDialog, type NewGameChoice } from './NewGameDialog';
 import { codeOf, PieceSvg } from './pieces';
 import { captured, colorName, engineText, isOver, kingSquare, materialOf, movesByFrom, other, resultText, timeControlOf, timeKey, turnOf, withPremoves } from './chess';
-import { useGame, type Champion, type Color, type GameEvent, type GameState } from './protocol';
+import { useGame, type Champion, type Color, type GameEvent, type GameState, type Weights } from './protocol';
 import { play } from './sounds';
 
 const EMPTY = new Map<string, string[]>();
@@ -41,6 +41,8 @@ export function App() {
   const [theme, setTheme] = useState(() => stored('theme', 'system'));
   const [flipped, setFlipped] = useState(false);
   const [autoFlip, setAutoFlip] = useState(() => stored('autoFlip', 'off') === 'on');
+  /** The built-in engine's weights for the next game, remembered like the other settings. */
+  const [weights, setWeights] = useState<Weights>(() => stored('weights', 'tuned') === 'classic' ? 'classic' : 'tuned');
   /** The ply being reviewed (0 = start position), or null for the live position. */
   const [view, setView] = useState<number | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -238,9 +240,11 @@ export function App() {
     setPremoves([]);
     setAutoFlip(choice.autoFlip);
     store('autoFlip', choice.autoFlip ? 'on' : 'off');
+    setWeights(choice.weights);
+    store('weights', choice.weights);
     play('start', soundOn);
     const champion = choice.mode === 'engine' && choice.champion ? { run: choice.champion.run, generation: choice.champion.generation } : null;
-    send({ type: 'newGame', mode: choice.mode, color: choice.color, level: choice.level, blackLevel: choice.blackLevel, champion, time: timeControlOf(choice.time) });
+    send({ type: 'newGame', mode: choice.mode, color: choice.color, level: choice.level, blackLevel: choice.blackLevel, champion, weights: choice.weights, time: timeControlOf(choice.time) });
   };
 
   const openDialog = (champion: Champion | null) => {
@@ -348,7 +352,7 @@ export function App() {
               <div className="score">{state.result === '1/2-1/2' ? '½ – ½' : state.result!.replace('-', ' – ')}</div>
               <div className="reason">{resultText(state.status, state.turn, state.end)}</div>
               <div className="row">
-                <button type="button" className="btn primary" onClick={() => startNewGame({ mode: config.mode, color: config.humanColor, level: config.level, blackLevel: config.blackLevel, autoFlip, champion: state.opponent, time: timeKey(state.clock) })}>Rematch</button>
+                <button type="button" className="btn primary" onClick={() => startNewGame({ mode: config.mode, color: config.humanColor, level: config.level, blackLevel: config.blackLevel, autoFlip, champion: state.opponent, weights, time: timeKey(state.clock) })}>Rematch</button>
                 <button type="button" className="btn" onClick={() => goTo(0)}>Review game</button>
                 <button type="button" className="btn" disabled={analysis.status === 'running'} onClick={() => {
                   analyse();
@@ -397,7 +401,7 @@ export function App() {
       {dialogOpen && (
         <NewGameDialog
           stockfish={state.stockfish}
-          initial={{ mode: dialogChampion ? 'engine' : config.mode, color: config.humanColor, level: config.level, blackLevel: config.blackLevel, autoFlip, champion: dialogChampion, time: timeKey(state.clock) }}
+          initial={{ mode: dialogChampion ? 'engine' : config.mode, color: config.humanColor, level: config.level, blackLevel: config.blackLevel, autoFlip, champion: dialogChampion, weights, time: timeKey(state.clock) }}
           onStart={(choice) => {
             showPage('game');
             startNewGame(choice);
