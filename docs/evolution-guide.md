@@ -43,6 +43,7 @@ public class MyEvolution implements Evolution {
 
     @Override   // optional: the default is a round robin
     public List<Pairing> pairings(List<ParamVector> population, Random random) { ... }
+    // new Pairing(a, b) lets the run's depth schedule pick the depth; new Pairing(a, b, 4) sets it
 
     @Override
     public List<ParamVector> nextGeneration(Generation generation, Random random) { ... }
@@ -77,14 +78,32 @@ java -jar target/izikstar-chess-3.1.0.jar                                  # the
 | Option | Meaning | Default |
 |---|---|---|
 | `--generations` | how many generations | 20 |
-| `--depth` | fixed search depth of every game | 3 |
+| `--depth` | search depth of the games (the deep ones aside) | 3 |
+| `--deep-depth` | depth of the deep games; 0 = none | 4 |
+| `--deep-share` | percent of games played deep, first generation-last generation; grows evenly in between | 10-40 |
 | `--openings-per-pairing` | each pairing plays this many openings, each with both colours | 2 |
 | `--variety` | moves within this much of the best may be played (pawn = 100) | 20 |
 | `--max-plies` | a longer game is scored a draw | 300 |
 | `--threads` | games at once | cores − 1 |
 | `--seed` | same seed, same run | 1 |
-| `--yardstick-every` | the champion plays the default weights every N generations (and after the last) | 5 |
-| `--yardstick-openings` | openings of that match, each with both colours | 20 |
+| `--yardstick-every` | the champion plays the yardsticks every N generations (and after the last) | 5 |
+| `--yardstick-openings` | openings of each yardstick match, each with both colours | 20 |
+| `--yardsticks` | who the champion is measured against, comma-separated (see below) | default,classic,sf:auto |
+| `--stockfish-from` | Stockfish yardsticks only from this generation on | 10 |
+
+**Yardsticks** are players that never change. Each can be `default` (the schema defaults),
+`classic` (the hand-written weights), any parameter file, `sf:1500` (Stockfish held to UCI_Elo
+1500, 20,000 nodes a move; `sf:1500@50000` for 50,000), or `sf:auto`: Stockfish at the level where
+the champion scores between 30% and 70%. It starts at 1320, the lowest Stockfish allows, and moves
+one level up after a match above 70% and one down below 30%. Against an opponent that wins every
+game there is no signal. Yardsticks with the same weights (today `default` and `classic`) play
+once and report the same result. Yardstick matches use the generation's share of deep games too,
+and `show` and the Lab tab give the score at each depth, so you can see whether a gain at depth 3
+holds at depth 4.
+
+Stockfish held to 1320 at 20,000 nodes a move is weaker than Stockfish's 1320 label, which is
+measured at long time controls. The classic weights at depth 3 score about 55% against it. So read
+`sf1500` as a fixed opponent to beat, not as a rating.
 
 **Cost.** Games per generation = pairings × openings-per-pairing × 2. A round robin of 8 has 28
 pairings, so 2 openings each means 112 games. Rough speed on a 4-core machine with 3 threads:
@@ -92,6 +111,8 @@ pairings, so 2 openings each means 112 games. Rough speed on a 4-core machine wi
 - 100 games at depth 2: a few seconds.
 - 100 games at depth 3: about 15 s.
 - 100 games at depth 4: about 100 s.
+- A deep share of 10%-40% at depth 4 makes the average game about 1.6 to 3.4 times slower than all at
+  depth 3.
 
 Depth 3 is the sweet spot for evolving. The weights you find there carry over to deeper search
 well enough.
@@ -101,9 +122,8 @@ result (`fen,result`), for fitting weights directly (section 6).
 
 ## 4. Reading the numbers
 
-The only number that means "the engine got better" is **the champion against the default
-weights**, the yardstick. It is the chart in the Lab tab and the `vs default weights` line in
-`show`.
+The only numbers that mean "the engine got better" are **the champion against the yardsticks**.
+The first yardstick in the list is the chart in the Lab tab; `show` and the Lab tab list them all.
 
 A generation's own scores only say who beat whom inside the population. A population can get
 better at beating itself while getting worse at chess.

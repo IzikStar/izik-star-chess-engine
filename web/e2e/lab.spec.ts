@@ -12,9 +12,14 @@ test('the lab shows a run, replays a game and starts a game against its champion
   await expect(run.getByText('2/2 generations')).toBeVisible();
   await expect(run.getByRole('img', { name: /Champion Elo/ })).toBeVisible();
 
-  // generation 1: 28 pairings × 2 colours, then the champion against the default weights
+  // generation 1: 28 pairings × 2 colours, then the champion against the yardsticks
   const games = page.getByTestId('games').locator('tbody tr');
   await expect(games).toHaveCount(56 + 4);
+  // the default and classic weights are the same today: one match, reported under both names
+  const yardsticks = page.getByTestId('yardsticks');
+  await expect(yardsticks).toContainText('Default weights');
+  await expect(yardsticks).toContainText('Classic weights');
+  await page.screenshot({ path: '../target/e2e-screens/lab-yardsticks.png', fullPage: true });
   await games.first().click();
   const replay = page.getByTestId('replay');
   await expect(replay.locator('[data-testid="board"]')).toBeVisible();

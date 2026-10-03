@@ -19,8 +19,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  * mvn package -DskipTests
  * java -cp target/izikstar-chess-3.1.0.jar arena.Cli match A B [options]
  *
- *   A, B             "default" (the schema defaults), a preset ("classic": the hand-written weights)
- *                    or a parameter file (JSON, see ParamVector)
+ *   A, B             "default" (the schema defaults), a preset ("classic": the hand-written weights),
+ *                    a parameter file (JSON, see ParamVector), or "sf:1500": Stockfish at UCI_Elo
+ *                    1500 (see Players)
  *   --depth N        search depth of both players (default 3)
  *   --openings N     use the first N openings of the suite (default all, about 50); 2 games each
  *   --threads N      games at once (default: cores - 1)
@@ -86,9 +87,9 @@ public final class Cli {
         } else if (noSpeedups.equalsIgnoreCase("B")) {
             nameB += " no TT";
         }
-        Player a = new Player(nameA, evaluator(args[1]), depth, variety, !oldSearch.equalsIgnoreCase("A"),
+        Player a = player(args[1], nameA, depth, variety, !oldSearch.equalsIgnoreCase("A"),
                 !noSpeedups.equalsIgnoreCase("A"), moveMillis);
-        Player b = new Player(nameB, evaluator(args[2]), depth, variety, !oldSearch.equalsIgnoreCase("B"),
+        Player b = player(args[2], nameB, depth, variety, !oldSearch.equalsIgnoreCase("B"),
                 !noSpeedups.equalsIgnoreCase("B"), moveMillis);
 
         int total = 2 * openings.size();
@@ -103,17 +104,15 @@ public final class Cli {
     }
 
     private static String name(String spec) {
-        return Files.exists(Path.of(spec)) ? Path.of(spec).getFileName().toString().replaceFirst("\\.json$", "") : spec;
+        return Players.label(spec);
     }
 
-    /** "default" (the schema defaults), a preset name such as "classic", or a parameter file. */
-    private static Evaluator evaluator(String spec) throws IOException {
-        if (spec.equals("default")) {
-            return BitBoardEvaluate.DEFAULT;
+    private static Player player(String spec, String name, int depth, int variety, boolean quiescence,
+                                 boolean speedups, long moveMillis) {
+        if (Players.isStockfish(spec)) {
+            return Players.parse(spec, name, depth, variety);
         }
-        if (!Files.exists(Path.of(spec))) {
-            return new BitBoardEvaluate(BitBoardEvaluate.preset(spec));
-        }
-        return new BitBoardEvaluate(ParamVector.fromJson(BitBoardEvaluate.SCHEMA, Files.readString(Path.of(spec))));
+        return new Player(name, new BitBoardEvaluate(Players.params(spec)), depth, variety, quiescence, speedups,
+                moveMillis);
     }
 }

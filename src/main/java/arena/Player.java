@@ -16,9 +16,11 @@ import ai.eval.Evaluator;
  *                   compare against
  * @param moveMillis 0 searches exactly {@code depth}; more gives each move that long, deepening up to
  *                   {@code depth} (games are then no longer repeatable: they depend on the machine)
+ * @param external   null for the built-in engine; otherwise an engine outside this program (e.g.
+ *                   Stockfish) plays this side, and the fields above are not used
  */
 public record Player(String name, Evaluator evaluator, int depth, int variety, boolean quiescence,
-                     boolean speedups, long moveMillis) {
+                     boolean speedups, long moveMillis, ExternalEngine external) {
 
     public Player {
         if (depth < 1) {
@@ -32,9 +34,24 @@ public record Player(String name, Evaluator evaluator, int depth, int variety, b
         }
     }
 
+    /** The built-in engine. */
+    public Player(String name, Evaluator evaluator, int depth, int variety, boolean quiescence,
+                  boolean speedups, long moveMillis) {
+        this(name, evaluator, depth, variety, quiescence, speedups, moveMillis, null);
+    }
+
     /** A fixed-depth player with the Phase 5b search. */
     public Player(String name, Evaluator evaluator, int depth, int variety, boolean quiescence) {
         this(name, evaluator, depth, variety, quiescence, true, 0);
+    }
+
+    /** An engine outside this program, e.g. {@code Player.external("sf1500", ExternalEngine.stockfish(1500))}. */
+    public static Player external(String name, ExternalEngine engine) {
+        return new Player(name, null, 1, 0, true, true, 0, java.util.Objects.requireNonNull(engine));
+    }
+
+    public boolean isExternal() {
+        return external != null;
     }
 
     /** A player with the usual search: quiescence on, the given variety. */
