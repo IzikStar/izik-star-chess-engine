@@ -13,6 +13,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 /** How the game finds Stockfish: the download's own file names, one folder deep, and the PATH. */
 class StockfishLocatorTest {
@@ -33,6 +34,9 @@ class StockfishLocatorTest {
     @Test
     @DisplayName("On Linux and macOS takes an executable stockfish* file, never an archive or a text file")
     void unixDownloadName() throws IOException {
+        // Windows has no executable bit (Files.isExecutable is true for any file there), so the
+        // Linux/macOS rule can only be checked on Linux/macOS
+        assumeFalse(System.getProperty("os.name", "").toLowerCase().startsWith("windows"), "needs a Unix file system");
         Path engine = Files.createDirectories(dir.resolve("engine"));
         Files.writeString(engine.resolve("stockfish-ubuntu-x86-64-avx2.tar"), "");
         Files.writeString(engine.resolve("stockfish-not-executable"), "");
