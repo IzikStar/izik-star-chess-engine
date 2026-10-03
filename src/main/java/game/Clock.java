@@ -77,6 +77,13 @@ public final class Clock {
         since = nanoTime.getAsLong();
     }
 
+    /** Sets both sides' time left (a saved game carried on), with the clock stopped. */
+    public void restore(long whiteMs, long blackMs) {
+        running = null;
+        this.whiteMs = Math.max(0, whiteMs);
+        this.blackMs = Math.max(0, blackMs);
+    }
+
     /** Stops both clocks (game over, or taken back to before the first move). */
     public void stop() {
         settle();

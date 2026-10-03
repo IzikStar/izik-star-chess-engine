@@ -287,3 +287,20 @@ textarea.pgn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1
   .topbar { flex-wrap: wrap; padding: 8px 12px; row-gap: 4px; }
   .topbar .spacer { display: none; }
 }
+
+/* My games (Games.tsx) */
+.my-games { flex: 1; display: flex; flex-direction: column; gap: 16px; padding: 20px; max-width: 1100px; width: 100%; margin: 0 auto; }
+.my-games .filters { display: flex; gap: 12px; flex-wrap: wrap; }
+.game-table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.game-table th { text-align: left; font-weight: 600; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.game-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); }
+[data-testid="saved-games"] tbody tr { cursor: pointer; }
+[data-testid="saved-games"] tbody tr:hover, [data-testid="saved-games"] tbody tr:focus-visible { background: var(--surface-2); outline: none; }
+.game-table .res { font-weight: 600; white-space: nowrap; }
+.o-won .res { color: var(--accent); }
+.o-lost .res { color: var(--warn); }
+.o-unfinished .res { color: var(--muted); font-style: italic; }
+.tag { margin-left: 8px; padding: 1px 6px; border-radius: 6px; font-size: 12px; background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.row.start { justify-content: flex-start; margin-top: 0; }
+.result.unfinished { border-color: var(--line); }
+.result.unfinished .score { font-size: 24px; color: var(--muted); }

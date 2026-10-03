@@ -3,6 +3,7 @@ package web;
 import engine.EngineSelector;
 import engine.MinimaxEngine;
 import engine.StockfishEngine;
+import game.GameArchive;
 import game.GameConfig;
 import game.GameSession;
 import io.javalin.Javalin;
@@ -10,7 +11,10 @@ import io.javalin.http.staticfiles.Location;
 import io.javalin.websocket.WsContext;
 
 import java.awt.Desktop;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Map;
@@ -24,10 +28,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * and opens the default browser on start.
  *
  * <p>It also serves the lab page's API over the evolution runs in a folder ({@link LabApi}) and
- * game analysis with Stockfish ({@link AnalysisApi}).
+ * game analysis with Stockfish ({@link AnalysisApi}), and the player's saved games ({@link GamesApi}).
  *
  * <p>Arguments: {@code --port N} (default 7070, then the next free one up to 7079),
- * {@code --no-browser}, {@code --runs DIR} (the evolution runs, default {@code runs}).
+ * {@code --no-browser}, {@code --runs DIR} (the evolution runs, default {@code runs}), {@code --games DIR}
+ * (where the player's games are saved, default {@code games}).
  */
 public final class WebServer {
 
@@ -47,18 +52,20 @@ public final class WebServer {
         int port = DEFAULT_PORT;
         boolean browser = true;
         Path runs = Path.of("runs");
+        Path games = Path.of("games");
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--port" -> port = Integer.parseInt(args[++i]);
                 case "--no-browser" -> browser = false;
                 case "--runs" -> runs = Path.of(args[++i]);
+                case "--games" -> games = Path.of(args[++i]);
                 default -> {
-                    System.err.println("unknown argument: " + args[i] + " (use --port N, --no-browser, --runs DIR)");
+                    System.err.println("unknown argument: " + args[i] + " (use --port N, --no-browser, --runs DIR, --games DIR)");
                     System.exit(2);
                 }
             }
         }
-        WebServer server = startOnFreePort(port, port == DEFAULT_PORT ? 10 : 1, runs);
+        WebServer server = startOnFreePort(port, port == DEFAULT_PORT ? 10 : 1, runs, games);
         String url = "http://localhost:" + server.port() + "/";
         System.out.println("IzikStar Chess is running at " + url + " (Ctrl+C to stop)");
         Runtime.getRuntime().addShutdownHook(new Thread(server::stop));
@@ -67,11 +74,11 @@ public final class WebServer {
         }
     }
 
-    private static WebServer startOnFreePort(int first, int attempts, Path runs) {
+    private static WebServer startOnFreePort(int first, int attempts, Path runs, Path games) {
         RuntimeException last = null;
         for (int port = first; port < first + attempts; port++) {
             try {
-                return start(port, defaultSession(), runs);
+                return start(port, defaultSession(), runs, games);
             } catch (RuntimeException e) {
                 last = e; // port taken: try the next one
             }
@@ -100,14 +107,28 @@ public final class WebServer {
         return WebServer::defaultSession;
     }
 
-    /** Starts a server on {@code port} (0 = any free port) around a new session, runs in {@code runs/}. */
+    /**
+     * Starts a server on {@code port} (0 = any free port) around a new session, runs in {@code runs/},
+     * games saved to a new temporary folder (for tests).
+     */
     static WebServer start(int port, SessionFactory sessions) {
         return start(port, sessions, Path.of("runs"));
     }
 
-    /** Starts a server on {@code port} (0 = any free port) around a new session. */
+    /** As {@link #start(int, SessionFactory)}, with the runs in {@code runs}. */
     static WebServer start(int port, SessionFactory sessions, Path runs) {
+        try {
+            return start(port, sessions, runs, Files.createTempDirectory("izikstar-games"));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** Starts a server on {@code port} (0 = any free port) around a new session. */
+    static WebServer start(int port, SessionFactory sessions, Path runs, Path games) {
         GameHub hub = new GameHub();
+        GameArchive archive = new GameArchive(games);
+        hub.useArchive(archive);
         LabApi lab = new LabApi(runs);
         hub.useLab(lab);
         GameSession session = sessions.create(hub);
@@ -136,6 +157,7 @@ public final class WebServer {
         AnalysisApi analysis = new AnalysisApi();
         analysis.routes(app);
         new StockfishApi(hub::stockfish, hub::refresh).routes(app);
+        new GamesApi(archive).routes(app);
         app.ws("/ws", ws -> {
             ws.onConnect(ctx -> {
                 GameHub.Client client = ctx::send;

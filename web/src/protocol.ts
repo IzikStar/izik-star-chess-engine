@@ -84,6 +84,8 @@ export interface GameState {
   config: GameConfig;
   /** The evolved champion the engine plays as, or null for the usual engine. */
   opponent: Champion | null;
+  /** The current game's file among the saved games (web.GamesApi), or null before its first move or when not saved. */
+  savedId?: string | null;
   /** Whether Levels 9-13 really get Stockfish (absent when the server has no Stockfish slot). */
   stockfish?: StockfishInfo;
 }
@@ -126,6 +128,8 @@ export type Command =
   | { type: 'offerDraw' }
   | { type: 'answerDraw'; accept: boolean }
   | { type: 'loadPgn'; pgn: string }
+  /** Carry on an unfinished saved game. */
+  | { type: 'resumeGame'; id: string }
   | {
       type: 'newGame';
       mode: Mode;

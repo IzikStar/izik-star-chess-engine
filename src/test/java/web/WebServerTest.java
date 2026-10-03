@@ -393,6 +393,81 @@ class WebServerTest {
         assertNull(GameStateJson.result(rules.GameStatus.CHECK, true));
     }
 
+    @Test
+    @DisplayName("Saved games: each move is saved, a left game stays unfinished, and it can be carried on")
+    void savedGames() throws Exception {
+        java.nio.file.Path games = java.nio.file.Files.createTempDirectory("games-test");
+        server = WebServer.start(0, hub -> new GameSession(GameConfig.defaults(),
+                new EngineSelector(new MinimaxEngine(), NO_STOCKFISH), hub::execute), java.nio.file.Path.of("runs"), games);
+        Client c = new Client();
+        c.await(s -> true);
+        c.send("{\"type\":\"newGame\",\"mode\":\"friend\",\"time\":{\"initialMs\":300000,\"incrementMs\":0}}");
+        c.awaitEvent("reset");
+        c.move("e2e4");
+        c.move("e7e5");
+        JsonObject state = c.awaitPly(2).getAsJsonObject("state");
+        String id = state.get("savedId").getAsString();
+
+        JsonArray list = get("/api/games").getAsJsonArray("games");
+        assertEquals(1, list.size());
+        JsonObject summary = list.get(0).getAsJsonObject();
+        assertEquals(id, summary.get("id").getAsString());
+        assertEquals("friend", summary.get("mode").getAsString());
+        assertEquals(2, summary.get("plies").getAsInt());
+        assertTrue(summary.get("result").isJsonNull());
+
+        // a new game leaves this one unfinished; mate ends the next one and records the result
+        newGame(c, "friend", "white", 4);
+        c.awaitEvent("reset");
+        for (String uci : new String[]{"f2f3", "e7e5", "g2g4", "d8h4"}) {
+            c.move(uci);
+        }
+        String mated = c.awaitPly(4).getAsJsonObject("state").get("savedId").getAsString();
+        assertFalse(id.equals(mated));
+        JsonObject finished = get("/api/games/" + mated);
+        assertEquals("0-1", finished.get("result").getAsString());
+        assertEquals("Black won by checkmate", finished.get("termination").getAsString());
+        assertEquals("Qh4#", finished.getAsJsonArray("moves").get(3).getAsJsonObject().get("san").getAsString());
+        assertTrue(finished.get("pgn").getAsString().contains("2. g4 Qh4# 0-1"));
+        assertEquals(2, get("/api/games").getAsJsonArray("games").size());
+
+        // carrying on the first game: same moves, same mode, same clock, saved under the same id
+        c.send("{\"type\":\"resumeGame\",\"id\":\"" + mated + "\"}");
+        c.awaitEvent("rejected"); // it is over
+        c.send("{\"type\":\"resumeGame\",\"id\":\"" + id + "\"}");
+        state = c.await(s -> s.getAsJsonArray("moves").size() == 2 && id.equals(s.get("savedId").getAsString()))
+                .getAsJsonObject("state");
+        assertEquals("friend", state.getAsJsonObject("config").get("mode").getAsString());
+        assertEquals(300000, state.getAsJsonObject("clock").get("initialMs").getAsInt());
+        assertEquals("white", state.getAsJsonObject("clock").get("running").getAsString());
+        c.move("g1f3");
+        c.awaitPly(3);
+        assertEquals(3, get("/api/games/" + id).get("plies").getAsInt());
+
+        // a take-back to no moves removes an empty game; deleting works over HTTP
+        newGame(c, "friend", "white", 4);
+        c.awaitEvent("reset");
+        c.move("d2d4");
+        String empty = c.awaitPly(1).getAsJsonObject("state").get("savedId").getAsString();
+        c.send("{\"type\":\"undo\"}");
+        c.awaitPly(0);
+        assertEquals(404, status("GET", "/api/games/" + empty));
+        assertEquals(204, status("DELETE", "/api/games/" + mated));
+        assertEquals(1, get("/api/games").getAsJsonArray("games").size());
+    }
+
+    private JsonObject get(String path) throws Exception {
+        HttpResponse<String> r = HttpClient.newHttpClient().send(HttpRequest.newBuilder(
+                URI.create("http://127.0.0.1:" + server.port() + path)).build(), HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, r.statusCode(), r.body());
+        return JsonParser.parseString(r.body()).getAsJsonObject();
+    }
+
+    private int status(String method, String path) throws Exception {
+        return HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + server.port() + path))
+                .method(method, HttpRequest.BodyPublishers.noBody()).build(), HttpResponse.BodyHandlers.discarding()).statusCode();
+    }
+
     private static boolean contains(JsonArray array, String value) {
         for (JsonElement e : array) {
             if (e.getAsString().equals(value)) {

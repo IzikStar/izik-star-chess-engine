@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AnalysisPanel, EvalBar, gameKey, QUALITY, useAnalysis, type Quality } from './Analysis';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnalysisPanel, EvalBar, gameKey, useAnalysis } from './Analysis';
 import { Board } from './Board';
 import { ClockFace } from './Clock';
 import { PgnDialog } from './PgnDialog';
+import { Games } from './Games';
 import { Lab } from './Lab';
+import { MoveList, RepeatButton } from './MoveList';
 import { NewGameDialog, type NewGameChoice } from './NewGameDialog';
 import { codeOf, PieceSvg } from './pieces';
 import { captured, colorName, engineText, isOver, kingSquare, materialOf, movesByFrom, other, resultText, timeControlOf, timeKey, turnOf, withPremoves } from './chess';
@@ -11,6 +13,12 @@ import { useGame, type Champion, type Color, type GameEvent, type GameState } fr
 import { play } from './sounds';
 
 const EMPTY = new Map<string, string[]>();
+
+type Page = 'game' | 'games' | 'lab';
+
+function pageOf(): Page {
+  return location.hash === '#lab' ? 'lab' : location.hash === '#games' ? 'games' : 'game';
+}
 
 function stored(key: string, fallback: string): string {
   try {
@@ -38,8 +46,8 @@ export function App() {
   const [dialogOpen, setDialogOpen] = useState(false);
   /** The champion the New game dialog opens with (from the lab's "Play the champion"). */
   const [dialogChampion, setDialogChampion] = useState<Champion | null>(null);
-  /** Which screen: the game, or the lab (#lab). */
-  const [page, setPage] = useState(() => (location.hash === '#lab' ? 'lab' : 'game'));
+  /** Which screen: the game, my games (#games), or the lab (#lab). */
+  const [page, setPage] = useState<Page>(pageOf);
   /** Moves queued while the engine thinks (from + to [+ piece]), played one per turn, oldest first. */
   const [premoves, setPremoves] = useState<string[]>([]);
   /** The state a premove was last sent from, so the next one waits for the engine's reply. */
@@ -121,12 +129,12 @@ export function App() {
   }, [currentKey, analysis, clearAnalysis]);
 
   useEffect(() => {
-    const onHash = () => setPage(location.hash === '#lab' ? 'lab' : 'game');
+    const onHash = () => setPage(pageOf());
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
-  const showPage = (p: 'game' | 'lab') => {
-    history.replaceState(null, '', p === 'lab' ? '#lab' : location.pathname);
+  const showPage = (p: Page) => {
+    history.replaceState(null, '', p === 'game' ? location.pathname : '#' + p);
     setPage(p);
   };
 
@@ -250,6 +258,7 @@ export function App() {
         <div className="brand"><span aria-hidden="true">♞</span> IzikStar Chess</div>
         <div className="tabs" role="group" aria-label="Screen">
           <button type="button" className={'btn ghost' + (page === 'game' ? ' on' : '')} aria-pressed={page === 'game'} onClick={() => showPage('game')}>Game</button>
+          <button type="button" className={'btn ghost' + (page === 'games' ? ' on' : '')} aria-pressed={page === 'games'} onClick={() => showPage('games')}>My games</button>
           <button type="button" className={'btn ghost' + (page === 'lab' ? ' on' : '')} aria-pressed={page === 'lab'} onClick={() => showPage('lab')}>Lab</button>
         </div>
         <div className="spacer" />
@@ -267,6 +276,17 @@ export function App() {
       </header>
 
       {page === 'lab' && <Lab onPlay={(champion) => openDialog(champion)} />}
+
+      {page === 'games' && (
+        <Games liveId={state.savedId ?? null} onShowLive={() => showPage('game')} onResume={(id) => {
+          setFlipped(false);
+          setView(null);
+          setPremoves([]);
+          play('start', soundOn);
+          send({ type: 'resumeGame', id });
+          showPage('game');
+        }} />
+      )}
 
       <main className="game" hidden={page !== 'game'}>
         <section className="board-area" aria-label="Board">
@@ -340,7 +360,8 @@ export function App() {
 
           <AnalysisPanel analysis={analysis} ply={ply} onPick={goTo} onRetry={analyse} />
 
-          <MoveList state={state} ply={ply} onPick={goTo} qualities={report?.moves.map((m) => m.quality)} />
+          <MoveList moves={moves} result={state.result} ply={ply} onPick={goTo} qualities={report?.moves.map((m) => m.quality)}
+            empty={`No moves yet. ${state.humanTurn ? 'Click or drag a piece to start.' : ''}`} />
 
           <div className="nav" role="group" aria-label="Review moves">
             <button type="button" className="icon" aria-label="First position" disabled={ply === 0} onClick={() => goTo(0)}>⏮</button>
@@ -400,41 +421,6 @@ export function App() {
         />
       )}
     </div>
-  );
-}
-
-/** A button that acts once on press and, held down, again and again (like a held arrow key). */
-function RepeatButton({ label, disabled, onStep, children }: { label: string; disabled: boolean; onStep: () => void; children: ReactNode }) {
-  const timer = useRef<number | undefined>(undefined);
-  const stop = () => {
-    window.clearTimeout(timer.current);
-    window.clearInterval(timer.current);
-    timer.current = undefined;
-  };
-  useEffect(() => stop, []);
-  useEffect(() => {
-    if (disabled) stop();
-  }, [disabled]);
-  return (
-    <button type="button" className="icon" aria-label={label} disabled={disabled}
-      onPointerDown={(e) => {
-        if (e.button !== 0) return;
-        stop();
-        onStep();
-        timer.current = window.setTimeout(() => {
-          timer.current = window.setInterval(onStep, 70);
-        }, 350);
-      }}
-      onPointerUp={stop}
-      onPointerLeave={stop}
-      onPointerCancel={stop}
-      onContextMenu={(e) => e.preventDefault()}
-      // keyboard (Enter / Space) gives a click with detail 0; mouse and touch were handled on press
-      onClick={(e) => {
-        if (e.detail === 0) onStep();
-      }}>
-      {children}
-    </button>
   );
 }
 
@@ -504,49 +490,5 @@ function StatusLine({ state, connection, live, ply, premoves, onReturn }: {
       <span>{text}</span>
       {!live && <button type="button" className="link" onClick={onReturn}>Back to game</button>}
     </div>
-  );
-}
-
-function MoveList({ state, ply, onPick, qualities }: { state: GameState; ply: number; onPick: (ply: number) => void; qualities?: Quality[] }) {
-  const list = useRef<HTMLOListElement>(null);
-  const { moves } = state;
-  useEffect(() => {
-    list.current?.querySelector('.current')?.scrollIntoView({ block: 'nearest' });
-  }, [ply, moves.length]);
-
-  // rows of [white, black]; a game set up with Black to move would start with an empty White cell
-  const rows: { number: number; cells: ({ san: string; ply: number } | null)[] }[] = [];
-  moves.forEach((m, i) => {
-    if (m.color === 'white' || rows.length === 0) rows.push({ number: m.number, cells: [null, null] });
-    rows[rows.length - 1].cells[m.color === 'white' ? 0 : 1] = { san: m.san, ply: i + 1 };
-  });
-
-  return (
-    <section className="moves" aria-label="Moves">
-      {moves.length === 0 ? (
-        <p className="empty">No moves yet. {state.humanTurn ? 'Click or drag a piece to start.' : ''}</p>
-      ) : (
-        <ol className="move-list" ref={list} data-testid="move-list">
-          {rows.map((row) => (
-            <li key={row.number}>
-              <span className="num">{row.number}.</span>
-              {row.cells.map((c, i) =>
-                c ? (
-                  <button key={i} type="button" className={'mv' + (c.ply === ply ? ' current' : '')} onClick={() => onPick(c.ply)}>
-                    {c.san}
-                    {qualities?.[c.ply - 1] && QUALITY[qualities[c.ply - 1]].glyph && (
-                      <span className={'glyph q-' + qualities[c.ply - 1]} title={QUALITY[qualities[c.ply - 1]].label}>{QUALITY[qualities[c.ply - 1]].glyph}</span>
-                    )}
-                  </button>
-                ) : (
-                  <span key={i} className="mv" />
-                ),
-              )}
-            </li>
-          ))}
-          {state.result && <li className="final">{state.result}</li>}
-        </ol>
-      )}
-    </section>
   );
 }

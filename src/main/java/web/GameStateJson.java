@@ -126,7 +126,7 @@ final class GameStateJson {
     }
 
     /** The ending in words, as chess sites write it in the Termination tag. */
-    private static String termination(GameSession session) {
+    static String termination(GameSession session) {
         GameEnd end = session.end();
         if (end != null) {
             String side = end.white() ? "White" : "Black";
