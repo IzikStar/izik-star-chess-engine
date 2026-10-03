@@ -90,6 +90,18 @@ class StockfishSessionTest {
     }
 
     @Test
+    @DisplayName("With a clock, Stockfish thinks no longer than the move's budget")
+    void keepsToTheBudget() throws Exception {
+        Path log = dir.resolve("log");
+        StockfishEngine sf = fake("normal", log);
+        assertNotNull(sf.bestMove(request(List.of(), 13, Cancellation.NONE).withTimeBudgetMs(120)));
+        assertNotNull(sf.bestMove(request(List.of("e2e4", "e7e5"), 9, Cancellation.NONE).withTimeBudgetMs(5_000)));
+        List<String> sent = lines(log);
+        assertTrue(sent.contains("go movetime 120"), sent.toString());
+        assertTrue(sent.contains("go movetime 500"), "a roomy budget leaves the level's own time: " + sent);
+    }
+
+    @Test
     @DisplayName("A shorter move list (take-back) or another start position starts a new game")
     void newGameOnTakeBack() throws Exception {
         Path log = dir.resolve("log");

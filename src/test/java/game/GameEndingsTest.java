@@ -96,6 +96,33 @@ class GameEndingsTest {
     }
 
     @Test
+    @DisplayName("The engine's move gets a budget from its clock; without a clock it gets none")
+    void engineGetsClockBudget() {
+        List<Long> budgets = new ArrayList<>();
+        engine.Engine recording = new engine.Engine() {
+            @Override public ChessMove bestMove(engine.SearchRequest request) {
+                budgets.add(request.timeBudgetMs());
+                return rules.Rules.legalMoves(request.fen()).get(0);
+            }
+        };
+        GameSessionTest.DirectExecutor direct = new GameSessionTest.DirectExecutor();
+        GameSession s = new GameSession(GameConfig.defaults(),
+                new EngineSelector(recording, GameSessionTest.NO_STOCKFISH), direct, direct);
+        s.setNanoTime(now::get);
+        s.newGame(Position.START_FEN, TimeControl.ofMinutes(1, 0));
+        play(s, "e2e4");
+        assertEquals(List.of(engine.TimeBudget.forMove(60_000, 0)), budgets);
+        advanceMs(50_000); // the human thinks for 50 s; the engine's own clock is untouched
+        play(s, "d2d4");
+        assertEquals(engine.TimeBudget.forMove(60_000, 0), budgets.get(1));
+
+        s.newGame(Position.START_FEN, TimeControl.NONE);
+        play(s, "e2e4");
+        assertEquals(engine.TimeBudget.NONE, budgets.get(2));
+        s.shutdown();
+    }
+
+    @Test
     @DisplayName("A move made after the flag fell loses on time instead")
     void moveAfterFlagLoses() {
         Ends ends = new Ends();
