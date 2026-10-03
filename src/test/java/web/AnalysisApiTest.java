@@ -60,7 +60,7 @@ class AnalysisApiTest {
         String base = start(null);
         HttpResponse<String> r = post(base + "/api/analysis", "{\"moves\":[\"e2e4\"]}");
         assertEquals(503, r.statusCode());
-        assertTrue(r.body().contains("Stockfish was not found"));
+        assertTrue(r.body().contains("\"noStockfish\":true"));
     }
 
     @Test

@@ -58,6 +58,7 @@ public final class StockfishLocator {
                 engineDirs.add(dir.getParent().resolve("engine"));
             }
         });
+        engineDirs.add(installDir()); // where the in-game download puts it
         boolean windows = isWindows();
         List<Path> searchDirs = pathDirs();
         if (!windows) {
@@ -128,6 +129,23 @@ public final class StockfishLocator {
             }
         }
         return dirs;
+    }
+
+    /**
+     * Where a downloaded Stockfish goes: the {@code engine/} folder of the project, found from the
+     * jar (or class folder) by stepping out of {@code target/} and {@code classes/}; the working
+     * directory's {@code engine/} if the code's location is unknown. {@link #find()} looks there.
+     */
+    public static Path installDir() {
+        Optional<Path> dir = jarDir();
+        if (dir.isEmpty()) {
+            return Path.of("engine").toAbsolutePath();
+        }
+        Path base = dir.get().toAbsolutePath();
+        while (base.getParent() != null && Set.of("target", "classes", "test-classes").contains(base.getFileName().toString())) {
+            base = base.getParent();
+        }
+        return base.resolve("engine");
     }
 
     private static Optional<Path> jarDir() {

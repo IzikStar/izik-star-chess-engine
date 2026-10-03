@@ -79,6 +79,16 @@ final class GameHub implements GameListener {
         this.stockfish = stockfish;
     }
 
+    /** The session's Stockfish, or null if it was built without one. */
+    StockfishEngine stockfish() {
+        return stockfish;
+    }
+
+    /** Sends every browser a fresh state, e.g. after Stockfish was installed. */
+    void refresh() {
+        execute(() -> { });
+    }
+
     /** Lets new games play an evolved champion: {@code builtIn} is the session's built-in engine. */
     void useBuiltIn(MinimaxEngine builtIn) {
         this.builtIn = builtIn;

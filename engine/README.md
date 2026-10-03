@@ -1,6 +1,7 @@
 # engine/
 
-Drop a Stockfish executable here. It is not committed to the repository
+The game can fill this folder itself: press **Download Stockfish** in the New game dialog (Levels
+8-10) or in the analysis panel. Or drop a Stockfish executable here yourself. It is not committed to the repository
 (it is a ~70 MB third-party GPLv3 binary); download it from
 <https://stockfishchess.org/download/>.
 

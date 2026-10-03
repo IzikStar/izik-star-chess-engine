@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { engineText, LEVELS, TIME_CONTROLS } from './chess';
 import type { Champion, Color, Mode, StockfishInfo } from './protocol';
+import { StockfishInstall } from './StockfishInstall';
 
 export interface NewGameChoice {
   mode: Mode;
@@ -37,10 +38,9 @@ function LevelSlider({ id, label, value, onChange, stockfish, min = 1, max = 10 
         <span className="muted">{engineText(value, stockfish)}</span>
       </div>
       {value >= 8 && stockfish && !stockfish.available && (
-        <p className="warn-note" data-testid="stockfish-missing">
-          Stockfish was not found, so this level is not Stockfish. Put the Stockfish download in the
-          <code> engine/</code> folder (any file named stockfish…) and restart the game.
-        </p>
+        <div data-testid="stockfish-missing">
+          <StockfishInstall why="Stockfish is not installed, so this level plays the built-in engine at Level 7." />
+        </div>
       )}
     </div>
   );

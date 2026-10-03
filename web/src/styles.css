@@ -252,3 +252,12 @@ textarea.pgn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1
 .q-blunder { color: #d03b3b; }
 .move-list .mv.current .glyph { color: inherit; }
 .controls { grid-template-columns: repeat(4, 1fr); }
+
+/* one-click Stockfish download (StockfishInstall.tsx) */
+.stockfish-install { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.stockfish-install p { margin: 0; }
+.install-progress { position: relative; width: 100%; height: 22px; border-radius: 6px; background: var(--surface); overflow: hidden; }
+.install-progress > div { height: 100%; background: var(--accent); transition: width 0.3s ease; }
+.install-progress > span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--fg); }
+.install-error { color: var(--warn); font-weight: 600; }
+.ok-note { margin: 6px 0 0; font-size: 13px; color: var(--accent); }
