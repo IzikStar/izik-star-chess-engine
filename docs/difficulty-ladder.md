@@ -28,6 +28,16 @@ The Elo column is the research measurement (20-100 games a pairing, about ±100 
 the scale of Stockfish's UCI_Elo: Stockfish's own calibration against the CCRL computer rating
 list, not a human federation's rating.
 
+## Playing with a clock
+
+In a game with a clock the engine also keeps to a time budget per move (`engine.TimeBudget`):
+the time it has left over 25, plus three quarters of the increment, never more than half of what
+is left (and about a second kept back). The budget only ever shortens a level's thinking: the
+built-in levels stop deepening when it runs out, Stockfish's move time is cut to it, and Level 0's
+pause takes at most half of it. With plenty of time on the clock every level plays exactly as
+without one, so the Elo numbers above still hold; in time trouble the engine moves faster and
+plays weaker. Hints ignore the clock.
+
 ## Measuring it again
 
 `arena.LadderCalibration` plays every level against the next one up and, from Level 3, against

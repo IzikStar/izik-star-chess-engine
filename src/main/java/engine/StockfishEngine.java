@@ -24,7 +24,8 @@ import java.util.stream.Collectors;
  *   <li>Each move sends the whole game ({@code position fen <start> moves …}), so Stockfish sees
  *       repetitions; {@code ucinewgame} is sent only when a different game starts.</li>
  *   <li>The level sets Stockfish's strength, a UCI_Elo or full strength, and how long it thinks
- *       ({@link Levels}).</li>
+ *       ({@link Levels}); in a game with a clock it thinks no longer than the request's
+ *       {@link SearchRequest#timeBudgetMs()}.</li>
  *   <li>A cancelled request sends {@code stop}. A crashed or silent process is killed and started
  *       again on the next request; after {@link #MAX_FAILURES} failures in a row, or if the
  *       executable cannot be launched, the engine reports itself unavailable and the caller falls
@@ -169,7 +170,7 @@ public class StockfishEngine implements Engine {
 
         String moves = request.moves().stream().map(ChessMove::toUci).collect(Collectors.joining(" "));
         send("position fen " + request.startFen() + (moves.isEmpty() ? "" : " moves " + moves));
-        long moveTime = moveTimeMs(request.skillLevel());
+        long moveTime = TimeBudget.cap(moveTimeMs(request.skillLevel()), request.timeBudgetMs());
         send("go movetime " + moveTime);
         String uci = awaitBestMove(request.cancel(), moveTime + BESTMOVE_GRACE_MS);
         if (uci == null || request.cancel().isCancelled()) {

@@ -4,6 +4,7 @@ import engine.Cancellation;
 import engine.DrawOffers;
 import engine.EngineSelector;
 import engine.SearchRequest;
+import engine.TimeBudget;
 import rules.ChessMove;
 import rules.Game;
 import rules.GameStatus;
@@ -579,6 +580,14 @@ public final class GameSession {
         return new SearchRequest(game.fen(), game.history().get(0), played, level, cancel);
     }
 
+    /** The most the side to move may spend on this move ({@link TimeBudget}), or none without a clock. */
+    private long timeBudget() {
+        if (clock == null) {
+            return TimeBudget.NONE;
+        }
+        return TimeBudget.forMove(clock.remainingMs(whiteToMove()), clock.control().incrementMs());
+    }
+
     private void maybeStartEngine() {
         if (isOver() || config.isHuman(whiteToMove()) || engineBusy) {
             return;
@@ -588,10 +597,12 @@ public final class GameSession {
         String fen = game.fen();
         int level = config.skillLevelFor(whiteToMove());
         long gen = generation;
-        long delay = level == 0 ? randomMoveDelayMs : 0;
+        long budget = timeBudget();
+        // the random level's pause is for show: it takes at most half the move's budget
+        long delay = level == 0 ? TimeBudget.cap(randomMoveDelayMs, budget / 2) : 0;
         Cancellation cancel = new Cancellation();
         engineCancel = cancel;
-        SearchRequest request = request(level, cancel);
+        SearchRequest request = request(level, cancel).withTimeBudgetMs(budget);
         pendingEngineJob = engineExecutor.submit(() -> {
             ChessMove move;
             try {

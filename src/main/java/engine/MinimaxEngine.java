@@ -22,7 +22,8 @@ import java.util.Random;
  *
  * <p>Phase 4 (docs/phase-4-research.md Fork A1): the depth is still the strength knob, but the
  * search deepens one ply at a time and stops at {@link #TIME_CAP_MS}, playing the move of the
- * deepest finished depth. Levels that finish in time play exactly as before.
+ * deepest finished depth. Levels that finish in time play exactly as before. In a game with a
+ * clock the cap is also held to the request's {@link SearchRequest#timeBudgetMs()}.
  *
  * <p>Phase 5: it plays with any {@link Evaluator}; the default is the hand-written evaluation
  * with its usual weights. It no longer plays the same game every time: among the moves scoring
@@ -97,7 +98,7 @@ public final class MinimaxEngine implements Engine {
             return legal.get(random.nextInt(legal.size()));
         }
         int depth = searchDepth(Position.fromFen(fen), level);
-        long deadline = System.nanoTime() + timeCapMs * 1_000_000;
+        long deadline = System.nanoTime() + TimeBudget.cap(timeCapMs, request.timeBudgetMs()) * 1_000_000;
         Evaluator weights = evaluator;
         long[] history = gameHistory(gameFens(request.startFen(), request.moves()), fen);
         BitMove bitMove = Minimax.getBestMove(BitBoardRules.fromFen(fen), depth, weights,
