@@ -28,6 +28,9 @@ Phase 4c (#2 to #6) refer to that repository.
   checkmate and stalemate. Draws are detected by the 50-move rule, threefold repetition and
   insufficient material.
 - **Click or drag** to move; the legal moves of the selected piece are marked.
+- **Game analysis** with Stockfish: an evaluation bar beside the board, a graph, a mark on every
+  move (best, inaccuracy, mistake, blunder) and per side an accuracy and a rough Elo estimate
+  ([how it is computed](docs/game-analysis.md)).
 - **Premoves.** While the engine thinks, queue your next moves (as many as you like, and a
   promotion asks for its piece); one is played each time it is your turn, if it is still legal,
   and an illegal one drops the rest. Click an empty square to cancel them.

@@ -102,7 +102,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 .move-list .mv { background: none; border: 0; text-align: left; padding: 5px 10px; cursor: pointer; border-radius: 0; }
 .move-list span.mv { cursor: default; }
 .move-list button.mv:hover { background: var(--surface-2); }
-.move-list .mv.current { background: var(--accent); color: var(--accent-fg); font-weight: 600; }
+.move-list .mv.current, .move-list button.mv.current:hover { background: var(--accent); color: var(--accent-fg); font-weight: 600; }
 .move-list .final { display: block; text-align: center; padding: 6px; font-weight: 600; border-top: 1px solid var(--line); }
 
 .nav { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
@@ -197,3 +197,35 @@ input[type='range'] { width: 100%; accent-color: var(--accent); }
 
 /* the New game dialog's note when Levels 8-10 cannot get Stockfish */
 .warn-note { margin: 6px 0 0; padding: 8px 10px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); font-size: 13px; line-height: 1.4; }
+
+/* ---- game analysis (Analysis.tsx) ---- */
+.board-area { gap: 10px; }
+.eval-bar { position: relative; flex: 0 0 26px; align-self: stretch; max-height: min(100vh - 110px, 100%); aspect-ratio: auto; border-radius: 4px; overflow: hidden; background: #3a3a3a; display: flex; flex-direction: column-reverse; box-shadow: 0 3px 14px rgba(0, 0, 0, 0.22); }
+.eval-bar.flipped { flex-direction: column; }
+.eval-white { background: #f4f4f1; transition: height 0.3s ease; }
+.eval-text { position: absolute; left: 0; right: 0; text-align: center; font-size: 10px; font-weight: 700; padding: 3px 0; }
+.eval-text.on-white { bottom: 0; color: #333; }
+.eval-text.on-black { top: 0; color: #eee; }
+.eval-bar.flipped .eval-text.on-white { bottom: auto; top: 0; }
+.eval-bar.flipped .eval-text.on-black { top: auto; bottom: 0; }
+.analysis { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.analysis .status { display: flex; align-items: center; gap: 8px; }
+.analysis-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.analysis-table th, .analysis-table td { padding: 3px 4px; text-align: right; font-variant-numeric: tabular-nums; }
+.analysis-table th:first-child { text-align: left; }
+.analysis-table thead th { color: var(--muted); font-weight: 500; font-size: 12px; }
+.analysis-table .elo { font-weight: 700; }
+.eval-graph { width: 100%; height: 70px; cursor: pointer; border-radius: 6px; display: block; }
+.graph-black { fill: #4a4a4a; }
+.graph-white { fill: #f1f1ee; }
+.graph-mid { stroke: rgba(127, 127, 127, 0.6); stroke-width: 0.5; }
+.graph-ply { stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.analysis-move { margin: 0; font-size: 13px; }
+.muted.small { font-size: 12px; margin: 0; color: var(--muted); }
+.glyph { margin-left: 3px; font-weight: 700; font-size: 12px; }
+.q-best { color: #2e8b57; }
+.q-inaccuracy { color: #c9a227; }
+.q-mistake { color: #e07b29; }
+.q-blunder { color: #d03b3b; }
+.move-list .mv.current .glyph { color: inherit; }
+.controls { grid-template-columns: repeat(4, 1fr); }

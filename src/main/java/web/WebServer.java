@@ -23,7 +23,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * for the protocol). It listens on 127.0.0.1 only, so nothing outside this computer can reach it,
  * and opens the default browser on start.
  *
- * <p>It also serves the lab page's API over the evolution runs in a folder ({@link LabApi}).
+ * <p>It also serves the lab page's API over the evolution runs in a folder ({@link LabApi}) and
+ * game analysis with Stockfish ({@link AnalysisApi}).
  *
  * <p>Arguments: {@code --port N} (default 7070, then the next free one up to 7079),
  * {@code --no-browser}, {@code --runs DIR} (the evolution runs, default {@code runs}).
@@ -34,10 +35,12 @@ public final class WebServer {
 
     private final Javalin app;
     private final GameHub hub;
+    private final AnalysisApi analysis;
 
-    private WebServer(Javalin app, GameHub hub) {
+    private WebServer(Javalin app, GameHub hub, AnalysisApi analysis) {
         this.app = app;
         this.hub = hub;
+        this.analysis = analysis;
     }
 
     public static void main(String[] args) {
@@ -129,6 +132,8 @@ public final class WebServer {
                     + "or <code>npm run dev</code> in <code>web/</code> during development.</p>"));
         }
         lab.routes(app);
+        AnalysisApi analysis = new AnalysisApi();
+        analysis.routes(app);
         app.ws("/ws", ws -> {
             ws.onConnect(ctx -> {
                 GameHub.Client client = ctx::send;
@@ -150,7 +155,7 @@ public final class WebServer {
         });
         app.start("127.0.0.1", port);
         hub.execute(session::start);
-        return new WebServer(app, hub);
+        return new WebServer(app, hub, analysis);
     }
 
     int port() {
@@ -159,6 +164,7 @@ public final class WebServer {
 
     void stop() {
         hub.shutdown();
+        analysis.shutdown();
         app.stop();
     }
 
