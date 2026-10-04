@@ -6,6 +6,7 @@ import ai.eval.ParamSpec;
 import ai.eval.ParamVector;
 import arena.GameRecord;
 import arena.Score;
+import evolution.Generation;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -251,28 +252,38 @@ final class LabApi {
 
     // ---- games ---------------------------------------------------------------
 
-    /** A generation's games: the population's, then the champion's against the yardsticks. */
+    /** The kinds of game a generation plays, in the order the Lab lists them. */
+    private static final List<String> KINDS = List.of("population", "yardstick", "stockfish");
+
+    /** A generation's games: the population's, the champion's against the yardsticks, then every member's against Stockfish. */
     private static List<GameRecord> games(RunStore store, int generation) {
-        List<GameRecord> games = new ArrayList<>(store.games(generation, "population"));
-        games.addAll(store.games(generation, "yardstick"));
+        List<GameRecord> games = new ArrayList<>();
+        KINDS.forEach(kind -> games.addAll(store.games(generation, kind)));
         return games;
     }
 
     JsonObject generation(String file, int number) {
         try (RunStore store = open(file)) {
-            int population = store.games(number, "population").size();
+            List<String> kinds = new ArrayList<>();
+            List<Integer> depths = new ArrayList<>();
+            for (String kind : KINDS) {
+                List<Integer> d = store.gameDepths(number, kind);
+                d.forEach(x -> kinds.add(kind));
+                depths.addAll(d);
+            }
             List<GameRecord> games = games(store, number);
-            List<Integer> depths = new ArrayList<>(store.gameDepths(number, "population"));
-            depths.addAll(store.gameDepths(number, "yardstick"));
+            int size = store.members(number, SCHEMA).size();
             JsonObject out = new JsonObject();
             out.addProperty("number", number);
-            out.addProperty("members", store.members(number, SCHEMA).size());
+            out.addProperty("members", size);
+            out.add("standings", standings(new Generation(number, store.members(number, SCHEMA),
+                    store.games(number, "population"), store.games(number, "stockfish"), 0)));
             JsonArray list = new JsonArray();
             for (int i = 0; i < games.size(); i++) {
                 GameRecord g = games.get(i);
                 JsonObject o = new JsonObject();
                 o.addProperty("index", i);
-                o.addProperty("kind", i < population ? "population" : "yardstick");
+                o.addProperty("kind", kinds.get(i));
                 o.addProperty("white", g.white());
                 o.addProperty("black", g.black());
                 o.addProperty("opening", g.opening());
@@ -287,6 +298,30 @@ final class LabApi {
             out.add("games", list);
             return out;
         }
+    }
+
+    /**
+     * Each member's score in the generation's own games and, if the run played them, against
+     * Stockfish ({@code stockfish}: score 0-1, the level as {@code stockfishLevel}), best first.
+     */
+    static JsonArray standings(Generation generation) {
+        JsonArray out = new JsonArray();
+        String sf = generation.stockfishGames().isEmpty() ? null
+                : generation.stockfishGames().getFirst().white().startsWith("sf")
+                ? generation.stockfishGames().getFirst().white() : generation.stockfishGames().getFirst().black();
+        for (int i : generation.ranking()) {
+            JsonObject o = new JsonObject();
+            o.addProperty("member", i);
+            o.addProperty("score", generation.score(i));
+            o.addProperty("games", generation.gamesPlayed(i));
+            double s = generation.stockfishScore(i);
+            if (!Double.isNaN(s)) {
+                o.addProperty("stockfish", s);
+                o.addProperty("stockfishLevel", Integer.parseInt(sf.substring(2)));
+            }
+            out.add(o);
+        }
+        return out;
     }
 
     JsonObject game(String file, int number, int index) {

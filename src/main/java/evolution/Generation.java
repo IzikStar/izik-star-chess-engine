@@ -12,15 +12,41 @@ import java.util.stream.IntStream;
  * A population and the games it just played: what {@link Evolution#nextGeneration} decides from.
  * In the games, member {@code i} is the player named {@code String.valueOf(i)}.
  *
- * @param number     0 for the first generation
- * @param population the members, each a full parameter vector
- * @param games      every game this generation played, each with its moves, result and reason
+ * @param number         0 for the first generation
+ * @param population     the members, each a full parameter vector
+ * @param games          every game this generation played, each with its moves, result and reason
+ * @param stockfishGames each member's games against Stockfish, when the run plays them
+ *                       ({@code lab.RunSettings#memberStockfishOpenings}); Stockfish's side is
+ *                       named "sf" plus its level
+ * @param stockfishLevel the UCI_Elo Stockfish was held to in those games, or 0 if none were played
  */
-public record Generation(int number, List<ParamVector> population, List<GameRecord> games) {
+public record Generation(int number, List<ParamVector> population, List<GameRecord> games,
+                         List<GameRecord> stockfishGames, int stockfishLevel) {
 
     public Generation {
         population = List.copyOf(population);
         games = List.copyOf(games);
+        stockfishGames = List.copyOf(stockfishGames);
+    }
+
+    /** A generation without games against Stockfish. */
+    public Generation(int number, List<ParamVector> population, List<GameRecord> games) {
+        this(number, population, games, List.of(), 0);
+    }
+
+    /** Member {@code i}'s points per game against Stockfish, 0 to 1, or NaN if it played none. */
+    public double stockfishScore(int i) {
+        String name = name(i);
+        double points = 0;
+        int n = 0;
+        for (GameRecord g : stockfishGames) {
+            double p = g.scoreOf(name);
+            if (!Double.isNaN(p)) {
+                points += p;
+                n++;
+            }
+        }
+        return n == 0 ? Double.NaN : points / n;
     }
 
     public int size() {

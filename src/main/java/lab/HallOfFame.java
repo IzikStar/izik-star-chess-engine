@@ -178,7 +178,7 @@ public final class HallOfFame {
         }
         StringBuilder pgn = new StringBuilder();
         String self = String.valueOf(member);
-        for (String kind : List.of("population", "yardstick")) {
+        for (String kind : List.of("population", "yardstick", "stockfish")) {
             if (kind.equals("yardstick") && !champion) {
                 continue;
             }
@@ -186,7 +186,7 @@ public final class HallOfFame {
             List<Integer> depths = store.gameDepths(generation, kind);
             for (int i = 0; i < games.size(); i++) {
                 GameRecord g = games.get(i);
-                if (kind.equals("population") && !g.white().equals(self) && !g.black().equals(self)) {
+                if (!kind.equals("yardstick") && !g.white().equals(self) && !g.black().equals(self)) {
                     continue;
                 }
                 GameRecord named = kind.equals("yardstick")

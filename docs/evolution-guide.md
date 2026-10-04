@@ -63,7 +63,13 @@ number, which makes a run repeatable, and a stopped run resumes exactly where it
 source of chance breaks both.
 
 Put your class in `src/main/java/evolution/` and build with `./mvnw package -DskipTests`.
-`RandomMutationExample` is the smallest working example. It keeps the better half and refills
+`RandomMutationExample` is the smallest working example. `MaterialExperiment` is the first
+real experiment (2026-10-04): material weights only, generation 0 = 8 mutants each of the tuned
+and the classic weights (±100), 40 games a pair at depths 3-6 set through `Pairing`, the best
+3 survive, 8 children bred from them with a pull toward the best, a bonus for beating Stockfish
+where the parents did not, and a dramatic mutation every fourth generation. Its run:
+`--generations 10 --openings-per-pairing 1 --member-stockfish-openings 5 --yardsticks default,classic
+--yardstick-every 1 --yardstick-openings 10 --deep-depth 0`. It keeps the better half and refills
 with mutated copies. It is naive on purpose, and section 5 explains why it barely improves.
 
 ## 3. Running
@@ -92,6 +98,7 @@ java -jar target/izikstar-chess-3.1.0.jar                                  # the
 | `--yardstick-openings` | openings of each yardstick match, each with both colours | 20 |
 | `--yardsticks` | who the champion is measured against, comma-separated (see below) | default,classic,sf:auto |
 | `--stockfish-from` | Stockfish yardsticks only from this generation on | 10 |
+| `--member-stockfish-openings` | every member (not only the champion) plays Stockfish over this many openings, both colours, at `--depth`; `Generation.stockfishScore(i)` hands the results to the algorithm. The level moves like `sf:auto`, by the population's average | 0 (off) |
 
 **Yardsticks** are players that never change. Each can be `default` (the schema defaults),
 `classic` (the hand-written weights), any parameter file, `sf:1500` (Stockfish held to UCI_Elo

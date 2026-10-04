@@ -32,7 +32,7 @@ public final class RunPgn {
             if (generation >= 0 && row.number() != generation) {
                 continue;
             }
-            for (String kind : List.of("population", "yardstick")) {
+            for (String kind : List.of("population", "yardstick", "stockfish")) {
                 List<GameRecord> games = store.games(row.number(), kind);
                 List<Integer> depths = store.gameDepths(row.number(), kind);
                 for (int i = 0; i < games.size(); i++) {

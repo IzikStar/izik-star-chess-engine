@@ -11,8 +11,10 @@ interface YardstickResult extends Yardstick { opponent: string; label: string; d
 interface GenerationRow { number: number; champion: number; championScore: number; games: number; finishedAt: string; yardstick?: Yardstick; yardsticks?: YardstickResult[] }
 interface Weight { name: string; group: string; description: string; default: number; min: number; max: number; values: number[] }
 interface RunDetail extends Omit<RunSummary, 'generationsDone' | 'lastYardstick'> { generations: GenerationRow[]; weights: Weight[] }
-interface GameRow { index: number; kind: 'population' | 'yardstick'; white: string; black: string; opening: string; result: string; reason: string; plies: number; depth?: number }
-interface GenerationDetail { number: number; members: number; games: GameRow[] }
+interface GameRow { index: number; kind: 'population' | 'yardstick' | 'stockfish'; white: string; black: string; opening: string; result: string; reason: string; plies: number; depth?: number }
+/** A member's score in its generation, best first; stockfish when every member played Stockfish. */
+interface Standing { member: number; score: number; games: number; stockfish?: number; stockfishLevel?: number }
+interface GenerationDetail { number: number; members: number; standings?: Standing[]; games: GameRow[] }
 interface FameEntry { name: string; reason: string; savedAt: string; run: string | null; runName: string | null; generation: number; member: number; yardsticks: string[]; games: number }
 interface Replay { white: string; black: string; opening: string; result: string; reason: string; startFen: string; moves: { uci: string; san: string; fenAfter: string }[] }
 
@@ -267,6 +269,23 @@ function GenerationGames({ file, generations, generation, onPick }: {
                   <td>+{y.wins} ={y.draws} -{y.losses}</td>
                   <td>{Math.round(y.fraction * 100)}%</td>
                   <td>{elo(y)} ({Math.round(y.eloLow)} to {Math.round(y.eloHigh)})</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {detail?.standings && detail.standings.some((s) => s.stockfish !== undefined) && (
+        <div className="table-wrap">
+          <table data-testid="standings">
+            <thead><tr><th>Member</th><th>Games</th><th>Score</th><th>Against Stockfish {detail.standings.find((s) => s.stockfishLevel)?.stockfishLevel}</th></tr></thead>
+            <tbody>
+              {detail.standings.map((s) => (
+                <tr key={s.member}>
+                  <td>#{s.member}</td>
+                  <td>{s.games}</td>
+                  <td>{Math.round(s.score * 100)}%</td>
+                  <td>{s.stockfish === undefined ? '' : `${Math.round(s.stockfish * 100)}%`}</td>
                 </tr>
               ))}
             </tbody>

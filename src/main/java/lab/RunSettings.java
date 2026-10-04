@@ -30,11 +30,15 @@ import java.util.List;
  * @param deepShareFirst       percent of the games played at {@code deepDepth} in generation 0
  * @param deepShareLast        ... and in the last generation; the share in between grows evenly.
  *                             Yardstick matches use the same share.
+ * @param memberStockfishOpenings every member of every generation plays Stockfish over this many
+ *                             openings, each with both colours, at {@code depth}; 0 = never. The
+ *                             level moves like "sf:auto", following the population's average score.
+ *                             The algorithm sees the results ({@code Generation.stockfishScore}).
  */
 public record RunSettings(int generations, int depth, int openingsPerPairing, int variety, int maxPlies,
                           int threads, long seed, int yardstickEvery, int yardstickOpenings,
                           List<String> yardsticks, int stockfishFrom, int deepDepth, int deepShareFirst,
-                          int deepShareLast) {
+                          int deepShareLast, int memberStockfishOpenings) {
 
     /** Stockfish at the strength that suits the champion; see {@link #yardsticks}. */
     public static final String STOCKFISH_AUTO = "sf:auto";
@@ -44,7 +48,7 @@ public record RunSettings(int generations, int depth, int openingsPerPairing, in
         if (generations < 1 || depth < 1 || openingsPerPairing < 1 || maxPlies < 1 || threads < 1
                 || variety < 0 || yardstickEvery < 0 || yardstickOpenings < 0 || stockfishFrom < 0
                 || deepDepth < 0 || deepShareFirst < 0 || deepShareFirst > 100 || deepShareLast < 0
-                || deepShareLast > 100) {
+                || deepShareLast > 100 || memberStockfishOpenings < 0) {
             throw new IllegalArgumentException("invalid run settings");
         }
         if (yardsticks.stream().distinct().count() != yardsticks.size()) {
@@ -52,16 +56,25 @@ public record RunSettings(int generations, int depth, int openingsPerPairing, in
         }
     }
 
+    /** Settings without Stockfish games for every member. */
+    public RunSettings(int generations, int depth, int openingsPerPairing, int variety, int maxPlies,
+                       int threads, long seed, int yardstickEvery, int yardstickOpenings,
+                       List<String> yardsticks, int stockfishFrom, int deepDepth, int deepShareFirst,
+                       int deepShareLast) {
+        this(generations, depth, openingsPerPairing, variety, maxPlies, threads, seed, yardstickEvery,
+                yardstickOpenings, yardsticks, stockfishFrom, deepDepth, deepShareFirst, deepShareLast, 0);
+    }
+
     /** The settings of a run from before yardstick lists and deep games: one yardstick, one depth. */
     public RunSettings(int generations, int depth, int openingsPerPairing, int variety, int maxPlies,
                        int threads, long seed, int yardstickEvery, int yardstickOpenings) {
         this(generations, depth, openingsPerPairing, variety, maxPlies, threads, seed, yardstickEvery,
-                yardstickOpenings, List.of("default"), 0, 0, 0, 0);
+                yardstickOpenings, List.of("default"), 0, 0, 0, 0, 0);
     }
 
     public static RunSettings defaults() {
         return new RunSettings(20, 3, 2, 20, 300, Math.max(1, Runtime.getRuntime().availableProcessors() - 1),
-                1, 5, 20, List.of("default", "classic", STOCKFISH_AUTO), 10, 4, 10, 40);
+                1, 5, 20, List.of("default", "classic", STOCKFISH_AUTO), 10, 4, 10, 40, 0);
     }
 
     /** Percent of generation {@code number}'s games played at {@link #deepDepth}. */
@@ -98,6 +111,7 @@ public record RunSettings(int generations, int depth, int openingsPerPairing, in
         o.addProperty("deepDepth", deepDepth);
         o.addProperty("deepShareFirst", deepShareFirst);
         o.addProperty("deepShareLast", deepShareLast);
+        o.addProperty("memberStockfishOpenings", memberStockfishOpenings);
         return o.toString();
     }
 
@@ -114,7 +128,8 @@ public record RunSettings(int generations, int depth, int openingsPerPairing, in
                 o.get("openingsPerPairing").getAsInt(), o.get("variety").getAsInt(), o.get("maxPlies").getAsInt(),
                 o.get("threads").getAsInt(), o.get("seed").getAsLong(), o.get("yardstickEvery").getAsInt(),
                 o.get("yardstickOpenings").getAsInt(), yardsticks, intOr(o, "stockfishFrom", 0),
-                intOr(o, "deepDepth", 0), intOr(o, "deepShareFirst", 0), intOr(o, "deepShareLast", 0));
+                intOr(o, "deepDepth", 0), intOr(o, "deepShareFirst", 0), intOr(o, "deepShareLast", 0),
+                intOr(o, "memberStockfishOpenings", 0));
     }
 
     private static int intOr(JsonObject o, String key, int fallback) {

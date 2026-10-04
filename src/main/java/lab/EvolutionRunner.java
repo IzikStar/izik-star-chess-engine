@@ -85,9 +85,10 @@ public final class EvolutionRunner {
     }
 
     private void play(BooleanSupplier stop) {
-        if (settings.yardsticks().stream().anyMatch(Players::isStockfish) && StockfishLocator.find().isEmpty()) {
+        if ((settings.yardsticks().stream().anyMatch(Players::isStockfish) || settings.memberStockfishOpenings() > 0)
+                && StockfishLocator.find().isEmpty()) {
             throw new IllegalStateException("the yardsticks include Stockfish, but it is not installed;"
-                    + " install it, download it from the game, or leave the sf: yardsticks out");
+                    + " install it, download it from the game, or leave Stockfish out of the settings");
         }
         List<RunStore.GenerationRow> done = store.generations();
         int number = done.isEmpty() ? 0 : done.getLast().number() + 1;
@@ -151,7 +152,13 @@ public final class EvolutionRunner {
                     depths.get(i), null);
         }
 
-        Generation generation = new Generation(number, population, games);
+        int stockfishLevel = 0;
+        List<GameRecord> stockfishGames = List.of();
+        if (settings.memberStockfishOpenings() > 0) {
+            stockfishLevel = memberStockfishLevel(number);
+            stockfishGames = membersAgainstStockfish(number, population, stockfishLevel);
+        }
+        Generation generation = new Generation(number, population, games, stockfishGames, stockfishLevel);
         int champion = generation.champion();
         List<RunStore.YardstickResult> yardsticks = new ArrayList<>();
         boolean last = number == settings.generations() - 1;
@@ -203,6 +210,77 @@ public final class EvolutionRunner {
         return deep;
     }
 
+    /** The player name Stockfish plays under in the members' games against it: "sf" and its level. */
+    static String stockfishName(int level) {
+        return "sf" + level;
+    }
+
+    /**
+     * The level every member plays Stockfish at in generation {@code number}: one up from the last
+     * generation's if the members averaged above 70% against it, one down below 30%, else the
+     * same; the lowest at first.
+     */
+    int memberStockfishLevel(int number) {
+        if (number == 0) {
+            return STOCKFISH_LEVELS[0];
+        }
+        List<GameRecord> last = store.games(number - 1, "stockfish");
+        if (last.isEmpty()) {
+            return STOCKFISH_LEVELS[0];
+        }
+        GameRecord first = last.getFirst();
+        String sf = first.white().startsWith("sf") ? first.white() : first.black();
+        int level = Integer.parseInt(sf.substring(2));
+        double points = 0;
+        for (GameRecord g : last) {
+            points += 1 - g.scoreOf(sf);
+        }
+        return stepLevel(level, points / last.size());
+    }
+
+    /** One level up from {@code level} after a score above 70%, one down below 30%. */
+    static int stepLevel(int level, double score) {
+        int at = 0;
+        while (at < STOCKFISH_LEVELS.length - 1 && STOCKFISH_LEVELS[at] < level) {
+            at++;
+        }
+        if (score > 0.7) {
+            at = Math.min(STOCKFISH_LEVELS.length - 1, at + 1);
+        } else if (score < 0.3) {
+            at = Math.max(0, at - 1);
+        }
+        return STOCKFISH_LEVELS[at];
+    }
+
+    /**
+     * Every member against Stockfish held to {@code level}, over the same openings (they rotate
+     * through the suite from generation to generation), each with both colours, at the run's depth.
+     */
+    private List<GameRecord> membersAgainstStockfish(int number, List<ParamVector> population, int level) {
+        List<Opening> suite = Opening.suite();
+        int count = settings.memberStockfishOpenings();
+        List<Tournament.Fixture> fixtures = new ArrayList<>();
+        long seed = (settings.seed() * 13 + number) * 1_000_003L + 500_009L;
+        String spec = "sf:" + level;
+        for (int i = 0; i < population.size(); i++) {
+            Player member = player(Generation.name(i), population.get(i), settings.depth());
+            for (int k = 0; k < count; k++) {
+                Opening opening = suite.get((number * count + k) % suite.size());
+                Player sf = Players.parse(spec, stockfishName(level), settings.depth(), settings.variety(),
+                        HallOfFame.besides(store.file()).dir());
+                fixtures.add(new Tournament.Fixture(member, sf, opening, seed++));
+                fixtures.add(new Tournament.Fixture(sf, member, opening, seed++));
+            }
+        }
+        List<GameRecord> games = Tournament.play(fixtures, tournamentSettings(), g -> listener.game(number, g));
+        for (GameRecord g : games) {
+            boolean memberWhite = !g.white().startsWith("sf");
+            store.saveGame(number, "stockfish", memberWhite ? Integer.parseInt(g.white()) : -1,
+                    memberWhite ? -1 : Integer.parseInt(g.black()), g, settings.depth(), stockfishName(level));
+        }
+        return games;
+    }
+
     /** UCI_Elo levels "sf:auto" moves between. */
     static final int[] STOCKFISH_LEVELS = {1320, 1500, 1700, 1900, 2100, 2300, 2500, 2700, 2900, 3190};
 
@@ -222,17 +300,7 @@ public final class EvolutionRunner {
             }
             int level = row.yardsticks().stream().filter(y -> y.opponent().equals(RunSettings.STOCKFISH_AUTO))
                     .mapToInt(RunStore.YardstickResult::level).findFirst().orElse(STOCKFISH_LEVELS[0]);
-            int at = 0;
-            while (at < STOCKFISH_LEVELS.length - 1 && STOCKFISH_LEVELS[at] < level) {
-                at++;
-            }
-            double score = last.get().fraction();
-            if (score > 0.7) {
-                at = Math.min(STOCKFISH_LEVELS.length - 1, at + 1);
-            } else if (score < 0.3) {
-                at = Math.max(0, at - 1);
-            }
-            return STOCKFISH_LEVELS[at];
+            return stepLevel(level, last.get().fraction());
         }
         return STOCKFISH_LEVELS[0];
     }
