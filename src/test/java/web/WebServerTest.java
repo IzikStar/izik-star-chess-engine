@@ -11,6 +11,7 @@ import engine.SearchRequest;
 import game.GameConfig;
 import game.GameSession;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import rules.ChessMove;
@@ -33,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -382,6 +384,31 @@ class WebServerTest {
         assertEquals("friend", state.getAsJsonObject("config").get("mode").getAsString());
         assertEquals("CHECKMATE", state.get("status").getAsString());
         assertTrue(state.get("pgn").getAsString().endsWith("1. f3 e5 2. g4 Qh4# 0-1\n"));
+    }
+
+    @Test
+    @DisplayName("Only --lan lets another device in: by default the server answers on this computer only")
+    void lanAccess() throws Exception {
+        List<String> addresses = WebServer.networkAddresses();
+        Assumptions.assumeFalse(addresses.isEmpty(), "this machine has no network address");
+        String fromPhone = "http://" + addresses.get(0) + ":%d/";
+        HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+        java.nio.file.Path runs = java.nio.file.Files.createTempDirectory("runs-test");
+        java.nio.file.Path games = java.nio.file.Files.createTempDirectory("games-test");
+
+        server = WebServer.start(0, hub -> new GameSession(GameConfig.defaults(),
+                new EngineSelector(new MinimaxEngine(), NO_STOCKFISH), hub::execute), runs, games);
+        URI local = URI.create(String.format(fromPhone, server.port()));
+        assertThrows(java.io.IOException.class, () -> http.send(HttpRequest.newBuilder(local).build(),
+                HttpResponse.BodyHandlers.discarding()));
+        server.stop();
+
+        server = WebServer.start(0, hub -> new GameSession(GameConfig.defaults(),
+                new EngineSelector(new MinimaxEngine(), NO_STOCKFISH), hub::execute), runs, games,
+                WebServer.ALL_INTERFACES);
+        URI lan = URI.create(String.format(fromPhone, server.port()));
+        assertEquals(200, http.send(HttpRequest.newBuilder(lan).build(),
+                HttpResponse.BodyHandlers.discarding()).statusCode());
     }
 
     @Test
