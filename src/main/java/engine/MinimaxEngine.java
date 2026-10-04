@@ -57,7 +57,7 @@ public final class MinimaxEngine implements Engine {
 
     /** For tests: a different time cap. */
     public MinimaxEngine(Random random, long timeCapMs) {
-        this(random, timeCapMs, BitBoardEvaluate.CLASSIC);
+        this(random, timeCapMs, Weights.DEFAULT.evaluator());
     }
 
     /** The engine playing with {@code evaluator}'s weights. */

@@ -3,7 +3,7 @@
 Levels 0-13, defined in `engine.Levels` (the UI's copy is `LEVELS` in `web/src/chess.ts`). How the
 ladder was chosen: `docs/difficulty-ladder-research.md`.
 
-| Level | Name | Who plays | Elo (≈) |
+| Level | Name | Who plays | Elo (≈, classic weights) |
 |---|---|---|---|
 | 0 | Random moves | any legal move | below the ladder |
 | 1 | Beginner | built-in engine, depth 1, a quarter of its moves random | 100 |
@@ -27,6 +27,37 @@ Level 8 and the game says so. Hints are Stockfish at full strength.
 The Elo column is the research measurement (20-100 games a pairing, about ±100 per level), on
 the scale of Stockfish's UCI_Elo: Stockfish's own calibration against the CCRL computer rating
 list, not a human federation's rating.
+
+## Engine weights
+
+The built-in levels (1-8) play with one of two sets of evaluation weights, picked in the New game
+dialog and remembered (`engine.Weights`):
+
+- **Tuned** (the default): `presets/tuned-v1.json`, fitted by Texel tuning to Stockfish self-play
+  (`docs/evolution-guide.md`).
+- **Classic**: `presets/classic.json`, the hand-written weights the engine always played with.
+  The Elo column above was measured with these.
+
+The tuned weights against the classic ones at each level's depth, head to head over all openings
+with both colours (102 games; 40 at depth 7):
+
+| Level | Depth | Tuned scored | Elo gain (95% interval) | Shown Elo with tuned |
+|---|---|---|---|---|
+| 1 | 1 + random | not measured | +65 (¾ of Level 2's) | 165 |
+| 2 | 1 | 62.3% | +87 [+25, +155] | 550 |
+| 3 | 2 | 68.1% | +132 [+72, +201] | 880 |
+| 4 | 3 | 72.1% | +165 [+97, +246] | 1240 |
+| 5 | 4 | 67.2% | +124 [+61, +196] | 1380 |
+| 6 | 5 | 76.5% | +205 [+138, +290] | 1740 |
+| 7 | 6 | 80.9% | +251 [+179, +347] | 1940 |
+| 8 | 7 | 76.3% | +203 [+98, +359] | 2110 |
+
+The UI adds these gains, rounded to 10, to the classic Elo (`TUNED_ELO_GAIN` in
+`web/src/chess.ts`). A head-to-head gain can overstate the gain against other opponents: at depth
+3 against Stockfish 1320 the tuned weights scored 67.2% and the classic ones 53.9%, about 100 Elo
+apart rather than 165. `arena.LadderCalibration` would pin the tuned levels down properly. Saved
+games record the weights, and the rating table in My games keeps the two apart; games saved
+before the choice existed were played with the classic weights.
 
 ## Playing with a clock
 

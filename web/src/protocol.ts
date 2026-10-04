@@ -86,6 +86,8 @@ export interface GameState {
   opponent: Champion | null;
   /** The current game's file among the saved games (web.GamesApi), or null before its first move or when not saved. */
   savedId?: string | null;
+  /** The built-in engine's weights when it is not a champion. */
+  weights?: Weights;
   /** Whether Levels 9-13 really get Stockfish (absent when the server has no Stockfish slot). */
   stockfish?: StockfishInfo;
 }
@@ -120,6 +122,9 @@ export interface ServerMessage {
   state: GameState;
 }
 
+/** The built-in engine's weights (engine.Weights): Texel-tuned (the default) or the original hand-written ones. */
+export type Weights = 'tuned' | 'classic';
+
 export type Command =
   | { type: 'move'; uci: string }
   | { type: 'undo' }
@@ -137,6 +142,8 @@ export type Command =
       level: number;
       blackLevel: number;
       champion?: { run: string; generation: number } | null;
+      /** The built-in engine's weights; absent keeps the last game's. */
+      weights?: Weights;
       /** Null or absent: untimed. */
       time?: TimeControl | null;
     };

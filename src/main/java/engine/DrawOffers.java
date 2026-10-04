@@ -1,6 +1,5 @@
 package engine;
 
-import ai.BitBoard.BitBoardEvaluate;
 import ai.BitBoard.BitBoardRules;
 
 /**
@@ -23,6 +22,6 @@ public final class DrawOffers {
 
     /** The static evaluation from the engine's side (positive: the engine is better). */
     static int engineScore(String fen, boolean engineIsWhite) {
-        return BitBoardEvaluate.CLASSIC.evaluate(BitBoardRules.fromFen(fen), !engineIsWhite);
+        return Weights.DEFAULT.evaluator().evaluate(BitBoardRules.fromFen(fen), !engineIsWhite);
     }
 }

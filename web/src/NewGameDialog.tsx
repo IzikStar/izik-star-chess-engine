@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { eloText, engineText, LEVELS, MAX_LEVEL, MIN_LEVEL, STOCKFISH_FROM_LEVEL, TIME_CONTROLS, TOP_BUILT_IN_LEVEL } from './chess';
-import type { Champion, Color, Mode, StockfishInfo } from './protocol';
+import type { Champion, Color, Mode, StockfishInfo, Weights } from './protocol';
 import { StockfishInstall } from './StockfishInstall';
 
 export interface NewGameChoice {
@@ -12,24 +12,33 @@ export interface NewGameChoice {
   autoFlip: boolean;
   /** Play this evolved champion instead of the usual engine (the built-in engine's levels). */
   champion: Champion | null;
+  /** The built-in engine's weights (Levels 1-8; Stockfish's levels are not affected). */
+  weights: Weights;
   /** A key of TIME_CONTROLS ("3+2"), or "none" for an untimed game. */
   time: string;
 }
 
+const WEIGHTS_NOTE: Record<Weights, string> = {
+  tuned: 'Fitted to thousands of Stockfish games; 100-250 Elo stronger than classic at the same level.',
+  classic: 'The original hand-written weights.',
+};
+
 /** The champion is the built-in engine: Levels 0-1 are (partly) random moves and 9 up hand over to Stockfish. */
 export const CHAMPION_LEVELS = { min: 2, max: TOP_BUILT_IN_LEVEL };
 
-function LevelSlider({ id, label, value, onChange, stockfish, min = MIN_LEVEL, max = MAX_LEVEL }: {
+function LevelSlider({ id, label, value, onChange, stockfish, weights, min = MIN_LEVEL, max = MAX_LEVEL }: {
   id: string;
   label: string;
   value: number;
   onChange: (v: number) => void;
   stockfish: StockfishInfo | undefined;
+  /** Whose Elo to show; a champion's is unknown. */
+  weights: Weights | null;
   min?: number;
   max?: number;
 }) {
   const level = LEVELS[value];
-  const elo = eloText(value);
+  const elo = weights ? eloText(value, weights) : '';
   return (
     <div className="field">
       <label htmlFor={id}>{label}</label>
@@ -117,14 +126,27 @@ export function NewGameDialog({ initial, stockfish, onStart, onCancel }: {
           </div>
         )}
         {choice.mode === 'engine' && (
-          <LevelSlider id="level" label="Strength" value={choice.level}
+          <LevelSlider id="level" label="Strength" value={choice.level} weights={choice.champion ? null : choice.weights}
             onChange={(level) => set({ level })} stockfish={stockfish}
             min={choice.champion ? CHAMPION_LEVELS.min : MIN_LEVEL} max={choice.champion ? CHAMPION_LEVELS.max : MAX_LEVEL} />
         )}
         {choice.mode === 'computer' && (
           <>
-            <LevelSlider id="level" label="White's strength" value={choice.level} onChange={(level) => set({ level })} stockfish={stockfish} />
-            <LevelSlider id="blackLevel" label="Black's strength" value={choice.blackLevel} onChange={(blackLevel) => set({ blackLevel })} stockfish={stockfish} />
+            <LevelSlider id="level" label="White's strength" value={choice.level} weights={choice.weights}
+              onChange={(level) => set({ level })} stockfish={stockfish} />
+            <LevelSlider id="blackLevel" label="Black's strength" value={choice.blackLevel} weights={choice.weights}
+              onChange={(blackLevel) => set({ blackLevel })} stockfish={stockfish} />
+          </>
+        )}
+        {(choice.mode === 'computer' || (choice.mode === 'engine' && !choice.champion)) && (
+          <>
+            <Segmented<Weights>
+              label="Engine weights"
+              value={choice.weights}
+              options={[['tuned', 'Tuned'], ['classic', 'Classic']]}
+              onChange={(weights) => set({ weights })}
+            />
+            <p className="muted field-note" data-testid="weights-note">{WEIGHTS_NOTE[choice.weights]}</p>
           </>
         )}
         {choice.mode === 'friend' && (

@@ -314,3 +314,6 @@ textarea.pgn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1
 .lab .keep { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 12px; }
 .lab .keep input { flex: 1 1 200px; min-width: 0; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); color: var(--fg); }
 .lab a.btn { text-decoration: none; color: var(--fg); display: inline-block; }
+
+/* New game dialog: a line under a choice explaining it */
+.field-note { margin: -4px 0 12px; font-size: 13px; }

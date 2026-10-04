@@ -9,6 +9,7 @@ import engine.EngineSelector;
 import engine.Levels;
 import engine.MinimaxEngine;
 import engine.StockfishEngine;
+import engine.Weights;
 import game.GameArchive;
 import game.GameConfig;
 import game.GameListener;
@@ -46,11 +47,13 @@ import java.util.function.Consumer;
  * {@code hint}, {@code newGame} {mode: engine|friend|computer, color: white|black|random,
  * level: 0-13, blackLevel: 0-13 (engine.Levels) (computer mode: Black's level; level is then White's),
  * champion: {run, generation} (optional: the built-in engine plays with that evolved champion's
- * weights, at the built-in engine's levels only), time: {initialMs, incrementMs} (optional; absent or null is
+ * weights, at the built-in engine's levels only), weights: tuned|classic (optional: the weights the
+ * built-in engine plays with, engine.Weights; absent keeps the last game's), time: {initialMs, incrementMs} (optional; absent or null is
  * untimed)}, {@code resign}, {@code offerDraw}, {@code answerDraw} {accept}, {@code loadPgn}
  * {pgn} (the game becomes a two-player game from its last position), {@code resumeGame} {id} (carries on an
  * unfinished saved game, see {@link GamesApi}). Server to client: {@code {"type":"state","events":[...],"state":{...}}};
  * the state's {@code opponent} is the champion being played ({run, generation, label}), or null;
+ * {@code weights} the built-in engine's weights when it is not a champion ("tuned" or "classic");
  * {@code stockfish} is {available, path} (whether Stockfish's levels really get Stockfish). An event is
  * {@code {kind: move|reset|config|hint|gameOver|ended|drawOffer|drawDeclined|rejected, ...}}.
  *
@@ -82,6 +85,8 @@ final class GameHub implements GameListener {
     private LabApi lab;
     /** The champion the engine plays as ({run, generation, label}), or null; game thread only. */
     private JsonObject opponent;
+    /** The weights the built-in engine plays with when it is not a champion; picked per new game. */
+    private Weights weights = Weights.DEFAULT;
 
     /** Where games are saved, or null to save nothing. */
     private GameArchive archive;
@@ -224,7 +229,7 @@ final class GameHub implements GameListener {
         }
         leaveGame(false);
         if (builtIn != null) {
-            builtIn.useEvaluator(BitBoardEvaluate.CLASSIC);
+            builtIn.useEvaluator(weights.evaluator());
         }
         opponent = null;
         session.updateConfig(session.config().withMode(GameConfig.Mode.HUMAN_VS_HUMAN));
@@ -257,6 +262,9 @@ final class GameHub implements GameListener {
         int blackLevel = mode == GameConfig.Mode.ENGINE_VS_ENGINE && msg.has("blackLevel")
                 ? Levels.clamp(msg.get("blackLevel").getAsInt()) : level;
         leaveGame(mode != GameConfig.Mode.ENGINE_VS_ENGINE);
+        if (msg.has("weights") && !msg.get("weights").isJsonNull()) {
+            weights = Weights.of(msg.get("weights").getAsString());
+        }
         JsonElement champion = msg.get("champion");
         boolean playsChampion = champion != null && !champion.isJsonNull();
         playAs(playsChampion ? champion.getAsJsonObject().get("run").getAsString() : null,
@@ -283,7 +291,7 @@ final class GameHub implements GameListener {
             return;
         }
         if (run == null) {
-            builtIn.useEvaluator(BitBoardEvaluate.CLASSIC);
+            builtIn.useEvaluator(weights.evaluator());
             return;
         }
         if (lab == null) {
@@ -309,6 +317,7 @@ final class GameHub implements GameListener {
         rules.Game check = new rules.Game(saved.startFen()); // a damaged file fails here, before anything changes
         moves.forEach(check::play);
         record(true);
+        weights = Weights.of(saved.weights());
         playAs(saved.championRun(), saved.championGeneration() == null ? 0 : saved.championGeneration());
         TimeControl control = saved.timeControl();
         long initial = control.initialMs();
@@ -378,7 +387,7 @@ final class GameHub implements GameListener {
                 clock == null ? null : clock.remainingMs(true), clock == null ? null : clock.remainingMs(false),
                 session.startFen(), session.moves().stream().map(m -> m.move().toUci()).toList(),
                 result, result == null ? null : GameStateJson.termination(session),
-                GameStateJson.pgn(session, label));
+                GameStateJson.pgn(session, label), weights.id());
     }
 
     private static String string(JsonObject msg, String key, String fallback) {
@@ -472,6 +481,7 @@ final class GameHub implements GameListener {
                 opponent == null ? null : opponent.get("label").getAsString());
         state.add("opponent", opponent == null ? null : opponent.deepCopy());
         state.addProperty("savedId", recording ? recordId : null);
+        state.addProperty("weights", weights.id());
         if (stockfish != null) {
             JsonObject sf = new JsonObject();
             sf.addProperty("available", stockfish.isAvailable());

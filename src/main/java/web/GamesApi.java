@@ -20,7 +20,7 @@ import rules.Game;
  *   <li>{@code DELETE /api/games/{id}}</li>
  * </ul>
  * A summary is {id, started, updated, mode: engine|friend, humanColor, level, opponent (a
- * champion's name, or null), time {initialMs, incrementMs} or null, plies, result (null while
+ * champion's name, or null), weights (tuned|classic), time {initialMs, incrementMs} or null, plies, result (null while
  * unfinished), termination}. Carrying a game on goes over the game's WebSocket ({@code resumeGame}).
  */
 final class GamesApi {
@@ -64,6 +64,7 @@ final class GamesApi {
         o.addProperty("humanColor", c.get("humanColor").getAsString());
         o.addProperty("level", config.skillLevel());
         o.addProperty("opponent", g.opponentLabel());
+        o.addProperty("weights", g.weights());
         if (g.timeControl().isTimed()) {
             JsonObject time = new JsonObject();
             time.addProperty("initialMs", g.timeControl().initialMs());

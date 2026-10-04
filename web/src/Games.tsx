@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnalysisPanel, EvalBar, useAnalysis } from './Analysis';
 import { Board } from './Board';
-import { colorName, formatClock, kingSquare, LEVELS, other, turnOf } from './chess';
+import { colorName, formatClock, kingSquare, LEVELS, levelElo, other, STOCKFISH_FROM_LEVEL, turnOf } from './chess';
 import { MoveList, RepeatButton } from './MoveList';
-import type { Color, MoveInfo } from './protocol';
+import type { Color, MoveInfo, Weights } from './protocol';
 
 // "My games": every game played in the app, saved by the server after each move (web.GamesApi,
 // game.GameArchive). Look one through with Stockfish's analysis, carry an unfinished one on, or
@@ -20,6 +20,8 @@ export interface GameSummary {
   level: number;
   /** An evolved champion's name, when the engine played as one. */
   opponent: string | null;
+  /** The built-in engine's weights ("classic" for games from before the choice). */
+  weights: Weights;
   time: { initialMs: number; incrementMs: number } | null;
   plies: number;
   result: Result | null;
@@ -50,7 +52,12 @@ const OUTCOME_TEXT: Record<Outcome, string> = { won: 'Won', lost: 'Lost', drawn:
 
 function opponentText(g: GameSummary): string {
   if (g.mode === 'friend') return 'Two players';
-  return g.opponent ?? `Level ${g.level} · ${LEVELS[g.level]?.name ?? ''}`;
+  return g.opponent ?? `Level ${g.level} · ${LEVELS[g.level]?.name ?? ''}${weightsSuffix(g.level, g.weights)}`;
+}
+
+/** " (classic weights)" for a built-in level played with the classic weights; the tuned ones are the default. */
+function weightsSuffix(level: number, weights: Weights): string {
+  return weights === 'classic' && level > 0 && level < STOCKFISH_FROM_LEVEL ? ' (classic weights)' : '';
 }
 
 function timeText(t: GameSummary['time']): string {
@@ -180,13 +187,16 @@ export function Games({ liveId, onResume, onShowLive }: { liveId: string | null;
  * plus 400 × log10(score / (1 − score)), the usual estimate from a score against one opponent.
  */
 function ByLevel({ games }: { games: GameSummary[] }) {
-  const rows = new Map<number, { won: number; drawn: number; lost: number }>();
+  // a built-in level is another opponent with each set of weights; Stockfish's levels are the same with both
+  const rows = new Map<string, { level: number; weights: Weights; won: number; drawn: number; lost: number }>();
   for (const g of games) {
     const o = outcomeOf(g);
     if (g.mode !== 'engine' || g.opponent || (o !== 'won' && o !== 'drawn' && o !== 'lost')) continue;
-    const r = rows.get(g.level) ?? { won: 0, drawn: 0, lost: 0 };
+    const weights: Weights = g.level >= STOCKFISH_FROM_LEVEL ? 'tuned' : g.weights;
+    const key = `${g.level}:${weights}`;
+    const r = rows.get(key) ?? { level: g.level, weights, won: 0, drawn: 0, lost: 0 };
     r[o]++;
-    rows.set(g.level, r);
+    rows.set(key, r);
   }
   if (rows.size === 0) return null;
   return (
@@ -198,17 +208,18 @@ function ByLevel({ games }: { games: GameSummary[] }) {
             <tr><th>Level</th><th>Games</th><th>Won</th><th>Draw</th><th>Lost</th><th>Score</th><th title="The level's Elo + 400 × log10(score / (1 − score))">Your rating there</th></tr>
           </thead>
           <tbody>
-            {[...rows.entries()].sort(([a], [b]) => a - b).map(([level, r]) => {
+            {[...rows.entries()].sort(([, a], [, b]) => a.level - b.level || a.weights.localeCompare(b.weights)).map(([key, r]) => {
+              const level = r.level;
               const n = r.won + r.drawn + r.lost;
               const score = (r.won + r.drawn / 2) / n;
-              const elo = LEVELS[level]?.elo;
+              const elo = LEVELS[level] ? levelElo(level, r.weights) : null;
               const perf = elo == null ? '–'
                 : score === 0 ? `below ${elo - 400}`
                 : score === 1 ? `above ${elo + 400}`
                 : `≈ ${Math.round(elo + 400 * Math.log10(score / (1 - score)))}`;
               return (
-                <tr key={level}>
-                  <td>Level {level} · {LEVELS[level]?.name}</td>
+                <tr key={key}>
+                  <td>Level {level} · {LEVELS[level]?.name}{weightsSuffix(level, r.weights)}</td>
                   <td>{n}</td><td>{r.won}</td><td>{r.drawn}</td><td>{r.lost}</td>
                   <td>{Math.round(score * 100)}%</td>
                   <td>{perf}</td>
