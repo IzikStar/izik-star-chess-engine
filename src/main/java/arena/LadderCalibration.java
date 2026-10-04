@@ -6,6 +6,7 @@ import engine.MinimaxEngine;
 import engine.SearchRequest;
 import engine.StockfishEngine;
 import engine.StockfishLocator;
+import engine.Weights;
 import rules.ChessMove;
 import rules.Game;
 import rules.MoveResult;
@@ -38,9 +39,10 @@ import java.util.concurrent.TimeUnit;
  *
  *   --games N        games per pairing (default 100; both colours of each opening)
  *   --threads N      games at once (default: cores - 1; each game runs on one core)
- *   --results FILE   where each finished game is appended (default ladder-results.txt). Run the
+ *   --results FILE   where each finished game is appended (default ladder-results-WEIGHTS.txt). Run the
  *                    same command again to continue an interrupted run: finished games are kept.
  *   --stockfish P    the Stockfish executable (default: the one the game finds)
+ *   --weights W      the built-in levels' weights: tuned (the app's default) or classic
  *   --report-only    fit and print the table from the results file without playing
  * </pre>
  *
@@ -67,6 +69,9 @@ public final class LadderCalibration {
     static final long ANCHOR_MOVE_MS = 500;
     static final int MAX_PLIES = 300;
     static final int BOOTSTRAP = 300;
+
+    /** The weights the built-in levels play with (one run measures one set). */
+    private static volatile Weights weights = Weights.DEFAULT;
 
     private LadderCalibration() {}
 
@@ -102,7 +107,10 @@ public final class LadderCalibration {
         int games = Integer.parseInt(options.getOrDefault("games", "100"));
         int threads = Integer.parseInt(options.getOrDefault("threads",
                 String.valueOf(Math.max(1, Runtime.getRuntime().availableProcessors() - 1))));
-        Path results = Path.of(options.getOrDefault("results", "ladder-results.txt"));
+        weights = Weights.of(options.getOrDefault("weights", Weights.DEFAULT.id()));
+        // one results file per set of weights, so a resumed run never mixes them
+        Path results = Path.of(options.getOrDefault("results", "ladder-results-" + weights.id() + ".txt"));
+        System.out.println("Built-in levels play with the " + weights.label() + " weights");
         String stockfish = options.containsKey("stockfish") ? options.get("stockfish")
                 : StockfishLocator.find().map(Path::toString).orElse(null);
 
@@ -246,7 +254,7 @@ public final class LadderCalibration {
                 }
             };
         }
-        MinimaxEngine engine = new MinimaxEngine(new Random(seed));
+        MinimaxEngine engine = new MinimaxEngine(new Random(seed), MinimaxEngine.TIME_CAP_MS, weights.evaluator());
         return new Side() {
             public ChessMove move(String fen, List<ChessMove> moves) {
                 return engine.bestMove(new SearchRequest(fen, Position.START_FEN, moves, level, Cancellation.NONE));
