@@ -13,30 +13,44 @@ import io.javalin.websocket.WsContext;
 import java.awt.Desktop;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * The application's entry point since Phase 4c: a local web server for the browser UI.
  *
  * <p>It serves the React app built into the jar under {@code /webapp} and one WebSocket at {@code /ws} that carries the game (see {@link GameHub}
  * for the protocol). It listens on 127.0.0.1 only, so nothing outside this computer can reach it,
- * and opens the default browser on start.
+ * unless started with {@code --lan}, and opens the default browser on start.
  *
  * <p>It also serves the lab page's API over the evolution runs in a folder ({@link LabApi}) and
  * game analysis with Stockfish ({@link AnalysisApi}), and the player's saved games ({@link GamesApi}).
  *
  * <p>Arguments: {@code --port N} (default 7070, then the next free one up to 7079),
  * {@code --no-browser}, {@code --runs DIR} (the evolution runs, default {@code runs}), {@code --games DIR}
- * (where the player's games are saved, default {@code games}).
+ * (where the player's games are saved, default {@code games}), {@code --lan} (listen on every network
+ * interface, so a phone on the same Wi-Fi or tailnet can open the game; there is no password).
  */
 public final class WebServer {
 
     public static final int DEFAULT_PORT = 7070;
+
+    /** Listen on this computer only (the default). */
+    static final String LOCAL_ONLY = "127.0.0.1";
+    /** Listen on every network interface ({@code --lan}). */
+    static final String ALL_INTERFACES = "0.0.0.0";
 
     private final Javalin app;
     private final GameHub hub;
@@ -53,32 +67,44 @@ public final class WebServer {
         boolean browser = true;
         Path runs = Path.of("runs");
         Path games = Path.of("games");
+        String host = LOCAL_ONLY;
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--port" -> port = Integer.parseInt(args[++i]);
                 case "--no-browser" -> browser = false;
                 case "--runs" -> runs = Path.of(args[++i]);
                 case "--games" -> games = Path.of(args[++i]);
+                case "--lan" -> host = ALL_INTERFACES;
                 default -> {
-                    System.err.println("unknown argument: " + args[i] + " (use --port N, --no-browser, --runs DIR, --games DIR)");
+                    System.err.println("unknown argument: " + args[i]
+                            + " (use --port N, --no-browser, --runs DIR, --games DIR, --lan)");
                     System.exit(2);
                 }
             }
         }
-        WebServer server = startOnFreePort(port, port == DEFAULT_PORT ? 10 : 1, runs, games);
+        WebServer server = startOnFreePort(port, port == DEFAULT_PORT ? 10 : 1, runs, games, host);
         String url = "http://localhost:" + server.port() + "/";
         System.out.println("IzikStar Chess is running at " + url + " (Ctrl+C to stop)");
+        if (host.equals(ALL_INTERFACES)) {
+            List<String> addresses = networkAddresses();
+            System.out.println(addresses.isEmpty()
+                    ? "--lan: no network address found; is this computer connected to a network?"
+                    : "--lan: open it from your phone at " + addresses.stream()
+                            .map(a -> "http://" + a + ":" + server.port() + "/")
+                            .collect(Collectors.joining(" or ")));
+            System.out.println("Anyone on the same network can open it too: there is no password.");
+        }
         Runtime.getRuntime().addShutdownHook(new Thread(server::stop));
         if (browser) {
             openBrowser(url);
         }
     }
 
-    private static WebServer startOnFreePort(int first, int attempts, Path runs, Path games) {
+    private static WebServer startOnFreePort(int first, int attempts, Path runs, Path games, String host) {
         RuntimeException last = null;
         for (int port = first; port < first + attempts; port++) {
             try {
-                return start(port, defaultSession(), runs, games);
+                return start(port, defaultSession(), runs, games, host);
             } catch (RuntimeException e) {
                 last = e; // port taken: try the next one
             }
@@ -124,8 +150,13 @@ public final class WebServer {
         }
     }
 
-    /** Starts a server on {@code port} (0 = any free port) around a new session. */
+    /** Starts a server on {@code port} (0 = any free port) around a new session, on this computer only. */
     static WebServer start(int port, SessionFactory sessions, Path runs, Path games) {
+        return start(port, sessions, runs, games, LOCAL_ONLY);
+    }
+
+    /** As {@link #start(int, SessionFactory, Path, Path)}, listening on {@code host}. */
+    static WebServer start(int port, SessionFactory sessions, Path runs, Path games, String host) {
         GameHub hub = new GameHub();
         GameArchive archive = new GameArchive(games);
         hub.useArchive(archive);
@@ -177,7 +208,7 @@ public final class WebServer {
                 }
             });
         });
-        app.start("127.0.0.1", port);
+        app.start(host, port);
         hub.execute(session::start);
         return new WebServer(app, hub, analysis);
     }
@@ -190,6 +221,29 @@ public final class WebServer {
         hub.shutdown();
         analysis.shutdown();
         app.stop();
+    }
+
+    /**
+     * The IPv4 addresses other devices can reach this computer at: home Wi-Fi ({@code 192.168.x.x})
+     * and VPNs such as Tailscale ({@code 100.x.x.x}) alike.
+     */
+    static List<String> networkAddresses() {
+        List<String> addresses = new ArrayList<>();
+        try {
+            for (NetworkInterface nic : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+                if (!nic.isUp() || nic.isLoopback()) {
+                    continue;
+                }
+                for (InetAddress address : Collections.list(nic.getInetAddresses())) {
+                    if (address instanceof Inet4Address && !address.isLinkLocalAddress()) {
+                        addresses.add(address.getHostAddress());
+                    }
+                }
+            }
+        } catch (SocketException e) {
+            // no addresses to show; the server still runs
+        }
+        return addresses;
     }
 
     private static void openBrowser(String url) {

@@ -221,7 +221,27 @@ java -jar target/izikstar-chess-3.1.0.jar # play: opens http://localhost:7070/ i
 On Windows use `.\mvnw.cmd` (PowerShell needs the `.\`); double-clicking the jar works too. The first `package` downloads its
 own Node.js into `target/` to build the browser UI (`-Dskip.web=true` skips that step). The
 server listens on this computer only; stop it with Ctrl+C or by closing its console. Options:
-`--port N`, `--no-browser`, `--games DIR` (where your games are saved, default `games`).
+`--port N`, `--no-browser`, `--games DIR` (where your games are saved, default `games`), `--lan`
+(see below).
+
+**Playing from a phone.** The engine, Stockfish and the lab keep running on the computer; the phone
+only shows the page. Start the jar with `--lan` and it prints the address to open, for example:
+
+```bash
+java -jar target/izikstar-chess-3.1.0.jar --lan
+# --lan: open it from your phone at http://192.168.1.20:7070/
+```
+
+- **At home:** the phone must be on the same Wi-Fi. Open the printed `192.168.x.x` address in its
+  browser. The first time, Windows asks whether Java may use the network: allow it on private
+  networks. "Add to Home screen" in the phone's browser gives it an icon.
+- **Away from home:** install [Tailscale](https://tailscale.com) (free for personal use) on the
+  computer and on the phone and sign in to the same account on both. The computer then also gets a
+  `100.x.x.x` address, which `--lan` prints too; open that one on the phone, from any network. The
+  computer has to be on and running the jar. Nothing is opened to the internet: only your own
+  devices on the tailnet can reach it.
+- There is no password, so anyone on the same network can open the game; use `--lan` on networks
+  you trust. Phone and computer share one game, the same as two browser tabs.
 
 Run the jar from the repository root if you want it to find Stockfish at the default path.
 
