@@ -79,9 +79,12 @@ continues where it stopped when started again with the same command.
 
 ```
 mvn package -DskipTests
-java -cp target/izikstar-chess-3.1.0.jar arena.LadderCalibration --games 100 --results ladder-results.txt
-java -cp target/izikstar-chess-3.1.0.jar arena.LadderCalibration --results ladder-results.txt --report-only
+java -cp target/izikstar-chess-3.1.0.jar arena.LadderCalibration --weights tuned --games 100
+java -cp target/izikstar-chess-3.1.0.jar arena.LadderCalibration --weights tuned --report-only
 ```
+
+`--weights` picks the built-in levels' weights, `tuned` (the default) or `classic`; each set keeps
+its own results file (`ladder-results-tuned.txt`, `ladder-results-classic.txt`).
 
 Ratings depend on the machine: on a faster computer the built-in engine's deepest level runs
 into its 5 s cap less often, so run it on the computer the game is played on.
