@@ -224,10 +224,11 @@ export const TOP_BUILT_IN_LEVEL = STOCKFISH_FROM_LEVEL - 1;
 
 /**
  * How much stronger the tuned weights are than the classic ones at each built-in level (1-8):
- * tuned against classic head to head, depth 1-7, all openings with both colours
- * (docs/difficulty-ladder.md). LEVELS' Elo is the classic weights'.
+ * tuned against classic head to head at the level's depth, all openings with both colours
+ * (docs/difficulty-ladder.md). Level 1 plays a quarter of its moves at random, so it gets three
+ * quarters of Level 2's gain (inferred, not measured). LEVELS' Elo is the classic weights'.
  */
-export const TUNED_ELO_GAIN: Record<number, number> = {};
+export const TUNED_ELO_GAIN: Record<number, number> = { 1: 65, 2: 90, 3: 130, 4: 170, 5: 120, 6: 210, 7: 250, 8: 200 };
 
 /** A level's Elo with {@code weights}; Stockfish's levels are the same for both. */
 export function levelElo(level: number, weights: Weights = 'tuned'): number | null {

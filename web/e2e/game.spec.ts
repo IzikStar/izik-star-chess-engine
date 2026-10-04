@@ -111,10 +111,31 @@ test('the strength slider runs from Level 0 to 13 and shows each level\'s Elo', 
   await expect(dialog).toContainText('Level 0 · Random moves');
   await expect(dialog.getByTestId('level-elo')).toHaveCount(0);
   await slider.fill('6');
+  // the tuned weights are the default; the classic ones are the ladder's measured numbers
+  await expect(dialog.getByRole('button', { name: 'Tuned', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(dialog.getByTestId('level-elo')).toHaveText(' · ≈ 1740 Elo');
+  await dialog.getByRole('button', { name: 'Classic', exact: true }).click();
   await expect(dialog.getByTestId('level-elo')).toHaveText(' · ≈ 1530 Elo');
+  await expect(dialog.getByTestId('weights-note')).toContainText('hand-written');
   await slider.fill('13');
   await expect(dialog.getByTestId('level-elo')).toHaveText(' · 3190+ Elo');
   await dialog.getByRole('button', { name: 'Cancel' }).click();
+});
+
+test('the engine weights picked for a game are remembered for the next one', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'New game' }).click();
+  let dialog = page.getByRole('dialog', { name: 'New game' });
+  await dialog.getByRole('button', { name: 'Computer', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Classic', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Start game' }).click();
+  await page.reload();
+  await page.getByRole('button', { name: 'New game' }).click();
+  dialog = page.getByRole('dialog', { name: 'New game' });
+  await dialog.getByRole('button', { name: 'Computer', exact: true }).click();
+  await expect(dialog.getByRole('button', { name: 'Classic', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await dialog.getByRole('button', { name: 'Tuned', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Start game' }).click();
 });
 
 test('watching the engine play itself, then stopping it with a new game', async ({ page }) => {

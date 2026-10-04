@@ -19,7 +19,7 @@ export interface NewGameChoice {
 }
 
 const WEIGHTS_NOTE: Record<Weights, string> = {
-  tuned: 'Fitted to thousands of Stockfish games; about 150 Elo stronger at the same level.',
+  tuned: 'Fitted to thousands of Stockfish games; 100-250 Elo stronger than classic at the same level.',
   classic: 'The original hand-written weights.',
 };
 
