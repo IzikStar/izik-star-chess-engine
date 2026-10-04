@@ -1,5 +1,7 @@
 package lab;
 
+import evolution.Generation;
+import evolution.Evolution;
 import ai.BitBoard.BitBoardEvaluate;
 import ai.eval.ParamVector;
 import arena.GameRecord;
@@ -204,6 +206,40 @@ class EvolutionRunnerTest {
             assertEquals(2, store.games(1, "yardstick").stream()
                     .filter(g -> g.white().equals("sf1320") || g.black().equals("sf1320")).count());
         }
+    }
+
+    @Test
+    @DisplayName("Every member plays Stockfish when the settings ask; the algorithm sees the scores, the level steps")
+    void membersAgainstStockfish(@TempDir Path dir) {
+        org.junit.jupiter.api.Assumptions.assumeTrue(engine.StockfishLocator.find().isPresent(), "Stockfish not installed");
+        RunSettings settings = new RunSettings(2, 1, 1, 2, 40, 2, 1, 0, 0, List.of(), 0, 0, 0, 0, 1);
+        List<Double> seen = new ArrayList<>();
+        Evolution watching = new RandomMutationExample(3, 0.05, 0.01) {
+            @Override
+            public List<ParamVector> nextGeneration(Generation generation, java.util.Random random) {
+                for (int i = 0; i < generation.size(); i++) {
+                    seen.add(generation.stockfishScore(i));
+                }
+                assertEquals(1320, generation.stockfishLevel());
+                return super.nextGeneration(generation, random);
+            }
+        };
+        try (RunStore store = RunStore.open(dir.resolve("run.db"))) {
+            EvolutionRunner.start(store, "sf members", watching, settings, EvolutionRunner.Listener.SILENT, () -> false);
+            for (int number = 0; number < 2; number++) {
+                List<GameRecord> games = store.games(number, "stockfish");
+                assertEquals(3 * 2, games.size()); // 3 members, 1 opening, both colours
+                for (int m = 0; m < 3; m++) {
+                    String name = Generation.name(m);
+                    assertEquals(2, games.stream().filter(g -> g.white().equals(name) || g.black().equals(name)).count());
+                }
+            }
+            assertEquals(3, seen.size());
+            assertTrue(seen.stream().noneMatch(s -> s.isNaN()));
+        }
+        assertEquals(1500, EvolutionRunner.stepLevel(1320, 0.75));
+        assertEquals(1320, EvolutionRunner.stepLevel(1320, 0.1));
+        assertEquals(1700, EvolutionRunner.stepLevel(1700, 0.5));
     }
 
     @Test

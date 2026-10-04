@@ -35,6 +35,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *   --yardsticks default,classic,sf:auto   who the champion is measured against (see RunSettings)
  *   --stockfish-from N   Stockfish yardsticks from this generation on
  *   --deep-depth N --deep-share 10-40      percent of games at the deep depth, first-last generation
+ *   --member-stockfish-openings N          every member plays Stockfish over N openings (both colours)
  * </pre>
  *
  * Ctrl+C stops a run after the generation in progress; {@code resume} continues it.
@@ -118,7 +119,8 @@ public final class Cli {
                 integer(o, "yardstick-every", d.yardstickEvery()), integer(o, "yardstick-openings", d.yardstickOpenings()),
                 o.containsKey("yardsticks") ? List.of(o.get("yardsticks").split(",")) : d.yardsticks(),
                 integer(o, "stockfish-from", d.stockfishFrom()), integer(o, "deep-depth", d.deepDepth()),
-                share(o, 0, d.deepShareFirst()), share(o, 1, d.deepShareLast()));
+                share(o, 0, d.deepShareFirst()), share(o, 1, d.deepShareLast()),
+                integer(o, "member-stockfish-openings", d.memberStockfishOpenings()));
         Evolution evolution = EvolutionRunner.algorithm(o.getOrDefault("algorithm", "evolution.RandomMutationExample"));
         String name = o.getOrDefault("name", file.getFileName().toString().replaceFirst("\\.db$", ""));
         try (RunStore store = RunStore.open(file)) {
