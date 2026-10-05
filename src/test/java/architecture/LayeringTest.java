@@ -57,6 +57,26 @@ class LayeringTest {
     }
 
     @Test
+    @DisplayName("Only the board package knows the bitboard; everything else uses ai.board.Board (Phase 6)")
+    void onlyTheBoardKnowsTheBitboard() throws IOException {
+        // the chess evaluation is the one exception: it is the bitboard's own evaluator
+        Pattern bitboard = Pattern.compile("ai\\.BitBoard\\.(?!BitBoardEvaluate\\b)\\w");
+        List<String> violations = new ArrayList<>();
+        try (Stream<Path> files = Files.walk(SRC)) {
+            for (Path file : files.filter(p -> p.toString().endsWith(".java")).toList()) {
+                String rel = SRC.relativize(file).toString().replace('\\', '/');
+                if (rel.startsWith("ai/BitBoard/") || rel.equals("ai/board/Boards.java")) {
+                    continue;
+                }
+                if (bitboard.matcher(Files.readString(file)).find()) {
+                    violations.add(rel);
+                }
+            }
+        }
+        assertEquals(List.of(), violations);
+    }
+
+    @Test
     @DisplayName("The legacy object-model classes and the Swing UI stay deleted")
     void legacyClassesStayDeleted() {
         for (String gone : new String[]{"ai/BoardState.java", "pieces", "ai/myEngine.java", "main", "GUI"}) {

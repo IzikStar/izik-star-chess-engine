@@ -1,5 +1,6 @@
 package ai.BitBoard;
 
+import ai.board.Board;
 import ai.eval.Evaluator;
 import ai.eval.ParamSchema;
 import ai.eval.ParamSpec;
@@ -46,7 +47,7 @@ public final class BitBoardEvaluate implements Evaluator {
      * so it can be negated: the old code returned {@code -Integer.MIN_VALUE}, which overflows back
      * to {@code MIN_VALUE}, so an engine playing White scored "I deliver mate" as its worst outcome.
      */
-    public static final int MATE = 100_000_000;
+    public static final int MATE = Evaluator.MATE;
 
     /** Phase of a full board: knights and bishops count 1, rooks 2, queens 4. */
     public static final int MAX_PHASE = 24;
@@ -335,11 +336,12 @@ public final class BitBoardEvaluate implements Evaluator {
 
     /**
      * Static evaluation of {@code board} from the point of view of the side choosing the move at
-     * the search root ({@code rootIsBlack}).
+     * the search root ({@code rootPlayer}: 0 White, 1 Black).
      */
     @Override
-    public int evaluate(BitBoard board, boolean rootIsBlack) {
-        boolean switchSides = rootIsBlack;
+    public int evaluate(Board position, int rootPlayer) {
+        BitBoard board = (BitBoard) position;
+        boolean switchSides = rootPlayer == 1;
         int value;
         if (board.whiteKings == 0) return switchSides ? MATE : -MATE;
         if (board.blackKings == 0) return switchSides ? -MATE : MATE;
@@ -374,7 +376,8 @@ public final class BitBoardEvaluate implements Evaluator {
      * gate is closed), then for each piece type and table square Black's pieces minus White's.
      * The score is then {@code taper(Σ feature × mg weight, Σ feature × eg weight, phase)}.
      */
-    public Features features(BitBoard board) {
+    public Features features(Board position) {
+        BitBoard board = (BitBoard) position;
         int[] f = new int[NAMED + PST_SIZE];
         measure(board, f, true);
         for (int piece = 0; piece < 6; piece++) {

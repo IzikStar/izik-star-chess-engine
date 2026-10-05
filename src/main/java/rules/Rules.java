@@ -1,7 +1,8 @@
 package rules;
 
-import ai.BitBoard.BitBoard;
-import ai.BitBoard.BitBoardRules;
+import ai.board.Board;
+import ai.board.Boards;
+import ai.board.Move;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,8 +11,8 @@ import java.util.List;
  * The single rules authority for IzikStar Chess (Phase 2).
  *
  * <p>Stateless and headless: FEN in, (legal moves + status) out, moves as {@link ChessMove}
- * (UCI). Move generation, check, checkmate and stalemate are delegated to the bitboard engine
- * ({@code ai.BitBoard}, the more-correct of the two legacy paths); the draw rules — 50-move,
+ * (UCI). Move generation, check, checkmate and stalemate are delegated to the engine's
+ * {@link Board} (Phase 6: through that interface only, not a particular board); the draw rules — 50-move,
  * insufficient material, and (via {@link Game}, which carries history) threefold repetition —
  * are implemented here so exactly one place answers each question.
  *
@@ -23,10 +24,14 @@ public final class Rules {
     private Rules() {}
 
     public static List<ChessMove> legalMoves(String fen) {
-        List<int[]> raw = BitBoardRules.legalMoves(BitBoardRules.fromFen(fen));
-        List<ChessMove> out = new ArrayList<>(raw.size());
-        for (int[] m : raw) {
-            out.add(new ChessMove(m[0], m[1], (char) m[2]));
+        return legalMoves(Boards.fromFen(fen));
+    }
+
+    private static List<ChessMove> legalMoves(Board board) {
+        int[] raw = board.legalMoves();
+        List<ChessMove> out = new ArrayList<>(raw.length);
+        for (int m : raw) {
+            out.add(new ChessMove(Move.from(m), Move.to(m), Move.promotion(m)));
         }
         return out;
     }
@@ -34,13 +39,9 @@ public final class Rules {
     /** Legal moves + status from a single bitboard pass — for callers that need both. */
     public static Evaluation evaluate(String fen) {
         Position pos = Position.fromFen(fen);
-        BitBoard b = BitBoardRules.fromFen(fen);
-        List<int[]> raw = BitBoardRules.legalMoves(b);
-        List<ChessMove> moves = new ArrayList<>(raw.size());
-        for (int[] m : raw) {
-            moves.add(new ChessMove(m[0], m[1], (char) m[2]));
-        }
-        boolean check = BitBoardRules.sideToMoveInCheck(b);
+        Board b = Boards.fromFen(fen);
+        List<ChessMove> moves = legalMoves(b);
+        boolean check = b.inCheck();
         GameStatus status;
         if (moves.isEmpty()) {
             status = check ? GameStatus.CHECKMATE : GameStatus.STALEMATE;
@@ -76,21 +77,21 @@ public final class Rules {
     }
 
     public static boolean isCheck(String fen) {
-        return BitBoardRules.sideToMoveInCheck(BitBoardRules.fromFen(fen));
+        return Boards.fromFen(fen).inCheck();
     }
 
     public static boolean hasLegalMove(String fen) {
-        return !BitBoardRules.legalMoves(BitBoardRules.fromFen(fen)).isEmpty();
+        return !Boards.fromFen(fen).children().isEmpty();
     }
 
     public static boolean isCheckmate(String fen) {
-        BitBoard b = BitBoardRules.fromFen(fen);
-        return BitBoardRules.legalMoves(b).isEmpty() && BitBoardRules.sideToMoveInCheck(b);
+        Board b = Boards.fromFen(fen);
+        return b.children().isEmpty() && b.inCheck();
     }
 
     public static boolean isStalemate(String fen) {
-        BitBoard b = BitBoardRules.fromFen(fen);
-        return BitBoardRules.legalMoves(b).isEmpty() && !BitBoardRules.sideToMoveInCheck(b);
+        Board b = Boards.fromFen(fen);
+        return b.children().isEmpty() && !b.inCheck();
     }
 
     /**
@@ -99,9 +100,9 @@ public final class Rules {
      */
     public static GameStatus status(String fen) {
         Position pos = Position.fromFen(fen);
-        BitBoard b = BitBoardRules.fromFen(fen);
-        boolean anyMove = !BitBoardRules.legalMoves(b).isEmpty();
-        boolean check = BitBoardRules.sideToMoveInCheck(b);
+        Board b = Boards.fromFen(fen);
+        boolean anyMove = !b.children().isEmpty();
+        boolean check = b.inCheck();
         if (!anyMove) {
             return check ? GameStatus.CHECKMATE : GameStatus.STALEMATE;
         }
@@ -116,12 +117,11 @@ public final class Rules {
 
     /** Apply a legal move, returning the resulting FEN. Throws if the move is not legal. */
     public static String applyMove(String fen, ChessMove move) {
-        String next = BitBoardRules.applyMove(BitBoardRules.fromFen(fen),
-                move.from(), move.to(), move.promotion());
+        Board next = Boards.fromFen(fen).play(Move.of(move.from(), move.to(), move.promotion()));
         if (next == null) {
             throw new IllegalArgumentException("illegal move " + move.toUci() + " in " + fen);
         }
-        return next;
+        return next.toFen();
     }
 
     public static boolean isInsufficientMaterial(String fen) {

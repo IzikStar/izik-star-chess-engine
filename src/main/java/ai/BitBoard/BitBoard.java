@@ -1,12 +1,21 @@
 package ai.BitBoard;
 
 import ai.BitBoard.BitPiece.*;
+import ai.board.Board;
+import ai.board.Move;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
-public class BitBoard {
+/**
+ * The standard-chess board: twelve bitboards, one per colour and piece type. Implements {@link Board}
+ * so the search, the evaluation interface and the rules reach it only through that interface
+ * (Phase 6, R1); Phase 6 R3 replaces it with a board whose pieces are data.
+ */
+public class BitBoard implements Board {
     // state arguments
     protected long whiteKings = 0x0, whiteQueens = 0x0, whiteRooks = 0x0, whiteBishops = 0x0, whiteKnights = 0x0, whitePawns = 0x0;
     protected long blackKings = 0x0, blackQueens = 0x0, blackRooks = 0x0, blackBishops = 0x0, blackKnights = 0x0, blackPawns = 0x0;
@@ -777,6 +786,84 @@ public class BitBoard {
 
     public boolean getIsWhiteToMove() {
         return isWhiteToMove;
+    }
+
+    // ---- Board ------------------------------------------------------------------------------
+
+    /** {@link #lastMove()} once computed; {@link Move#NONE} until then. */
+    private int lastMoveCode = Move.NONE;
+
+    @Override
+    public int sideToMove() {
+        return isWhiteToMove ? 0 : 1;
+    }
+
+    @Override
+    public List<BitBoard> children() {
+        return Collections.unmodifiableList(getNextStates());
+    }
+
+    @Override
+    public List<Board> orderedChildren() {
+        ArrayList<Board> sorted = new ArrayList<>(getNextStates());
+        sorted.sort((a, b) -> Integer.compare(((BitBoard) b).moveValue, ((BitBoard) a).moveValue));
+        return sorted;
+    }
+
+    @Override
+    public List<Board> noisyChildren() {
+        return new ArrayList<>(getNoisyNextStates());
+    }
+
+    @Override
+    public void releaseChildren() {
+        releaseNextStates();
+    }
+
+    /**
+     * The move that made this position: the squares the moving piece left and reached (for castling,
+     * the king's), and the promotion piece when a pawn reached the last rank.
+     */
+    @Override
+    public int lastMove() {
+        if (lastMoveCode == Move.NONE && lastMove != null) {
+            long both = lastMove.piece.position & lastMove.newPosition;
+            int from = Long.numberOfTrailingZeros(lastMove.piece.position & ~both) & 63;
+            int to = Long.numberOfTrailingZeros(lastMove.newPosition & ~both) & 63;
+            boolean promotes = lastMove.piece.name == 6 && (to >>> 3) == (lastMove.piece.color == 1 ? 0 : 7);
+            lastMoveCode = Move.of(from, to, promotes ? lastMove.promotionChoice : 0);
+        }
+        return lastMoveCode;
+    }
+
+    @Override
+    public int captureScore(Board parent) {
+        return captureScore((BitBoard) parent);
+    }
+
+    @Override
+    public boolean inCheck() {
+        return isSideToMoveInCheck();
+    }
+
+    @Override
+    public boolean isOver() {
+        return getStatus() != 1;
+    }
+
+    @Override
+    public long repetitionKey() {
+        return ZobristHashing.computeHash(this);
+    }
+
+    @Override
+    public long searchKey() {
+        return ZobristHashing.searchKey(this);
+    }
+
+    @Override
+    public String toFen() {
+        return BitBoardRules.toFen(this);
     }
 
     @Override

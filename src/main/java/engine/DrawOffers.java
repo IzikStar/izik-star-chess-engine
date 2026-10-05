@@ -1,6 +1,6 @@
 package engine;
 
-import ai.BitBoard.BitBoardRules;
+import ai.board.Boards;
 
 /**
  * Whether the engine takes a draw a human offers: only when it is not better. The rule is the
@@ -22,6 +22,6 @@ public final class DrawOffers {
 
     /** The static evaluation from the engine's side (positive: the engine is better). */
     static int engineScore(String fen, boolean engineIsWhite) {
-        return Weights.DEFAULT.evaluator().evaluate(BitBoardRules.fromFen(fen), !engineIsWhite);
+        return Weights.DEFAULT.evaluator().evaluate(Boards.fromFen(fen), engineIsWhite ? 0 : 1);
     }
 }

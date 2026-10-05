@@ -1,10 +1,9 @@
 package engine;
 
 import ai.BitBoard.BitBoardEvaluate;
-import ai.BitBoard.BitBoardRules;
-import ai.BitBoard.BitMove;
-import ai.BitBoard.ZobristHashing;
 import ai.Minimax;
+import ai.board.Boards;
+import ai.board.Move;
 import ai.eval.Evaluator;
 import rules.ChessMove;
 import rules.Position;
@@ -101,10 +100,10 @@ public final class MinimaxEngine implements Engine {
         long deadline = System.nanoTime() + TimeBudget.cap(timeCapMs, request.timeBudgetMs()) * 1_000_000;
         Evaluator weights = evaluator;
         long[] history = gameHistory(gameFens(request.startFen(), request.moves()), fen);
-        BitMove bitMove = Minimax.getBestMove(BitBoardRules.fromFen(fen), depth, weights,
+        int move = Minimax.getBestMove(Boards.fromFen(fen), depth, weights,
                 new Minimax.Options(variety, random, true), history,
                 () -> request.cancel().isCancelled() || System.nanoTime() > deadline);
-        return request.cancel().isCancelled() ? null : toLegalMove(bitMove, legal);
+        return request.cancel().isCancelled() ? null : toLegalMove(move, legal);
     }
 
     /** The minimax search's move at exactly {@code depth} (no time cap), or {@code null} if there is no legal move. */
@@ -118,8 +117,8 @@ public final class MinimaxEngine implements Engine {
         if (legal.isEmpty()) {
             return null;
         }
-        BitMove bitMove = Minimax.getBestMove(BitBoardRules.fromFen(fen), depth, evaluator, () -> false);
-        return toLegalMove(bitMove, legal);
+        int move = Minimax.getBestMove(Boards.fromFen(fen), depth, evaluator, () -> false);
+        return toLegalMove(move, legal);
     }
 
     /**
@@ -141,9 +140,9 @@ public final class MinimaxEngine implements Engine {
         if (legal.isEmpty()) {
             return null;
         }
-        BitMove bitMove = Minimax.getBestMove(BitBoardRules.fromFen(fen), depth, evaluator, options,
+        int move = Minimax.getBestMove(Boards.fromFen(fen), depth, evaluator, options,
                 gameHistory(gameFens, fen), () -> false);
-        return toLegalMove(bitMove, legal);
+        return toLegalMove(move, legal);
     }
 
     /**
@@ -163,9 +162,9 @@ public final class MinimaxEngine implements Engine {
             return null;
         }
         long deadline = System.nanoTime() + millis * 1_000_000;
-        BitMove bitMove = Minimax.getBestMove(BitBoardRules.fromFen(fen), maxDepth, evaluator, options,
+        int move = Minimax.getBestMove(Boards.fromFen(fen), maxDepth, evaluator, options,
                 gameHistory(gameFens, fen), () -> System.nanoTime() > deadline);
-        return toLegalMove(bitMove, legal);
+        return toLegalMove(move, legal);
     }
 
     /** The positions of the game {@code startFen} + {@code moves}, oldest first (the last is the current one). */
@@ -195,7 +194,7 @@ public final class MinimaxEngine implements Engine {
         int start = Math.max(0, end - halfMoves);
         long[] keys = new long[end - start];
         for (int i = start; i < end; i++) {
-            keys[i - start] = ZobristHashing.computeHash(BitBoardRules.fromFen(gameFens.get(i)));
+            keys[i - start] = Boards.fromFen(gameFens.get(i)).repetitionKey();
         }
         return keys;
     }
@@ -220,20 +219,17 @@ public final class MinimaxEngine implements Engine {
         return depth;
     }
 
-    /** Maps the search's {@link BitMove} onto the matching entry of the legal-move list. */
-    private static ChessMove toLegalMove(BitMove bitMove, List<ChessMove> legal) {
-        if (bitMove == null) {
+    /** Maps the search's {@link Move} onto the matching entry of the legal-move list. */
+    private static ChessMove toLegalMove(int move, List<ChessMove> legal) {
+        if (move == Move.NONE) {
             return null;
         }
-        long both = bitMove.piece.position & bitMove.newPosition;
-        int from = Long.numberOfTrailingZeros(bitMove.piece.position & ~both);
-        int to = Long.numberOfTrailingZeros(bitMove.newPosition & ~both);
         ChessMove match = null;
         for (ChessMove m : legal) {
-            if (m.from() != from || m.to() != to) {
+            if (m.from() != Move.from(move) || m.to() != Move.to(move)) {
                 continue;
             }
-            if (!m.isPromotion() || m.promotion() == Character.toLowerCase(bitMove.promotionChoice)) {
+            if (!m.isPromotion() || m.promotion() == Move.promotion(move)) {
                 return m;
             }
             match = m; // a promotion to another piece than the search picked; keep as fallback

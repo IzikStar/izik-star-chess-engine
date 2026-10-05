@@ -1,7 +1,6 @@
 package ai;
 
-import ai.BitBoard.BitBoard;
-import ai.BitBoard.ZobristHashing;
+import ai.board.Board;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -21,7 +20,7 @@ public class BoardStateTracker {
         allBoardStates = new HashMap<>();
     }
 
-    /** The game's positions before the root ({@link ZobristHashing#computeHash}); they are never removed. */
+    /** The game's positions before the root ({@link Board#repetitionKey()}); they are never removed. */
     public BoardStateTracker(long[] gameHistory) {
         this();
         for (long hash : gameHistory) {
@@ -35,8 +34,8 @@ public class BoardStateTracker {
         allBoardStates.merge(hash, 1, Integer::sum);
     }
 
-    public void addBoardState(BitBoard board) {
-        addBoardState(ZobristHashing.computeHash(board));
+    public void addBoardState(Board board) {
+        addBoardState(board.repetitionKey());
     }
 
     // הסרת מצב מהסטאק כשהענף מסתיים

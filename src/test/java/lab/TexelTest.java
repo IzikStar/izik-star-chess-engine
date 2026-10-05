@@ -43,7 +43,7 @@ class TexelTest {
         BitBoardEvaluate eval = new BitBoardEvaluate(p);
         for (String fen : FENS) {
             double model = Texel.eval(Texel.sample(fen, 0.5), weights(p));
-            int engine = eval.evaluate(BitBoardRules.fromFen(fen), false);
+            int engine = eval.evaluate(BitBoardRules.fromFen(fen), 0);
             assertEquals(engine, model, 1.0, fen);
         }
     }

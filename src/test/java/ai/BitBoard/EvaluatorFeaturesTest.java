@@ -164,7 +164,7 @@ class EvaluatorFeaturesTest {
                 eg += (long) f.values()[named + j] * params.get(base + pst + j);
             }
             long expected = (mg * f.phase() + eg * (BitBoardEvaluate.MAX_PHASE - f.phase())) / BitBoardEvaluate.MAX_PHASE;
-            assertEquals(expected, eval.evaluate(board, true), fen);
+            assertEquals(expected, eval.evaluate(board, 1), fen);
         }
     }
 }

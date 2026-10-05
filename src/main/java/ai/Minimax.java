@@ -1,18 +1,19 @@
 package ai;
 
-import ai.BitBoard.BitBoard;
 import ai.BitBoard.BitBoardEvaluate;
-import ai.BitBoard.BitMove;
-import ai.BitBoard.ZobristHashing;
+import ai.board.Board;
+import ai.board.Move;
 import ai.eval.Evaluator;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 import java.util.function.BooleanSupplier;
 
 /**
- * Alpha-beta search over the bitboard. Each depth runs on its own instance, so no search state
+ * Alpha-beta search over a {@link Board}: it reads positions only through that interface, so it
+ * plays any board that implements it (Phase 6). Each depth runs on its own instance, so no search state
  * survives between searches, and the search always chooses a move for the side to move at the
  * root — it reads no UI settings (Phase 3; the old version inferred "am I at the root" from
  * {@code ChoosePlayFormat}, which broke whenever those flags were flipped around an engine call).
@@ -64,18 +65,18 @@ public class Minimax {
     private final int searchDepth;
     private final Evaluator evaluator;
     private final BooleanSupplier stop;
-    /** True when the side choosing the move (the side to move at the root) is Black. */
-    private final boolean rootIsBlack;
+    /** The player choosing the move: the side to move at the root. */
+    private final int rootPlayer;
     /** How far below the best score a root move may be and still be picked (0 = only the best). */
     private final int variety;
     private final Random random;
     /** The root's moves that scored within {@link #variety} of the best, with their scores. */
     private final boolean quiescence;
-    private final ArrayList<BitMove> rootMoves = new ArrayList<>();
+    private final ArrayList<Integer> rootMoves = new ArrayList<>();
     private final ArrayList<Integer> rootValues = new ArrayList<>();
     /** Shared by the depths of one {@code getBestMove} call; null searches as before Phase 5b. */
     private final SearchState state;
-    /** {@link ZobristHashing#computeHash} of the game's positions before the root. */
+    /** {@link Board#repetitionKey()} of the game's positions before the root. */
     private final long[] gameHistory;
     private int nodesChecked = 0;
     /** The root's score after {@link #search}, from the root side's point of view. */
@@ -117,7 +118,7 @@ public class Minimax {
         return LAST_NODES.get()[0];
     }
 
-    private Minimax(int searchDepth, Evaluator evaluator, Options options, boolean rootIsBlack,
+    private Minimax(int searchDepth, Evaluator evaluator, Options options, int rootPlayer,
                     BooleanSupplier stop, SearchState state, long[] gameHistory) {
         this.state = state;
         this.gameHistory = gameHistory;
@@ -126,18 +127,18 @@ public class Minimax {
         this.variety = options.variety();
         this.random = options.random();
         this.quiescence = options.quiescence();
-        this.rootIsBlack = rootIsBlack;
+        this.rootPlayer = rootPlayer;
         this.stop = stop;
     }
 
     /** The best move at exactly {@code depth}, however long it takes. */
-    public static BitMove getBestMove(BitBoard bitboard, int depth) {
-        return getBestMove(bitboard, depth, () -> false);
+    public static int getBestMove(Board root, int depth) {
+        return getBestMove(root, depth, () -> false);
     }
 
-    /** {@link #getBestMove(BitBoard, int, Evaluator, BooleanSupplier)} with the default evaluation. */
-    public static BitMove getBestMove(BitBoard bitboard, int maxDepth, BooleanSupplier stop) {
-        return getBestMove(bitboard, maxDepth, BitBoardEvaluate.CLASSIC, stop);
+    /** {@link #getBestMove(Board, int, Evaluator, BooleanSupplier)} with the default evaluation. */
+    public static int getBestMove(Board root, int maxDepth, BooleanSupplier stop) {
+        return getBestMove(root, maxDepth, BitBoardEvaluate.CLASSIC, stop);
     }
 
     /**
@@ -145,41 +146,41 @@ public class Minimax {
      * returned true. With a stop that never fires this is the same move as a single search at
      * {@code maxDepth}: every depth is an independent search.
      */
-    public static BitMove getBestMove(BitBoard bitboard, int maxDepth, Evaluator evaluator, BooleanSupplier stop) {
-        return getBestMove(bitboard, maxDepth, evaluator, Options.DEFAULT, stop);
+    public static int getBestMove(Board root, int maxDepth, Evaluator evaluator, BooleanSupplier stop) {
+        return getBestMove(root, maxDepth, evaluator, Options.DEFAULT, stop);
     }
 
     /**
-     * Like {@link #getBestMove(BitBoard, int, Evaluator, BooleanSupplier)}, with {@link Options}.
+     * Like {@link #getBestMove(Board, int, Evaluator, BooleanSupplier)}, with {@link Options}.
      * With a variety margin the move is not always the same: any root move scoring within it of the
      * best may be played. A seeded {@code Random} makes the choice repeatable, and a forced mate is
      * never traded for variety.
      */
-    public static BitMove getBestMove(BitBoard bitboard, int maxDepth, Evaluator evaluator, Options options,
+    public static int getBestMove(Board root, int maxDepth, Evaluator evaluator, Options options,
                                       BooleanSupplier stop) {
-        return getBestMove(bitboard, maxDepth, evaluator, options, NO_HISTORY, stop);
+        return getBestMove(root, maxDepth, evaluator, options, NO_HISTORY, stop);
     }
 
     /** No game positions before the root. */
     public static final long[] NO_HISTORY = new long[0];
 
     /**
-     * Like {@link #getBestMove(BitBoard, int, Evaluator, Options, BooleanSupplier)}, knowing the game's
-     * positions before the root ({@link ZobristHashing#computeHash}, any order): a move back into one
+     * Like {@link #getBestMove(Board, int, Evaluator, Options, BooleanSupplier)}, knowing the game's
+     * positions before the root ({@link Board#repetitionKey()}, any order): a move back into one
      * of them is scored as a draw.
      */
-    public static BitMove getBestMove(BitBoard bitboard, int maxDepth, Evaluator evaluator, Options options,
+    public static int getBestMove(Board root, int maxDepth, Evaluator evaluator, Options options,
                                       long[] gameHistory, BooleanSupplier stop) {
-        boolean rootIsBlack = !bitboard.getIsWhiteToMove();
+        int rootPlayer = root.sideToMove();
         SearchState state = options.transpositionTable() || options.moveOrdering()
                 ? new SearchState(maxDepth, options) : null;
-        Minimax first = new Minimax(1, evaluator, options, rootIsBlack, () -> false, state, gameHistory);
-        BitMove best = first.search(bitboard);
+        Minimax first = new Minimax(1, evaluator, options, rootPlayer, () -> false, state, gameHistory);
+        int best = first.search(root);
         long nodes = first.nodesChecked;
         for (int depth = 2; depth <= maxDepth && !stop.getAsBoolean(); depth++) {
-            Minimax next = new Minimax(depth, evaluator, options, rootIsBlack, stop, state, gameHistory);
+            Minimax next = new Minimax(depth, evaluator, options, rootPlayer, stop, state, gameHistory);
             try {
-                best = next.search(bitboard);
+                best = next.search(root);
             } catch (Abandoned e) {
                 break;
             } finally {
@@ -194,28 +195,28 @@ public class Minimax {
      * The score of the best move at exactly {@code depth}, deepening as {@code getBestMove} does.
      * For tests: the Phase 5b speedups must not change it.
      */
-    static int searchValue(BitBoard bitboard, int depth, Evaluator evaluator, Options options) {
-        boolean rootIsBlack = !bitboard.getIsWhiteToMove();
+    static int searchValue(Board root, int depth, Evaluator evaluator, Options options) {
+        int rootPlayer = root.sideToMove();
         SearchState state = options.transpositionTable() || options.moveOrdering()
                 ? new SearchState(depth, options) : null;
         int value = 0;
         for (int d = 1; d <= depth; d++) {
-            Minimax search = new Minimax(d, evaluator, options, rootIsBlack, () -> false, state, NO_HISTORY);
-            search.search(bitboard);
+            Minimax search = new Minimax(d, evaluator, options, rootPlayer, () -> false, state, NO_HISTORY);
+            search.search(root);
             value = search.rootValue;
         }
         return value;
     }
 
-    private BitMove search(BitBoard bitboard) {
+    private int search(Board root) {
         BoardStateTracker boardStateTracker = new BoardStateTracker(gameHistory);
-        MinimaxResult result = minimax(bitboard, searchDepth, true, Integer.MIN_VALUE, Integer.MAX_VALUE,
+        MinimaxResult result = minimax(root, searchDepth, true, Integer.MIN_VALUE, Integer.MAX_VALUE,
                 boardStateTracker);
         rootValue = result.value;
-        if (variety == 0 || Math.abs(result.value) >= BitBoardEvaluate.MATE) {
+        if (variety == 0 || Math.abs(result.value) >= Evaluator.MATE) {
             return result.move;
         }
-        ArrayList<BitMove> candidates = new ArrayList<>();
+        ArrayList<Integer> candidates = new ArrayList<>();
         for (int i = 0; i < rootMoves.size(); i++) {
             if (rootValues.get(i) >= result.value - variety) {
                 candidates.add(rootMoves.get(i));
@@ -224,7 +225,7 @@ public class Minimax {
         return candidates.isEmpty() ? result.move : candidates.get(random.nextInt(candidates.size()));
     }
 
-    private MinimaxResult minimax(BitBoard board, int depth, boolean isMaximizingPlayer, int alpha, int beta,
+    private MinimaxResult minimax(Board board, int depth, boolean isMaximizingPlayer, int alpha, int beta,
                                   BoardStateTracker boardStateTracker) {
         if (++nodesChecked % STOP_CHECK_INTERVAL == 0 && stop.getAsBoolean()) {
             throw ABANDONED;
@@ -232,15 +233,15 @@ public class Minimax {
         boolean lastDepth = depth == searchDepth; // the root: its children are the candidate moves
         // A position already on the path (in the game or on this line) is a draw: the side that
         // wants it can repeat again. Checked before the table, whose entries don't know the path.
-        long repetitionHash = ZobristHashing.computeHash(board);
+        long repetitionHash = board.repetitionKey();
         if (!lastDepth && boardStateTracker.contains(repetitionHash)) {
-            return new MinimaxResult(board.lastMove, DRAW);
+            return new MinimaxResult(board.lastMove(), DRAW);
         }
         TranspositionTable table = state == null ? null : state.table;
         long key = 0;
         int hashMove = 0;
         if (table != null && depth > 0) {
-            key = ZobristHashing.searchKey(board);
+            key = board.searchKey();
             int slot = table.find(key);
             if (slot >= 0) {
                 hashMove = table.move(slot);
@@ -250,54 +251,52 @@ public class Minimax {
                     if (bound == TranspositionTable.EXACT
                             || bound == TranspositionTable.LOWER && value >= beta
                             || bound == TranspositionTable.UPPER && value <= alpha) {
-                        return new MinimaxResult(null, value); // only the root's move is ever read
+                        return new MinimaxResult(Move.NONE, value); // only the root's move is ever read
                     }
                 }
             }
         }
         if (depth == 0 && quiescence) {
-            return new MinimaxResult(board.lastMove, quiescence(board, 0, isMaximizingPlayer, alpha, beta));
+            return new MinimaxResult(board.lastMove(), quiescence(board, 0, isMaximizingPlayer, alpha, beta));
         }
-        if (depth == 0 || board.getStatus() != 1) {
-            int value = evaluator.evaluate(board, rootIsBlack);
+        if (depth == 0 || board.isOver()) {
+            int value = evaluator.evaluate(board, rootPlayer);
             // Prefer the quickest mate (and the slowest loss): a mate found with more depth
             // still to go is closer to the root. Without this, mate-in-1 and mate-in-3 tie.
-            if (value >= BitBoardEvaluate.MATE) {
+            if (value >= Evaluator.MATE) {
                 value += depth;
-            } else if (value <= -BitBoardEvaluate.MATE) {
+            } else if (value <= -Evaluator.MATE) {
                 value -= depth;
             }
             if (table != null && depth > 0) {
                 table.put(key, depth, toTable(value, depth), TranspositionTable.EXACT, 0);
             }
-            return new MinimaxResult(board.lastMove, value);
+            return new MinimaxResult(board.lastMove(), value);
         }
 
         boardStateTracker.addBoardState(repetitionHash); // leaves return above, so only nodes that search on are on the path
 
-        ArrayList<BitBoard> children = board.getSortedNextStates(); // sorted once, best-ordered first
+        List<Board> children = board.orderedChildren(); // sorted once, best-ordered first
         int ply = searchDepth - depth;
         if (state != null) {
             state.order(children, board, hashMove, ply);
         }
-        BitMove bestMove = children.getFirst().lastMove;
-        BitBoard bestChild = children.getFirst();
+        int bestMove = children.getFirst().lastMove();
         int alphaBefore = alpha;
         int betaBefore = beta;
         int bestValue;
 
         if (isMaximizingPlayer) {
             bestValue = Integer.MIN_VALUE;
-            for (BitBoard child : children) {
+            for (Board child : children) {
                 MinimaxResult result = minimax(child, depth - 1, false, alpha, beta, boardStateTracker);
 
                 if (result.value > bestValue) {
-                    bestMove = child.lastMove;
-                    bestChild = child;
+                    bestMove = child.lastMove();
                     bestValue = result.value;
                 }
                 if (lastDepth && variety > 0) {
-                    rootMoves.add(child.lastMove);
+                    rootMoves.add(child.lastMove());
                     rootValues.add(result.value);
                 }
                 // at the root, keep the window open by `variety` so near-best moves get exact scores
@@ -310,13 +309,12 @@ public class Minimax {
             }
         } else {
             bestValue = Integer.MAX_VALUE;
-            for (BitBoard child : children) {
+            for (Board child : children) {
                 MinimaxResult result = minimax(child, depth - 1, true, alpha, beta, boardStateTracker);
 
                 if (result.value < bestValue) {
                     bestValue = result.value;
-                    bestMove = child.lastMove;
-                    bestChild = child;
+                    bestMove = child.lastMove();
                 }
                 beta = Math.min(beta, bestValue);
                 if (beta <= alpha) {
@@ -328,7 +326,7 @@ public class Minimax {
 
         boardStateTracker.removeLastBoardState();
         if (!lastDepth) {
-            board.releaseNextStates(); // searched: let its subtree go; the root keeps its moves between depths
+            board.releaseChildren(); // searched: let its subtree go; the root keeps its moves between depths
         }
         if (table != null) {
             int bound = bestValue <= alphaBefore ? TranspositionTable.UPPER
@@ -337,7 +335,7 @@ public class Minimax {
                 bound = TranspositionTable.EXACT; // the root searches with the full window
             }
             // a fail-low has no best move worth remembering; keep the one an earlier visit found
-            int move = bound == TranspositionTable.UPPER ? 0 : moveCode(bestChild.lastMove);
+            int move = bound == TranspositionTable.UPPER ? Move.NONE : bestMove;
             table.put(key, depth, toTable(bestValue, depth), bound, move);
         }
 
@@ -345,9 +343,9 @@ public class Minimax {
     }
 
     /** Remembers a quiet move that cut the search off, as a killer at its ply and in the history. */
-    private void cutoff(BitBoard parent, BitBoard child, int depth, int ply) {
+    private void cutoff(Board parent, Board child, int depth, int ply) {
         if (state != null && state.moveOrdering && child.captureScore(parent) < 0) {
-            state.rememberCutoff(moveCode(child.lastMove), parent.getIsWhiteToMove(), depth, ply);
+            state.rememberCutoff(child.lastMove(), parent.sideToMove(), depth, ply);
         }
     }
 
@@ -380,18 +378,7 @@ public class Minimax {
     private static final int DRAW = 0;
 
     /** Any score this far from MATE is a mate score, wherever in the search it was found. */
-    private static final int MATE_THRESHOLD = BitBoardEvaluate.MATE - 1000;
-
-    /**
-     * A move as a number the table, the killers and the history can store: from-square, to-square
-     * and the promotion piece. Never 0.
-     */
-    static int moveCode(BitMove move) {
-        long both = move.piece.position & move.newPosition;
-        int from = Long.numberOfTrailingZeros(move.piece.position & ~both) & 63;
-        int to = Long.numberOfTrailingZeros(move.newPosition & ~both) & 63;
-        return from | to << 6 | (Character.toLowerCase(move.promotionChoice) & 0x1F) << 12;
-    }
+    private static final int MATE_THRESHOLD = Evaluator.MATE - 1000;
 
     /**
      * What the depths of one {@code getBestMove} call share (Phase 5b): the transposition table, two
@@ -401,7 +388,10 @@ public class Minimax {
         final TranspositionTable table;
         final boolean moveOrdering;
         final int[][] killers;
-        /** [side to move][from][to]: how much a quiet move has cut off, weighted by depth squared. */
+        /**
+         * [side to move][from][to]: how much a quiet move has cut off, weighted by depth squared.
+         * Two players on 64 squares, as long as chess is the only board.
+         */
         final int[][][] history = new int[2][64][64];
 
         SearchState(int maxDepth, Options options) {
@@ -418,16 +408,16 @@ public class Minimax {
             return Math.min(20, 14 + maxDepth);
         }
 
-        void rememberCutoff(int move, boolean whiteToMove, int depth, int ply) {
+        void rememberCutoff(int move, int side, int depth, int ply) {
             if (killers[ply][0] != move) {
                 killers[ply][1] = killers[ply][0];
                 killers[ply][0] = move;
             }
-            int[] row = history[whiteToMove ? 1 : 0][move & 63];
-            row[move >> 6 & 63] += depth * depth;
-            if (row[move >> 6 & 63] > HISTORY_MAX) {
-                for (int[][] side : history) {
-                    for (int[] r : side) {
+            int[] row = history[side][Move.from(move)];
+            row[Move.to(move)] += depth * depth;
+            if (row[Move.to(move)] > HISTORY_MAX) {
+                for (int[][] player : history) {
+                    for (int[] r : player) {
                         for (int i = 0; i < r.length; i++) {
                             r[i] /= 2;
                         }
@@ -442,12 +432,12 @@ public class Minimax {
          * Orders the children: the table's move, captures by MVV-LVA, the two killers of this ply,
          * then quiet moves by history. Ties keep the move generator's order (checks first).
          */
-        void order(ArrayList<BitBoard> children, BitBoard parent, int hashMove, int ply) {
+        void order(List<Board> children, Board parent, int hashMove, int ply) {
             int n = children.size();
             if (!moveOrdering) {
                 if (hashMove != 0) {
                     for (int i = 0; i < n; i++) {
-                        if (moveCode(children.get(i).lastMove) == hashMove) {
+                        if (children.get(i).lastMove() == hashMove) {
                             children.addFirst(children.remove(i));
                             break;
                         }
@@ -455,11 +445,11 @@ public class Minimax {
                 }
                 return;
             }
-            boolean white = parent.getIsWhiteToMove();
+            int side = parent.sideToMove();
             long[] keyed = new long[n];
             for (int i = 0; i < n; i++) {
-                BitBoard child = children.get(i);
-                int code = moveCode(child.lastMove);
+                Board child = children.get(i);
+                int code = child.lastMove();
                 long score;
                 int capture;
                 if (code == hashMove) {
@@ -471,12 +461,12 @@ public class Minimax {
                 } else if (code == killers[ply][1]) {
                     score = 2L << 40;
                 } else {
-                    score = history[white ? 1 : 0][code & 63][code >> 6 & 63];
+                    score = history[side][Move.from(code)][Move.to(code)];
                 }
                 keyed[i] = (-score) << 8 | i; // descending score, then generator order
             }
             Arrays.sort(keyed);
-            ArrayList<BitBoard> ordered = new ArrayList<>(n);
+            ArrayList<Board> ordered = new ArrayList<>(n);
             for (long k : keyed) {
                 ordered.add(children.get((int) (k & 0xFF)));
             }
@@ -490,23 +480,23 @@ public class Minimax {
      * The side to move may also "stand pat" (keep the static evaluation) instead of capturing, since
      * it is never forced to take. In check at the first ply it must answer, so every move is searched
      * and there is no standing pat; deeper checks are scored as they stand, which keeps the search
-     * small. Captures that lose material are not tried ({@link BitBoard#getNoisyNextStates()}).
+     * small. Captures that lose material are not tried ({@link Board#noisyChildren()}).
      */
-    private int quiescence(BitBoard board, int ply, boolean isMaximizingPlayer, int alpha, int beta) {
+    private int quiescence(Board board, int ply, boolean isMaximizingPlayer, int alpha, int beta) {
         if (++nodesChecked % STOP_CHECK_INTERVAL == 0 && stop.getAsBoolean()) {
             throw ABANDONED;
         }
         // only the first ply answers a check with every move; deeper, a check is scored as it stands
-        boolean inCheck = ply == 0 && board.isSideToMoveInCheck();
-        if (ply >= MAX_QUIESCENCE_DEPTH || inCheck && board.getStatus() != 1) { // mated, or a 50-move draw
-            return mateDistance(evaluator.evaluate(board, rootIsBlack), ply);
+        boolean inCheck = ply == 0 && board.inCheck();
+        if (ply >= MAX_QUIESCENCE_DEPTH || inCheck && board.isOver()) { // mated, or a 50-move draw
+            return mateDistance(evaluator.evaluate(board, rootPlayer), ply);
         }
         int best;
         if (inCheck) {
             best = isMaximizingPlayer ? Integer.MIN_VALUE : Integer.MAX_VALUE;
         } else {
-            best = evaluator.evaluate(board, rootIsBlack); // stand pat
-            if (Math.abs(best) >= BitBoardEvaluate.MATE || best == 0 && board.getStatus() != 1) {
+            best = evaluator.evaluate(board, rootPlayer); // stand pat
+            if (Math.abs(best) >= Evaluator.MATE || best == 0 && board.isOver()) {
                 return mateDistance(best, ply); // over already: mated or drawn
             }
             if (isMaximizingPlayer ? best >= beta : best <= alpha) {
@@ -518,7 +508,7 @@ public class Minimax {
         } else {
             beta = Math.min(beta, best);
         }
-        for (BitBoard child : inCheck ? board.getSortedNextStates() : board.getNoisyNextStates()) {
+        for (Board child : inCheck ? board.orderedChildren() : board.noisyChildren()) {
             int value = quiescence(child, ply + 1, !isMaximizingPlayer, alpha, beta);
             if (isMaximizingPlayer) {
                 best = Math.max(best, value);
@@ -531,26 +521,26 @@ public class Minimax {
                 break;
             }
         }
-        board.releaseNextStates();
+        board.releaseChildren();
         return best;
     }
 
     /** A mate {@code ply} plies past the search depth is that much further away than one at it. */
     private static int mateDistance(int value, int ply) {
-        if (value >= BitBoardEvaluate.MATE) {
+        if (value >= Evaluator.MATE) {
             return value - ply;
         }
-        if (value <= -BitBoardEvaluate.MATE) {
+        if (value <= -Evaluator.MATE) {
             return value + ply;
         }
         return value;
     }
 
     private static class MinimaxResult {
-        BitMove move;
+        int move;
         int value;
 
-        MinimaxResult(BitMove move, int value) {
+        MinimaxResult(int move, int value) {
             this.move = move;
             this.value = value;
         }

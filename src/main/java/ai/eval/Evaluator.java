@@ -1,6 +1,6 @@
 package ai.eval;
 
-import ai.BitBoard.BitBoard;
+import ai.board.Board;
 
 /**
  * Scores a position for the search. Built from a {@link ParamVector}, so the same search can play
@@ -10,12 +10,15 @@ import ai.BitBoard.BitBoard;
  */
 public interface Evaluator {
 
+    /** A won game scores at least this (a lost one at most minus this); any other score is far below. */
+    int MATE = 100_000_000;
+
     /**
-     * The score of {@code board} for the side choosing the move at the search root
-     * ({@code rootIsBlack}); higher is better for that side. Mates score beyond
-     * {@code ±BitBoardEvaluate.MATE}.
+     * The score of {@code board} for the player choosing the move at the search root
+     * ({@code rootPlayer}, see {@link Board#sideToMove()}); higher is better for that player. Mates
+     * score beyond {@code ±MATE}.
      */
-    int evaluate(BitBoard board, boolean rootIsBlack);
+    int evaluate(Board board, int rootPlayer);
 
     /** The weights this evaluator plays with. */
     ParamVector params();

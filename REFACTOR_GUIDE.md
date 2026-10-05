@@ -552,6 +552,25 @@ equal time; every changed move in `same-moves.txt` explained.
 
 ---
 
+## Phase 6 — Pieces as data
+
+> **Status: R1 in review** (branch `phase-6-board-interface`). Research, target architecture and
+> steps are in [docs/phase-6-research.md](docs/phase-6-research.md).
+
+**Goal.** Let the owner invent pieces and variants: piece types become data read by one move
+generator, behind a `Board` interface that the search, the evaluation and the rules use, so
+later boards (other geometry, more players, squares with behaviour) fit without touching them.
+
+**Scope.** R1 interface, R2 piece types as data, R3 generic board replacing `BitBoard`, R4 a
+variant end to end, R5 piece designer in the UI. R6 (wider extensions) only when an experiment
+needs it.
+
+**Exit criteria.** Each step keeps perft, `SameMoveTest` and `SearchSpeedTest` as they were for
+standard chess; at the end the owner designs a piece in the UI, plays it and gets a health
+report on the variant.
+
+---
+
 ## Cross-phase notes
 
 - **Do not parallelize phases 2–4.** They each assume the previous phase's exit criteria are

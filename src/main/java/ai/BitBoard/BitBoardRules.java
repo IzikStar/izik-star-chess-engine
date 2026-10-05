@@ -193,7 +193,22 @@ public final class BitBoardRules {
 
     // ---- BitBoard -> FEN ----------------------------------------------------
 
+    /** {@code board} as FEN; the en-passant square is the one a pawn just skipped, if any. */
+    static String toFen(BitBoard board) {
+        return toFen(board, board.enPassantTile);
+    }
+
     private static String toFen(BitBoard parent, BitBoard child, int from, int to) {
+        // En-passant target: only when a pawn just advanced two squares.
+        int ep = -1;
+        long movedPawnsBefore = parent.getIsWhiteToMove() ? parent.whitePawns : parent.blackPawns;
+        if ((movedPawnsBefore & (1L << from)) != 0 && Math.abs((from >>> 3) - (to >>> 3)) == 2) {
+            ep = (from + to) / 2;
+        }
+        return toFen(child, ep);
+    }
+
+    private static String toFen(BitBoard child, int ep) {
         StringBuilder sb = new StringBuilder();
         for (int r = 0; r < 8; r++) {
             int empty = 0;
@@ -222,14 +237,7 @@ public final class BitBoardRules {
                 + (child.canBlackCastleKingSide ? "k" : "")
                 + (child.canBlackCastleQueenSide ? "q" : "");
         sb.append(cr.isEmpty() ? "-" : cr);
-
-        // En-passant target: only when a pawn just advanced two squares.
-        int ep = -1;
-        long movedPawnsBefore = parent.getIsWhiteToMove() ? parent.whitePawns : parent.blackPawns;
-        if ((movedPawnsBefore & (1L << from)) != 0 && Math.abs((from >>> 3) - (to >>> 3)) == 2) {
-            ep = (from + to) / 2;
-        }
-        sb.append(' ').append(ep == -1 ? "-" : squareName(ep));
+        sb.append(' ').append(ep < 0 || ep > 63 ? "-" : squareName(ep));
         sb.append(' ').append(child.numOfTurnsWithoutCaptureOrPawnMove);
         sb.append(' ').append(child.numOfTurns);
         return sb.toString();
