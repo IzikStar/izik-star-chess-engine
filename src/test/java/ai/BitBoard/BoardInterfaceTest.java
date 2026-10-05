@@ -54,6 +54,17 @@ class BoardInterfaceTest {
         }
     }
 
+    @org.junit.jupiter.api.Test
+    @DisplayName("A promotion with no piece named promotes to a queen, as the old bridge did")
+    void promotionDefaultsToQueen() {
+        String fen = "8/P6k/8/8/8/8/8/K7 w - - 0 1";
+        int a7 = 8;
+        int a8 = 0;
+        assertEquals(BitBoardRules.applyMove(BitBoardRules.fromFen(fen), a7, a8, 0),
+                Boards.fromFen(fen).play(Move.of(a7, a8)).toFen());
+        assertEquals('Q', Boards.fromFen(fen).play(Move.of(a7, a8)).toFen().charAt(0));
+    }
+
     private static List<Integer> codes(List<int[]> moves) {
         List<Integer> out = new ArrayList<>();
         for (int[] m : moves) {
