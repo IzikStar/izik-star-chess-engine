@@ -1,5 +1,7 @@
 # Architecture of IzikStar Chess 3.1 (as-is)
 
+> The current layout, in one page: [docs/architecture.md](docs/architecture.md). This file is the history.
+
 > **Updated after Phase 3 (2026-10-01)** — branch `phase-3-decouple-ui`,
 > [docs/phase-3-research.md](docs/phase-3-research.md) — **and Phase 4c (2026-10-02)**, which
 > replaced the Swing UI (`main`, `GUI`) with a browser UI. The code is now layered:
