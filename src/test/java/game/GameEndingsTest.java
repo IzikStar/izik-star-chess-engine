@@ -153,6 +153,9 @@ class GameEndingsTest {
         assertTrue(GameSession.canMate(Position.fromFen("4k3/8/8/8/8/8/4P3/4K1N1 w - - 0 1"), true));
         assertFalse(GameSession.canMate(Position.fromFen("4k3/8/8/8/8/8/8/4K1N1 w - - 0 1"), true));
         assertTrue(GameSession.canMate(Position.fromFen("4k3/8/8/8/8/8/8/2B1K1N1 w - - 0 1"), true));
+        // only chess has material that can never win: a lone king still wins King of the Hill on time
+        assertFalse(GameSession.canWin(ai.variant.Variants.CHESS, Position.fromFen("4k3/8/8/8/8/8/8/4K3 w - - 0 1"), true));
+        assertTrue(GameSession.canWin(ai.variant.Variants.KING_OF_THE_HILL, Position.fromFen("4k3/8/8/8/8/8/8/4K3 w - - 0 1"), true));
     }
 
     @Test

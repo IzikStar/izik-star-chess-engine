@@ -64,6 +64,15 @@ class EvalApiTest {
     }
 
     @Test
+    @DisplayName("Stockfish judges chess only: another variant is refused, saying so")
+    void otherVariant() throws Exception {
+        HttpResponse<String> r = post(start(null) + "/api/eval", "{\"variant\":\"antichess\",\"moves\":[\"e2e3\"]}");
+        assertEquals(422, r.statusCode());
+        assertTrue(r.body().contains("\"unsupportedVariant\":true"), r.body());
+        assertEquals(503, post(start(null) + "/api/eval", "{\"variant\":\"chess\",\"moves\":[]}").statusCode());
+    }
+
+    @Test
     @DisplayName("An illegal move is refused")
     void illegal() throws Exception {
         assertEquals(400, post(start(null) + "/api/eval", "{\"moves\":[\"e2e5\"]}").statusCode());

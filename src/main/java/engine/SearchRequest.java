@@ -1,5 +1,7 @@
 package engine;
 
+import ai.variant.Variant;
+import ai.variant.Variants;
 import rules.ChessMove;
 
 import java.util.List;
@@ -17,12 +19,20 @@ import java.util.List;
  * @param cancel     set when the answer is no longer wanted
  * @param timeBudgetMs the most this move may take on the clock, or {@link TimeBudget#NONE}: the
  *                   engine thinks as its level says, but no longer than this
+ * @param variant    the game's rules (Phase 6 R4d); {@code null} means chess
  */
 public record SearchRequest(String fen, String startFen, List<ChessMove> moves, int skillLevel,
-                            Cancellation cancel, long timeBudgetMs) {
+                            Cancellation cancel, long timeBudgetMs, Variant variant) {
 
     public SearchRequest {
         moves = List.copyOf(moves);
+        variant = variant == null ? Variants.CHESS : variant;
+    }
+
+    /** A chess request. */
+    public SearchRequest(String fen, String startFen, List<ChessMove> moves, int skillLevel,
+                         Cancellation cancel, long timeBudgetMs) {
+        this(fen, startFen, moves, skillLevel, cancel, timeBudgetMs, Variants.CHESS);
     }
 
     /** A request with no limit from a clock. */
@@ -36,10 +46,19 @@ public record SearchRequest(String fen, String startFen, List<ChessMove> moves, 
     }
 
     public SearchRequest withSkillLevel(int level) {
-        return new SearchRequest(fen, startFen, moves, level, cancel, timeBudgetMs);
+        return new SearchRequest(fen, startFen, moves, level, cancel, timeBudgetMs, variant);
     }
 
     public SearchRequest withTimeBudgetMs(long budgetMs) {
-        return new SearchRequest(fen, startFen, moves, skillLevel, cancel, budgetMs);
+        return new SearchRequest(fen, startFen, moves, skillLevel, cancel, budgetMs, variant);
+    }
+
+    public SearchRequest withVariant(Variant variant) {
+        return new SearchRequest(fen, startFen, moves, skillLevel, cancel, timeBudgetMs, variant);
+    }
+
+    /** True when the game is standard chess, the only game Stockfish plays here. */
+    public boolean isChess() {
+        return variant.equals(Variants.CHESS);
     }
 }

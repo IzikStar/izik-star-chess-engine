@@ -24,7 +24,7 @@ class GameArchiveTest {
     private static SavedGame game(String id, Instant started, String result) {
         return new SavedGame(id, started, started.plusSeconds(60), new GameConfig(GameConfig.Mode.HUMAN_VS_ENGINE, false, 6),
                 "runs/a.db", 3, "Champion of A, generation 3", new TimeControl(180_000, 2_000), 170_000L, 150_500L,
-                Position.START_FEN, List.of("e2e4", "e7e5"), result, result == null ? null : "White won by resignation", "1. e4 e5 *", "tuned");
+                Position.START_FEN, List.of("e2e4", "e7e5"), result, result == null ? null : "White won by resignation", "1. e4 e5 *", "tuned", "three-check");
     }
 
     @Test
@@ -36,10 +36,11 @@ class GameArchiveTest {
         assertEquals(saved, archive.get("g1").orElseThrow());
 
         SavedGame untimed = new SavedGame("g2", saved.started(), saved.updated(), GameConfig.defaults(), null, null, null,
-                TimeControl.NONE, null, null, Position.START_FEN, List.of("d2d4"), null, null, "1. d4 *", null);
+                TimeControl.NONE, null, null, Position.START_FEN, List.of("d2d4"), null, null, "1. d4 *", null, null);
         archive.save(untimed);
         assertEquals(untimed, archive.get("g2").orElseThrow());
         assertEquals("classic", untimed.weights()); // saved without weights: played before tuned existed
+        assertEquals("chess", untimed.variant()); // saved without a variant: played before variants existed
         assertFalse(untimed.finished());
     }
 

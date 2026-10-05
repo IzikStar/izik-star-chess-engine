@@ -1,5 +1,6 @@
 package web;
 
+import ai.variant.Variants;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import game.GameArchive;
@@ -20,7 +21,7 @@ import rules.Game;
  *   <li>{@code DELETE /api/games/{id}}</li>
  * </ul>
  * A summary is {id, started, updated, mode: engine|friend, humanColor, level, opponent (a
- * champion's name, or null), weights (tuned|classic), time {initialMs, incrementMs} or null, plies, result (null while
+ * champion's name, or null), weights (tuned|classic), variant (an id from ai.variant.Variants; chess for games saved before variants), time {initialMs, incrementMs} or null, plies, result (null while
  * unfinished), termination}. Carrying a game on goes over the game's WebSocket ({@code resumeGame}).
  */
 final class GamesApi {
@@ -65,6 +66,7 @@ final class GamesApi {
         o.addProperty("level", config.skillLevel());
         o.addProperty("opponent", g.opponentLabel());
         o.addProperty("weights", g.weights());
+        o.addProperty("variant", g.variant());
         if (g.timeControl().isTimed()) {
             JsonObject time = new JsonObject();
             time.addProperty("initialMs", g.timeControl().initialMs());
@@ -82,7 +84,8 @@ final class GamesApi {
     private static JsonObject detail(SavedGame g) {
         JsonObject o = summary(g);
         o.addProperty("startFen", g.startFen());
-        Game game = new Game(g.startFen());
+        Game game = new Game(Variants.byId(g.variant())
+                .orElseThrow(() -> new IllegalArgumentException("unknown variant " + g.variant())), g.startFen());
         JsonArray moves = new JsonArray();
         g.moves().forEach(uci -> moves.add(GameStateJson.move(game.play(uci))));
         o.add("moves", moves);

@@ -25,7 +25,8 @@ import java.util.function.Supplier;
  * request and kept, apart from the opponent and the analysis, so none of them waits on another.
  *
  * <pre>
- * POST /api/eval {startFen?, moves: [uci...]} → {score: {cp} | {mate}} (503 if there is no Stockfish)
+ * POST /api/eval {startFen?, moves: [uci...], variant?} → {score: {cp} | {mate}} (503 if there is no
+ * Stockfish, 422 for a variant other than chess)
  * </pre>
  */
 final class EvalApi {
@@ -59,6 +60,9 @@ final class EvalApi {
     }
 
     private void eval(Context ctx) {
+        if (!chessOnly(ctx)) {
+            return;
+        }
         String startFen;
         List<String> moves = new ArrayList<>();
         String fen;
@@ -99,6 +103,29 @@ final class EvalApi {
             ctx.status(500);
             json(ctx, error(String.valueOf(e.getMessage())));
         }
+    }
+
+    /**
+     * Stockfish judges chess only: a request naming another variant ({@code variant}, an id from
+     * ai.variant.Variants) is answered 422 {error, unsupportedVariant: true}. Returns false then.
+     */
+    static boolean chessOnly(Context ctx) {
+        String variant;
+        try {
+            JsonElement v = JsonParser.parseString(ctx.body()).getAsJsonObject().get("variant");
+            variant = v == null || v.isJsonNull() ? "chess" : v.getAsString();
+        } catch (RuntimeException e) {
+            return true; // malformed: the request's own parsing answers it
+        }
+        if (variant.equals("chess")) {
+            return true;
+        }
+        ctx.status(422);
+        JsonObject o = new JsonObject();
+        o.addProperty("error", "Stockfish judges chess only, not " + variant + ".");
+        o.addProperty("unsupportedVariant", true);
+        ctx.contentType("application/json").result(o.toString());
+        return false;
     }
 
     private synchronized Score evaluate(List<String> engine, String startFen, List<String> moves, boolean whiteToMove)

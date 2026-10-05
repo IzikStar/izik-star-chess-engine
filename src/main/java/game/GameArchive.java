@@ -147,6 +147,7 @@ public final class GameArchive {
         o.addProperty("termination", g.termination());
         o.addProperty("pgn", g.pgn());
         o.addProperty("weights", g.weights());
+        o.addProperty("variant", g.variant());
         return o;
     }
 
@@ -162,7 +163,8 @@ public final class GameArchive {
                 string(o, "opponentLabel"),
                 new TimeControl(o.get("initialMs").getAsLong(), o.get("incrementMs").getAsLong()),
                 number(o, "whiteMs"), number(o, "blackMs"), o.get("startFen").getAsString(), moves,
-                string(o, "result"), string(o, "termination"), string(o, "pgn"), string(o, "weights"));
+                string(o, "result"), string(o, "termination"), string(o, "pgn"), string(o, "weights"),
+                string(o, "variant"));
     }
 
     private static String string(JsonObject o, String key) {

@@ -70,8 +70,9 @@ public final class EngineSelector {
         return stockfish.isAvailable();
     }
 
+    /** Stockfish plays chess only: in another variant its levels and hints go to the built-in engine. */
     private ChessMove withFallback(SearchRequest request, int fallbackLevel) {
-        ChessMove move = stockfish.isAvailable() ? stockfish.bestMove(request) : null;
+        ChessMove move = request.isChess() && stockfish.isAvailable() ? stockfish.bestMove(request) : null;
         if (move != null || request.cancel().isCancelled()) {
             return move;
         }

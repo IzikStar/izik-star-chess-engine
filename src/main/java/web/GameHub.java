@@ -1,6 +1,9 @@
 package web;
 
 import ai.eval.ChessEvaluate;
+import ai.eval.Evaluators;
+import ai.variant.Variant;
+import ai.variant.Variants;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -49,10 +52,12 @@ import java.util.function.Consumer;
  * champion: {run, generation} (optional: the built-in engine plays with that evolved champion's
  * weights, at the built-in engine's levels only), weights: tuned|classic (optional: the weights the
  * built-in engine plays with, engine.Weights; absent keeps the last game's), time: {initialMs, incrementMs} (optional; absent or null is
- * untimed)}, {@code resign}, {@code offerDraw}, {@code answerDraw} {accept}, {@code loadPgn}
+ * untimed), variant: an id from ai.variant.Variants (optional, absent is chess; Stockfish plays chess
+ * only, so in another variant its levels play the built-in engine's top level, and a champion
+ * needs the chess pieces)}, {@code resign}, {@code offerDraw}, {@code answerDraw} {accept}, {@code loadPgn}
  * {pgn} (the game becomes a two-player game from its last position), {@code resumeGame} {id} (carries on an
  * unfinished saved game, see {@link GamesApi}). Server to client: {@code {"type":"state","events":[...],"state":{...}}};
- * the state's {@code opponent} is the champion being played ({run, generation, label}), or null;
+ * the state's {@code variant} is {id, name, goal, checksToWin?}; {@code opponent} is the champion being played ({run, generation, label}), or null;
  * {@code weights} the built-in engine's weights when it is not a champion ("tuned" or "classic");
  * {@code stockfish} is {available, path} (whether Stockfish's levels really get Stockfish). An event is
  * {@code {kind: move|reset|config|hint|gameOver|ended|drawOffer|drawDeclined|rejected, ...}}.
@@ -262,23 +267,30 @@ final class GameHub implements GameListener {
         // engine vs engine: Black may play at its own level
         int blackLevel = mode == GameConfig.Mode.ENGINE_VS_ENGINE && msg.has("blackLevel")
                 ? Levels.clamp(msg.get("blackLevel").getAsInt()) : level;
+        String variantId = string(msg, "variant", Variants.CHESS.id());
+        Variant variant = Variants.byId(variantId)
+                .orElseThrow(() -> new IllegalArgumentException("unknown variant: " + variantId));
+        JsonElement champion = msg.get("champion");
+        boolean playsChampion = champion != null && !champion.isJsonNull();
+        if (playsChampion && !Evaluators.usesChessEvaluation(variant)) {
+            throw new IllegalArgumentException("a champion plays with the chess pieces only, not " + variant.name());
+        }
         leaveGame(mode != GameConfig.Mode.ENGINE_VS_ENGINE);
         if (msg.has("weights") && !msg.get("weights").isJsonNull()) {
             weights = Weights.of(msg.get("weights").getAsString());
         }
-        JsonElement champion = msg.get("champion");
-        boolean playsChampion = champion != null && !champion.isJsonNull();
         playAs(playsChampion ? champion.getAsJsonObject().get("run").getAsString() : null,
                 playsChampion ? champion.getAsJsonObject().get("generation").getAsInt() : 0);
-        if (opponent != null) {
-            // the champion is the built-in engine; Stockfish's levels would hand the game to Stockfish
+        if (opponent != null || !variant.equals(Variants.CHESS)) {
+            // the champion is the built-in engine, and Stockfish plays only chess: its levels would
+            // hand the game to Stockfish, or say they did
             level = Math.min(level, EngineSelector.STOCKFISH_FROM_LEVEL - 1);
             blackLevel = Math.min(blackLevel, EngineSelector.STOCKFISH_FROM_LEVEL - 1);
         }
         GameConfig config = new GameConfig(mode, white, level, blackLevel);
         // reset first, so the engine does not start a move in the old position under the new config
         session.updateConfig(new GameConfig(GameConfig.Mode.HUMAN_VS_HUMAN, white, level));
-        session.newGame(rules.Position.START_FEN, timeControl(msg));
+        session.newGame(variant, variant.startFen(), timeControl(msg));
         session.updateConfig(config);
     }
 
@@ -314,8 +326,10 @@ final class GameHub implements GameListener {
         if (saved.finished()) {
             throw new IllegalArgumentException("that game is over");
         }
+        Variant variant = Variants.byId(saved.variant())
+                .orElseThrow(() -> new IllegalArgumentException("unknown variant " + saved.variant()));
         List<ChessMove> moves = saved.moves().stream().map(ChessMove::fromUci).toList();
-        rules.Game check = new rules.Game(saved.startFen()); // a damaged file fails here, before anything changes
+        rules.Game check = new rules.Game(variant, saved.startFen()); // a damaged file fails here, before anything changes
         moves.forEach(check::play);
         record(true);
         weights = Weights.of(saved.weights());
@@ -323,7 +337,7 @@ final class GameHub implements GameListener {
         TimeControl control = saved.timeControl();
         long initial = control.initialMs();
         session.updateConfig(new GameConfig(GameConfig.Mode.HUMAN_VS_HUMAN, saved.config().humanPlaysWhite(), saved.config().skillLevel()));
-        session.resume(saved.startFen(), moves, control,
+        session.resume(variant, saved.startFen(), moves, control,
                 saved.whiteMs() == null ? initial : saved.whiteMs(), saved.blackMs() == null ? initial : saved.blackMs(),
                 saved.started().atZone(ZoneId.systemDefault()).toLocalDate());
         session.updateConfig(saved.config());
@@ -388,7 +402,7 @@ final class GameHub implements GameListener {
                 clock == null ? null : clock.remainingMs(true), clock == null ? null : clock.remainingMs(false),
                 session.startFen(), session.moves().stream().map(m -> m.move().toUci()).toList(),
                 result, result == null ? null : GameStateJson.termination(session),
-                GameStateJson.pgn(session, label), weights.id());
+                GameStateJson.pgn(session, label), weights.id(), session.variant().id());
     }
 
     private static String string(JsonObject msg, String key, String fallback) {

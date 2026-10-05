@@ -234,6 +234,26 @@ variant choice in the New game dialog and a drawing for pieces without one.
   start, a forced antichess win found with all weights at 0, variant goals as mate in
   `ChessEvaluate`). `SameMoveTest` is unchanged.
 
+### R4d (branch `phase-6-variant-game`)
+
+- `SearchRequest` carries the variant. `MinimaxEngine` plays it (its evaluator for chess-piece
+  variants, `Evaluators.forVariant` for the rest); `EngineSelector` never asks Stockfish outside
+  chess, so its levels and hints play the built-in engine's top level there. The web hub also
+  caps the level below Stockfish's in a variant, so the PGN never names a level that did not play.
+- `GameSession` keeps the variant (`newGame(variant, fen, control)`, `resume(variant, ...)`,
+  PGN loading). Running out of time loses in every variant; only chess has material that can
+  never win, so only chess turns a flag into a draw.
+- PGN: a `Variant` tag with Lichess's names ("Antichess", "King of the Hill", "Three-check");
+  reading accepts a name or an id in any case, "Standard" or no tag is chess, an unknown one is
+  refused. Moves are read by the variant's rules, promotion to a king included.
+- Saved games keep a `variant` id; files from before have none and load as chess.
+- Protocol: `newGame` takes `variant` (an id, absent is chess); a champion needs the chess pieces.
+  The state carries `variant` {id, name, goal, checksToWin?}; `/api/games` summaries carry the id.
+  `/api/eval` and `/api/analysis` answer 422 `unsupportedVariant` outside chess (Stockfish).
+- Checks: `engine.VariantEngineTest`, the variant cases in `PgnTest`, `GameArchiveTest`,
+  `GameEndingsTest`, `EvalApiTest`, and two socket games in `WebServerTest` (antichess's forced
+  capture and PGN tag, King of the Hill against the engine, a three-check game saved and carried on).
+
 ## 5. Towards "everything possible"
 
 Each layer is more flexible and slower or riskier than the one before, so it is added only when
