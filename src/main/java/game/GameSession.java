@@ -157,11 +157,7 @@ public final class GameSession {
         if (end != null) {
             return end.result();
         }
-        GameStatus status = game.status();
-        if (status == GameStatus.CHECKMATE) {
-            return whiteToMove() ? "0-1" : "1-0";
-        }
-        return status.isDraw() ? "1/2-1/2" : null;
+        return game.status().result(whiteToMove());
     }
 
     public TimeControl timeControl() {

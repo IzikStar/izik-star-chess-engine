@@ -53,9 +53,9 @@ public final class Match {
         GameStatus status = game.status();
         GameRecord.Result result;
         String reason;
-        if (status == GameStatus.CHECKMATE) {
-            boolean whiteMated = game.fen().split(" ")[1].equals("w");
-            result = whiteMated ? GameRecord.Result.BLACK_WINS : GameRecord.Result.WHITE_WINS;
+        String score = status.result(game.fen().split(" ")[1].equals("w"));
+        if (score != null && !status.isDraw()) {
+            result = score.equals("1-0") ? GameRecord.Result.WHITE_WINS : GameRecord.Result.BLACK_WINS;
             reason = status.name();
         } else if (status.isGameOver()) {
             result = GameRecord.Result.DRAW;

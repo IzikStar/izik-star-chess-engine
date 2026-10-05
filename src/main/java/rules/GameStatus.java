@@ -20,10 +20,36 @@ public enum GameStatus {
     /** The same position has occurred three times. */
     DRAW_THREEFOLD,
     /** Neither side has enough material to force mate. */
-    DRAW_INSUFFICIENT_MATERIAL;
+    DRAW_INSUFFICIENT_MATERIAL,
+    /** King of the Hill: the opponent's king reached the centre; the side to move lost. */
+    HILL_REACHED,
+    /** Three-check (or N-check): the opponent gave the last check; the side to move lost. */
+    CHECKS_GIVEN,
+    /** Antichess: the side to move has no pieces left, and wins. */
+    NO_PIECES_LEFT,
+    /** Antichess: the side to move has no legal move, and wins. */
+    NO_MOVES_LEFT;
 
     public boolean isGameOver() {
         return this != IN_PROGRESS && this != CHECK;
+    }
+
+    /** The player to move has lost: mated, or the opponent reached the variant's goal. */
+    public boolean sideToMoveLost() {
+        return this == CHECKMATE || this == HILL_REACHED || this == CHECKS_GIVEN;
+    }
+
+    /** The player to move has won (antichess). */
+    public boolean sideToMoveWon() {
+        return this == NO_PIECES_LEFT || this == NO_MOVES_LEFT;
+    }
+
+    /** "1-0", "0-1", "1/2-1/2", or null while the game goes on. */
+    public String result(boolean whiteToMove) {
+        if (sideToMoveLost() || sideToMoveWon()) {
+            return whiteToMove == sideToMoveWon() ? "1-0" : "0-1";
+        }
+        return isDraw() ? "1/2-1/2" : null;
     }
 
     public boolean isDraw() {

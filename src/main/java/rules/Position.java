@@ -27,6 +27,8 @@ public final class Position {
     private final int epSquare;
     private final int halfmoveClock;
     private final int fullmoveNumber;
+    /** Three-check's "checks still to give" field ("3+3"), or null. */
+    private String checks;
 
     public Position(char[] board, boolean whiteToMove,
                     boolean castleWK, boolean castleWQ, boolean castleBK, boolean castleBQ,
@@ -65,11 +67,18 @@ public final class Position {
         boolean wtm = p[1].equals("w");
         String cr = p[2];
         int ep = p[3].equals("-") ? Square.NONE : Square.fromName(p[3]);
-        int half = p.length > 4 ? Integer.parseInt(p[4]) : 0;
-        int full = p.length > 5 ? Integer.parseInt(p[5]) : 1;
-        return new Position(b, wtm,
+        int next = 4;
+        String checks = null;
+        if (p.length > next && p[next].contains("+")) {
+            checks = p[next++];
+        }
+        int half = p.length > next ? Integer.parseInt(p[next]) : 0;
+        int full = p.length > next + 1 ? Integer.parseInt(p[next + 1]) : 1;
+        Position position = new Position(b, wtm,
                 cr.contains("K"), cr.contains("Q"), cr.contains("k"), cr.contains("q"),
                 ep, half, full);
+        position.checks = checks;
+        return position;
     }
 
     public String toFen() {
@@ -100,6 +109,9 @@ public final class Position {
                 + (castleBK ? "k" : "") + (castleBQ ? "q" : "");
         sb.append(cr.isEmpty() ? "-" : cr);
         sb.append(' ').append(epSquare == Square.NONE ? "-" : Square.name(epSquare));
+        if (checks != null) {
+            sb.append(' ').append(checks);
+        }
         sb.append(' ').append(halfmoveClock);
         sb.append(' ').append(fullmoveNumber);
         return sb.toString();
@@ -152,9 +164,9 @@ public final class Position {
         return out;
     }
 
-    /** The key for threefold repetition: placement + side to move + castling + en-passant. */
+    /** The key for threefold repetition: placement + side to move + castling + en-passant (+ checks). */
     public String repetitionKey() {
         String[] f = toFen().split("\\s+");
-        return f[0] + " " + f[1] + " " + f[2] + " " + f[3];
+        return f[0] + " " + f[1] + " " + f[2] + " " + f[3] + (checks == null ? "" : " " + checks);
     }
 }

@@ -198,6 +198,24 @@ variant choice in the New game dialog and a drawing for pieces without one.
   variant with its legal moves at every ply, and perft to depth 3 from 7 positions per variant);
   `ai.board.VariantOracleTest` checks our board against all of it (2,394 checks), without Python.
 
+### R4b (branch `phase-6-variant-rules`)
+
+- `rules.Rules`, `San` and `Game` take a `Variant` (the old methods are chess). `Game(variant)`
+  starts from the variant's position; a move to the last row without a piece named promotes to
+  the first piece the mover lists.
+- `GameStatus` gains the variant endings: `HILL_REACHED` and `CHECKS_GIVEN` (the side to move
+  lost), `NO_PIECES_LEFT` and `NO_MOVES_LEFT` (antichess: the side to move won), with
+  `sideToMoveLost()`, `sideToMoveWon()` and `result(whiteToMove)`. The session, the web state,
+  the arena and the ladder calibration read results through `result` instead of "checkmate means
+  the mover won". Status comes from `Board.outcome()` and the new `Board.goalReached()`.
+- Insufficient material is a chess rule only (goal checkmate with the standard pieces): a lone
+  king can still win King of the Hill.
+- SAN: a check that wins the game (the third check) is written `#`, as Fairy-Stockfish does.
+- `Position` keeps three-check's `3+3` field (and counts it in the repetition key).
+- Checks: `rules.RulesVariantTest` compares SAN of every played move (2,298) and how each finished
+  game ends with Fairy-Stockfish (`oracle.txt` now has `san` and `end` lines), plus hand-made
+  positions for each goal.
+
 ## 5. Towards "everything possible"
 
 Each layer is more flexible and slower or riskier than the one before, so it is added only when

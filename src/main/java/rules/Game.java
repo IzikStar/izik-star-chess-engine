@@ -1,5 +1,8 @@
 package rules;
 
+import ai.piece.PieceType;
+import ai.variant.Variant;
+import ai.variant.Variants;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -15,6 +18,7 @@ import java.util.Map;
  */
 public final class Game {
 
+    private final Variant variant;
     private final List<String> fenHistory = new ArrayList<>();
     private final List<MoveResult> moves = new ArrayList<>();
 
@@ -23,7 +27,21 @@ public final class Game {
     }
 
     public Game(String startFen) {
+        this(Variants.CHESS, startFen);
+    }
+
+    /** A game of {@code variant} from its start position. */
+    public Game(Variant variant) {
+        this(variant, variant.startFen());
+    }
+
+    public Game(Variant variant, String startFen) {
+        this.variant = variant;
         fenHistory.add(startFen);
+    }
+
+    public Variant variant() {
+        return variant;
     }
 
     public String fen() {
@@ -39,7 +57,7 @@ public final class Game {
     }
 
     public List<ChessMove> legalMoves() {
-        return Rules.legalMoves(fen());
+        return Rules.legalMoves(variant, fen());
     }
 
     /** The moves played so far, oldest first. */
@@ -48,18 +66,22 @@ public final class Game {
     }
 
     /**
-     * Play a legal move. A promotion without a piece promotes to a queen.
+     * Play a legal move. A promotion without a piece promotes to the first piece the variant lists
+     * (a queen in chess).
      *
      * @throws IllegalArgumentException if the move is not legal here
      */
     public MoveResult play(ChessMove move) {
         String before = fen();
         Position pos = Position.fromFen(before);
-        if (isPromotionMove(pos, move) && !move.isPromotion()) {
-            move = new ChessMove(move.from(), move.to(), 'q');
+        if (!move.isPromotion()) {
+            char first = firstPromotion(pos, move);
+            if (first != 0) {
+                move = new ChessMove(move.from(), move.to(), first);
+            }
         }
-        String after = Rules.applyMove(before, move);
-        String san = San.of(before, move);
+        String after = Rules.applyMove(variant, before, move);
+        String san = San.of(variant, before, move);
         boolean enPassant = San.isEnPassant(pos, move);
         char piece = pos.pieceAt(move.from());
         char captured = enPassant
@@ -83,6 +105,25 @@ public final class Game {
         char piece = pos.pieceAt(move.from());
         int toRow = Square.rank8Row(move.to());
         return (piece == 'P' && toRow == 0) || (piece == 'p' && toRow == 7);
+    }
+
+    /**
+     * The piece {@code move} promotes to when none is named: the first the moving piece lists, if
+     * it reaches its last row; otherwise 0.
+     */
+    private char firstPromotion(Position pos, ChessMove move) {
+        char piece = pos.pieceAt(move.from());
+        int toRow = Square.rank8Row(move.to());
+        boolean lastRow = Character.isUpperCase(piece) ? toRow == 0 : toRow == 7;
+        if (!lastRow) {
+            return 0;
+        }
+        for (PieceType type : variant.pieces()) {
+            if (type.letter() == Character.toUpperCase(piece) && !type.promotesTo().isEmpty()) {
+                return Character.toLowerCase(type.promotesTo().getFirst());
+            }
+        }
+        return 0;
     }
 
     /** Take back the last move. Returns false at the start of the game. */
@@ -115,7 +156,7 @@ public final class Game {
     }
 
     public GameStatus status() {
-        GameStatus base = Rules.status(fen());
+        GameStatus base = Rules.status(variant, fen());
         if (!base.isGameOver() && isThreefoldRepetition()) {
             return GameStatus.DRAW_THREEFOLD;
         }

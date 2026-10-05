@@ -1,6 +1,9 @@
 package rules;
 
 import ai.board.Board;
+import ai.piece.StandardPieces;
+import ai.variant.Variant;
+import ai.variant.Variants;
 import ai.board.Boards;
 import ai.board.Move;
 
@@ -24,7 +27,11 @@ public final class Rules {
     private Rules() {}
 
     public static List<ChessMove> legalMoves(String fen) {
-        return legalMoves(Boards.fromFen(fen));
+        return legalMoves(Variants.CHESS, fen);
+    }
+
+    public static List<ChessMove> legalMoves(Variant variant, String fen) {
+        return legalMoves(Boards.fromFen(variant, fen));
     }
 
     private static List<ChessMove> legalMoves(Board board) {
@@ -36,23 +43,14 @@ public final class Rules {
         return out;
     }
 
-    /** Legal moves + status from a single bitboard pass — for callers that need both. */
+    /** Legal moves + status from a single board — for callers that need both. */
     public static Evaluation evaluate(String fen) {
-        Position pos = Position.fromFen(fen);
-        Board b = Boards.fromFen(fen);
-        List<ChessMove> moves = legalMoves(b);
-        boolean check = b.inCheck();
-        GameStatus status;
-        if (moves.isEmpty()) {
-            status = check ? GameStatus.CHECKMATE : GameStatus.STALEMATE;
-        } else if (isInsufficientMaterial(pos)) {
-            status = GameStatus.DRAW_INSUFFICIENT_MATERIAL;
-        } else if (pos.halfmoveClock() >= 100) {
-            status = GameStatus.DRAW_FIFTY_MOVE;
-        } else {
-            status = check ? GameStatus.CHECK : GameStatus.IN_PROGRESS;
-        }
-        return new Evaluation(moves, status);
+        return evaluate(Variants.CHESS, fen);
+    }
+
+    public static Evaluation evaluate(Variant variant, String fen) {
+        Board b = Boards.fromFen(variant, fen);
+        return new Evaluation(legalMoves(b), status(variant, b, fen));
     }
 
     /** Immutable pair returned by {@link #evaluate(String)}. */
@@ -67,7 +65,11 @@ public final class Rules {
     }
 
     public static boolean isLegal(String fen, ChessMove move) {
-        for (ChessMove m : legalMoves(fen)) {
+        return isLegal(Variants.CHESS, fen, move);
+    }
+
+    public static boolean isLegal(Variant variant, String fen, ChessMove move) {
+        for (ChessMove m : legalMoves(variant, fen)) {
             if (m.from() == move.from() && m.to() == move.to()
                     && (move.promotion() == 0 || m.promotion() == move.promotion())) {
                 return true;
@@ -77,7 +79,11 @@ public final class Rules {
     }
 
     public static boolean isCheck(String fen) {
-        return Boards.fromFen(fen).inCheck();
+        return isCheck(Variants.CHESS, fen);
+    }
+
+    public static boolean isCheck(Variant variant, String fen) {
+        return Boards.fromFen(variant, fen).inCheck();
     }
 
     public static boolean hasLegalMove(String fen) {
@@ -85,13 +91,11 @@ public final class Rules {
     }
 
     public static boolean isCheckmate(String fen) {
-        Board b = Boards.fromFen(fen);
-        return b.children().isEmpty() && b.inCheck();
+        return status(fen) == GameStatus.CHECKMATE;
     }
 
     public static boolean isStalemate(String fen) {
-        Board b = Boards.fromFen(fen);
-        return b.children().isEmpty() && !b.inCheck();
+        return status(fen) == GameStatus.STALEMATE;
     }
 
     /**
@@ -99,25 +103,62 @@ public final class Rules {
      * (use {@link Game#status()} for that).
      */
     public static GameStatus status(String fen) {
-        Position pos = Position.fromFen(fen);
-        Board b = Boards.fromFen(fen);
-        boolean anyMove = !b.children().isEmpty();
+        return status(Variants.CHESS, fen);
+    }
+
+    public static GameStatus status(Variant variant, String fen) {
+        return status(variant, Boards.fromFen(variant, fen), fen);
+    }
+
+    /**
+     * The board says whether and how the game is over for the player to move ({@link Outcome});
+     * this names why. The variant's goal comes first, then a position without moves (mate or
+     * stalemate; in antichess a win), then the draw rules.
+     */
+    private static GameStatus status(Variant variant, Board b, String fen) {
         boolean check = b.inCheck();
-        if (!anyMove) {
-            return check ? GameStatus.CHECKMATE : GameStatus.STALEMATE;
+        switch (b.outcome()) {
+            case WIN:
+                return Position.fromFen(fen).pieces().stream().anyMatch(p -> isOwn(p, b.sideToMove()))
+                        ? GameStatus.NO_MOVES_LEFT : GameStatus.NO_PIECES_LEFT;
+            case LOSS:
+                if (b.goalReached()) {
+                    return variant.goal() == Variant.Goal.CHECKS ? GameStatus.CHECKS_GIVEN : GameStatus.HILL_REACHED;
+                }
+                return GameStatus.CHECKMATE;
+            case DRAW:
+                if (b.children().isEmpty()) {
+                    return GameStatus.STALEMATE;
+                }
+                return insufficientMaterialCounts(variant) && isInsufficientMaterial(Position.fromFen(fen))
+                        ? GameStatus.DRAW_INSUFFICIENT_MATERIAL : GameStatus.DRAW_FIFTY_MOVE;
+            default:
+                if (insufficientMaterialCounts(variant) && isInsufficientMaterial(Position.fromFen(fen))) {
+                    return GameStatus.DRAW_INSUFFICIENT_MATERIAL;
+                }
+                return check ? GameStatus.CHECK : GameStatus.IN_PROGRESS;
         }
-        if (isInsufficientMaterial(pos)) {
-            return GameStatus.DRAW_INSUFFICIENT_MATERIAL;
-        }
-        if (pos.halfmoveClock() >= 100) {
-            return GameStatus.DRAW_FIFTY_MOVE;
-        }
-        return check ? GameStatus.CHECK : GameStatus.IN_PROGRESS;
+    }
+
+    private static boolean isOwn(char piece, int player) {
+        return Character.isUpperCase(piece) == (player == 0);
+    }
+
+    /**
+     * Dead positions by material are a chess rule: in King of the Hill a lone king can still win,
+     * in antichess losing material is the point, and an invented piece set has no known table.
+     */
+    private static boolean insufficientMaterialCounts(Variant variant) {
+        return variant.goal() == Variant.Goal.CHECKMATE && variant.pieces().equals(StandardPieces.ALL);
     }
 
     /** Apply a legal move, returning the resulting FEN. Throws if the move is not legal. */
     public static String applyMove(String fen, ChessMove move) {
-        Board next = Boards.fromFen(fen).play(Move.of(move.from(), move.to(), move.promotion()));
+        return applyMove(Variants.CHESS, fen, move);
+    }
+
+    public static String applyMove(Variant variant, String fen, ChessMove move) {
+        Board next = Boards.fromFen(variant, fen).play(Move.of(move.from(), move.to(), move.promotion()));
         if (next == null) {
             throw new IllegalArgumentException("illegal move " + move.toUci() + " in " + fen);
         }

@@ -8,7 +8,6 @@ import engine.StockfishEngine;
 import engine.StockfishLocator;
 import rules.ChessMove;
 import rules.Game;
-import rules.GameStatus;
 import rules.MoveResult;
 import rules.Position;
 
@@ -220,9 +219,9 @@ public final class LadderCalibration {
                 }
                 game.play(move);
             }
-            if (game.status() == GameStatus.CHECKMATE) {
-                boolean whiteMated = game.fen().split(" ")[1].equals("w");
-                return whiteMated != aWhite ? 1 : 0;
+            String score = game.status().result(game.fen().split(" ")[1].equals("w"));
+            if (score != null && !score.equals("1/2-1/2")) {
+                return score.equals("1-0") == aWhite ? 1 : 0;
             }
             return 0.5;
         }
