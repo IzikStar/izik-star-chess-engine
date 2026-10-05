@@ -104,7 +104,7 @@ public final class Cli {
         try (RunStore store = RunStore.open(file)) {
             RunStore.GenerationRow row = store.generations().stream().filter(r -> r.number() == generation)
                     .findFirst().orElseThrow(() -> new IllegalArgumentException("generation " + generation + " is not finished"));
-            Files.writeString(out, store.members(generation, ai.BitBoard.BitBoardEvaluate.SCHEMA).get(row.champion()).toJson());
+            Files.writeString(out, store.members(generation, ai.eval.ChessEvaluate.SCHEMA).get(row.champion()).toJson());
             System.out.println("generation " + generation + "'s champion (#" + row.champion() + ") written to " + out);
         }
     }

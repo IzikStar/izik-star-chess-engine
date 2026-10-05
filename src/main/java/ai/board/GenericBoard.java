@@ -135,6 +135,11 @@ public final class GenericBoard implements ChessPosition {
         return sorted;
     }
 
+    /** Whether this position still holds its children (for the memory test). */
+    boolean holdsChildren() {
+        return children != null;
+    }
+
     @Override
     public void releaseChildren() {
         children = null;
@@ -568,7 +573,7 @@ public final class GenericBoard implements ChessPosition {
     /**
      * Captures (not a more valuable piece taking a defended, less valuable one) and promotions to
      * the first choice: the moves the quiescence search plays, biggest victim first, then cheapest
-     * attacker. Ranked as in {@code BitBoard}: move value times 8 plus the type's number.
+     * attacker. Ranked as the old bitboard did: move value times 8 plus the type's number.
      */
     @Override
     public List<Board> noisyChildren() {

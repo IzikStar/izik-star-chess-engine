@@ -1,6 +1,6 @@
 package characterization;
 
-import ai.BitBoard.BitBoard;
+import ai.board.Board;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import rules.GameStatus;
@@ -37,15 +37,15 @@ class CheckmateStalemateTest extends CharacterizationTestBase {
     @Test
     @DisplayName("Bitboard path: fool's mate -> MAX_VALUE (White to move, mated)")
     void bitFoolsMate() {
-        BitBoard b = bit(FOOLS_MATE);
-        assertTrue(b.getNextStates().isEmpty(), "no legal moves");
-        assertEquals(Integer.MAX_VALUE, b.getStatus());
+        Board b = board(FOOLS_MATE);
+        assertTrue(b.children().isEmpty(), "no legal moves");
+        assertEquals(Integer.MAX_VALUE, status(b));
     }
 
     @Test
     @DisplayName("Bitboard path: back-rank mate -> MIN_VALUE (Black to move, mated)")
     void bitBackRankMate() {
-        assertEquals(Integer.MIN_VALUE, bit(BACK_RANK_MATE).getStatus());
+        assertEquals(Integer.MIN_VALUE, status(board(BACK_RANK_MATE)));
     }
 
     // ---- Stalemate --------------------------------------------------------
@@ -62,9 +62,9 @@ class CheckmateStalemateTest extends CharacterizationTestBase {
     @Test
     @DisplayName("Bitboard path: stalemate -> 0")
     void bitStalemate() {
-        BitBoard b = bit(STALEMATE);
-        assertTrue(b.getNextStates().isEmpty());
-        assertEquals(0, b.getStatus());
+        Board b = board(STALEMATE);
+        assertTrue(b.children().isEmpty());
+        assertEquals(0, status(b));
     }
 
     // ---- Plain check is not game over -----------------------------------

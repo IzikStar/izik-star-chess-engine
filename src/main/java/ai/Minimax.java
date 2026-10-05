@@ -1,6 +1,6 @@
 package ai;
 
-import ai.BitBoard.BitBoardEvaluate;
+import ai.eval.ChessEvaluate;
 import ai.board.Board;
 import ai.board.Move;
 import ai.eval.Evaluator;
@@ -26,7 +26,7 @@ import java.util.function.BooleanSupplier;
  * line being searched and the root's moves stay in memory, not the whole tree.
  *
  * <p>Evaluation (Phase 5): the leaves are scored by an {@link Evaluator} the caller chooses; the
- * overloads without one use {@link BitBoardEvaluate#CLASSIC}. When the depth runs out the search
+ * overloads without one use {@link ChessEvaluate#CLASSIC}. When the depth runs out the search
  * does not stop in the middle of an exchange: a quiescence search plays on the captures and
  * promotions (and every reply to a check) until the position is quiet, so a leaf never counts a
  * piece that is about to be taken back.
@@ -138,7 +138,7 @@ public class Minimax {
 
     /** {@link #getBestMove(Board, int, Evaluator, BooleanSupplier)} with the default evaluation. */
     public static int getBestMove(Board root, int maxDepth, BooleanSupplier stop) {
-        return getBestMove(root, maxDepth, BitBoardEvaluate.CLASSIC, stop);
+        return getBestMove(root, maxDepth, ChessEvaluate.CLASSIC, stop);
     }
 
     /**

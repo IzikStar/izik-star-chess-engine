@@ -2,6 +2,8 @@
 
 > The current layout, in one page: [docs/architecture.md](docs/architecture.md). This file is the history.
 
+> **Phase 6 (2026-10-05):** `ai.BitBoard` (the `BitBoard` class, `BitPiece`, `BitMove`, `ZobristHashing`) is deleted. The search plays on `ai.board.GenericBoard`, which reads its pieces from data (`ai.piece`); the evaluation moved to `ai.eval.ChessEvaluate`. Mentions of the bitboard below are history. See [docs/phase-6-research.md](docs/phase-6-research.md).
+
 > **Updated after Phase 3 (2026-10-01)** — branch `phase-3-decouple-ui`,
 > [docs/phase-3-research.md](docs/phase-3-research.md) — **and Phase 4c (2026-10-02)**, which
 > replaced the Swing UI (`main`, `GUI`) with a browser UI. The code is now layered:
@@ -331,7 +333,7 @@ mutually-dependent cluster (Phase 3 is where that gets broken):
 - ~~`main.CheckScanner` imports `ai.BoardState` back and reaches into `main.Board.selectedPiece`
   mid-algorithm~~ — **gone in Phase 2**; no rules code reads `Board.selectedPiece` any more.
 - `ai.myEngine` imports `main.Board` and `main.Main` (to call `Main.showEndGameMessage`).
-- `ai.Minimax` and `ai.BitBoard.BitBoardEvaluate` import `main.setting.ChoosePlayFormat`.
+- `ai.Minimax` and `ai.eval.ChessEvaluate` import `main.setting.ChoosePlayFormat`.
 - **New in Phase 2:** the `rules` package depends only on `ai.BitBoard` (one bridge class,
   `ai.BitBoard.BitBoardRules`) — **no `main.*`, `GUI`, `javax.swing` or `java.awt`**. It is the
   first module that could be lifted into a headless service unchanged.

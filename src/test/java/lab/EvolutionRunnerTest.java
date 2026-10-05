@@ -2,7 +2,7 @@ package lab;
 
 import evolution.Generation;
 import evolution.Evolution;
-import ai.BitBoard.BitBoardEvaluate;
+import ai.eval.ChessEvaluate;
 import ai.eval.ParamVector;
 import arena.GameRecord;
 import evolution.RandomMutationExample;
@@ -37,7 +37,7 @@ class EvolutionRunnerTest {
         List<Object> all = new ArrayList<>();
         for (RunStore.GenerationRow row : store.generations()) {
             all.add(row.number() + " " + row.champion() + " " + row.championScore() + " " + row.games() + " " + row.yardstick());
-            all.add(store.members(row.number(), BitBoardEvaluate.SCHEMA));
+            all.add(store.members(row.number(), ChessEvaluate.SCHEMA));
             all.add(store.games(row.number(), "population"));
             all.add(store.games(row.number(), "yardstick"));
         }
@@ -55,17 +55,17 @@ class EvolutionRunnerTest {
             List<RunStore.GenerationRow> rows = store.generations();
             assertEquals(List.of(0, 1, 2), rows.stream().map(RunStore.GenerationRow::number).toList());
             for (RunStore.GenerationRow row : rows) {
-                assertEquals(4, store.members(row.number(), BitBoardEvaluate.SCHEMA).size());
+                assertEquals(4, store.members(row.number(), ChessEvaluate.SCHEMA).size());
                 assertEquals(12, row.games());
                 assertEquals(12, store.games(row.number(), "population").size());
                 assertEquals(4, store.games(row.number(), "yardstick").size()); // 2 openings, both colours
                 assertEquals(4, row.yardstick().orElseThrow().games());
             }
             // generation 0 starts from the default weights
-            assertEquals(BitBoardEvaluate.SCHEMA.defaults(), store.members(0, BitBoardEvaluate.SCHEMA).getFirst());
+            assertEquals(ChessEvaluate.SCHEMA.defaults(), store.members(0, ChessEvaluate.SCHEMA).getFirst());
             // the example keeps the better half: generation 1 opens with generation 0's champion
-            ParamVector champion = store.members(0, BitBoardEvaluate.SCHEMA).get(rows.getFirst().champion());
-            assertEquals(champion, store.members(1, BitBoardEvaluate.SCHEMA).getFirst());
+            ParamVector champion = store.members(0, ChessEvaluate.SCHEMA).get(rows.getFirst().champion());
+            assertEquals(champion, store.members(1, ChessEvaluate.SCHEMA).getFirst());
         }
     }
 
@@ -123,7 +123,7 @@ class EvolutionRunnerTest {
     void deepGamesAndYardsticks(@TempDir Path dir) throws IOException {
         // the classic weights again under another name: the same weights, so one match
         Path copy = dir.resolve("copy.json");
-        Files.writeString(copy, BitBoardEvaluate.CLASSIC.params().toJson());
+        Files.writeString(copy, ChessEvaluate.CLASSIC.params().toJson());
         // 6 pairings × 2 openings = 12 units of two games; 50% of them at depth 2
         RunSettings settings = new RunSettings(2, 1, 2, 2, 80, 2, 3, 1, 2, List.of("classic", copy.toString()), 0, 2, 50, 50);
         try (RunStore store = RunStore.open(dir.resolve("run.db"))) {

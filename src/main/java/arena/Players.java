@@ -1,6 +1,6 @@
 package arena;
 
-import ai.BitBoard.BitBoardEvaluate;
+import ai.eval.ChessEvaluate;
 import ai.eval.ParamVector;
 
 import java.io.IOException;
@@ -49,7 +49,7 @@ public final class Players {
             long nodes = parts.length > 1 ? Long.parseLong(parts[1]) : ExternalEngine.STOCKFISH_NODES;
             return Player.external(name, ExternalEngine.stockfish(elo, nodes));
         }
-        return Player.of(name, new BitBoardEvaluate(params(spec, hallOfFame)), depth, variety);
+        return Player.of(name, new ChessEvaluate(params(spec, hallOfFame)), depth, variety);
     }
 
     /** The weights {@code spec} names: "default", a preset, a parameter file, or "hof:NAME". */
@@ -60,7 +60,7 @@ public final class Players {
     /** As {@link #params(String)}, looking up "hof:NAME" in {@code hallOfFame}. */
     public static ParamVector params(String spec, Path hallOfFame) {
         if (spec.equals("default")) {
-            return BitBoardEvaluate.SCHEMA.defaults();
+            return ChessEvaluate.SCHEMA.defaults();
         }
         if (spec.startsWith("hof:")) {
             Path entry = hallOfFame.resolve(spec.substring(4) + ".json");
@@ -68,7 +68,7 @@ public final class Players {
                 // an entry is a JSON object whose "params" are the weights
                 String json = com.google.gson.JsonParser.parseString(Files.readString(entry)).getAsJsonObject()
                         .get("params").toString();
-                return ParamVector.fromJson(BitBoardEvaluate.SCHEMA, json);
+                return ParamVector.fromJson(ChessEvaluate.SCHEMA, json);
             } catch (IOException e) {
                 throw new IllegalArgumentException("no hall of fame entry " + spec.substring(4) + " in " + hallOfFame, e);
             }
@@ -76,12 +76,12 @@ public final class Players {
         Path file = Path.of(spec);
         if (Files.isRegularFile(file)) {
             try {
-                return ParamVector.fromJson(BitBoardEvaluate.SCHEMA, Files.readString(file));
+                return ParamVector.fromJson(ChessEvaluate.SCHEMA, Files.readString(file));
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
         }
-        return BitBoardEvaluate.preset(spec);
+        return ChessEvaluate.preset(spec);
     }
 
     /** How results name the player {@code spec}: a file by its name without ".json", Stockfish as "sf1500". */

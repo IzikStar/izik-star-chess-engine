@@ -1,6 +1,6 @@
 package engine;
 
-import ai.BitBoard.BitBoardEvaluate;
+import ai.eval.ChessEvaluate;
 
 /**
  * The evaluation weights the app's built-in engine plays with; the player picks them in the New
@@ -9,20 +9,20 @@ import ai.BitBoard.BitBoardEvaluate;
 public enum Weights {
 
     /** Fitted by Texel tuning to Stockfish self-play ({@code presets/tuned-v1.json}); the app's default. */
-    TUNED("tuned", "Tuned", BitBoardEvaluate.preset("tuned-v1")),
+    TUNED("tuned", "Tuned", ChessEvaluate.preset("tuned-v1")),
     /** The hand-written weights the engine always played with ({@code presets/classic.json}). */
-    CLASSIC("classic", "Classic", BitBoardEvaluate.CLASSIC.params());
+    CLASSIC("classic", "Classic", ChessEvaluate.CLASSIC.params());
 
     public static final Weights DEFAULT = TUNED;
 
     private final String id;
     private final String label;
-    private final BitBoardEvaluate evaluator;
+    private final ChessEvaluate evaluator;
 
     Weights(String id, String label, ai.eval.ParamVector params) {
         this.id = id;
         this.label = label;
-        this.evaluator = new BitBoardEvaluate(params);
+        this.evaluator = new ChessEvaluate(params);
     }
 
     /** The name the protocol uses: "tuned" or "classic". */
@@ -34,7 +34,7 @@ public enum Weights {
         return label;
     }
 
-    public BitBoardEvaluate evaluator() {
+    public ChessEvaluate evaluator() {
         return evaluator;
     }
 

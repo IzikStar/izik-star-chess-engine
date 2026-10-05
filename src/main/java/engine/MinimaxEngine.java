@@ -1,6 +1,6 @@
 package engine;
 
-import ai.BitBoard.BitBoardEvaluate;
+import ai.eval.ChessEvaluate;
 import ai.Minimax;
 import ai.board.Boards;
 import ai.board.Move;
@@ -108,7 +108,7 @@ public final class MinimaxEngine implements Engine {
 
     /** The minimax search's move at exactly {@code depth} (no time cap), or {@code null} if there is no legal move. */
     public static ChessMove searchAtDepth(String fen, int depth) {
-        return searchAtDepth(fen, depth, BitBoardEvaluate.CLASSIC);
+        return searchAtDepth(fen, depth, ChessEvaluate.CLASSIC);
     }
 
     /** The minimax search's move at exactly {@code depth} with {@code evaluator}, or {@code null} if there is no legal move. */

@@ -163,8 +163,14 @@ tracks which pieces have not moved.
   830-843, italian 487-510 / 443-507, rook endgame 72 / 109. Per node the new board is faster
   everywhere (rook endgame 1.68 / 1.33 µs); the endgame searches more nodes because equal moves
   come in another order.
-- **R3c (next):** delete `BitBoard`, `BitPiece`, `BitBoardRules`, `Attacks` and their tests; the
-  oracle from then on is perft and the random games against Stockfish.
+- **R3c:** `ai.BitBoard` is deleted (`BitBoard`, `BitPiece`, `BitMove`, `BitBoardRules`,
+  `ZobristHashing`, the bit helpers). The evaluation moved to `ai.eval.ChessEvaluate`, with its own
+  chess attack tables (`ai.eval.Attacks`) and square masks (`ai.eval.BoardParts`) until R4
+  generates the evaluation from the piece set. The board's tests moved to `ai.board`: perft against
+  the published counts (`SearchPerftTest`), random games against Stockfish's legal moves
+  (`-Pstress`), and `GenericBoardTest`, which checks that a position reached by moves reads as the
+  same position parsed from its FEN and that the skipped attack tests agree with the full ones.
+  `LayeringTest`: nothing outside `ai.board` names `GenericBoard`, and `ai/BitBoard` stays deleted.
 
 ## 5. Towards "everything possible"
 

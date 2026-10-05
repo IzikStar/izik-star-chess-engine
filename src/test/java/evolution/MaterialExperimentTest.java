@@ -1,6 +1,6 @@
 package evolution;
 
-import ai.BitBoard.BitBoardEvaluate;
+import ai.eval.ChessEvaluate;
 import ai.eval.ParamSchema;
 import ai.eval.ParamVector;
 import arena.GameRecord;
@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MaterialExperimentTest {
 
-    private static final ParamSchema SCHEMA = BitBoardEvaluate.SCHEMA;
+    private static final ParamSchema SCHEMA = ChessEvaluate.SCHEMA;
     private final MaterialExperiment experiment = new MaterialExperiment();
 
     private static int changed(ParamVector a, ParamVector b, boolean material, int[] largest) {
@@ -39,7 +39,7 @@ class MaterialExperimentTest {
         List<ParamVector> first = experiment.firstGeneration(SCHEMA, new Random(1));
         assertEquals(16, first.size());
         for (int m = 0; m < 16; m++) {
-            ParamVector start = m < 8 ? SCHEMA.defaults() : BitBoardEvaluate.preset("classic");
+            ParamVector start = m < 8 ? SCHEMA.defaults() : ChessEvaluate.preset("classic");
             int[] largest = {0};
             assertEquals(0, changed(first.get(m), start, false, largest), "only material moves");
             assertTrue(changed(first.get(m), start, true, largest) > 0);

@@ -1,6 +1,6 @@
 package lab;
 
-import ai.BitBoard.BitBoardEvaluate;
+import ai.eval.ChessEvaluate;
 import arena.Players;
 import evolution.RandomMutationExample;
 import org.junit.jupiter.api.DisplayName;
@@ -30,13 +30,13 @@ class HallOfFameTest {
             int champion = store.generations().getLast().champion();
             HallOfFame.Entry last = hall.get(HallOfFame.nameFor("Try 1", 1, champion)).orElseThrow();
             assertTrue(last.reason().startsWith("last champion"), last.reason());
-            assertEquals(store.members(1, BitBoardEvaluate.SCHEMA).get(champion), last.params());
+            assertEquals(store.members(1, ChessEvaluate.SCHEMA).get(champion), last.params());
             assertFalse(last.yardsticks().isEmpty());
             // its generation's population games (3 opponents × 2 colours) and its yardstick games (2)
             assertEquals(8, last.pgn().split("\\[Event ", -1).length - 1);
 
             hall.save(HallOfFame.fromRun(store, file, 0, 3, "steady", "kept by hand"));
-            assertEquals(store.members(0, BitBoardEvaluate.SCHEMA).get(3), Players.params("hof:steady", hall.dir()));
+            assertEquals(store.members(0, ChessEvaluate.SCHEMA).get(3), Players.params("hof:steady", hall.dir()));
             assertEquals(List.of("steady", last.name()), hall.list().stream().map(HallOfFame.Entry::name).toList());
 
             StringWriter out = new StringWriter();

@@ -1,13 +1,13 @@
 package arena;
 
-import ai.BitBoard.BitBoardEvaluate;
+import ai.eval.ChessEvaluate;
 import ai.eval.Evaluator;
 
 /**
  * One side of an arena game: an evaluation and how the search uses it.
  *
  * @param name       how results name this player
- * @param evaluator  the evaluation, e.g. a {@link BitBoardEvaluate} built from a parameter vector
+ * @param evaluator  the evaluation, e.g. a {@link ChessEvaluate} built from a parameter vector
  * @param depth      fixed search depth (fixed depth keeps results independent of the machine's load)
  * @param variety    how far below the best move (pawn = 100) a move may score and still be played;
  *                   the arena seeds it, so a game is varied yet repeatable
@@ -61,6 +61,6 @@ public record Player(String name, Evaluator evaluator, int depth, int variety, b
 
     /** The default weights at {@code depth}: the yardstick candidates are measured against. */
     public static Player yardstick(int depth, int variety) {
-        return of("default", BitBoardEvaluate.DEFAULT, depth, variety);
+        return of("default", ChessEvaluate.DEFAULT, depth, variety);
     }
 }

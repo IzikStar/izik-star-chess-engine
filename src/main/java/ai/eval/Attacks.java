@@ -1,8 +1,8 @@
-package ai.BitBoard;
+package ai.eval;
 
 /**
- * Attack lookups for the search (Phase 4b, docs/phase-4b-research.md §3.3): which squares a side
- * attacks, and whether one square is attacked. Knights, kings and pawns use tables built once;
+ * Chess attack lookups for {@link ChessEvaluate} (the board's own attacks come from the piece
+ * definitions; these are the evaluation's chess-specific tables, Phase 4b §3.3). Knights, kings and pawns use tables built once;
  * rooks, bishops and queens walk their rays up to the first piece in the way.
  *
  * <p>Squares are numbered a8 = 0 … h1 = 63, so row 0 is the eighth rank. Colors: 1 is White,
@@ -64,50 +64,5 @@ final class Attacks {
 
     static long bishop(int sq, long occupied) {
         return ray(sq, occupied, -1, -1) | ray(sq, occupied, -1, 1) | ray(sq, occupied, 1, -1) | ray(sq, occupied, 1, 1);
-    }
-
-    /** Is {@code sq} attacked by a piece of color {@code by}? */
-    static boolean attacked(BitBoard b, int sq, int by) {
-        boolean white = by == 1;
-        // a pawn of color `by` attacks sq exactly from the squares a pawn of the other color on sq would attack
-        if ((PAWN[1 - by][sq] & (white ? b.whitePawns : b.blackPawns)) != 0) {
-            return true;
-        }
-        if ((KNIGHT[sq] & (white ? b.whiteKnights : b.blackKnights)) != 0) {
-            return true;
-        }
-        if ((KING[sq] & (white ? b.whiteKings : b.blackKings)) != 0) {
-            return true;
-        }
-        long occupied = b.whitePieces | b.blackPieces;
-        long straight = white ? b.whiteRooks | b.whiteQueens : b.blackRooks | b.blackQueens;
-        if (straight != 0 && (rook(sq, occupied) & straight) != 0) {
-            return true;
-        }
-        long diagonal = white ? b.whiteBishops | b.whiteQueens : b.blackBishops | b.blackQueens;
-        return diagonal != 0 && (bishop(sq, occupied) & diagonal) != 0;
-    }
-
-    /** Every square attacked by {@code color}. */
-    static long all(BitBoard b, int color) {
-        boolean white = color == 1;
-        long occupied = b.whitePieces | b.blackPieces;
-        long squares = 0;
-        for (long p = white ? b.whitePawns : b.blackPawns; p != 0; p &= p - 1) {
-            squares |= PAWN[color][Long.numberOfTrailingZeros(p)];
-        }
-        for (long p = white ? b.whiteKnights : b.blackKnights; p != 0; p &= p - 1) {
-            squares |= KNIGHT[Long.numberOfTrailingZeros(p)];
-        }
-        for (long p = white ? b.whiteKings : b.blackKings; p != 0; p &= p - 1) {
-            squares |= KING[Long.numberOfTrailingZeros(p)];
-        }
-        for (long p = white ? b.whiteRooks | b.whiteQueens : b.blackRooks | b.blackQueens; p != 0; p &= p - 1) {
-            squares |= rook(Long.numberOfTrailingZeros(p), occupied);
-        }
-        for (long p = white ? b.whiteBishops | b.whiteQueens : b.blackBishops | b.blackQueens; p != 0; p &= p - 1) {
-            squares |= bishop(Long.numberOfTrailingZeros(p), occupied);
-        }
-        return squares;
     }
 }

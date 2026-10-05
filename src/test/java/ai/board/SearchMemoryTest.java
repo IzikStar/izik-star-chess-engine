@@ -1,11 +1,11 @@
-package ai.BitBoard;
+package ai.board;
 
 import ai.Minimax;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * A finished search keeps the root's moves, for the next depth, but not the tree below them
@@ -17,11 +17,11 @@ class SearchMemoryTest {
     @Test
     @DisplayName("After a search only the root's moves are kept, not the tree below them")
     void searchReleasesWhatItSearched() {
-        BitBoard root = BitBoardRules.fromFen("r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 6 5");
-        assertNotNull(Minimax.getBestMove(root, 4));
-        assertNotNull(root.nextStates, "the root keeps its moves");
-        for (BitBoard child : root.nextStates) {
-            assertNull(child.nextStates, "a searched move still holds its subtree");
+        GenericBoard root = (GenericBoard) Boards.fromFen("r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 6 5");
+        Minimax.getBestMove(root, 4);
+        assertTrue(root.holdsChildren(), "the root keeps its moves");
+        for (GenericBoard child : root.children()) {
+            assertFalse(child.holdsChildren(), "a searched move still holds its subtree");
         }
     }
 }

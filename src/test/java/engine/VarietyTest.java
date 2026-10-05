@@ -1,6 +1,6 @@
 package engine;
 
-import ai.BitBoard.BitBoardEvaluate;
+import ai.eval.ChessEvaluate;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import rules.ChessMove;
@@ -25,7 +25,7 @@ class VarietyTest {
     }
 
     private static MinimaxEngine engine(long seed, int variety) {
-        return new MinimaxEngine(new Random(seed), MinimaxEngine.TIME_CAP_MS, BitBoardEvaluate.CLASSIC, variety);
+        return new MinimaxEngine(new Random(seed), MinimaxEngine.TIME_CAP_MS, ChessEvaluate.CLASSIC, variety);
     }
 
     /** The first {@code plies} moves of a game the engine plays against itself. */

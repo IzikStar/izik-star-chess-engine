@@ -1,6 +1,6 @@
 package web;
 
-import ai.BitBoard.BitBoardEvaluate;
+import ai.eval.ChessEvaluate;
 import ai.eval.ParamSchema;
 import ai.eval.ParamSpec;
 import ai.eval.ParamVector;
@@ -48,7 +48,7 @@ import java.util.stream.Stream;
 final class LabApi {
 
     private static final Pattern RUN_FILE = Pattern.compile("[A-Za-z0-9._-]+\\.db");
-    private static final ParamSchema SCHEMA = BitBoardEvaluate.SCHEMA;
+    private static final ParamSchema SCHEMA = ChessEvaluate.SCHEMA;
     /** The weight table shows at most this many parameters, those that moved most first. */
     static final int MAX_WEIGHTS = 60;
 

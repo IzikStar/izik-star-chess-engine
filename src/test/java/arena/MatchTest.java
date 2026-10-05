@@ -1,6 +1,6 @@
 package arena;
 
-import ai.BitBoard.BitBoardEvaluate;
+import ai.eval.ChessEvaluate;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -13,8 +13,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class MatchTest {
 
     private static final Opening ITALIAN = Opening.suite().getFirst();
-    private static final Player A = Player.of("a", BitBoardEvaluate.DEFAULT, 2, 2);
-    private static final Player B = Player.of("b", BitBoardEvaluate.DEFAULT, 2, 2);
+    private static final Player A = Player.of("a", ChessEvaluate.DEFAULT, 2, 2);
+    private static final Player B = Player.of("b", ChessEvaluate.DEFAULT, 2, 2);
 
     @Test
     @DisplayName("The same players, opening and seed play the same game")
@@ -78,8 +78,8 @@ class MatchTest {
     @Test
     @DisplayName("Searching deeper wins the match")
     void deeperIsStronger() {
-        Player deep = Player.of("depth 3", BitBoardEvaluate.DEFAULT, 3, 2);
-        Player shallow = Player.of("depth 1", BitBoardEvaluate.DEFAULT, 1, 2);
+        Player deep = Player.of("depth 3", ChessEvaluate.DEFAULT, 3, 2);
+        Player shallow = Player.of("depth 1", ChessEvaluate.DEFAULT, 1, 2);
         List<GameRecord> games = Tournament.match(deep, shallow, Opening.suite().subList(0, 6),
                 new Tournament.Settings(200, 4, 1), g -> { });
         Score score = Score.of("depth 3", games);
@@ -89,8 +89,8 @@ class MatchTest {
     @Test
     @DisplayName("Players are named by text: default, a preset, Stockfish at a UCI_Elo")
     void playersByName() {
-        assertEquals(BitBoardEvaluate.SCHEMA.defaults(), Players.params("default"));
-        assertEquals(BitBoardEvaluate.CLASSIC.params(), Players.params("classic"));
+        assertEquals(ChessEvaluate.SCHEMA.defaults(), Players.params("default"));
+        assertEquals(ChessEvaluate.CLASSIC.params(), Players.params("classic"));
         assertEquals("sf1500", Players.label("sf:1500"));
         assertTrue(Players.isStockfish("sf:auto"));
         org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> Players.params("no-such-preset"));

@@ -1,6 +1,6 @@
 package arena;
 
-import ai.BitBoard.BitBoardEvaluate;
+import ai.eval.ChessEvaluate;
 import ai.eval.Evaluator;
 import ai.eval.ParamVector;
 
@@ -123,7 +123,7 @@ public final class Cli {
         if (Players.isStockfish(spec)) {
             return Players.parse(spec, name, depth, variety);
         }
-        return new Player(name, new BitBoardEvaluate(Players.params(spec)), depth, variety, quiescence, speedups,
+        return new Player(name, new ChessEvaluate(Players.params(spec)), depth, variety, quiescence, speedups,
                 moveMillis);
     }
 }

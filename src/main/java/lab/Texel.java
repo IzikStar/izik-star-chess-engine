@@ -1,6 +1,6 @@
 package lab;
 
-import ai.BitBoard.BitBoardEvaluate;
+import ai.eval.ChessEvaluate;
 import ai.board.Boards;
 import ai.eval.ParamSchema;
 import ai.eval.ParamSpec;
@@ -31,7 +31,7 @@ import java.util.function.Consumer;
  * Texel tuning (docs/phase-5-research.md §8.3): fits the evaluation's weights so that
  * {@code sigmoid(eval)} predicts the results of many games' quiet positions.
  *
- * <p>The evaluation is a weighted sum of features ({@link BitBoardEvaluate#features}), blended
+ * <p>The evaluation is a weighted sum of features ({@link ChessEvaluate#features}), blended
  * between middlegame and endgame by the material left, so the predicted score is linear in the
  * weights before the sigmoid. The fit is then a logistic regression: one best answer, wherever it
  * starts. It runs full-batch gradient descent (Adam) on the mean squared error between result and
@@ -47,9 +47,9 @@ import java.util.function.Consumer;
  */
 public final class Texel {
 
-    private static final ParamSchema SCHEMA = BitBoardEvaluate.SCHEMA;
-    private static final int NAMED = BitBoardEvaluate.NAMED;
-    private static final int PST = BitBoardEvaluate.PST_SIZE;
+    private static final ParamSchema SCHEMA = ChessEvaluate.SCHEMA;
+    private static final int NAMED = ChessEvaluate.NAMED;
+    private static final int PST = ChessEvaluate.PST_SIZE;
     /** Index of the first piece-square parameter: after every named feature's mg/eg and the gates. */
     private static final int PST_START = 2 * NAMED + 3;
 
@@ -154,7 +154,7 @@ public final class Texel {
     }
 
     static Sample sample(String fen, double result) {
-        BitBoardEvaluate.Features f = BitBoardEvaluate.CLASSIC.features(Boards.fromFen(fen));
+        ChessEvaluate.Features f = ChessEvaluate.CLASSIC.features(Boards.fromFen(fen));
         int[] values = f.values();
         int nonZero = 0;
         for (int v : values) {
@@ -190,7 +190,7 @@ public final class Texel {
             mg += s.value()[k] * w[mgParam(s.index()[k])];
             eg += s.value()[k] * w[egParam(s.index()[k])];
         }
-        return (mg * s.phase() + eg * (BitBoardEvaluate.MAX_PHASE - s.phase())) / BitBoardEvaluate.MAX_PHASE;
+        return (mg * s.phase() + eg * (ChessEvaluate.MAX_PHASE - s.phase())) / ChessEvaluate.MAX_PHASE;
     }
 
     /** Expected score for White at {@code eval} centipawns. */
@@ -265,8 +265,8 @@ public final class Texel {
                 double p = sigmoid(eval(s, w), k);
                 // d(result - p)^2/d eval = -2 (result - p) p (1 - p) k ln10 / 400
                 double g = -2 * (s.result() - p) * p * (1 - p) * k * ln10 / 400 / train.size();
-                double mgShare = g * s.phase() / BitBoardEvaluate.MAX_PHASE;
-                double egShare = g * (BitBoardEvaluate.MAX_PHASE - s.phase()) / BitBoardEvaluate.MAX_PHASE;
+                double mgShare = g * s.phase() / ChessEvaluate.MAX_PHASE;
+                double egShare = g * (ChessEvaluate.MAX_PHASE - s.phase()) / ChessEvaluate.MAX_PHASE;
                 for (int j = 0; j < s.index().length; j++) {
                     grad[mgParam(s.index()[j])] += mgShare * s.value()[j];
                     grad[egParam(s.index()[j])] += egShare * s.value()[j];
