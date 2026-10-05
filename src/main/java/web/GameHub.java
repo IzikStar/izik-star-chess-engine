@@ -3,6 +3,7 @@ package web;
 import ai.eval.ChessEvaluate;
 import ai.eval.Evaluators;
 import ai.variant.Variant;
+import ai.variant.VariantJson;
 import ai.variant.Variants;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -20,6 +21,7 @@ import game.GameSession;
 import game.GameEnd;
 import game.SavedGame;
 import game.TimeControl;
+import game.VariantStore;
 import rules.ChessMove;
 import rules.MoveResult;
 import rules.Pgn;
@@ -135,6 +137,21 @@ final class GameHub implements GameListener {
         this.archive = archive;
     }
 
+    /** The player's own variants, playable next to the built-in ones (Phase 6 R5a); null: built-ins only. */
+    private VariantStore variants;
+
+    void useVariants(VariantStore variants) {
+        this.variants = variants;
+    }
+
+    private java.util.Optional<Variant> variantById(String id) {
+        return variants != null ? variants.byId(id) : Variants.byId(id);
+    }
+
+    private java.util.Optional<Variant> variantByName(String name) {
+        return variants != null ? variants.byName(name) : Pgn.builtIn(name);
+    }
+
     /** The dispatcher to hand the session: runs a task on the game thread, then broadcasts. */
     void execute(Runnable task) {
         if (gameThread.isShutdown()) {
@@ -232,8 +249,9 @@ final class GameHub implements GameListener {
     }
 
     private void loadPgn(String pgn) {
+        Pgn.Parsed parsed;
         try {
-            Pgn.read(pgn); // check it before touching the game
+            parsed = Pgn.read(pgn, this::variantByName); // check it before touching the game
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Could not read the PGN: " + e.getMessage());
         }
@@ -243,7 +261,7 @@ final class GameHub implements GameListener {
         }
         opponent = null;
         session.updateConfig(session.config().withMode(GameConfig.Mode.HUMAN_VS_HUMAN));
-        session.loadPgn(pgn);
+        session.loadPgn(parsed);
     }
 
     private static TimeControl timeControl(JsonObject msg) {
@@ -272,7 +290,7 @@ final class GameHub implements GameListener {
         int blackLevel = mode == GameConfig.Mode.ENGINE_VS_ENGINE && msg.has("blackLevel")
                 ? Levels.clamp(msg.get("blackLevel").getAsInt()) : level;
         String variantId = string(msg, "variant", Variants.CHESS.id());
-        Variant variant = Variants.byId(variantId)
+        Variant variant = variantById(variantId)
                 .orElseThrow(() -> new IllegalArgumentException("unknown variant: " + variantId));
         JsonElement champion = msg.get("champion");
         boolean playsChampion = champion != null && !champion.isJsonNull();
@@ -330,8 +348,9 @@ final class GameHub implements GameListener {
         if (saved.finished()) {
             throw new IllegalArgumentException("that game is over");
         }
-        Variant variant = Variants.byId(saved.variant())
-                .orElseThrow(() -> new IllegalArgumentException("unknown variant " + saved.variant()));
+        // a made variant comes with the game, as it was when the game was played
+        Variant variant = saved.variantDef() != null ? VariantJson.read(saved.variantDef())
+                : variantById(saved.variant()).orElseThrow(() -> new IllegalArgumentException("unknown variant " + saved.variant()));
         List<ChessMove> moves = saved.moves().stream().map(ChessMove::fromUci).toList();
         rules.Game check = new rules.Game(variant, saved.startFen()); // a damaged file fails here, before anything changes
         moves.forEach(check::play);
@@ -406,7 +425,8 @@ final class GameHub implements GameListener {
                 clock == null ? null : clock.remainingMs(true), clock == null ? null : clock.remainingMs(false),
                 session.startFen(), session.moves().stream().map(m -> m.move().toUci()).toList(),
                 result, result == null ? null : GameStateJson.termination(session),
-                GameStateJson.pgn(session, label), weights.id(), session.variant().id());
+                GameStateJson.pgn(session, label), weights.id(), session.variant().id(),
+                VariantStore.isBuiltIn(session.variant().id()) ? null : VariantJson.toTree(session.variant()).toString());
     }
 
     private static String string(JsonObject msg, String key, String fallback) {

@@ -279,7 +279,11 @@ public final class GameSession {
      * @throws IllegalArgumentException if it is not a legal game (nothing changes then)
      */
     public void loadPgn(String pgn) {
-        Pgn.Parsed parsed = Pgn.read(pgn);
+        loadPgn(Pgn.read(pgn));
+    }
+
+    /** {@link #loadPgn(String)} for a game already read (its variant found by the caller). */
+    public void loadPgn(Pgn.Parsed parsed) {
         Game loaded = new Game(parsed.variant(), parsed.startFen());
         parsed.moves().forEach(loaded::play);
         cancelEngine();

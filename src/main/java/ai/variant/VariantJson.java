@@ -1,6 +1,7 @@
 package ai.variant;
 
 import ai.piece.Atom;
+import ai.piece.Betza;
 import ai.piece.Grid;
 import ai.piece.PieceType;
 import com.google.gson.Gson;
@@ -21,7 +22,11 @@ import java.util.List;
  *  "pieces": [{"name": "King", "letter": "K", "value": 0, "royal": false, "promotesTo": "",
  *              "enPassant": false, "castlingRole": "NONE",
  *              "atoms": [{"kind": "LEAP", "forward": 1, "right": 0, "symmetry": "ALL", "mode": "BOTH",
- *                         "range": 0, "firstMoveOnly": false}, ...]}, ...]}</pre>
+ *                         "range": 0, "firstMoveOnly": false}, ...], "betza": "WF"}, ...]}</pre>
+ *
+ * <p>Each piece also carries its moves in Betza text ({@link Betza}), written for people to read;
+ * the atoms decide. A piece read without atoms is read from its Betza text, so a hand-written file
+ * may give only that.
  */
 public final class VariantJson {
 
@@ -56,19 +61,12 @@ public final class VariantJson {
             p.addProperty("promotesTo", promotes.toString());
             p.addProperty("enPassant", t.enPassant());
             p.addProperty("castlingRole", t.castling().name());
-            JsonArray atoms = new JsonArray();
-            for (Atom a : t.atoms()) {
-                JsonObject j = new JsonObject();
-                j.addProperty("kind", a.kind().name());
-                j.addProperty("forward", a.forward());
-                j.addProperty("right", a.right());
-                j.addProperty("symmetry", a.symmetry().name());
-                j.addProperty("mode", a.mode().name());
-                j.addProperty("range", a.range());
-                j.addProperty("firstMoveOnly", a.firstMoveOnly());
-                atoms.add(j);
+            p.add("atoms", atoms(t.atoms()));
+            try {
+                p.addProperty("betza", Betza.write(t.atoms()));
+            } catch (IllegalArgumentException e) {
+                // a move Betza has no letter for: the atoms alone say it
             }
-            p.add("atoms", atoms);
             pieces.add(p);
         }
         o.add("pieces", pieces);
@@ -90,11 +88,11 @@ public final class VariantJson {
         for (var element : array(o, "pieces")) {
             JsonObject p = element.getAsJsonObject();
             List<Atom> atoms = new ArrayList<>();
-            for (var a : array(p, "atoms")) {
-                JsonObject j = a.getAsJsonObject();
-                atoms.add(new Atom(Atom.Kind.valueOf(string(j, "kind")), integer(j, "forward"), integer(j, "right"),
-                        Atom.Symmetry.valueOf(string(j, "symmetry")), Atom.Mode.valueOf(string(j, "mode")),
-                        integer(j, "range"), bool(j, "firstMoveOnly")));
+            if (!p.has("atoms") && p.has("betza")) {
+                atoms.addAll(Betza.parse(string(p, "betza")));
+            }
+            if (p.has("atoms") || !p.has("betza")) {
+                atoms.addAll(atoms(array(p, "atoms")));
             }
             List<Character> promotes = new ArrayList<>();
             for (char c : string(p, "promotesTo").toCharArray()) {
@@ -110,6 +108,35 @@ public final class VariantJson {
         return new Variant(string(o, "id"), string(o, "name"), pieces, new Grid(integer(o, "width"), integer(o, "height")),
                 string(o, "start"), Variant.Goal.valueOf(string(o, "goal")), integer(o, "checksToWin"),
                 bool(o, "forcedCapture"), bool(o, "castling"));
+    }
+
+    /** Atoms as the JSON array a piece carries. */
+    public static JsonArray atoms(List<Atom> list) {
+        JsonArray atoms = new JsonArray();
+        for (Atom a : list) {
+            JsonObject j = new JsonObject();
+            j.addProperty("kind", a.kind().name());
+            j.addProperty("forward", a.forward());
+            j.addProperty("right", a.right());
+            j.addProperty("symmetry", a.symmetry().name());
+            j.addProperty("mode", a.mode().name());
+            j.addProperty("range", a.range());
+            j.addProperty("firstMoveOnly", a.firstMoveOnly());
+            atoms.add(j);
+        }
+        return atoms;
+    }
+
+    /** Atoms from a piece's JSON array; a missing field is an {@link IllegalArgumentException} naming it. */
+    public static List<Atom> atoms(JsonArray array) {
+        List<Atom> atoms = new ArrayList<>();
+        for (var a : array) {
+            JsonObject j = a.getAsJsonObject();
+            atoms.add(new Atom(Atom.Kind.valueOf(string(j, "kind")), integer(j, "forward"), integer(j, "right"),
+                    Atom.Symmetry.valueOf(string(j, "symmetry")), Atom.Mode.valueOf(string(j, "mode")),
+                    integer(j, "range"), bool(j, "firstMoveOnly")));
+        }
+        return atoms;
     }
 
     private static JsonArray array(JsonObject o, String key) {

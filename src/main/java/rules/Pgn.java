@@ -94,6 +94,14 @@ public final class Pgn {
      *                                  unreadable start position
      */
     public static Parsed read(String text) {
+        return read(text, Pgn::builtIn);
+    }
+
+    /**
+     * Like {@link #read(String)}, finding the {@code Variant} tag's variant with {@code variants}
+     * (a name or id; empty when unknown), so a game of a variant the player made reads too.
+     */
+    public static Parsed read(String text, java.util.function.Function<String, java.util.Optional<Variant>> variants) {
         Map<String, String> tags = new LinkedHashMap<>();
         Matcher tag = TAG.matcher(text);
         int bodyStart = 0;
@@ -102,7 +110,9 @@ public final class Pgn {
             tags.put(tag.group(1), tag.group(2).replace("\\\"", "\"").replace("\\\\", "\\"));
             bodyStart = tag.end();
         }
-        Variant variant = variant(tags.get("Variant"));
+        String tagged = tags.get("Variant");
+        Variant variant = tagged == null || tagged.isBlank() ? Variants.CHESS : variants.apply(tagged.trim())
+                .orElseThrow(() -> new IllegalArgumentException("unknown variant: " + tagged.trim()));
         String startFen = tags.getOrDefault("FEN", variant.startFen()).trim();
         try {
             Position.fromFen(startFen);
@@ -133,16 +143,12 @@ public final class Pgn {
         return new Parsed(tags, variant, startFen, moves);
     }
 
-    /** The variant a {@code Variant} tag names (its name or id, any case); chess for none or "Standard". */
-    static Variant variant(String tag) {
-        if (tag == null || tag.isBlank() || tag.trim().equalsIgnoreCase("standard")) {
-            return Variants.CHESS;
+    /** A built-in variant a {@code Variant} tag names (its name or id, any case); "Standard" is chess. */
+    public static java.util.Optional<Variant> builtIn(String tag) {
+        if (tag.equalsIgnoreCase("standard")) {
+            return java.util.Optional.of(Variants.CHESS);
         }
-        String want = tag.trim();
-        return Variants.ALL.stream()
-                .filter(v -> v.name().equalsIgnoreCase(want) || v.id().equalsIgnoreCase(want))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("unknown variant: " + want));
+        return Variants.ALL.stream().filter(v -> v.name().equalsIgnoreCase(tag) || v.id().equalsIgnoreCase(tag)).findFirst();
     }
 
     private static String stripCommentsAndVariations(String body) {

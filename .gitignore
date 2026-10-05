@@ -45,3 +45,4 @@ runs/
 
 ### Saved games (one JSON file each, see web.GamesApi) ###
 games/
+/variants/

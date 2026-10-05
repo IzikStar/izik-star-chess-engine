@@ -236,7 +236,7 @@ java -jar target/izikstar-chess-3.1.0.jar # play: opens http://localhost:7070/ i
 On Windows use `.\mvnw.cmd` (PowerShell needs the `.\`); double-clicking the jar works too. The first `package` downloads its
 own Node.js into `target/` to build the browser UI (`-Dskip.web=true` skips that step). The
 server listens on this computer only; stop it with Ctrl+C or by closing its console. Options:
-`--port N`, `--no-browser`, `--games DIR` (where your games are saved, default `games`), `--lan`
+`--port N`, `--no-browser`, `--games DIR` (where your games are saved, default `games`), `--variants DIR` (the variants you make, default `variants`), `--lan`
 (see below).
 
 **Playing from a phone.** The engine, Stockfish and the lab keep running on the computer; the phone

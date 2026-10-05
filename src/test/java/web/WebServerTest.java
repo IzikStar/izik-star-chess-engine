@@ -541,6 +541,57 @@ class WebServerTest {
         assertTrue(state.get("fen").getAsString().contains(" 2+3 "), state.get("fen").getAsString());
     }
 
+    @Test
+    @DisplayName("A variant the player made: saved over HTTP, played over the socket, kept in its saved games")
+    void madeVariant() throws Exception {
+        java.nio.file.Path games = java.nio.file.Files.createTempDirectory("games-test");
+        server = WebServer.start(0, hub -> new GameSession(GameConfig.defaults(),
+                new EngineSelector(new MinimaxEngine(), NO_STOCKFISH), hub::execute), java.nio.file.Path.of("runs"), games, "127.0.0.1");
+        String amazon = ai.variant.VariantJson.write(ai.variant.TestVariants.AMAZON_CHESS);
+        assertEquals(400, send("PUT", "/api/variants/other-id", amazon).statusCode());
+        assertEquals(400, send("PUT", "/api/variants/amazon-chess", amazon.replace("RNBAKBNR", "RNBQKBNR")).statusCode());
+        HttpResponse<String> saved = send("PUT", "/api/variants/amazon-chess", amazon);
+        assertEquals(200, saved.statusCode(), saved.body());
+        JsonArray list = get("/api/variants").getAsJsonArray("variants");
+        assertEquals("amazon-chess", list.get(list.size() - 1).getAsJsonObject().get("id").getAsString());
+        assertEquals("RBN", get("/api/variants/amazon-chess").getAsJsonArray("pieces").get(1).getAsJsonObject()
+                .get("betza").getAsString());
+        HttpResponse<String> betza = send("POST", "/api/betza", "{\"text\":\"fmWcfF\"}");
+        assertEquals(200, betza.statusCode(), betza.body());
+        assertEquals(2, JsonParser.parseString(betza.body()).getAsJsonObject().getAsJsonArray("atoms").size());
+        assertEquals(400, send("POST", "/api/betza", "{\"text\":\"X\"}").statusCode());
+
+        Client c = new Client();
+        c.await(s -> true);
+        c.send("{\"type\":\"newGame\",\"mode\":\"friend\",\"variant\":\"amazon-chess\"}");
+        JsonObject state = c.await(s -> s.getAsJsonObject("variant").get("id").getAsString().equals("amazon-chess"))
+                .getAsJsonObject("state");
+        assertTrue(state.getAsJsonObject("variant").get("custom").getAsBoolean());
+        c.move("e2e4");
+        c.move("e7e5");
+        c.move("d1f3"); // the Amazon's knight jump
+        String id = c.awaitPly(3).getAsJsonObject("state").get("savedId").getAsString();
+
+        // deleting the variant leaves its games playable: each keeps its own copy
+        assertEquals(204, send("DELETE", "/api/variants/amazon-chess", "").statusCode());
+        assertEquals(400, send("DELETE", "/api/variants/chess", "").statusCode());
+        JsonObject game = get("/api/games/" + id);
+        assertEquals("Amazon chess", game.get("variantName").getAsString());
+        assertEquals("Af3", game.getAsJsonArray("moves").get(2).getAsJsonObject().get("san").getAsString());
+        newGame(c, "friend", "white", 1);
+        c.awaitEvent("reset");
+        c.send("{\"type\":\"resumeGame\",\"id\":\"" + id + "\"}");
+        state = c.await(s -> s.getAsJsonArray("moves").size() == 3 && id.equals(s.get("savedId").getAsString()))
+                .getAsJsonObject("state");
+        assertEquals("amazon-chess", state.getAsJsonObject("variant").get("id").getAsString());
+        assertTrue(state.get("pgn").getAsString().contains("[Variant \"Amazon chess\"]"));
+    }
+
+    private HttpResponse<String> send(String method, String path, String body) throws Exception {
+        return HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + server.port() + path))
+                .method(method, HttpRequest.BodyPublishers.ofString(body)).build(), HttpResponse.BodyHandlers.ofString());
+    }
+
     private JsonObject get(String path) throws Exception {
         HttpResponse<String> r = HttpClient.newHttpClient().send(HttpRequest.newBuilder(
                 URI.create("http://127.0.0.1:" + server.port() + path)).build(), HttpResponse.BodyHandlers.ofString());
