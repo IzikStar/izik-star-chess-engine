@@ -554,10 +554,11 @@ equal time; every changed move in `same-moves.txt` explained.
 
 ## Phase 6 — Pieces as data
 
-> **Status: R1-R4 done** (PRs #25-#34): the engine plays on `GenericBoard`, pieces as data, and
+> **Status: R1-R5 done** (PRs #25-#40): the engine plays on `GenericBoard`, pieces as data, and
 > four variants (chess, Antichess, King of the Hill, Three-check) are played end to end in the
-> app, checked against Fairy-Stockfish. Next: R5, the piece designer and the variant health
-> check. Research, target architecture and steps are in
+> app, checked against Fairy-Stockfish. The *Variants* tab invents pieces (grid or Betza text) and
+> variants, runs a self-play health check, and plays them; invented pieces are checked against
+> Fairy-Stockfish too. Next: R6 extensions, only when an experiment needs them. Research, target architecture and steps are in
 > [docs/phase-6-research.md](docs/phase-6-research.md).
 
 **Goal.** Let the owner invent pieces and variants: piece types become data read by one move

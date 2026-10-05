@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { eloText, engineText, LEVELS, MAX_LEVEL, MIN_LEVEL, STOCKFISH_FROM_LEVEL, TIME_CONTROLS, TOP_BUILT_IN_LEVEL, VARIANTS } from './chess';
+import { eloText, engineText, LEVELS, MAX_LEVEL, MIN_LEVEL, STOCKFISH_FROM_LEVEL, TIME_CONTROLS, TOP_BUILT_IN_LEVEL, VARIANTS, goalRule } from './chess';
 import type { Champion, Color, Mode, StockfishInfo, VariantId, Weights } from './protocol';
 import { StockfishInstall } from './StockfishInstall';
 
@@ -20,14 +20,26 @@ export interface NewGameChoice {
   variant: VariantId;
 }
 
+/** The variants the server knows (built-in and made), for the Game choice. */
+interface VariantRow {
+  id: string;
+  name: string;
+  builtIn: boolean;
+  goal: string;
+  checksToWin?: number;
+}
+
 /** Stockfish plays chess only: in a variant the ladder stops at the built-in engine's top level. */
 export function maxLevelFor(variant: VariantId): number {
   return variant === 'chess' ? MAX_LEVEL : TOP_BUILT_IN_LEVEL;
 }
 
-/** Antichess plays with an evaluation built from its own pieces, not the chess weights (nor a champion's). */
+/**
+ * The chess weights (and a champion's) play chess, King of the Hill and three-check. Antichess and
+ * the player's own variants play with an evaluation built from their pieces.
+ */
 export function usesChessWeights(variant: VariantId): boolean {
-  return variant !== 'antichess';
+  return variant === 'chess' || variant === 'king-of-the-hill' || variant === 'three-check';
 }
 
 const WEIGHTS_NOTE: Record<Weights, string> = {
@@ -112,6 +124,15 @@ export function NewGameDialog({ initial, stockfish, onStart, onCancel }: {
     });
   };
 
+  /** The player's own variants, from the server (none until it answers). */
+  const [made, setMade] = useState<VariantRow[]>([]);
+  useEffect(() => {
+    fetch('/api/variants').then((r) => r.json()).then((r: { variants: VariantRow[] }) => setMade(r.variants.filter((v) => !v.builtIn)))
+      .catch(() => {});
+  }, []);
+  const madeVariant = made.find((v) => v.id === choice.variant);
+  const builtIn = VARIANTS.find((v) => v.id === choice.variant);
+
   useEffect(() => {
     const d = dialog.current;
     if (d && !d.open) d.showModal();
@@ -129,12 +150,22 @@ export function NewGameDialog({ initial, stockfish, onStart, onCancel }: {
         <h2 id="new-game-title">New game</h2>
         <Segmented<VariantId>
           label="Game"
-          value={choice.variant}
+          value={builtIn ? choice.variant : ''}
           options={VARIANTS.map((v): [VariantId, string] => [v.id, v.name])}
           onChange={pickVariant}
         />
+        {(made.length > 0 || !builtIn) && (
+          <div className="field">
+            <label htmlFor="made-variant">My variants</label>
+            <select id="made-variant" value={builtIn ? '' : choice.variant} onChange={(e) => pickVariant(e.target.value || 'chess')}>
+              <option value="">None</option>
+              {made.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+              {!builtIn && !madeVariant && <option value={choice.variant}>{choice.variant}</option>}
+            </select>
+          </div>
+        )}
         <p className="muted field-note" data-testid="variant-rule">
-          {VARIANTS.find((v) => v.id === choice.variant)!.rule}
+          {builtIn ? builtIn.rule : madeVariant ? goalRule(madeVariant.goal, madeVariant.checksToWin) : ''}
           {choice.variant !== 'chess' && choice.mode !== 'friend' && ` Stockfish plays chess only, so the strongest opponent here is Level ${TOP_BUILT_IN_LEVEL}.`}
         </p>
         <Segmented<Mode>

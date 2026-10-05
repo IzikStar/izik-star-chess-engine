@@ -15,7 +15,7 @@ import io.javalin.http.NotFoundResponse;
 /**
  * The variants, built in and made by the player (Phase 6 R5a), for the variant designer:
  * <ul>
- *   <li>{@code GET /api/variants}: {folder, variants: [{id, name, builtIn, goal}...]}, built-ins first</li>
+ *   <li>{@code GET /api/variants}: {folder, variants: [{id, name, builtIn, goal, checksToWin}...]}, built-ins first</li>
  *   <li>{@code GET /api/variants/{id}}: the whole variant ({@code ai.variant.VariantJson}) plus builtIn</li>
  *   <li>{@code PUT /api/variants/{id}}: saves a made variant (the body is the whole variant, its id
  *       the path's); 400 {error} says why one cannot be played</li>
@@ -42,6 +42,7 @@ final class VariantsApi {
                 o.addProperty("name", v.name());
                 o.addProperty("builtIn", VariantStore.isBuiltIn(v.id()));
                 o.addProperty("goal", v.goal().name());
+                o.addProperty("checksToWin", v.checksToWin());
                 list.add(o);
             }
             out.add("variants", list);

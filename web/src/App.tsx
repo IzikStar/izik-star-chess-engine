@@ -11,7 +11,7 @@ import { CHAMPION_LEVELS, maxLevelFor, NewGameDialog, type NewGameChoice } from 
 import { SettingsDialog } from './SettingsDialog';
 import { loadSettings, saveSettings, type Settings } from './settings';
 import { codeOf, PieceSvg } from './pieces';
-import { captured, checksGiven, colorName, engineText, LEVELS, MAX_LEVEL, isOver, kingSquare, materialOf, movesByFrom, other, resultText, timeControlOf, timeKey, turnOf, variantOf, VARIANTS, withPremoves } from './chess';
+import { captured, checksGiven, colorName, goalRule, pieceSetBase, engineText, LEVELS, MAX_LEVEL, isOver, kingSquare, materialOf, movesByFrom, other, resultText, timeControlOf, timeKey, turnOf, variantOf, VARIANTS, withPremoves } from './chess';
 import { useGame, type Champion, type Color, type GameEvent, type GameState, type Weights } from './protocol';
 import { play } from './sounds';
 
@@ -55,6 +55,8 @@ export function App() {
   const [settings, setSettings] = useState<Settings>(loadSettings);
   /** The champion the New game dialog opens with (from the lab's "Play the champion"). */
   const [dialogChampion, setDialogChampion] = useState<Champion | null>(null);
+  /** The variant the New game dialog opens with (from the designer's "Play it"). */
+  const [dialogVariant, setDialogVariant] = useState<string | null>(null);
   /** Which screen: the game, my games (#games), the variant designer (#variants), or the lab (#lab). */
   const [page, setPage] = useState<Page>(pageOf);
   /** Moves queued while the engine thinks (from + to [+ piece]), played one per turn, oldest first. */
@@ -266,8 +268,9 @@ export function App() {
     send({ type: 'newGame', mode: choice.mode, color: choice.color, level: choice.level, blackLevel: choice.blackLevel, champion, weights: choice.weights, time: timeControlOf(choice.time), variant: choice.variant });
   };
 
-  const openDialog = (champion: Champion | null) => {
+  const openDialog = (champion: Champion | null, variantId: string | null = null) => {
     setDialogChampion(champion);
+    setDialogVariant(variantId);
     setDialogOpen(true);
   };
 
@@ -307,7 +310,7 @@ export function App() {
         <button type="button" className="btn primary" onClick={() => openDialog(state.opponent)}>New game</button>
       </header>
 
-      {page === 'variants' && <Variants />}
+      {page === 'variants' && <Variants onPlay={(id) => openDialog(null, id)} />}
 
       {page === 'lab' && <Lab onPlay={(champion) => openDialog(champion)} />}
 
@@ -354,7 +357,7 @@ export function App() {
 
           {variant !== 'chess' && (
             <p className="variant-tag" data-testid="variant-tag">
-              <strong>{state.variant?.name ?? variant}</strong> · {VARIANTS.find((v) => v.id === variant)?.rule}
+              <strong>{state.variant?.name ?? variant}</strong> · {VARIANTS.find((v) => v.id === variant)?.rule ?? goalRule(state.variant?.goal ?? 'CHECKMATE', state.variant?.checksToWin)}
             </p>
           )}
 
@@ -451,7 +454,7 @@ export function App() {
         <NewGameDialog
           stockfish={state.stockfish}
           initial={{ mode: dialogChampion ? 'engine' : config.mode, color: config.humanColor, level: config.level, blackLevel: config.blackLevel, autoFlip, champion: dialogChampion, weights, time: timeKey(state.clock),
-            variant: dialogChampion ? 'chess' : variant }}
+            variant: dialogChampion ? 'chess' : dialogVariant ?? variant }}
           onStart={(choice) => {
             showPage('game');
             startNewGame(choice);
@@ -501,9 +504,10 @@ function PlayerCard({ state, color, fen, live, receivedAt }: { state: GameState;
   const name = `${colorName(color)} · ${who}`;
   const checks = checksGiven(fen, state.variant?.checksToWin);
   const detail = isEngine ? engineText(level, state.stockfish) : config.mode === 'engine' ? 'Human player' : 'Human player, same board';
-  const taken = captured(fen)[color];
-  // in antichess being ahead in material is no lead at all
-  const lead = variantOf(state) === 'antichess' ? 0 : materialOf(fen) * (color === 'white' ? 1 : -1);
+  const base = pieceSetBase(state);
+  const taken = captured(fen, base)[color];
+  // in antichess (or any lose-everything game) being ahead in material is no lead at all
+  const lead = state.variant?.goal === 'LOSE_EVERYTHING' ? 0 : Math.round(materialOf(fen, base?.values) * (color === 'white' ? 1 : -1));
   const toMove = live && !isOver(state) && state.turn === color;
   return (
     <div className={'player' + (toMove ? ' to-move' : '')} data-testid={`player-${color}`}>
