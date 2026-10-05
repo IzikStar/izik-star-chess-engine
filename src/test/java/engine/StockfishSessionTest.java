@@ -156,6 +156,12 @@ class StockfishSessionTest {
     void illegalAnswerRejected() {
         StockfishEngine sf = fake("illegal", dir.resolve("log"));
         assertNull(sf.bestMove(request(List.of(), 13, Cancellation.NONE)));
+        // the rejected process was killed at once; close() must still wait for it, or on Windows
+        // it holds the log open and the temp directory cannot be deleted
+        sf.close();
+        engine = null;
+        assertTrue(ProcessHandle.current().descendants().noneMatch(h ->
+                h.info().commandLine().orElse("").contains("engine.FakeUci")), "no fake engine left running");
     }
 
     @Test
