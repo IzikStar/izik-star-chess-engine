@@ -54,6 +54,8 @@ public class StockfishEngine implements Engine {
     private volatile List<String> command;
 
     private volatile Process process;
+    /** Processes {@link #kill()} destroyed without waiting; {@link #close()} waits for them too. */
+    private final List<Process> dying = new java.util.concurrent.CopyOnWriteArrayList<>();
     private BufferedWriter writer;
     private final BlockingQueue<String> output = new LinkedBlockingQueue<>();
     private volatile boolean unavailable;
@@ -131,17 +133,19 @@ public class StockfishEngine implements Engine {
 
     @Override
     public void close() {
-        Process p = kill();
-        if (p == null) {
-            return;
-        }
-        // wait for it to go: on Windows a live process keeps its files locked (its log, its exe)
-        try {
-            if (!p.waitFor(2, TimeUnit.SECONDS)) {
-                p.destroyForcibly().waitFor(2, TimeUnit.SECONDS);
+        kill();
+        // wait for every process to go, including ones a failed move already killed: on Windows a
+        // live process keeps its files locked (its log, its exe)
+        for (Process p : dying) {
+            try {
+                if (!p.waitFor(2, TimeUnit.SECONDS)) {
+                    p.destroyForcibly().waitFor(2, TimeUnit.SECONDS);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
             }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+            dying.remove(p);
         }
     }
 
@@ -325,6 +329,8 @@ public class StockfishEngine implements Engine {
             // already gone
         }
         p.destroy();
+        dying.removeIf(d -> !d.isAlive());
+        dying.add(p);
         return p;
     }
 

@@ -174,7 +174,11 @@ final class GameHub implements GameListener {
                 rejected.addProperty("reason", String.valueOf(e.getMessage()));
                 JsonArray only = new JsonArray();
                 only.add(rejected);
-                client.send(message(only));
+                try {
+                    client.send(message(only));
+                } catch (Exception closed) {
+                    clients.remove(client);
+                }
             }
         });
     }
@@ -482,7 +486,9 @@ final class GameHub implements GameListener {
         for (Client c : List.copyOf(clients)) {
             try {
                 c.send(json);
-            } catch (RuntimeException e) {
+            } catch (Exception e) {
+                // the browser went away (a closed socket throws ClosedChannelException, unchecked
+                // through Javalin); drop it quietly, its onClose may not have arrived yet
                 clients.remove(c);
             }
         }
