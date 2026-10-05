@@ -63,6 +63,11 @@ Phase 4c (#2 to #6) refer to that repository.
   with a filter by level and result and your score against each level. Open one to step through
   it and analyse it with Stockfish, copy or download its PGN, or carry an unfinished game on with
   its clocks where they were.
+- **Variants tab: invent your own.** Copy a variant and change its goal, forced captures,
+  castling and start position (pick a piece, click squares), or invent pieces: click the squares
+  a piece reaches (jump or slide, move and/or capture, mirrored all ways, left/right or not, first
+  move only), or type its [Betza](https://www.gnu.org/software/xboard/Betza.html) text (`QN` is the
+  Amazon). A board beside it shows where the piece goes. Variants are saved in `variants/`.
 - **Move list with review.** Click any move, or use the arrow keys, to see that position.
 - **Captured pieces and material** on each player's card; the result in the side panel when
   the game ends.
