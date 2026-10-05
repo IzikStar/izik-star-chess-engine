@@ -1,6 +1,6 @@
 package engine;
 
-import ai.BitBoard.BitBoardRules;
+import ai.board.Boards;
 import ai.Minimax;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -108,7 +108,7 @@ class SearchSpeedTest {
      */
     public static void main(String[] args) {
         for (Benchmark b : POSITIONS) {
-            Minimax.getBestMove(BitBoardRules.fromFen(b.fen()), 4); // let the JIT compile the search first
+            Minimax.getBestMove(Boards.fromFen(b.fen()), 4); // let the JIT compile the search first
         }
         for (Benchmark b : POSITIONS) {
             for (Level level : LEVELS) {
@@ -121,7 +121,7 @@ class SearchSpeedTest {
 
     private static long millisToFinish(String fen, int depth) {
         long start = System.nanoTime();
-        Minimax.getBestMove(BitBoardRules.fromFen(fen), depth);
+        Minimax.getBestMove(Boards.fromFen(fen), depth);
         return (System.nanoTime() - start) / 1_000_000;
     }
 }

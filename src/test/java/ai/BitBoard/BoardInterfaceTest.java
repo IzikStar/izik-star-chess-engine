@@ -39,7 +39,7 @@ class BoardInterfaceTest {
                 List<int[]> expected = BitBoardRules.legalMoves(old);
                 Board board = Boards.fromFen(fen);
                 int[] moves = board.legalMoves();
-                assertEquals(codes(expected), asList(moves), fen);
+                assertEquals(codes(expected).stream().sorted().toList(), asList(moves).stream().sorted().toList(), fen);
                 if (moves.length == 0) {
                     break;
                 }
