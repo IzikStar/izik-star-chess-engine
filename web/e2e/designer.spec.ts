@@ -4,6 +4,8 @@ import { expect, test } from '@playwright/test';
 // and by Betza text, put it in the start position, save, and delete.
 
 const SHOTS = '../target/e2e-screens';
+/** A 1x1 PNG, enough for a piece's picture. */
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
 
 test('make a variant with an invented piece', async ({ page }) => {
   await page.goto('/#variants');
@@ -94,6 +96,15 @@ test('the whole path: invent a piece, save the variant, play it from New game', 
   await editor.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(editor.getByRole('button', { name: 'Saved', exact: true })).toBeVisible();
 
+  // a picture for the white Amazon; the start position shows it, and black's stands in darkened
+  await page.getByTestId('pictures').getByLabel('White picture').setInputFiles({ name: 'amazon.png', mimeType: 'image/png', buffer: PNG });
+  await expect(page.getByTestId('start-board').locator('[data-square="d1"] img[data-piece="wA"]')).toBeVisible();
+  await expect(page.getByTestId('start-board').locator('[data-square="d8"] img[data-piece="bA"]')).toBeVisible();
+
+  // the mouse over a piece in the start position shows where it goes
+  await page.getByTestId('start-board').locator('[data-square="b1"]').hover();
+  await expect(page.getByTestId('start-board').locator('.r-move')).toHaveCount(2);
+
   await editor.getByRole('button', { name: 'Play it' }).click();
   const dialog = page.getByRole('dialog', { name: 'New game' });
   await expect(dialog.getByLabel('My variants')).toHaveValue('amazon-path');
@@ -106,6 +117,12 @@ test('the whole path: invent a piece, save the variant, play it from New game', 
   await expect(page.getByText('Amazon path', { exact: true })).toBeVisible();
   const square = (name: string) => page.locator(`[data-square="${name}"]`).first();
   await expect(square('d1').locator('[data-piece="wA"]').first()).toBeVisible();
+  await expect(square('d1').locator('img[data-piece="wA"]').first()).toBeVisible();
+  // the mouse over the invented piece shows where it can go; over a chess piece it shows nothing
+  await square('d1').hover();
+  await expect(page.getByTestId('board')).toHaveAttribute('data-reach', 'c3 e3');
+  await square('a2').hover();
+  await expect(page.getByTestId('board')).toHaveAttribute('data-reach', '');
   for (const [from, to] of [['e2', 'e4'], ['e7', 'e5'], ['d1', 'f3']]) {
     await square(from).click();
     await square(to).click();

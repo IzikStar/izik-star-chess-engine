@@ -4,6 +4,7 @@ import type { Color } from './protocol';
 import { QUALITY, type Quality } from './Analysis';
 import { boardOf } from './chess';
 import { PieceSvg, pieceSet } from './pieces';
+import type { Reach } from './reach';
 
 interface Props {
   fen: string;
@@ -27,6 +28,8 @@ interface Props {
   onPremove: (uci: string | null) => void;
   /** The analysis mark of the move shown, drawn on its destination square (as chess.com does). */
   badge?: { square: string; quality: Quality } | null;
+  /** Where the piece on a square could go, shown while the mouse is over it (invented pieces); null for none. */
+  reachOf?: (square: string) => Map<string, Reach> | null;
 }
 
 const LAST = 'rgba(235, 220, 90, 0.5)';
@@ -36,6 +39,9 @@ const DOT = 'radial-gradient(circle, rgba(20, 30, 20, 0.28) 22%, transparent 23%
 const RING = 'radial-gradient(circle, transparent 79%, rgba(20, 30, 20, 0.3) 80%)';
 /** A square marked with a right click, drawn over whatever else the square shows. */
 const MARK = 'linear-gradient(rgba(235, 97, 80, 0.75), rgba(235, 97, 80, 0.75))';
+/** Where the piece under the mouse could go: a violet dot, or a violet ring around a piece it could take. */
+const HOVER_DOT = 'radial-gradient(circle, rgba(130, 70, 200, 0.55) 20%, transparent 21%)';
+const HOVER_RING = 'radial-gradient(circle, transparent 74%, rgba(130, 70, 200, 0.7) 75%)';
 const CHECK = 'radial-gradient(circle, rgba(255, 0, 0, 0.85) 0%, rgba(231, 0, 0, 0.5) 30%, rgba(169, 0, 0, 0) 75%)';
 
 /**
@@ -44,7 +50,8 @@ const CHECK = 'radial-gradient(circle, rgba(255, 0, 0, 0.85) 0%, rgba(231, 0, 0,
  * moves it is given. For planning: right-click a square to mark it, right-drag to draw an arrow;
  * a left click or the next move clears them.
  */
-export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, onMove, onSelect, onIllegal, premoveColor, premoves, onPremove, badge }: Props) {
+export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, onMove, onSelect, onIllegal, premoveColor, premoves, onPremove, badge, reachOf }: Props) {
+  const [hovered, setHovered] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   /** choices: the pieces the pawn may become, as the legal moves name them (a premove offers the usual four). */
   const [promotion, setPromotion] = useState<{ from: string; to: string; color: 'w' | 'b'; premove: boolean; choices: string[] } | null>(null);
@@ -119,10 +126,16 @@ export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, on
     }
   }
 
+  const hoverReach = !selected && hovered && reachOf ? reachOf(hovered) : null;
+  if (hoverReach) {
+    for (const [to, kind] of hoverReach) add(to, { backgroundImage: kind === 'capture' ? HOVER_RING : HOVER_DOT });
+  }
+
   const arrows: Arrow[] = hint ? [{ startSquare: hint.slice(0, 2), endSquare: hint.slice(2, 4), color: 'rgba(31, 122, 100, 0.85)' }] : [];
 
   return (
-    <div className="board" data-testid="board" data-hint={hint ?? ''} data-marks={marks.join(' ')}>
+    <div className="board" data-testid="board" data-hint={hint ?? ''} data-marks={marks.join(' ')}
+      data-reach={hoverReach ? [...hoverReach.keys()].sort().join(' ') : ''}>
       <Chessboard
         options={{
           id: 'main',
@@ -139,6 +152,8 @@ export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, on
           darkSquareNotationStyle: { color: 'var(--sq-light)' },
           dropSquareStyle: { boxShadow: 'inset 0 0 0 4px rgba(255,255,255,0.6)' },
           canDragPiece: ({ square }) => canPick(square),
+          onMouseOverSquare: ({ square }) => setHovered(square),
+          onMouseOutSquare: ({ square }) => setHovered((h) => (h === square ? null : h)),
           // a right press and release on the same square marks it (a right drag is an arrow). Not
           // onSquareRightClick: on Linux the context menu fires on press, before a drag can start.
           onSquareMouseDown: ({ square }, e) => {

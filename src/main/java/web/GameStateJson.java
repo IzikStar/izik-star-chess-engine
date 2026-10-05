@@ -172,10 +172,21 @@ final class GameStateJson {
             p.addProperty("letter", String.valueOf(t.letter()));
             p.addProperty("name", t.name());
             p.addProperty("value", t.value());
+            if (!game.VariantStore.isBuiltIn(variant.id())) {
+                // a made variant: how each piece moves, so the board can show it under the mouse
+                p.add("atoms", ai.variant.VariantJson.atoms(t.atoms()));
+                p.addProperty("invented", invented(t));
+            }
             pieces.add(p);
         }
         o.add("pieces", pieces);
         return o;
+    }
+
+    /** A piece that is not one of chess's six, or moves differently from the chess piece with its letter. */
+    static boolean invented(ai.piece.PieceType t) {
+        return ai.piece.StandardPieces.ALL.stream()
+                .noneMatch(c -> c.letter() == t.letter() && new java.util.HashSet<>(c.atoms()).equals(new java.util.HashSet<>(t.atoms())));
     }
 
     static JsonObject move(MoveResult m) {

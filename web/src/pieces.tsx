@@ -1,4 +1,4 @@
-import { useId, type CSSProperties } from 'react';
+import { createContext, useContext, useId, type CSSProperties } from 'react';
 import type { PieceRenderObject } from 'react-chessboard';
 
 /*
@@ -160,9 +160,39 @@ export function LetterPiece({ code, style, className }: { code: string; style?: 
   );
 }
 
+/**
+ * The pictures the player gave a made variant's pieces, by piece code ("wA", "bA") -> image URL.
+ * A piece with a picture is drawn with it, on every board inside the provider.
+ */
+export const PieceArt = createContext<Record<string, string>>({});
+
+/** The {@link PieceArt} map for a variant: letter -> side ("w", "b") -> when the picture was saved. */
+export function artUrls(variantId: string, index: Record<string, Record<string, number>> | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [letter, sides] of Object.entries(index ?? {})) {
+    for (const [side, saved] of Object.entries(sides)) {
+      out[side + letter] = `/api/variants/${encodeURIComponent(variantId)}/art/${letter}/${side}?v=${saved}`;
+    }
+  }
+  return out;
+}
+
+/** A piece drawn with the player's picture; one side's picture stands in for the other's, darkened or lightened. */
+function ArtPiece({ code, url, standIn, style, className }: { code: string; url: string; standIn: boolean; style?: CSSProperties; className?: string }) {
+  const filter = standIn ? (code[0] === 'b' ? 'brightness(0.45)' : 'brightness(1.7) saturate(0.6)') : undefined;
+  return (
+    <img src={url} alt={`${code[0] === 'w' ? 'white' : 'black'} piece ${code[1]}`} data-piece={code} draggable={false}
+      className={className} style={{ width: '100%', height: '100%', objectFit: 'contain', filter, ...style }} />
+  );
+}
+
 /** One piece as an SVG, e.g. `<PieceSvg code="wN" />`; a letter with no drawing gets {@link LetterPiece}. */
 export function PieceSvg({ code, style, className }: { code: string; style?: CSSProperties; className?: string }) {
+  const art = useContext(PieceArt);
   const id = 'pc' + useId().replace(/[^a-zA-Z0-9]/g, '');
+  const own = art[code];
+  const other = art[(code[0] === 'w' ? 'b' : 'w') + code[1]];
+  if (own || other) return <ArtPiece code={code} url={own ?? other} standIn={!own} style={style} className={className} />;
   const pal = code[0] === 'w' ? WHITE : BLACK;
   const parts = SHAPES[code[1]];
   if (!parts) return <LetterPiece code={code} style={style} className={className} />;
