@@ -494,8 +494,10 @@ function blankPiece(letters: string[]): PieceDef {
   return { name: 'New piece', letter, value: 300, royal: false, promotesTo: '', enPassant: false, castlingRole: 'NONE', atoms: [] };
 }
 
-function Editor({ start, taken, onSaved, onDeleted, onCopy }: {
+function Editor({ start, taken, onSaved, onDeleted, onCopy, onPlay }: {
   start: VariantDef;
+  /** Opens the New game dialog on this variant. */
+  onPlay: (id: string) => void;
   /** The ids already used: a new variant's id follows its name, away from these. */
   taken: Set<string>;
   onSaved: (v: VariantDef) => void;
@@ -507,6 +509,8 @@ function Editor({ start, taken, onSaved, onDeleted, onCopy }: {
   const [paint, setPaint] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  /** Changed since it was opened or saved. */
+  const [dirty, setDirty] = useState(false);
   /** Not saved yet: the id (its file's name) still follows the name. */
   const [fresh, setFresh] = useState(!taken.has(start.id));
   const readOnly = !!start.builtIn;
@@ -516,6 +520,7 @@ function Editor({ start, taken, onSaved, onDeleted, onCopy }: {
   const edit = (next: VariantDef) => {
     setV(next);
     setSaved(false);
+    setDirty(true);
   };
   const setPiece = (i: number, p: PieceDef) => {
     const old = v.pieces[i];
@@ -537,7 +542,7 @@ function Editor({ start, taken, onSaved, onDeleted, onCopy }: {
   const save = () => {
     setError(null);
     api<VariantDef>(`/api/variants/${encodeURIComponent(v.id)}`, { method: 'PUT', body: JSON.stringify(v) })
-      .then((r) => { setSaved(true); setFresh(false); onSaved(r); })
+      .then((r) => { setSaved(true); setDirty(false); setFresh(false); onSaved(r); })
       .catch((e: Error) => setError(e.message));
   };
 
@@ -549,6 +554,10 @@ function Editor({ start, taken, onSaved, onDeleted, onCopy }: {
         <div className="run-head">
           <h2>{v.name}</h2>
           <div className="filters">
+            {!fresh && (
+              <button type="button" className="btn" disabled={dirty} title={dirty ? 'Save it first' : undefined}
+                onClick={() => onPlay(v.id)}>Play it</button>
+            )}
             <button type="button" className="btn" onClick={() => onCopy(v)}>Make a copy</button>
             {!readOnly && <button type="button" className="btn ghost" onClick={() => {
               if (!confirm(`Delete ${v.name}? Games played with it keep their copy.`)) return;
@@ -639,6 +648,7 @@ function Editor({ start, taken, onSaved, onDeleted, onCopy }: {
             onAtoms={(atoms) => {
               setV((now) => ({ ...now, pieces: now.pieces.map((q, j) => (j === picked ? { ...q, atoms } : q)) }));
               setSaved(false);
+              setDirty(true);
             }}
             onBetza={(text) => setV((now) => ({ ...now, pieces: now.pieces.map((q, j) => (j === picked ? { ...q, betza: text } : q)) }))}
             onRemove={() => {
@@ -657,7 +667,7 @@ function Editor({ start, taken, onSaved, onDeleted, onCopy }: {
   );
 }
 
-export function Variants() {
+export function Variants({ onPlay }: { onPlay: (id: string) => void }) {
   const [rows, setRows] = useState<VariantRow[] | null>(null);
   const [folder, setFolder] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -717,7 +727,7 @@ export function Variants() {
         <Editor key={openKey} start={open} taken={taken}
           onSaved={(v) => { load(); setOpen(v); }}
           onDeleted={() => { openVariant(null); load(); }}
-          onCopy={copyOf} />
+          onCopy={copyOf} onPlay={onPlay} />
       )}
     </main>
   );

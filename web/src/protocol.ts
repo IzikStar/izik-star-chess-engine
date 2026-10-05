@@ -23,7 +23,8 @@ export type Status =
   | 'NO_MOVES_LEFT';
 
 /** The games the server plays (ai.variant.Variants). */
-export type VariantId = 'chess' | 'antichess' | 'king-of-the-hill' | 'three-check';
+/** A built-in variant ('chess', 'antichess', 'king-of-the-hill', 'three-check') or one the player made. */
+export type VariantId = string;
 
 /** The variant a game is played by, as the state names it. */
 export interface VariantInfo {
@@ -32,6 +33,10 @@ export interface VariantInfo {
   goal: 'CHECKMATE' | 'LOSE_EVERYTHING' | 'KING_OF_THE_HILL' | 'CHECKS';
   /** Three-check: how many checks win. */
   checksToWin?: number;
+  /** A variant the player made (not built in). */
+  custom?: boolean;
+  /** Its pieces; value in centipawns (absent from an older server). */
+  pieces?: { letter: string; name: string; value?: number }[];
 }
 
 export interface MoveInfo {

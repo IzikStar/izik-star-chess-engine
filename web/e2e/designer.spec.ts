@@ -73,3 +73,50 @@ test('the health check plays a variant against itself and reports', async ({ pag
   await health.scrollIntoViewIfNeeded();
   await page.screenshot({ path: `${SHOTS}/health.png`, fullPage: true });
 });
+
+test('the whole path: invent a piece, save the variant, play it from New game', async ({ page }) => {
+  await page.goto('/#variants');
+  const editor = page.getByTestId('variant-editor');
+  await expect(editor.getByRole('heading', { name: 'Chess' })).toBeVisible();
+  await editor.getByRole('button', { name: 'Make a copy' }).click();
+  await editor.getByLabel('Name', { exact: true }).first().fill('Amazon path');
+  await editor.getByRole('button', { name: 'Add a piece' }).click();
+  const piece = page.getByTestId('piece-editor');
+  await piece.getByLabel('Name', { exact: true }).fill('Amazon');
+  await piece.getByLabel('Value').fill('1200');
+  await piece.getByLabel('Betza').fill('QN');
+  await piece.getByLabel('Betza').press('Enter');
+  await expect(page.getByTestId('piece-preview').locator('.r-both')).toHaveCount(35);
+  await page.getByRole('button', { name: 'white A', exact: true }).click();
+  await page.getByTestId('start-board').locator('[data-square="d1"]').click();
+  await page.getByRole('button', { name: 'black A', exact: true }).click();
+  await page.getByTestId('start-board').locator('[data-square="d8"]').click();
+  await editor.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(editor.getByRole('button', { name: 'Saved', exact: true })).toBeVisible();
+
+  await editor.getByRole('button', { name: 'Play it' }).click();
+  const dialog = page.getByRole('dialog', { name: 'New game' });
+  await expect(dialog.getByLabel('My variants')).toHaveValue('amazon-path');
+  await expect(dialog.getByTestId('variant-rule')).toHaveText(/Checkmate the king/);
+  await dialog.getByRole('button', { name: 'A friend', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Untimed', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Start game' }).click();
+  await expect(dialog).toBeHidden();
+
+  await expect(page.getByText('Amazon path', { exact: true })).toBeVisible();
+  const square = (name: string) => page.locator(`[data-square="${name}"]`).first();
+  await expect(square('d1').locator('[data-piece="wA"]').first()).toBeVisible();
+  for (const [from, to] of [['e2', 'e4'], ['e7', 'e5'], ['d1', 'f3']]) {
+    await square(from).click();
+    await square(to).click();
+  }
+  await expect(page.getByTestId('move-list')).toContainText('Af3');
+  await expect(square('f3').locator('[data-piece="wA"]').first()).toBeVisible();
+  await page.screenshot({ path: `${SHOTS}/made-variant-game.png` });
+
+  // back to chess for the next spec
+  await page.getByRole('button', { name: 'New game' }).click();
+  await dialog.getByRole('button', { name: 'Chess', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Start game' }).click();
+  await expect(dialog).toBeHidden();
+});

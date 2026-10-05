@@ -171,6 +171,7 @@ final class GameStateJson {
             JsonObject p = new JsonObject();
             p.addProperty("letter", String.valueOf(t.letter()));
             p.addProperty("name", t.name());
+            p.addProperty("value", t.value());
             pieces.add(p);
         }
         o.add("pieces", pieces);

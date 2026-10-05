@@ -10,6 +10,16 @@ export const VARIANTS: { id: VariantId; name: string; rule: string }[] = [
   { id: 'three-check', name: 'Three-check', rule: 'Checkmate, or give check three times.' },
 ];
 
+/** How a variant is won, in words, for one the player made (the built-ins have their own rule above). */
+export function goalRule(goal: string, checksToWin = 3): string {
+  switch (goal) {
+    case 'LOSE_EVERYTHING': return 'Lose every piece, or have no move left, to win.';
+    case 'KING_OF_THE_HILL': return 'Checkmate, or bring your king to one of the four centre squares.';
+    case 'CHECKS': return `Checkmate, or give check ${checksToWin} times.`;
+    default: return 'Checkmate the king.';
+  }
+}
+
 /** The game's variant id; a state without one is chess. */
 export function variantOf(state: GameState): VariantId {
   return state.variant?.id ?? 'chess';
@@ -105,9 +115,34 @@ export function kingSquare(fen: string, color: Color): string | null {
  * Pieces each side has taken, lowest value first, as FEN letters of the captured pieces.
  * Counted from what is missing on the board (a promoted pawn shows as a taken pawn, like lichess).
  */
-export function captured(fen: string): Record<Color, string[]> {
+/**
+ * A made variant's pieces: what the captured pieces and the material lead are counted against
+ * (its start position and the pieces' values in pawns, by lower-case letter).
+ */
+export interface PieceSetBase {
+  startFen: string;
+  values: Record<string, number>;
+}
+
+/** {@link PieceSetBase} for a game's variant, or undefined for the built-ins (they count as chess). */
+export function pieceSetBase(state: GameState): PieceSetBase | undefined {
+  const v = state.variant;
+  if (!v?.custom || !v.pieces) return undefined;
+  return { startFen: state.startFen, values: Object.fromEntries(v.pieces.map((p) => [p.letter.toLowerCase(), (p.value ?? 0) / 100])) };
+}
+
+export function captured(fen: string, base?: PieceSetBase): Record<Color, string[]> {
   const left: Record<string, number> = {};
   for (const p of Object.values(boardOf(fen))) left[p] = (left[p] ?? 0) + 1;
+  if (base) {
+    const start: Record<string, number> = {};
+    for (const p of Object.values(boardOf(base.startFen))) start[p] = (start[p] ?? 0) + 1;
+    const takenFrom = (color: Color) => Object.keys(start)
+      .filter((p) => (p === p.toUpperCase()) === (color === 'white') && base.values[p.toLowerCase()] > 0)
+      .sort((a, b) => base.values[a.toLowerCase()] - base.values[b.toLowerCase()])
+      .flatMap((p) => Array<string>(Math.max(0, start[p] - (left[p] ?? 0))).fill(p));
+    return { white: takenFrom('black'), black: takenFrom('white') };
+  }
   const takenFrom = (color: Color) => {
     const out: string[] = [];
     for (const type of ['p', 'n', 'b', 'r', 'q']) {
@@ -121,10 +156,10 @@ export function captured(fen: string): Record<Color, string[]> {
   return { white: takenFrom('black'), black: takenFrom('white') };
 }
 
-export function materialOf(fen: string): number {
+export function materialOf(fen: string, values: Record<string, number> = VALUES): number {
   let score = 0;
   for (const p of Object.values(boardOf(fen))) {
-    const v = VALUES[p.toLowerCase()];
+    const v = values[p.toLowerCase()] ?? 0;
     score += p === p.toUpperCase() ? v : -v;
   }
   return score;

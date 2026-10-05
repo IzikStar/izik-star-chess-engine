@@ -358,6 +358,21 @@ piece without art is its letter in a circle.
 - Checks: `lab.VariantHealthTest` (counts, progress, same report twice, antichess and Amazon
   chess, cancel, the notes), `WebServerTest.healthCheck`, and `e2e/designer.spec.ts`.
 
+### R5e (branch `phase-6-play-made`)
+
+- New game dialog: a *My variants* list below the built-in variants. Its rule line is written
+  from the variant's goal. The designer's *Play it* button opens the dialog on the variant (after a
+  save). Champions and the weights choice stay with chess, King of the Hill and three-check.
+- In a made variant the player cards count captured pieces against the game's start position and
+  the material lead with the pieces' own values (`state.variant.pieces[].value`). A
+  lose-everything goal shows no lead.
+- `VariantId` in the web code is now any string.
+- Checks: `e2e/designer.spec.ts` "the whole path". It invents the Amazon (`QN`) in the designer,
+  puts it on d1/d8, saves, plays it from New game, and checks that `Af3` is on the board and in
+  the move list.
+
+R5 is complete: a player can invent pieces and a variant, check it, and play it.
+
 ## 5. Towards "everything possible"
 
 Each layer is more flexible and slower or riskier than the one before, so it is added only when
