@@ -41,7 +41,7 @@ class EvaluatorTest {
     private static int[] scores(BitBoardEvaluate eval, List<BitBoard> boards) {
         int[] s = new int[boards.size()];
         for (int i = 0; i < s.length; i++) {
-            s[i] = eval.evaluate(boards.get(i), i % 2 == 0);
+            s[i] = eval.evaluate(boards.get(i), i % 2 == 0 ? 1 : 0);
         }
         return s;
     }
@@ -51,9 +51,9 @@ class EvaluatorTest {
     void weightsMatter() {
         BitBoard b = BitBoardRules.fromFen(QUEEN_UP);
         BitBoardEvaluate cheapQueen = new BitBoardEvaluate(BitBoardEvaluate.SCHEMA.defaults().with("material.queen.mg", 0).with("material.queen.eg", 0));
-        int normal = BitBoardEvaluate.DEFAULT.evaluate(b, true);
-        assertNotEquals(normal, cheapQueen.evaluate(b, true));
-        assertEquals(normal, new BitBoardEvaluate(BitBoardEvaluate.SCHEMA.defaults()).evaluate(b, true));
+        int normal = BitBoardEvaluate.DEFAULT.evaluate(b, 1);
+        assertNotEquals(normal, cheapQueen.evaluate(b, 1));
+        assertEquals(normal, new BitBoardEvaluate(BitBoardEvaluate.SCHEMA.defaults()).evaluate(b, 1));
     }
 
     @Test

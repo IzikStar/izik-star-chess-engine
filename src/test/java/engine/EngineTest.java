@@ -140,9 +140,9 @@ class EngineTest {
     void deepeningMatchesFixedDepth() {
         String fen = "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 6 5";
         for (int depth = 1; depth <= 3; depth++) {
-            ai.BitBoard.BitMove fixed = ai.Minimax.getBestMove(ai.BitBoard.BitBoardRules.fromFen(fen), depth);
-            ai.BitBoard.BitMove deepened = ai.Minimax.getBestMove(ai.BitBoard.BitBoardRules.fromFen(fen), depth, () -> false);
-            assertEquals(fixed.toString(), deepened.toString(), "depth " + depth);
+            int fixed = ai.Minimax.getBestMove(ai.board.Boards.fromFen(fen), depth);
+            int deepened = ai.Minimax.getBestMove(ai.board.Boards.fromFen(fen), depth, () -> false);
+            assertEquals(fixed, deepened, "depth " + depth);
         }
     }
 }

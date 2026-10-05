@@ -3,7 +3,6 @@ package ai;
 import ai.BitBoard.BitBoard;
 import ai.BitBoard.BitBoardEvaluate;
 import ai.BitBoard.BitBoardRules;
-import ai.BitBoard.BitMove;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -93,10 +92,10 @@ class TranspositionTableTest {
     @DisplayName("Searches with the same seed pick the same moves, so arena games stay repeatable")
     void deterministic() {
         String fen = "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 6 5";
-        BitMove first = Minimax.getBestMove(BitBoardRules.fromFen(fen), 4, BitBoardEvaluate.DEFAULT,
+        int first = Minimax.getBestMove(BitBoardRules.fromFen(fen), 4, BitBoardEvaluate.DEFAULT,
                 new Minimax.Options(5, new Random(3), true), () -> false);
-        BitMove second = Minimax.getBestMove(BitBoardRules.fromFen(fen), 4, BitBoardEvaluate.DEFAULT,
+        int second = Minimax.getBestMove(BitBoardRules.fromFen(fen), 4, BitBoardEvaluate.DEFAULT,
                 new Minimax.Options(5, new Random(3), true), () -> false);
-        assertEquals(Minimax.moveCode(first), Minimax.moveCode(second));
+        assertEquals(first, second);
     }
 }

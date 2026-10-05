@@ -1,7 +1,7 @@
 package lab;
 
 import ai.BitBoard.BitBoardEvaluate;
-import ai.BitBoard.BitBoardRules;
+import ai.board.Boards;
 import ai.eval.ParamSchema;
 import ai.eval.ParamSpec;
 import ai.eval.ParamVector;
@@ -154,7 +154,7 @@ public final class Texel {
     }
 
     static Sample sample(String fen, double result) {
-        BitBoardEvaluate.Features f = BitBoardEvaluate.CLASSIC.features(BitBoardRules.fromFen(fen));
+        BitBoardEvaluate.Features f = BitBoardEvaluate.CLASSIC.features(Boards.fromFen(fen));
         int[] values = f.values();
         int nonZero = 0;
         for (int v : values) {
