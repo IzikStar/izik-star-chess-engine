@@ -317,6 +317,26 @@ piece without art is its letter in a circle.
   square; Fairy-Stockfish allows `i` moves only from the double-step rank. The two agree for pawns,
   so no test variant gives `i` to another piece.
 
+### R5c (branch `phase-6-designer`)
+
+- A *Variants* tab (`web/src/Variants.tsx`, `#variants`): the variants in a list, built-ins
+  read-only with *Make a copy*. A variant's name, goal (checks to win for N-check), forced
+  captures and castling; its start position painted on a board (pick a piece, click squares) or
+  typed as FEN; its pieces as chips with their Betza.
+- The piece editor: name, letter (the start position and promotions follow a new letter), value,
+  royal, promotes to, en passant, castling role. A 7x7 grid around the piece (up is forward) takes
+  clicks with the current tools: jump or slide (a slide's steps up to the edge or 2-6), move +
+  capture / move only / capture only, all 8 ways / mirrored left-right / just that one, first move
+  only. A click on a lit square takes that move away. Beside it an 8x8 board shows where the piece
+  goes from the square you click, before or after its first move. The Betza field follows the grid
+  (`POST /api/betza`) and the grid follows the field (Enter or leaving it).
+- Default taken: the plan said "drag for a slide"; a *Slide* tool is clearer on a phone, so
+  dragging is not used.
+- The server checks a variant on *Save* and its reason shows on the page (`VariantStore.check`).
+- Checks: `web/e2e/designer.spec.ts` (copy chess, make a knight by one click and the Amazon by
+  text, 8 and 35 squares on the preview, put it on d1/d8, save, reload, delete; an empty board is
+  refused with a reason).
+
 ## 5. Towards "everything possible"
 
 Each layer is more flexible and slower or riskier than the one before, so it is added only when

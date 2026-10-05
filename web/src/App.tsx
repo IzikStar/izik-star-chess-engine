@@ -5,6 +5,7 @@ import { ClockFace } from './Clock';
 import { PgnDialog } from './PgnDialog';
 import { Games } from './Games';
 import { Lab } from './Lab';
+import { Variants } from './Variants';
 import { MoveList, RepeatButton } from './MoveList';
 import { CHAMPION_LEVELS, maxLevelFor, NewGameDialog, type NewGameChoice } from './NewGameDialog';
 import { SettingsDialog } from './SettingsDialog';
@@ -16,10 +17,11 @@ import { play } from './sounds';
 
 const EMPTY = new Map<string, string[]>();
 
-type Page = 'game' | 'games' | 'lab';
+type Page = 'game' | 'games' | 'variants' | 'lab';
 
 function pageOf(): Page {
-  return location.hash === '#lab' ? 'lab' : location.hash === '#games' ? 'games' : 'game';
+  const hash = location.hash.slice(1);
+  return hash === 'lab' || hash === 'games' || hash === 'variants' ? hash : 'game';
 }
 
 function stored(key: string, fallback: string): string {
@@ -53,7 +55,7 @@ export function App() {
   const [settings, setSettings] = useState<Settings>(loadSettings);
   /** The champion the New game dialog opens with (from the lab's "Play the champion"). */
   const [dialogChampion, setDialogChampion] = useState<Champion | null>(null);
-  /** Which screen: the game, my games (#games), or the lab (#lab). */
+  /** Which screen: the game, my games (#games), the variant designer (#variants), or the lab (#lab). */
   const [page, setPage] = useState<Page>(pageOf);
   /** Moves queued while the engine thinks (from + to [+ piece]), played one per turn, oldest first. */
   const [premoves, setPremoves] = useState<string[]>([]);
@@ -287,6 +289,7 @@ export function App() {
         <div className="tabs" role="group" aria-label="Screen">
           <button type="button" className={'btn ghost' + (page === 'game' ? ' on' : '')} aria-pressed={page === 'game'} onClick={() => showPage('game')}>Game</button>
           <button type="button" className={'btn ghost' + (page === 'games' ? ' on' : '')} aria-pressed={page === 'games'} onClick={() => showPage('games')}>My games</button>
+          <button type="button" className={'btn ghost' + (page === 'variants' ? ' on' : '')} aria-pressed={page === 'variants'} onClick={() => showPage('variants')}>Variants</button>
           <button type="button" className={'btn ghost' + (page === 'lab' ? ' on' : '')} aria-pressed={page === 'lab'} onClick={() => showPage('lab')}>Lab</button>
         </div>
         <div className="spacer" />
@@ -303,6 +306,8 @@ export function App() {
         <button type="button" className="btn ghost" onClick={() => setSettingsOpen(true)}>Settings</button>
         <button type="button" className="btn primary" onClick={() => openDialog(state.opponent)}>New game</button>
       </header>
+
+      {page === 'variants' && <Variants />}
 
       {page === 'lab' && <Lab onPlay={(champion) => openDialog(champion)} />}
 
