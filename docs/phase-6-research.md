@@ -110,6 +110,32 @@ web UI ──► game / web ──► rules (FEN, legality, status)      engine 
 - `engine.SameMoveTest` unchanged (56 positions, depths 1-4), the whole suite green, `-Pstress`
   (`SearchSpeedTest`) within its limits.
 
+## 4b. R2 (branch `phase-6-pieces-as-data`)
+
+New package `ai.piece`, not yet used by the board (R3 uses it):
+
+- `Atom`: leap or slide, an offset seen from the owner (forward toward the opponent, right to
+  the owner's right), a symmetry (`ONE`, `SIDEWAYS` = left-right mirror, `ALL` = all eight),
+  a mode (`MOVE`, `CAPTURE`, `BOTH`), a range for slides (0 = no limit) and first-move-only.
+- `PieceType`: name, letter, atoms, royal, promotes-to letters, en passant, castling role
+  (`KING` / `ROOK`), starting value in centipawns.
+- `StandardPieces`: the six chess pieces as data. The pawn is a forward slide of range 1, a
+  first-move forward slide of range 2 (so the double step cannot jump a piece), and a sideways
+  pair of forward diagonal capture leaps.
+- `Grid`: a rectangle of at most 64 squares, numbered from the top row; player 1 sees it turned
+  half a circle, so an asymmetric invented piece points toward its opponent for both players.
+- `CompiledPiece`: a piece for one player on one grid, as per-square leap bitboards and slide
+  rays. `quietTargets` (empty squares it can move to) and `captureTargets` (its attack set).
+
+Checks: `ai.BitBoard.StandardPiecesTest` compares the six pieces with `Attacks` on every square,
+for both players, over 300 random occupancies (attacks, quiet moves, pawn pushes);
+`ai.piece.CompiledPieceTest` covers symmetries, an invented piece, the player-dependent forward
+direction and a 5x5 grid.
+
+Decisions taken: castling, en passant and promotion stay rules of the board (R3), with the piece
+only saying which role it plays; first-move-only is a property of the atom, and the board (R3)
+tracks which pieces have not moved.
+
 ## 5. Towards "everything possible"
 
 Each layer is more flexible and slower or riskier than the one before, so it is added only when

@@ -15,6 +15,7 @@ Dependencies point down only. `architecture.LayeringTest` fails the build if `ru
 | `game` | `GameSession`: turn-taking, clock, draw offers; engine moves and hints run as cancellable jobs on one engine thread; a result is dropped if the game moved on (generation check). `GameArchive` saves games as JSON files. |
 | `engine` | `Engine` interface; `MinimaxEngine` (built-in), `StockfishEngine` (one long-lived UCI process), `EngineSelector` (picks by level, falls back to built-in Level 8), `Levels` (ladder 0-13), `Weights` (tuned/classic), `TimeBudget`. |
 | `ai.board` | `Board`, the one way into a position (moves, children, check, game over, keys, FEN), `Move` (a move as one `int`) and `Boards` (picks the implementation). Players are numbered from 0, squares are ids. Since Phase 6 R1 nothing outside `ai.BitBoard` names the bitboard except its evaluator. |
+| `ai.piece` | Pieces as data (Phase 6 R2): `PieceType` built from `Atom`s (leap or slide, move / capture / both, symmetry, range, first move only), `StandardPieces`, `Grid`, and `CompiledPiece` (per-square tables). Not used by the board until R3. |
 | `ai`, `ai.BitBoard`, `ai.eval` | Bitboard move generator (`BitBoard implements Board`), `Minimax` search with `TranspositionTable`, `BitBoardEvaluate` (the evaluation) behind the `Evaluator` interface, `ParamSchema`/`ParamVector` for its weights. |
 | `rules` | The single rules authority: FEN in, legal moves, status (mate, stalemate, draws) and SAN out. Backed by the bitboard. |
 | `analysis` | Game analysis with Stockfish (`GameAnalyzer`, `UciEvaluator`). |
