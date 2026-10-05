@@ -5,6 +5,8 @@
 # Re-recorded in Phase 5 step 2, when the quiescence search was added (docs/phase-5-research.md §9).
 # Re-recorded in Phase 5b for the transposition table and move ordering: 6 of the 224 moves changed,
 # each to another move of exactly the same score (ai.TranspositionTableTest; docs/phase-5b-research.md §5).
+# Re-recorded in Phase 6 R3 for the generic board, which lists moves in another order: 3 of the 224
+# moves changed, each to another move of the same score (ai.GenericSearchTest; docs/phase-6-research.md §4c).
 # Re-record only for a change that is meant to alter the engine's play:
 #   mvn -o test-compile && java -cp target/classes:target/test-classes engine.SameMoveTest > moves.txt
 # fen | depth 1 | depth 2 | depth 3 | depth 4
@@ -22,7 +24,7 @@ r1b1k3/p2n3r/1ppB3b/nN5p/1q2PP2/1PP4N/P5PP/RQ2KBR1 b Q - 3 23 | b4b5 | b4b5 | b4
 r7/4k1B1/B3b3/1P4p1/p5P1/nP6/P1Q2nKP/1r5R w - - 0 55 | c2c7 | c2c7 | c2c7 | c2c7
 rnbqk1nr/1pp1bpp1/p3p3/3p3p/3P2P1/N7/PPP1PP1P/R1BQKBNR w KQkq - 0 6 | g4h5 | g4h5 | g4h5 | g4h5
 2b1kbnr/1rq1np1p/p2p2P1/1Np1p3/1P2Q2P/B1P2NP1/P2PP3/R3KB1R b KQk - 0 16 | a6b5 | a6b5 | a6b5 | a6b5
-1n1k1br1/2r3pp/p3p1p1/1P1pN3/2pPn2R/P3P1P1/2P1BQ2/R1B1K3 w - - 4 27 | f2f3 | e5f7 | h4e4 | h4e4
+1n1k1br1/2r3pp/p3p1p1/1P1pN3/2pPn2R/P3P1P1/2P1BQ2/R1B1K3 w - - 4 27 | f2f4 | e5f7 | h4e4 | h4e4
 r1b2r2/2qp3p/p1n1pbkP/P1p1P1p1/1N4n1/5p2/RPPRBP2/1QB1K3 b - - 2 37 | c6b4 | c5b4 | c5b4 | c5b4
 1n1r1b2/2k5/8/p1P5/p1n1p2R/P1Kp3P/8/3R4 w - - 1 48 | c3c4 | c3c4 | c3c4 | c3c4
 4k3/4r3/P6p/P1p1b3/2P1BP1p/R2r3P/R7/4QbK1 b - - 4 58 | d3a3 | d3a3 | d3a3 | d3a3
@@ -30,8 +32,8 @@ r1bqkbnr/5ppp/1p2p3/p2p4/1npP4/N2Q1PBN/PPP1P1PP/R3KB1R b KQkq - 1 9 | c4d3 | c4d
 1nb2b1r/1r3kpp/pP1pp3/1Bp2p2/1N1N3P/R1P1PQn1/1q1P1P1R/2B1K3 w - - 1 20 | c1b2 | c1b2 | c1b2 | c1b2
 r3r3/p2p3p/bppkPK1p/8/P3P1P1/R6n/2PPB3/BNQ1nR2 b - - 1 30 | e8e6 | e8e6 | e8e6 | e8e6
 4kb2/4P2B/p1r1q3/P2N1bp1/p5P1/3p2Kp/7P/R1r3NR w - - 0 41 | g1f3 | d5c7 | a1c1 | a1c1
-r7/pb3Bbp/4p3/N3n1p1/2k5/6KP/6PR/2N3R1 b - - 0 51 | c4b4 | c4b4 | c4b4 | c4b4
-r1bqkbnr/pppppppp/2n5/8/6P1/7P/PPPPPP2/RNBQKBNR b KQkq - 0 2 | g8f6 | g8f6 | e7e5 | d7d5
+r7/pb3Bbp/4p3/N3n1p1/2k5/6KP/6PR/2N3R1 b - - 0 51 | c4b5 | c4b4 | c4b4 | c4b4
+r1bqkbnr/pppppppp/2n5/8/6P1/7P/PPPPPP2/RNBQKBNR b KQkq - 0 2 | g8f6 | g8f6 | e7e5 | g8f6
 rnb1kb2/p2npp2/3p3r/2p3pp/p1B3P1/Pq2PP2/1PPP1K1P/R1B2QNR w q - 0 13 | c2b3 | c2b3 | c2b3 | c2b3
 rnbqkbnr/pp1ppppp/2p5/8/8/2N5/PPPPPPPP/1RBQKBNR b Kkq - 1 2 | e7e5 | e7e5 | b8a6 | b7b5
 1n2k1nr/1pq1pp1p/2ppb1p1/r3B1PP/8/p1PP1P2/PP1NP3/R2QKBNR w KQk - 1 13 | e5h8 | e5h8 | e5h8 | e5h8

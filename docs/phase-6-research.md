@@ -136,6 +136,36 @@ Decisions taken: castling, en passant and promotion stay rules of the board (R3)
 only saying which role it plays; first-move-only is a property of the atom, and the board (R3)
 tracks which pieces have not moved.
 
+## 4c. R3 (branches `phase-6-chess-position`, `phase-6-generic-board`)
+
+- **R3a:** `ai.board.ChessPosition` is what the chess evaluation reads (pieces of a type, attacks,
+  check, castling); `BitBoardEvaluate` reads through it, so it works on any board that offers it.
+- **R3b:** `ai.board.BoardRules` (a piece set, a grid and a start position; castling found from the
+  start position, Zobrist keys per player and type) and `ai.board.GenericBoard`, one bitboard per
+  player and type and one move generator for every type. `Boards.fromFen` now returns it.
+  - Attack test: a piece of player *p* attacks a square exactly when the same piece of the other
+    player, standing on that square, attacks it (offsets turned half a circle, slides blocked the
+    same both ways). Each piece also has a *reach* (its attacks on an empty board), so most types
+    are ruled out with one AND.
+  - A move is tested for leaving the king attacked only when it could: a royal piece moved, the
+    side was in check, the piece left a line an enemy slider could attack the king along, or the
+    move is castling, en passant or a promotion. Gives-check is tested the same way.
+  - Slides: per square, the rays that rise and the rays that fall; the nearest blocker is the
+    lowest or highest set bit of ray AND occupied, so a slide costs a few bit operations per ray.
+- Checks: `ai.BitBoard.GenericBoardTest` (perft on every position; along 10 random games of 150
+  plies from each: next FENs, check, game over, attacks, both evaluations, quiescence moves and
+  capture scores equal to `BitBoard`'s) and `ai.GenericSearchTest` (search values equal at depths
+  1-4, with and without the speed-ups).
+- The generic board lists moves square by square, not direction by direction, so among moves of
+  exactly equal score the search may now pick another one: 3 of the 224 moves in `same-moves.txt`
+  changed (each checked to score the same on both boards) and were re-recorded.
+- Speed (`-Pstress`, level 7, ms, old / new): middlegame 1515-1549 / 1329-1407, kiwipete 811-827 /
+  830-843, italian 487-510 / 443-507, rook endgame 72 / 109. Per node the new board is faster
+  everywhere (rook endgame 1.68 / 1.33 µs); the endgame searches more nodes because equal moves
+  come in another order.
+- **R3c (next):** delete `BitBoard`, `BitPiece`, `BitBoardRules`, `Attacks` and their tests; the
+  oracle from then on is perft and the random games against Stockfish.
+
 ## 5. Towards "everything possible"
 
 Each layer is more flexible and slower or riskier than the one before, so it is added only when
