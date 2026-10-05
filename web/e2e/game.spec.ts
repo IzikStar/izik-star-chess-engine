@@ -158,6 +158,6 @@ test('a premove made while the engine thinks is played on the next turn', async 
   await expect(page.getByTestId('status')).toContainText('Engine is thinking');
   await clickMove(page, 'd2', 'd4');
   await expect(page.getByTestId('status')).toContainText('Premove d2–d4');
-  await expect(moveList(page).getByRole('button')).toHaveCount(3);
+  // the third move is the premove (the engine may already have answered it: a count of 3 can be gone at once)
   await expect(moveList(page).getByRole('button').nth(2)).toHaveText('d4');
 });

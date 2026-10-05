@@ -12,7 +12,27 @@ export type Status =
   | 'STALEMATE'
   | 'DRAW_FIFTY_MOVE'
   | 'DRAW_THREEFOLD'
-  | 'DRAW_INSUFFICIENT_MATERIAL';
+  | 'DRAW_INSUFFICIENT_MATERIAL'
+  /** King of the Hill: the side that moved put its king on the centre (the side to move lost). */
+  | 'HILL_REACHED'
+  /** Three-check: the side that moved gave its last check (the side to move lost). */
+  | 'CHECKS_GIVEN'
+  /** Antichess: the side to move has no pieces left, and wins. */
+  | 'NO_PIECES_LEFT'
+  /** Antichess: the side to move has no move, and wins. */
+  | 'NO_MOVES_LEFT';
+
+/** The games the server plays (ai.variant.Variants). */
+export type VariantId = 'chess' | 'antichess' | 'king-of-the-hill' | 'three-check';
+
+/** The variant a game is played by, as the state names it. */
+export interface VariantInfo {
+  id: VariantId;
+  name: string;
+  goal: 'CHECKMATE' | 'LOSE_EVERYTHING' | 'KING_OF_THE_HILL' | 'CHECKS';
+  /** Three-check: how many checks win. */
+  checksToWin?: number;
+}
 
 export interface MoveInfo {
   uci: string;
@@ -61,6 +81,8 @@ export interface TimeControl {
 export interface GameState {
   startFen: string;
   fen: string;
+  /** The game's rules; absent from a server older than variants, which played chess. */
+  variant?: VariantInfo;
   turn: Color;
   status: Status;
   result: '1-0' | '0-1' | '1/2-1/2' | null;
@@ -147,6 +169,8 @@ export type Command =
       weights?: Weights;
       /** Null or absent: untimed. */
       time?: TimeControl | null;
+      /** Absent: chess. */
+      variant?: VariantId;
     };
 
 export type Connection = 'connecting' | 'open' | 'lost';

@@ -6,11 +6,11 @@ import { PgnDialog } from './PgnDialog';
 import { Games } from './Games';
 import { Lab } from './Lab';
 import { MoveList, RepeatButton } from './MoveList';
-import { CHAMPION_LEVELS, NewGameDialog, type NewGameChoice } from './NewGameDialog';
+import { CHAMPION_LEVELS, maxLevelFor, NewGameDialog, type NewGameChoice } from './NewGameDialog';
 import { SettingsDialog } from './SettingsDialog';
 import { loadSettings, saveSettings, type Settings } from './settings';
 import { codeOf, PieceSvg } from './pieces';
-import { captured, colorName, engineText, LEVELS, MAX_LEVEL, isOver, kingSquare, materialOf, movesByFrom, other, resultText, timeControlOf, timeKey, turnOf, withPremoves } from './chess';
+import { captured, checksGiven, colorName, engineText, LEVELS, MAX_LEVEL, isOver, kingSquare, materialOf, movesByFrom, other, resultText, timeControlOf, timeKey, turnOf, variantOf, VARIANTS, withPremoves } from './chess';
 import { useGame, type Champion, type Color, type GameEvent, type GameState, type Weights } from './protocol';
 import { play } from './sounds';
 
@@ -84,8 +84,10 @@ export function App() {
           play(e.move.status === 'CHECK' ? 'check' : e.move.capture ? 'capture' : e.move.castling ? 'castle' : 'move', sound);
           break;
         case 'gameOver': {
-          const humanLost = state.config.mode === 'engine' && e.status === 'CHECKMATE' && state.turn === state.config.humanColor;
-          play(e.status === 'CHECKMATE' ? (humanLost ? 'lose' : 'win') : 'draw', sound);
+          // the result says who won: in antichess the side left without pieces is the winner
+          const winner = state.result === '1-0' ? 'white' : state.result === '0-1' ? 'black' : null;
+          const humanLost = state.config.mode === 'engine' && winner !== null && winner !== state.config.humanColor;
+          play(winner ? (humanLost ? 'lose' : 'win') : 'draw', sound);
           break;
         }
         case 'ended': {
@@ -209,7 +211,9 @@ export function App() {
 
   const report = analysis.status === 'done' ? analysis.report : null;
   const reportEval = report && ply < report.evals.length ? report.evals[ply] : null;
-  const barWanted = !!state && settings.evalBar[state.config.mode] && state.stockfish?.available !== false;
+  // Stockfish judges chess only, so the bar and the analysis are for chess games
+  const isChess = !!state && variantOf(state) === 'chess';
+  const barWanted = !!state && isChess && settings.evalBar[state.config.mode] && state.stockfish?.available !== false;
   // the analysis already knows the score of every position it covered; ask only for the rest
   const liveEval = useLiveEval(barWanted && !reportEval && page === 'game', state?.startFen ?? '', useMemo(() => allUci.slice(0, ply), [allUci, ply]));
 
@@ -257,7 +261,7 @@ export function App() {
     store('weights', choice.weights);
     play('start', soundOn);
     const champion = choice.mode === 'engine' && choice.champion ? { run: choice.champion.run, generation: choice.champion.generation } : null;
-    send({ type: 'newGame', mode: choice.mode, color: choice.color, level: choice.level, blackLevel: choice.blackLevel, champion, weights: choice.weights, time: timeControlOf(choice.time) });
+    send({ type: 'newGame', mode: choice.mode, color: choice.color, level: choice.level, blackLevel: choice.blackLevel, champion, weights: choice.weights, time: timeControlOf(choice.time), variant: choice.variant });
   };
 
   const openDialog = (champion: Champion | null) => {
@@ -266,7 +270,8 @@ export function App() {
   };
 
   // after a game against the engine: the next level up (a champion only plays the built-in engine's levels)
-  const topLevel = state.opponent ? CHAMPION_LEVELS.max : MAX_LEVEL;
+  const variant = variantOf(state);
+  const topLevel = state.opponent ? CHAMPION_LEVELS.max : Math.min(MAX_LEVEL, maxLevelFor(variant));
   const nextLevel = config.mode === 'engine' && config.level < topLevel ? Math.max(config.level + 1, state.opponent ? CHAMPION_LEVELS.min : 0) : null;
   // a hint level the ladder no longer has falls back to the strongest
   const hintLevel = settings.hintLevel !== null && settings.hintLevel <= MAX_LEVEL ? settings.hintLevel : null;
@@ -342,6 +347,12 @@ export function App() {
 
           <StatusLine state={state} connection={connection} live={live} ply={ply} premoves={premoveColor ? premoves : []} onReturn={() => goTo(moves.length)} />
 
+          {variant !== 'chess' && (
+            <p className="variant-tag" data-testid="variant-tag">
+              <strong>{state.variant?.name ?? variant}</strong> · {VARIANTS.find((v) => v.id === variant)?.rule}
+            </p>
+          )}
+
           {notice && <p className="notice" role="status" data-testid="notice">{notice}</p>}
 
           {state.drawOffer && !over && (
@@ -372,18 +383,20 @@ export function App() {
               <div className="score">{state.result === '1/2-1/2' ? '½ – ½' : state.result!.replace('-', ' – ')}</div>
               <div className="reason">{resultText(state.status, state.turn, state.end)}</div>
               <div className="row">
-                <button type="button" className="btn primary" onClick={() => startNewGame({ mode: config.mode, color: config.humanColor, level: config.level, blackLevel: config.blackLevel, autoFlip, champion: state.opponent, weights, time: timeKey(state.clock) })}>Rematch</button>
+                <button type="button" className="btn primary" onClick={() => startNewGame({ mode: config.mode, color: config.humanColor, level: config.level, blackLevel: config.blackLevel, autoFlip, champion: state.opponent, weights, time: timeKey(state.clock), variant })}>Rematch</button>
                 {nextLevel !== null && (
                   <button type="button" className="btn" data-testid="next-level" title={LEVELS[nextLevel].name}
-                    onClick={() => startNewGame({ mode: 'engine', color: config.humanColor, level: nextLevel, blackLevel: nextLevel, autoFlip, champion: state.opponent, weights, time: timeKey(state.clock) })}>
+                    onClick={() => startNewGame({ mode: 'engine', color: config.humanColor, level: nextLevel, blackLevel: nextLevel, autoFlip, champion: state.opponent, weights, time: timeKey(state.clock), variant })}>
                     Play Level {nextLevel}
                   </button>
                 )}
                 <button type="button" className="btn" onClick={() => goTo(0)}>Review game</button>
-                <button type="button" className="btn" disabled={analysis.status === 'running'} onClick={() => {
-                  analyse();
-                  goTo(0);
-                }}>Analyse game</button>
+                {isChess && (
+                  <button type="button" className="btn" disabled={analysis.status === 'running'} onClick={() => {
+                    analyse();
+                    goTo(0);
+                  }}>Analyse game</button>
+                )}
               </div>
             </section>
           )}
@@ -414,7 +427,8 @@ export function App() {
                 onClick={() => send({ type: 'hint', level: hintLevel })}><b aria-hidden="true">✦</b>Hint</button>
             )}
             <button type="button" className="icon labelled" onClick={() => setFlipped(!flipped)}><b aria-hidden="true">⇅</b>Flip board</button>
-            <button type="button" className="icon labelled" disabled={moves.length === 0 || analysis.status === 'running'} onClick={analyse}><b aria-hidden="true">≋</b>Analyse</button>
+            <button type="button" className="icon labelled" disabled={!isChess || moves.length === 0 || analysis.status === 'running'}
+              title={isChess ? undefined : 'Stockfish analyses chess games only'} onClick={analyse}><b aria-hidden="true">≋</b>Analyse</button>
             <button type="button" className="icon labelled" disabled={!live || !state.canOfferDraw} onClick={() => {
               setNotice(null);
               send({ type: 'offerDraw' });
@@ -431,7 +445,8 @@ export function App() {
       {dialogOpen && (
         <NewGameDialog
           stockfish={state.stockfish}
-          initial={{ mode: dialogChampion ? 'engine' : config.mode, color: config.humanColor, level: config.level, blackLevel: config.blackLevel, autoFlip, champion: dialogChampion, weights, time: timeKey(state.clock) }}
+          initial={{ mode: dialogChampion ? 'engine' : config.mode, color: config.humanColor, level: config.level, blackLevel: config.blackLevel, autoFlip, champion: dialogChampion, weights, time: timeKey(state.clock),
+            variant: dialogChampion ? 'chess' : variant }}
           onStart={(choice) => {
             showPage('game');
             startNewGame(choice);
@@ -479,9 +494,11 @@ function PlayerCard({ state, color, fen, live, receivedAt }: { state: GameState;
   const who = isEngine ? (state.opponent && config.mode === 'engine' ? state.opponent.label : `Level ${level}`)
     : config.mode === 'engine' ? 'You' : 'Player';
   const name = `${colorName(color)} · ${who}`;
+  const checks = checksGiven(fen, state.variant?.checksToWin);
   const detail = isEngine ? engineText(level, state.stockfish) : config.mode === 'engine' ? 'Human player' : 'Human player, same board';
   const taken = captured(fen)[color];
-  const lead = materialOf(fen) * (color === 'white' ? 1 : -1);
+  // in antichess being ahead in material is no lead at all
+  const lead = variantOf(state) === 'antichess' ? 0 : materialOf(fen) * (color === 'white' ? 1 : -1);
   const toMove = live && !isOver(state) && state.turn === color;
   return (
     <div className={'player' + (toMove ? ' to-move' : '')} data-testid={`player-${color}`}>
@@ -490,6 +507,11 @@ function PlayerCard({ state, color, fen, live, receivedAt }: { state: GameState;
         <div className="name">{name}</div>
         <div className="detail">{detail}</div>
       </div>
+      {checks && (
+        <div className="checks" data-testid={`checks-${color}`} title="Checks given">
+          ✚ {checks[color]}/{state.variant?.checksToWin ?? 3}
+        </div>
+      )}
       <div className="taken" aria-label={`${colorName(color)} has taken`}>
         <span className="glyphs">{taken.map((p, i) => <PieceSvg key={i} code={codeOf(p)} />)}</span>
         {lead > 0 && <span className="lead">+{lead}</span>}

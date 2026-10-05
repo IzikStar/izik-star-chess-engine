@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { eloText, engineText, LEVELS, MAX_LEVEL, MIN_LEVEL, STOCKFISH_FROM_LEVEL, TIME_CONTROLS, TOP_BUILT_IN_LEVEL } from './chess';
-import type { Champion, Color, Mode, StockfishInfo, Weights } from './protocol';
+import { eloText, engineText, LEVELS, MAX_LEVEL, MIN_LEVEL, STOCKFISH_FROM_LEVEL, TIME_CONTROLS, TOP_BUILT_IN_LEVEL, VARIANTS } from './chess';
+import type { Champion, Color, Mode, StockfishInfo, VariantId, Weights } from './protocol';
 import { StockfishInstall } from './StockfishInstall';
 
 export interface NewGameChoice {
@@ -16,6 +16,18 @@ export interface NewGameChoice {
   weights: Weights;
   /** A key of TIME_CONTROLS ("3+2"), or "none" for an untimed game. */
   time: string;
+  /** Which game: chess or a variant. */
+  variant: VariantId;
+}
+
+/** Stockfish plays chess only: in a variant the ladder stops at the built-in engine's top level. */
+export function maxLevelFor(variant: VariantId): number {
+  return variant === 'chess' ? MAX_LEVEL : TOP_BUILT_IN_LEVEL;
+}
+
+/** Antichess plays with an evaluation built from its own pieces, not the chess weights (nor a champion's). */
+export function usesChessWeights(variant: VariantId): boolean {
+  return variant !== 'antichess';
 }
 
 const WEIGHTS_NOTE: Record<Weights, string> = {
@@ -32,7 +44,7 @@ function LevelSlider({ id, label, value, onChange, stockfish, weights, min = MIN
   value: number;
   onChange: (v: number) => void;
   stockfish: StockfishInfo | undefined;
-  /** Whose Elo to show; a champion's is unknown. */
+  /** Whose Elo to show; a champion's, or any level's outside chess, is unknown. */
   weights: Weights | null;
   min?: number;
   max?: number;
@@ -89,6 +101,16 @@ export function NewGameDialog({ initial, stockfish, onStart, onCancel }: {
     : initial);
   const dialog = useRef<HTMLDialogElement>(null);
   const set = (patch: Partial<NewGameChoice>) => setChoice({ ...choice, ...patch });
+  const maxLevel = maxLevelFor(choice.variant);
+  const pickVariant = (variant: VariantId) => {
+    const top = maxLevelFor(variant);
+    set({
+      variant,
+      level: Math.min(choice.level, top),
+      blackLevel: Math.min(choice.blackLevel, top),
+      champion: usesChessWeights(variant) ? choice.champion : null,
+    });
+  };
 
   useEffect(() => {
     const d = dialog.current;
@@ -105,6 +127,16 @@ export function NewGameDialog({ initial, stockfish, onStart, onCancel }: {
         onStart(choice);
       }}>
         <h2 id="new-game-title">New game</h2>
+        <Segmented<VariantId>
+          label="Game"
+          value={choice.variant}
+          options={VARIANTS.map((v): [VariantId, string] => [v.id, v.name])}
+          onChange={pickVariant}
+        />
+        <p className="muted field-note" data-testid="variant-rule">
+          {VARIANTS.find((v) => v.id === choice.variant)!.rule}
+          {choice.variant !== 'chess' && choice.mode !== 'friend' && ` Stockfish plays chess only, so the strongest opponent here is Level ${TOP_BUILT_IN_LEVEL}.`}
+        </p>
         <Segmented<Mode>
           label="Opponent"
           value={choice.mode}
@@ -126,19 +158,19 @@ export function NewGameDialog({ initial, stockfish, onStart, onCancel }: {
           </div>
         )}
         {choice.mode === 'engine' && (
-          <LevelSlider id="level" label="Strength" value={choice.level} weights={choice.champion ? null : choice.weights}
+          <LevelSlider id="level" label="Strength" value={choice.level} weights={choice.champion || choice.variant !== 'chess' ? null : choice.weights}
             onChange={(level) => set({ level })} stockfish={stockfish}
-            min={choice.champion ? CHAMPION_LEVELS.min : MIN_LEVEL} max={choice.champion ? CHAMPION_LEVELS.max : MAX_LEVEL} />
+            min={choice.champion ? CHAMPION_LEVELS.min : MIN_LEVEL} max={choice.champion ? CHAMPION_LEVELS.max : maxLevel} />
         )}
         {choice.mode === 'computer' && (
           <>
-            <LevelSlider id="level" label="White's strength" value={choice.level} weights={choice.weights}
-              onChange={(level) => set({ level })} stockfish={stockfish} />
-            <LevelSlider id="blackLevel" label="Black's strength" value={choice.blackLevel} weights={choice.weights}
-              onChange={(blackLevel) => set({ blackLevel })} stockfish={stockfish} />
+            <LevelSlider id="level" label="White's strength" value={choice.level} weights={choice.variant === 'chess' ? choice.weights : null}
+              onChange={(level) => set({ level })} stockfish={stockfish} max={maxLevel} />
+            <LevelSlider id="blackLevel" label="Black's strength" value={choice.blackLevel} weights={choice.variant === 'chess' ? choice.weights : null}
+              onChange={(blackLevel) => set({ blackLevel })} stockfish={stockfish} max={maxLevel} />
           </>
         )}
-        {(choice.mode === 'computer' || (choice.mode === 'engine' && !choice.champion)) && (
+        {usesChessWeights(choice.variant) && (choice.mode === 'computer' || (choice.mode === 'engine' && !choice.champion)) && (
           <>
             <Segmented<Weights>
               label="Engine weights"

@@ -46,7 +46,8 @@ const CHECK = 'radial-gradient(circle, rgba(255, 0, 0, 0.85) 0%, rgba(231, 0, 0,
  */
 export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, onMove, onSelect, onIllegal, premoveColor, premoves, onPremove, badge }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
-  const [promotion, setPromotion] = useState<{ from: string; to: string; color: 'w' | 'b'; premove: boolean } | null>(null);
+  /** choices: the pieces the pawn may become, as the legal moves name them (a premove offers the usual four). */
+  const [promotion, setPromotion] = useState<{ from: string; to: string; color: 'w' | 'b'; premove: boolean; choices: string[] } | null>(null);
   const pieces = useMemo(() => boardOf(fen), [fen]);
   const [marks, setMarks] = useState<string[]>([]);
   const rightPress = useRef<string | null>(null);
@@ -74,7 +75,7 @@ export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, on
   };
   const queuePremove = (from: string, to: string) => {
     setSelected(null);
-    if (premovePromotes(from, to)) setPromotion({ from, to, color: pieces[from] === 'P' ? 'w' : 'b', premove: true });
+    if (premovePromotes(from, to)) setPromotion({ from, to, color: pieces[from] === 'P' ? 'w' : 'b', premove: true, choices: USUAL_PROMOTIONS });
     else onPremove(from + to);
   };
 
@@ -86,7 +87,8 @@ export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, on
     if (moves.length === 0) return false;
     setSelected(null);
     if (moves.some((u) => u.length === 5)) {
-      setPromotion({ from, to, color: pieces[from] === pieces[from]?.toUpperCase() ? 'w' : 'b', premove: false });
+      setPromotion({ from, to, color: pieces[from] === pieces[from]?.toUpperCase() ? 'w' : 'b', premove: false,
+        choices: moves.filter((u) => u.length === 5).map((u) => u[4]) });
       return false;
     }
     onMove(moves[0]);
@@ -196,6 +198,7 @@ export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, on
           square={promotion.to}
           orientation={orientation}
           color={promotion.color}
+          choices={promotion.choices}
           onPick={(piece) => {
             const uci = promotion.from + promotion.to + piece;
             if (promotion.premove) onPremove(uci);
@@ -209,10 +212,15 @@ export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, on
   );
 }
 
-function PromotionPicker({ square, orientation, color, onPick, onCancel }: {
+const USUAL_PROMOTIONS = ['q', 'r', 'b', 'n'];
+const PIECE_NAMES: Record<string, string> = { q: 'Queen', r: 'Rook', b: 'Bishop', n: 'Knight', k: 'King' };
+
+function PromotionPicker({ square, orientation, color, choices, onPick, onCancel }: {
   square: string;
   orientation: Color;
   color: 'w' | 'b';
+  /** Piece letters, lower case, in the order the server lists them. */
+  choices: string[];
   onPick: (piece: string) => void;
   onCancel: () => void;
 }) {
@@ -229,8 +237,8 @@ function PromotionPicker({ square, orientation, color, onPick, onCancel }: {
         style={{ left: `${col * 12.5}%`, [fromTop ? 'top' : 'bottom']: 0, flexDirection: fromTop ? 'column' : 'column-reverse' }}
         onClick={(e) => e.stopPropagation()}
       >
-        {(['q', 'r', 'b', 'n'] as const).map((p) => (
-          <button key={p} type="button" className="promo-piece" aria-label={{ q: 'Queen', r: 'Rook', b: 'Bishop', n: 'Knight' }[p]} onClick={() => onPick(p)}>
+        {choices.map((p) => (
+          <button key={p} type="button" className="promo-piece" aria-label={PIECE_NAMES[p] ?? p.toUpperCase()} onClick={() => onPick(p)}>
             <PieceSvg code={color + p.toUpperCase()} />
           </button>
         ))}

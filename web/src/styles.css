@@ -70,12 +70,13 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 
 /* name and engine on top, taken pieces on a row of their own, the clock at the right: nothing
    squeezes the name, and taking a piece never changes the card's height */
-.player { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "avatar who clock" "avatar taken clock"; align-items: center; column-gap: 12px; row-gap: 2px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.player { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: "avatar who checks clock" "avatar taken checks clock"; align-items: center; column-gap: 12px; row-gap: 2px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
 .player .avatar { grid-area: avatar; }
 .player .who { grid-area: who; }
 .player .who .name, .player .who .detail { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .player .taken { grid-area: taken; height: 24px; min-width: 0; overflow: hidden; }
 .player .clock { grid-area: clock; }
+.player .checks { grid-area: checks; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--accent, inherit); white-space: nowrap; }
 .player.to-move { border-color: var(--accent); box-shadow: inset 4px 0 0 var(--accent); }
 .avatar { width: 38px; height: 38px; border-radius: 8px; display: grid; place-items: center; font-size: 22px; background: var(--surface-2); border: 1px solid var(--line); flex: none; }
 .avatar svg { width: 30px; height: 30px; }
@@ -214,6 +215,7 @@ input[type='range'] { width: 100%; accent-color: var(--accent); }
 .ask.warn { border-color: var(--warn); background: var(--warn-soft); }
 .ask .row { justify-content: flex-start; }
 .notice { margin: 0; padding: 8px 14px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); font-size: 14px; }
+.variant-tag { margin: 0; padding: 8px 14px; border-radius: 10px; background: var(--accent-soft); border: 1px solid var(--line); font-size: 14px; }
 .btn.danger { background: var(--warn); border-color: var(--warn); color: var(--accent-fg); }
 .btn:disabled { opacity: 0.5; cursor: default; }
 .dialog.wide { width: min(560px, calc(100% - 32px)); }
