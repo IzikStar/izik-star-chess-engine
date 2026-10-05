@@ -19,7 +19,9 @@ public record MoveResult(
         int moveNumber,
         String fenBefore,
         String fenAfter,
-        GameStatus status) {
+        GameStatus status,
+        /** The squares of the royal pieces left in check by the move (chess: the king's), for the board to mark. */
+        java.util.List<String> checked) {
 
     public boolean whiteMoved() {
         return Character.isUpperCase(piece);

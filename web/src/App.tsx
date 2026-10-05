@@ -11,7 +11,7 @@ import { CHAMPION_LEVELS, maxLevelFor, NewGameDialog, type NewGameChoice } from 
 import { SettingsDialog } from './SettingsDialog';
 import { loadSettings, saveSettings, type Settings } from './settings';
 import { artUrls, codeOf, PieceArt, PieceSvg } from './pieces';
-import { captured, checksGiven, colorName, goalRule, pieceSetBase, engineText, LEVELS, MAX_LEVEL, isOver, kingSquare, materialOf, movesByFrom, other, resultText, timeControlOf, timeKey, turnOf, variantOf, VARIANTS, withPremoves } from './chess';
+import { captured, checksGiven, colorName, goalRule, pieceSetBase, engineText, LEVELS, MAX_LEVEL, isOver, checkedSquares, materialOf, movesByFrom, other, resultText, timeControlOf, timeKey, variantOf, VARIANTS, withPremoves } from './chess';
 import { useGame, type Champion, type Color, type GameEvent, type GameState, type Weights } from './protocol';
 import { play } from './sounds';
 import { inventedReach } from './reach';
@@ -247,7 +247,7 @@ export function App() {
   const fen = live ? state.fen : ply === 0 ? state.startFen : moves[ply - 1].fenAfter;
   const shownStatus = live ? state.status : ply === 0 ? 'IN_PROGRESS' : moves[ply - 1].status;
   const lastMove = ply === 0 ? null : moves[ply - 1].uci;
-  const checkSquare = shownStatus === 'CHECK' || shownStatus === 'CHECKMATE' ? kingSquare(fen, turnOf(fen)) : null;
+  const checkSquares = checkedSquares(live ? state.checked : ply === 0 ? [] : moves[ply - 1].checked, shownStatus, fen);
   const over = isOver(state);
   const shownEval = reportEval ?? liveEval.score;
   // the bar always shows with an analysis; otherwise as the settings say for this kind of game
@@ -349,7 +349,7 @@ export function App() {
             orientation={orientation}
             legal={live ? legal : EMPTY}
             lastMove={lastMove}
-            checkSquare={checkSquare}
+            checkSquares={checkSquares}
             hint={bestArrow ?? (live && settings.hints ? state.hint : null)}
             onMove={(uci) => send({ type: 'move', uci })}
             reachOf={inventedReach(state.variant?.pieces, fen, state.startFen)}

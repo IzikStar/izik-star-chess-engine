@@ -51,6 +51,8 @@ export interface MoveInfo {
   enPassant: boolean;
   promotion: boolean;
   status: Status;
+  /** Squares of the royal pieces in check after the move (chess: the king's); absent from an older server. */
+  checked?: string[];
 }
 
 export interface GameConfig {
@@ -91,6 +93,8 @@ export interface GameState {
   variant?: VariantInfo;
   turn: Color;
   status: Status;
+  /** Squares of the side to move's royal pieces in check (chess: the king's); absent from an older server. */
+  checked?: string[];
   result: '1-0' | '0-1' | '1/2-1/2' | null;
   /** Set when the game ended by resignation, on time or by agreement (otherwise status says how). */
   end: GameEnd | null;

@@ -339,7 +339,7 @@ function GameReplay({ url }: { url: string }) {
       <p><strong>{player(replay.white)}</strong> – <strong>{player(replay.black)}</strong> · {replay.opening} · {resultText(replay.result)} ({replay.reason.toLowerCase().replace(/_/g, ' ')})</p>
       <div className="replay-board">
         <Board fen={fen} orientation="white" legal={EMPTY} lastMove={ply === 0 ? null : replay.moves[ply - 1].uci}
-          checkSquare={null} hint={null} onMove={() => {}} onSelect={() => {}} onIllegal={() => {}}
+          checkSquares={[]} hint={null} onMove={() => {}} onSelect={() => {}} onIllegal={() => {}}
           premoveColor={null} premoves={[]} onPremove={() => {}} />
       </div>
       <div className="nav" role="group" aria-label="Replay moves">

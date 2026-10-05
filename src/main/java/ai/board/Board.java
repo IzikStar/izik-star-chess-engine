@@ -50,6 +50,9 @@ public interface Board {
     /** True when the player to move is under attack in a way that must be answered (chess: check). */
     boolean inCheck();
 
+    /** The squares (bits) of the player to move's royal pieces that are attacked; 0 when not in check. */
+    long checkedRoyals();
+
     /**
      * Whether the game is over here and how, for the player to move: by the variant's goal (a
      * royal piece on the hill, the last check, no pieces left), by having no legal move, or by a draw

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnalysisPanel, EvalBar, useAnalysis } from './Analysis';
 import { Board } from './Board';
-import { colorName, formatClock, kingSquare, LEVELS, levelElo, other, STOCKFISH_FROM_LEVEL, turnOf, VARIANTS } from './chess';
+import { colorName, formatClock, checkedSquares, LEVELS, levelElo, other, STOCKFISH_FROM_LEVEL, VARIANTS } from './chess';
 import { MoveList, RepeatButton } from './MoveList';
 import type { Color, MoveInfo, VariantId, Weights } from './protocol';
 
@@ -290,7 +290,7 @@ function GameReview({ id, live, onBack, onResume, onShowLive }: {
   const { moves } = game;
   const fen = ply === 0 ? game.startFen : moves[ply - 1].fenAfter;
   const status = ply === 0 ? 'IN_PROGRESS' : moves[ply - 1].status;
-  const checkSquare = status === 'CHECK' || status === 'CHECKMATE' ? kingSquare(fen, turnOf(fen)) : null;
+  const checkSquares = checkedSquares(ply === 0 ? [] : moves[ply - 1].checked, status, fen);
   const base: Color = game.mode === 'engine' ? game.humanColor : 'white';
   const orientation = flipped ? other(base) : base;
   const report = analysis.status === 'done' ? analysis.report : null;
@@ -325,7 +325,7 @@ function GameReview({ id, live, onBack, onResume, onShowLive }: {
         <div className="board-wrap">
           {report && <EvalBar score={ply < report.evals.length ? report.evals[ply] : null} orientation={orientation} />}
           <Board fen={fen} orientation={orientation} legal={EMPTY} lastMove={ply === 0 ? null : moves[ply - 1].uci}
-            checkSquare={checkSquare} hint={shownMove && shownMove.quality !== 'best' ? shownMove.bestUci : null}
+            checkSquares={checkSquares} hint={shownMove && shownMove.quality !== 'best' ? shownMove.bestUci : null}
             onMove={() => {}} onSelect={() => {}} onIllegal={() => {}} premoveColor={null} premoves={[]} onPremove={() => {}}
             badge={shownMove ? { square: shownMove.uci.slice(2, 4), quality: shownMove.quality } : null} />
         </div>
