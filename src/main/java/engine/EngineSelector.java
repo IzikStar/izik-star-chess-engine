@@ -52,6 +52,14 @@ public final class EngineSelector {
         return withFallback(request.withSkillLevel(HINT_LEVEL), HINT_FALLBACK_LEVEL);
     }
 
+    /**
+     * A hint played as {@code level} would play it ({@link Levels}); {@link #HINT_LEVEL} (or above)
+     * is the usual hint, the strongest the app has.
+     */
+    public ChessMove hint(SearchRequest request, int level) {
+        return level >= HINT_LEVEL ? hint(request) : move(request.withSkillLevel(Levels.clamp(level)));
+    }
+
     /** A quick move from the built-in engine, for when a search failed outright. */
     public ChessMove quickMove(SearchRequest request) {
         return builtIn.bestMove(request.withSkillLevel(QUICK_MOVE_LEVEL));

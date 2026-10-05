@@ -189,6 +189,29 @@ class GameSessionTest {
         assertTrue(rules.Rules.isLegal(Position.START_FEN, rec.hint));
     }
 
+    @Test
+    @DisplayName("A hint at a chosen level is searched at that level; without one, at the strongest")
+    void hintAtLevel() {
+        List<Integer> levels = new ArrayList<>();
+        Engine recording = new Engine() {
+            @Override public ChessMove bestMove(engine.SearchRequest request) {
+                levels.add(request.skillLevel());
+                return rules.Rules.legalMoves(request.fen()).get(0);
+            }
+            @Override public boolean isAvailable() { return true; }
+        };
+        Recorder rec = new Recorder();
+        DirectExecutor direct = new DirectExecutor();
+        GameSession s = new GameSession(GameConfig.defaults().withMode(GameConfig.Mode.HUMAN_VS_HUMAN),
+                new EngineSelector(recording, recording), direct, direct);
+        s.addListener(rec);
+        s.requestHint(4);
+        s.requestHint(10);
+        s.requestHint();
+        assertEquals(List.of(4, 10, EngineSelector.HINT_LEVEL), levels);
+        assertNotNull(rec.hint);
+    }
+
     /** An engine whose first search dies with {@code error}; later searches play the first legal move. */
     private static Engine failsOnce(Error error) {
         AtomicInteger calls = new AtomicInteger();

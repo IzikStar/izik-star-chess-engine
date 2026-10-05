@@ -74,6 +74,8 @@ public final class GameSession {
     private Cancellation hintCancel = new Cancellation();
     /** The position the pending hint is for, or {@code null} when no hint is pending. */
     private String hintFen;
+    /** The level the pending hint is asked at. */
+    private int hintLevel;
     /** True from submitting an engine move until its result is applied or discarded. */
     private boolean engineBusy;
     private long randomMoveDelayMs = RANDOM_MOVE_DELAY_MS;
@@ -400,15 +402,24 @@ public final class GameSession {
     }
 
     /**
-     * Asks the engine for a suggestion for the side to move; arrives as {@link GameListener#hint}.
-     * Asking again for the same position while a hint is on its way does nothing.
+     * Asks the engine for its strongest suggestion for the side to move; arrives as
+     * {@link GameListener#hint}. Asking again for the same position while a hint is on its way
+     * does nothing.
      */
     public void requestHint() {
+        requestHint(EngineSelector.HINT_LEVEL);
+    }
+
+    /**
+     * Asks for the move {@code level} would play here ({@code engine.Levels}; {@link
+     * EngineSelector#HINT_LEVEL} is the strongest), as {@link #requestHint()} does.
+     */
+    public void requestHint(int level) {
         if (isOver()) {
             return;
         }
         String fen = game.fen();
-        if (fen.equals(hintFen)) {
+        if (fen.equals(hintFen) && level == hintLevel) {
             return;
         }
         cancelHint();
@@ -416,9 +427,10 @@ public final class GameSession {
         Cancellation cancel = new Cancellation();
         hintCancel = cancel;
         hintFen = fen;
-        SearchRequest request = request(EngineSelector.HINT_LEVEL, cancel);
+        hintLevel = level;
+        SearchRequest request = request(level, cancel);
         pendingHintJob = engineExecutor.submit(() -> {
-            ChessMove move = cancel.isCancelled() ? null : hintOrNull(request);
+            ChessMove move = cancel.isCancelled() ? null : hintOrNull(request, level);
             dispatcher.execute(() -> {
                 if (cancel == hintCancel) {
                     hintFen = null;
@@ -639,9 +651,9 @@ public final class GameSession {
     }
 
     /** The hint, or null if its search failed; the failure is reported and the hint can be asked for again. */
-    private ChessMove hintOrNull(SearchRequest request) {
+    private ChessMove hintOrNull(SearchRequest request, int level) {
         try {
-            return engines.hint(request);
+            return engines.hint(request, level);
         } catch (RuntimeException | Error e) {
             e.printStackTrace();
             return null;

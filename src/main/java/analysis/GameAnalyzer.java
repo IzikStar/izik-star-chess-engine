@@ -87,6 +87,10 @@ public final class GameAnalyzer {
     }
 
     /** The score of a finished position (mate or a rules draw), or null if play goes on. */
+    public static Score gameOverScore(String fen) {
+        return gameOverScore(fen, fen.split(" ")[1].equals("w"));
+    }
+
     private static Score gameOverScore(String fen, boolean whiteToMove) {
         GameStatus status = Rules.status(fen);
         if (status == GameStatus.CHECKMATE) {

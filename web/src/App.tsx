@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AnalysisPanel, EvalBar, gameKey, useAnalysis } from './Analysis';
+import { AnalysisPanel, EvalBar, gameKey, useAnalysis, useLiveEval } from './Analysis';
 import { Board } from './Board';
 import { ClockFace } from './Clock';
 import { PgnDialog } from './PgnDialog';
 import { Games } from './Games';
 import { Lab } from './Lab';
 import { MoveList, RepeatButton } from './MoveList';
-import { NewGameDialog, type NewGameChoice } from './NewGameDialog';
+import { CHAMPION_LEVELS, NewGameDialog, type NewGameChoice } from './NewGameDialog';
+import { SettingsDialog } from './SettingsDialog';
+import { loadSettings, saveSettings, type Settings } from './settings';
 import { codeOf, PieceSvg } from './pieces';
-import { captured, colorName, engineText, isOver, kingSquare, materialOf, movesByFrom, other, resultText, timeControlOf, timeKey, turnOf, withPremoves } from './chess';
+import { captured, colorName, engineText, LEVELS, MAX_LEVEL, isOver, kingSquare, materialOf, movesByFrom, other, resultText, timeControlOf, timeKey, turnOf, withPremoves } from './chess';
 import { useGame, type Champion, type Color, type GameEvent, type GameState, type Weights } from './protocol';
 import { play } from './sounds';
 
@@ -46,6 +48,9 @@ export function App() {
   /** The ply being reviewed (0 = start position), or null for the live position. */
   const [view, setView] = useState<number | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  /** Hints and the evaluation bar (the Settings dialog). */
+  const [settings, setSettings] = useState<Settings>(loadSettings);
   /** The champion the New game dialog opens with (from the lab's "Play the champion"). */
   const [dialogChampion, setDialogChampion] = useState<Champion | null>(null);
   /** Which screen: the game, my games (#games), or the lab (#lab). */
@@ -124,6 +129,7 @@ export function App() {
   const { state, receivedAt, connection, send } = useGame(onEvents);
   const { analysis, start: startAnalysis, clear: clearAnalysis } = useAnalysis();
   const currentKey = state ? gameKey(state.startFen, state.moves.map((m) => m.uci)) : '';
+  const allUci = useMemo(() => state?.moves.map((m) => m.uci) ?? [], [state?.moves]);
 
   // an analysis stays while the game only grows past it; a take-back or a new game drops it
   useEffect(() => {
@@ -188,7 +194,7 @@ export function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (dialogOpen || pgnOpen || page !== 'game' || (e.target as HTMLElement).closest('input, select, textarea')) return;
+      if (dialogOpen || pgnOpen || settingsOpen || page !== 'game' || (e.target as HTMLElement).closest('input, select, textarea')) return;
       if (e.key === 'ArrowLeft') goTo(ply - 1);
       else if (e.key === 'ArrowRight') goTo(ply + 1);
       else if (e.key === 'Home') goTo(0);
@@ -199,7 +205,13 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [goTo, ply, moves.length, dialogOpen, pgnOpen, page]);
+  }, [goTo, ply, moves.length, dialogOpen, pgnOpen, settingsOpen, page]);
+
+  const report = analysis.status === 'done' ? analysis.report : null;
+  const reportEval = report && ply < report.evals.length ? report.evals[ply] : null;
+  const barWanted = !!state && settings.evalBar[state.config.mode] && state.stockfish?.available !== false;
+  // the analysis already knows the score of every position it covered; ask only for the rest
+  const liveEval = useLiveEval(barWanted && !reportEval && page === 'game', state?.startFen ?? '', useMemo(() => allUci.slice(0, ply), [allUci, ply]));
 
   if (!state) {
     return (
@@ -215,8 +227,9 @@ export function App() {
   const lastMove = ply === 0 ? null : moves[ply - 1].uci;
   const checkSquare = shownStatus === 'CHECK' || shownStatus === 'CHECKMATE' ? kingSquare(fen, turnOf(fen)) : null;
   const over = isOver(state);
-  const report = analysis.status === 'done' ? analysis.report : null;
-  const shownEval = report && ply < report.evals.length ? report.evals[ply] : null;
+  const shownEval = reportEval ?? liveEval.score;
+  // the bar always shows with an analysis; otherwise as the settings say for this kind of game
+  const showBar = !!report || (barWanted && !liveEval.unavailable);
   // what the engine would have played instead of the move just shown (as the analysis line says);
   // never in a live game still being played
   const shownMove = report && (!live || over) && ply > 0 && ply <= report.moves.length ? report.moves[ply - 1] : null;
@@ -252,6 +265,12 @@ export function App() {
     setDialogOpen(true);
   };
 
+  // after a game against the engine: the next level up (a champion only plays the built-in engine's levels)
+  const topLevel = state.opponent ? CHAMPION_LEVELS.max : MAX_LEVEL;
+  const nextLevel = config.mode === 'engine' && config.level < topLevel ? Math.max(config.level + 1, state.opponent ? CHAMPION_LEVELS.min : 0) : null;
+  // a hint level the ladder no longer has falls back to the strongest
+  const hintLevel = settings.hintLevel !== null && settings.hintLevel <= MAX_LEVEL ? settings.hintLevel : null;
+
   // a resignation, a loss on time or an agreed draw cannot be taken back (a mate can)
   const canUndo = live && moves.length > 0 && config.mode !== 'computer' && !state.end
     && !(config.mode === 'engine' && moves.length === 1 && config.humanColor === 'black');
@@ -276,6 +295,7 @@ export function App() {
           setTheme(next);
           store('theme', next);
         }}>Dark / light</button>
+        <button type="button" className="btn ghost" onClick={() => setSettingsOpen(true)}>Settings</button>
         <button type="button" className="btn primary" onClick={() => openDialog(state.opponent)}>New game</button>
       </header>
 
@@ -295,14 +315,14 @@ export function App() {
       <main className="game" hidden={page !== 'game'}>
         <section className="board-area" aria-label="Board">
           <div className="board-wrap">
-          {report && <EvalBar score={shownEval} orientation={orientation} />}
+          {showBar && <EvalBar score={shownEval} orientation={orientation} />}
           <Board
             fen={shownPremoves.length ? withPremoves(fen, shownPremoves) : fen}
             orientation={orientation}
             legal={live ? legal : EMPTY}
             lastMove={lastMove}
             checkSquare={checkSquare}
-            hint={bestArrow ?? (live ? state.hint : null)}
+            hint={bestArrow ?? (live && settings.hints ? state.hint : null)}
             onMove={(uci) => send({ type: 'move', uci })}
             premoveColor={premoveColor}
             premoves={premoveColor ? premoves : []}
@@ -353,6 +373,12 @@ export function App() {
               <div className="reason">{resultText(state.status, state.turn, state.end)}</div>
               <div className="row">
                 <button type="button" className="btn primary" onClick={() => startNewGame({ mode: config.mode, color: config.humanColor, level: config.level, blackLevel: config.blackLevel, autoFlip, champion: state.opponent, weights, time: timeKey(state.clock) })}>Rematch</button>
+                {nextLevel !== null && (
+                  <button type="button" className="btn" data-testid="next-level" title={LEVELS[nextLevel].name}
+                    onClick={() => startNewGame({ mode: 'engine', color: config.humanColor, level: nextLevel, blackLevel: nextLevel, autoFlip, champion: state.opponent, weights, time: timeKey(state.clock) })}>
+                    Play Level {nextLevel}
+                  </button>
+                )}
                 <button type="button" className="btn" onClick={() => goTo(0)}>Review game</button>
                 <button type="button" className="btn" disabled={analysis.status === 'running'} onClick={() => {
                   analyse();
@@ -382,7 +408,11 @@ export function App() {
               play('back', soundOn);
               send({ type: 'undo' });
             }}><b aria-hidden="true">↶</b>Take back</button>
-            <button type="button" className="icon labelled" disabled={!live || !state.humanTurn || state.hintPending} onClick={() => send({ type: 'hint' })}><b aria-hidden="true">✦</b>Hint</button>
+            {settings.hints && (
+              <button type="button" className="icon labelled" disabled={!live || !state.humanTurn || state.hintPending}
+                title={hintLevel === null ? 'The strongest move' : `What Level ${hintLevel} would play`}
+                onClick={() => send({ type: 'hint', level: hintLevel })}><b aria-hidden="true">✦</b>Hint</button>
+            )}
             <button type="button" className="icon labelled" onClick={() => setFlipped(!flipped)}><b aria-hidden="true">⇅</b>Flip board</button>
             <button type="button" className="icon labelled" disabled={moves.length === 0 || analysis.status === 'running'} onClick={analyse}><b aria-hidden="true">≋</b>Analyse</button>
             <button type="button" className="icon labelled" disabled={!live || !state.canOfferDraw} onClick={() => {
@@ -407,6 +437,19 @@ export function App() {
             startNewGame(choice);
           }}
           onCancel={() => setDialogOpen(false)}
+        />
+      )}
+
+      {settingsOpen && (
+        <SettingsDialog
+          settings={settings}
+          weights={weights}
+          stockfish={state.stockfish}
+          onChange={(next) => {
+            setSettings(next);
+            saveSettings(next);
+          }}
+          onClose={() => setSettingsOpen(false)}
         />
       )}
 

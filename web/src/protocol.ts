@@ -128,7 +128,8 @@ export type Weights = 'tuned' | 'classic';
 export type Command =
   | { type: 'move'; uci: string }
   | { type: 'undo' }
-  | { type: 'hint' }
+  /** level: play the hint as that level would (LEVELS); null or absent: the strongest. */
+  | { type: 'hint'; level?: number | null }
   | { type: 'resign' }
   | { type: 'offerDraw' }
   | { type: 'answerDraw'; accept: boolean }

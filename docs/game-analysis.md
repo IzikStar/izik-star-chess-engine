@@ -14,6 +14,20 @@ accuracy, the average centipawn loss and a rough Elo estimate.
 - Stockfish searches each position to depth 12 (6-22 can be asked for). A 40-move game takes
   about ten seconds. Without Stockfish the server answers 503 and the page says so.
 
+## The live evaluation bar
+
+Without a full analysis the bar still follows the game: after every move (and for every position
+you step back to) the browser asks [`web.EvalApi`](../src/main/java/web/EvalApi.java)
+(`POST /api/eval {startFen?, moves}` → `{score}`) for the position's score. It is the same judge as
+the analysis (Stockfish at full strength, depth 12, its own process, kept between requests), so the
+bar does not jump when a full analysis arrives; positions an analysis already covered are not asked
+again. A finished position (mate, stalemate) is scored without the engine. Without Stockfish the
+endpoint answers 503 and the bar stays hidden.
+
+Whether the bar shows is a setting per kind of game (**Settings**, kept in the browser): on against
+the computer and when watching the engine, off between two people. With a full analysis it always
+shows.
+
 ## The numbers
 
 Every score is from White's side: centipawns, or moves to mate. A finished game scores

@@ -44,7 +44,7 @@ import java.util.function.Consumer;
  * the human's move).
  *
  * <p>Protocol, client to server ({@code type} field): {@code move} {uci}, {@code undo},
- * {@code hint}, {@code newGame} {mode: engine|friend|computer, color: white|black|random,
+ * {@code hint} {level?: 0-13 (play the hint as that level would; absent: the strongest)}, {@code newGame} {mode: engine|friend|computer, color: white|black|random,
  * level: 0-13, blackLevel: 0-13 (engine.Levels) (computer mode: Black's level; level is then White's),
  * champion: {run, generation} (optional: the built-in engine plays with that evolved champion's
  * weights, at the built-in engine's levels only), weights: tuned|classic (optional: the weights the
@@ -202,7 +202,8 @@ final class GameHub implements GameListener {
                 }
             }
             case "undo" -> session.undo();
-            case "hint" -> session.requestHint();
+            case "hint" -> session.requestHint(msg.has("level") && !msg.get("level").isJsonNull()
+                    ? msg.get("level").getAsInt() : EngineSelector.HINT_LEVEL);
             case "newGame" -> newGame(msg);
             case "resign" -> refuseUnless(session.resign(), "nobody can resign now");
             case "offerDraw" -> refuseUnless(session.offerDraw(), "a draw cannot be offered now");
