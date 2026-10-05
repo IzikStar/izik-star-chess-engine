@@ -1,6 +1,7 @@
 package ai.board;
 
 import ai.piece.CompiledPiece;
+import ai.variant.Variant;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,6 +31,8 @@ public final class GenericBoard implements ChessPosition {
     private final long unmoved;
     private final int halfmove;
     private final int fullmove;
+    /** With the {@code CHECKS} goal: checks given, player 0 in bits 0-7, player 1 in bits 8-15. */
+    private int checks;
 
     /** The move that made this position, and how it ranks before searching it. */
     private int lastMove = Move.NONE;
@@ -43,12 +46,12 @@ public final class GenericBoard implements ChessPosition {
     private List<GenericBoard> children;
 
     private GenericBoard(BoardRules rules, long[] pieces, int side, int rights, int castled, int ep, long unmoved,
-                         int halfmove, int fullmove) {
-        this(rules, pieces, occupiedOf(rules, pieces), side, rights, castled, ep, unmoved, halfmove, fullmove);
+                         int halfmove, int fullmove, int checks) {
+        this(rules, pieces, occupiedOf(rules, pieces), side, rights, castled, ep, unmoved, halfmove, fullmove, checks);
     }
 
     private GenericBoard(BoardRules rules, long[] pieces, long[] occupied, int side, int rights, int castled, int ep,
-                         long unmoved, int halfmove, int fullmove) {
+                         long unmoved, int halfmove, int fullmove, int checks) {
         this.rules = rules;
         this.pieces = pieces;
         this.occupied = occupied;
@@ -59,6 +62,7 @@ public final class GenericBoard implements ChessPosition {
         this.unmoved = unmoved;
         this.halfmove = halfmove;
         this.fullmove = fullmove;
+        this.checks = checks;
     }
 
     private static long[] occupiedOf(BoardRules rules, long[] pieces) {
@@ -104,9 +108,19 @@ public final class GenericBoard implements ChessPosition {
             int rank = Integer.parseInt(f[3].substring(1));
             ep = rules.grid.square(rules.grid.height() - rank, col);
         }
-        int half = f.length > 4 ? Integer.parseInt(f[4]) : 0;
-        int full = f.length > 5 ? Integer.parseInt(f[5]) : 1;
-        return new GenericBoard(rules, pieces, side, rights, 0, ep, unmoved, half, full);
+        int next = 4;
+        int checks = 0;
+        if (f.length > next && f[next].contains("+")) {
+            // checks still to give, as Fairy-Stockfish writes them: "3+3" for White's and Black's
+            String[] left = f[next++].split("\\+");
+            for (int player = 0; player < 2; player++) {
+                int given = Math.max(0, rules.checksToWin - Integer.parseInt(left[player]));
+                checks |= given << 8 * player;
+            }
+        }
+        int half = f.length > next ? Integer.parseInt(f[next]) : 0;
+        int full = f.length > next + 1 ? Integer.parseInt(f[next + 1]) : 1;
+        return new GenericBoard(rules, pieces, side, rights, 0, ep, unmoved, half, full, checks);
     }
 
     public BoardRules rules() {
@@ -169,8 +183,48 @@ public final class GenericBoard implements ChessPosition {
     }
 
     @Override
-    public boolean isOver() {
-        return !hasLegalMove() || halfmove >= 100;
+    public Outcome outcome() {
+        Outcome goal = goalOutcome();
+        if (goal != Outcome.ONGOING) {
+            return goal;
+        }
+        if (!hasLegalMove()) {
+            if (rules.goal == Variant.Goal.LOSE_EVERYTHING) {
+                return Outcome.WIN;
+            }
+            return inCheck(side) ? Outcome.LOSS : Outcome.DRAW;
+        }
+        return halfmove >= 100 ? Outcome.DRAW : Outcome.ONGOING;
+    }
+
+    /** The game is over by the variant's goal, before anyone looks at the moves; else ONGOING. */
+    private Outcome goalOutcome() {
+        switch (rules.goal) {
+            case LOSE_EVERYTHING:
+                return occupied[side] == 0 ? Outcome.WIN : Outcome.ONGOING;
+            case KING_OF_THE_HILL:
+                return (royals(1 - side) & rules.hill) != 0 ? Outcome.LOSS : Outcome.ONGOING;
+            case CHECKS:
+                return checksGiven(1 - side) >= rules.checksToWin ? Outcome.LOSS : Outcome.ONGOING;
+            default:
+                return Outcome.ONGOING;
+        }
+    }
+
+    /** How many checks {@code player} has given (the {@code CHECKS} goal). */
+    public int checksGiven(int player) {
+        return checks >>> 8 * player & 0xFF;
+    }
+
+    private long royals(int player) {
+        int n = rules.types.size();
+        long squares = 0;
+        for (int t = 0; t < n; t++) {
+            if (rules.royal[t]) {
+                squares |= pieces[player * n + t];
+            }
+        }
+        return squares;
     }
 
     @Override
@@ -184,7 +238,7 @@ public final class GenericBoard implements ChessPosition {
                 }
             }
         }
-        return key;
+        return key ^ checks * rules.checksKey;
     }
 
     @Override
@@ -247,6 +301,9 @@ public final class GenericBoard implements ChessPosition {
         }
         sb.append(castling.isEmpty() ? "-" : castling);
         sb.append(' ').append(ep < 0 ? "-" : squareName(ep));
+        if (rules.goal == Variant.Goal.CHECKS) {
+            sb.append(' ').append(rules.checksToWin - checksGiven(0)).append('+').append(rules.checksToWin - checksGiven(1));
+        }
         sb.append(' ').append(halfmove).append(' ').append(fullmove);
         return sb.toString();
     }
@@ -368,6 +425,9 @@ public final class GenericBoard implements ChessPosition {
      */
     private List<GenericBoard> generate(boolean firstOnly) {
         List<GenericBoard> out = new ArrayList<>();
+        if (goalOutcome() != Outcome.ONGOING) {
+            return out; // the game is already over
+        }
         int n = rules.types.size();
         long own = occupied[side];
         long enemy = occupied[1 - side];
@@ -411,7 +471,14 @@ public final class GenericBoard implements ChessPosition {
                 }
             }
         }
+        if (rules.forcedCapture && out.stream().anyMatch(GenericBoard::isCapture)) {
+            out.removeIf(child -> !child.isCapture());
+        }
         return out;
+    }
+
+    private boolean isCapture() {
+        return capturedType >= 0;
     }
 
     /**
@@ -558,7 +625,10 @@ public final class GenericBoard implements ChessPosition {
         boolean resets = captured >= 0 || rules.promotesTo[type].length > 0;
         GenericBoard child = new GenericBoard(rules, next, nextOccupied, other, newRights, newCastled, newEp,
                 unmoved & ~fromBit & ~toBit & ~victimBit, resets ? 0 : halfmove + 1,
-                side == 1 ? fullmove + 1 : fullmove);
+                side == 1 ? fullmove + 1 : fullmove, checks);
+        if (rules.goal == Variant.Goal.CHECKS && child.inCheck(other)) {
+            child.checks += 1 << 8 * side;
+        }
         child.lastMove = Move.of(from, to, promotion >= 0 ? Character.toLowerCase(rules.types.get(promotion).letter()) : 0);
         child.moveValue = value;
         child.movedType = type;

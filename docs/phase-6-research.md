@@ -172,6 +172,32 @@ tracks which pieces have not moved.
   same position parsed from its FEN and that the skipped attack tests agree with the full ones.
   `LayeringTest`: nothing outside `ai.board` names `GenericBoard`, and `ai/BitBoard` stays deleted.
 
+## 4d. R4 — a variant end to end (owner: "start", 2026-10-05)
+
+Steps: **R4a** variant as data and the board honouring it; R4b `rules` (FEN, SAN, status) by
+variant; R4c an evaluation built from the piece set (chess keeps `ChessEvaluate`, so the ladder
+does not move); R4d the game session, saved games and the protocol carry the variant; R4e the
+variant choice in the New game dialog and a drawing for pieces without one.
+
+### R4a (branch `phase-6-variant`)
+
+- `ai.variant.Variant`: id, name, piece types, grid, start FEN, and the rule switches: goal
+  (`CHECKMATE`, `LOSE_EVERYTHING` = antichess, `KING_OF_THE_HILL`, `CHECKS` with a count), forced
+  capture, castling on or off. Built in (`Variants`): chess, antichess (the king is an ordinary
+  piece a pawn may promote to, no castling, captures compulsory), King of the Hill, Three-check.
+  `VariantJson` writes and reads a variant with every field spelled out (Gson 2.8 has no records).
+- `BoardRules.of(variant)` compiles a variant once; castling is found from the start position only
+  when it is on; the hill is the centre 2x2 (or 1x1) of the grid.
+- `Board.outcome()`: ONGOING, WIN, LOSS or DRAW for the player to move, from the goal first, then
+  "no legal move" (antichess: a win; otherwise mate or stalemate), then the 50-move rule. A
+  position whose game is over by the goal has no moves. `isOver()` is now `outcome() != ONGOING`.
+- Three-check counts checks in the position (in the FEN as Fairy-Stockfish writes it, checks
+  still to give: `3+3`) and in its hash keys.
+- Oracle: Fairy-Stockfish's Python build (`pip install pyffish`) runs here. `tools/variant_oracle.py`
+  writes `src/test/resources/variants/oracle.txt` (6 seeded random games of up to 120 plies per
+  variant with its legal moves at every ply, and perft to depth 3 from 7 positions per variant);
+  `ai.board.VariantOracleTest` checks our board against all of it (2,394 checks), without Python.
+
 ## 5. Towards "everything possible"
 
 Each layer is more flexible and slower or riskier than the one before, so it is added only when

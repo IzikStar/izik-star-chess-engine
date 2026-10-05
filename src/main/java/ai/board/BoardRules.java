@@ -4,16 +4,19 @@ import ai.piece.Atom;
 import ai.piece.CompiledPiece;
 import ai.piece.Grid;
 import ai.piece.PieceType;
-import ai.piece.StandardPieces;
+import ai.variant.Variant;
+import ai.variant.Variants;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * What a {@link GenericBoard} plays by (Phase 6 R3): a set of piece types on a grid, compiled once
- * for both players, the castling moves the start position allows, and the hashing keys. Immutable
- * and shared by every position of every game played with it.
+ * What a {@link GenericBoard} plays by (Phase 6 R3, R4): a {@link Variant}'s piece types on its grid,
+ * compiled once for both players, the castling moves the start position allows, the variant's rule
+ * switches, and the hashing keys. Immutable and shared by every position of every game played with it.
  *
  * <p>Castling is read from the start position: for each player, the piece with the {@code KING} role
  * and the outermost piece with the {@code ROOK} role on each side of it on its row give one castling
@@ -22,9 +25,15 @@ import java.util.Random;
  */
 public final class BoardRules {
 
+    private static final Map<Variant, BoardRules> COMPILED = new ConcurrentHashMap<>();
+
     /** Standard chess. */
-    public static final BoardRules CHESS = new BoardRules(StandardPieces.ALL, Grid.CHESS,
-            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR");
+    public static final BoardRules CHESS = of(Variants.CHESS);
+
+    /** The rules of {@code variant}, compiled once and shared. */
+    public static BoardRules of(Variant variant) {
+        return COMPILED.computeIfAbsent(variant, BoardRules::new);
+    }
 
     /**
      * One castling move.
@@ -37,6 +46,7 @@ public final class BoardRules {
     public record Castling(int player, int right, char letter, boolean kingSide, int kingFrom, int kingTo,
                            int rookFrom, int rookTo, long empty, long safe) {}
 
+    final Variant variant;
     final List<PieceType> types;
     final Grid grid;
     /** [player][type]. */
@@ -64,14 +74,22 @@ public final class BoardRules {
     final String startPlacement;
     /** The type with the {@code ROOK} castling role, or -1. */
     final int rookType;
+    final Variant.Goal goal;
+    final int checksToWin;
+    final boolean forcedCapture;
+    /** With {@link Variant.Goal#KING_OF_THE_HILL}: the centre squares; otherwise 0. */
+    final long hill;
+    final long checksKey;
 
-    public BoardRules(List<PieceType> types, Grid grid, String startPlacement) {
-        if (types.size() > 16) {
-            throw new IllegalArgumentException("at most 16 piece types: " + types.size());
-        }
-        this.types = List.copyOf(types);
-        this.grid = grid;
-        this.startPlacement = startPlacement;
+    private BoardRules(Variant variant) {
+        this.variant = variant;
+        List<PieceType> types = variant.pieces();
+        this.types = types;
+        this.grid = variant.grid();
+        this.startPlacement = variant.startPlacement();
+        this.goal = variant.goal();
+        this.checksToWin = variant.checksToWin();
+        this.forcedCapture = variant.forcedCapture();
         int n = types.size();
         compiled = new CompiledPiece[2][n];
         royal = new boolean[n];
@@ -112,7 +130,16 @@ public final class BoardRules {
                 startSquares[placement[sq] / n][placement[sq] % n] |= 1L << sq;
             }
         }
-        castlings = findCastlings(placement);
+        castlings = variant.castling() ? findCastlings(placement) : List.of();
+        long centre = 0;
+        if (goal == Variant.Goal.KING_OF_THE_HILL) {
+            for (int row = (grid.height() - 1) / 2; row <= grid.height() / 2; row++) {
+                for (int col = (grid.width() - 1) / 2; col <= grid.width() / 2; col++) {
+                    centre |= 1L << grid.square(row, col);
+                }
+            }
+        }
+        hill = centre;
         int rook = -1;
         for (int t = 0; t < n; t++) {
             if (types.get(t).castling() == PieceType.Castling.ROOK) {
@@ -141,6 +168,11 @@ public final class BoardRules {
         for (int sq = 0; sq < epKeys.length; sq++) {
             epKeys[sq] = random.nextLong();
         }
+        checksKey = random.nextLong();
+    }
+
+    public Variant variant() {
+        return variant;
     }
 
     public List<PieceType> types() {

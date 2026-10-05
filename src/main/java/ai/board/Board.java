@@ -50,8 +50,17 @@ public interface Board {
     /** True when the player to move is under attack in a way that must be answered (chess: check). */
     boolean inCheck();
 
-    /** True when the game ends in this position (no legal move, or a draw rule the board knows). */
-    boolean isOver();
+    /**
+     * Whether the game is over here and how, for the player to move: by the variant's goal (a
+     * royal piece on the hill, the last check, no pieces left), by having no legal move, or by a draw
+     * rule the board knows (50 moves). Repetition is the game's to judge, not the position's.
+     */
+    Outcome outcome();
+
+    /** True when the game ends in this position. */
+    default boolean isOver() {
+        return outcome() != Outcome.ONGOING;
+    }
 
     /** Placement and side to move: equal for positions that count as a repetition. */
     long repetitionKey();
