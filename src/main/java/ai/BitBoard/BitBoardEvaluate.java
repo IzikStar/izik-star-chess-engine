@@ -1,6 +1,7 @@
 package ai.BitBoard;
 
 import ai.board.Board;
+import ai.board.ChessPosition;
 import ai.eval.Evaluator;
 import ai.eval.ParamSchema;
 import ai.eval.ParamSpec;
@@ -340,12 +341,13 @@ public final class BitBoardEvaluate implements Evaluator {
      */
     @Override
     public int evaluate(Board position, int rootPlayer) {
-        BitBoard board = (BitBoard) position;
+        ChessPosition chess = (ChessPosition) position;
+        Bits board = new Bits(chess);
         boolean switchSides = rootPlayer == 1;
         int value;
         if (board.whiteKings == 0) return switchSides ? MATE : -MATE;
         if (board.blackKings == 0) return switchSides ? -MATE : MATE;
-        value = board.getStatus();
+        value = status(chess);
         if (value != 1) {
             // getStatus(): MIN_VALUE = Black is mated, MAX_VALUE = White is mated, 0 = draw.
             value = value == Integer.MIN_VALUE ? -MATE : value == Integer.MAX_VALUE ? MATE : 0;
@@ -377,7 +379,7 @@ public final class BitBoardEvaluate implements Evaluator {
      * The score is then {@code taper(Σ feature × mg weight, Σ feature × eg weight, phase)}.
      */
     public Features features(Board position) {
-        BitBoard board = (BitBoard) position;
+        Bits board = new Bits((ChessPosition) position);
         int[] f = new int[NAMED + PST_SIZE];
         measure(board, f, true);
         for (int piece = 0; piece < 6; piece++) {
@@ -400,8 +402,66 @@ public final class BitBoardEvaluate implements Evaluator {
      */
     public record Features(int[] values, int phase, boolean whiteToMove) {}
 
+    /**
+     * 1 while the game goes on; when it is over, Integer.MIN_VALUE when Black is mated,
+     * Integer.MAX_VALUE when White is mated and 0 for a draw (stalemate or the 50-move rule).
+     */
+    private static int status(ChessPosition p) {
+        if (!p.hasLegalMove()) {
+            if (p.inCheck(1)) return Integer.MIN_VALUE;
+            if (p.inCheck(0)) return Integer.MAX_VALUE;
+            return 0;
+        }
+        return p.halfmoveClock() >= 100 ? 0 : 1;
+    }
+
+    /**
+     * The position's piece sets under the names the measuring code reads (Phase 6: the evaluation
+     * reads any {@link ChessPosition}, not the bitboard's fields).
+     */
+    private static final class Bits {
+        final ChessPosition position;
+        final long whiteKings, whiteQueens, whiteRooks, whiteBishops, whiteKnights, whitePawns;
+        final long blackKings, blackQueens, blackRooks, blackBishops, blackKnights, blackPawns;
+        final long whitePieces, blackPieces;
+        final int numOfTurns;
+        final boolean isWhiteToMove, hasWhiteCastled, hasBlackCastled;
+        final boolean canWhiteCastleKingSide, canWhiteCastleQueenSide, canBlackCastleKingSide, canBlackCastleQueenSide;
+
+        Bits(ChessPosition p) {
+            position = p;
+            whiteKings = p.pieces(0, ChessPosition.KING);
+            whiteQueens = p.pieces(0, ChessPosition.QUEEN);
+            whiteRooks = p.pieces(0, ChessPosition.ROOK);
+            whiteBishops = p.pieces(0, ChessPosition.BISHOP);
+            whiteKnights = p.pieces(0, ChessPosition.KNIGHT);
+            whitePawns = p.pieces(0, ChessPosition.PAWN);
+            blackKings = p.pieces(1, ChessPosition.KING);
+            blackQueens = p.pieces(1, ChessPosition.QUEEN);
+            blackRooks = p.pieces(1, ChessPosition.ROOK);
+            blackBishops = p.pieces(1, ChessPosition.BISHOP);
+            blackKnights = p.pieces(1, ChessPosition.KNIGHT);
+            blackPawns = p.pieces(1, ChessPosition.PAWN);
+            whitePieces = p.occupied(0);
+            blackPieces = p.occupied(1);
+            numOfTurns = p.fullmoveNumber();
+            isWhiteToMove = p.sideToMove() == 0;
+            hasWhiteCastled = p.hasCastled(0);
+            hasBlackCastled = p.hasCastled(1);
+            canWhiteCastleKingSide = p.canCastle(0, true);
+            canWhiteCastleQueenSide = p.canCastle(0, false);
+            canBlackCastleKingSide = p.canCastle(1, true);
+            canBlackCastleQueenSide = p.canCastle(1, false);
+        }
+
+        /** Engine colours: 1 White, 0 Black. */
+        long getAllAttackedTiles(int color) {
+            return position.attackedBy(color == 1 ? 0 : 1);
+        }
+    }
+
     /** 24 with every knight, bishop, rook and queen on the board, 0 with none. */
-    static int phase(BitBoard b) {
+    static int phase(Bits b) {
         int phase = Long.bitCount(b.whiteKnights | b.blackKnights) + Long.bitCount(b.whiteBishops | b.blackBishops)
                 + 2 * Long.bitCount(b.whiteRooks | b.blackRooks) + 4 * Long.bitCount(b.whiteQueens | b.blackQueens);
         return Math.min(MAX_PHASE, phase);
@@ -410,7 +470,7 @@ public final class BitBoardEvaluate implements Evaluator {
     // ---- measuring ---------------------------------------------------------------------------
 
     /** Fills {@code f} with Black-minus-White feature counts; groups with no weight are skipped unless {@code all}. */
-    private void measure(BitBoard b, int[] f, boolean all) {
+    private void measure(Bits b, int[] f, boolean all) {
         // material
         f[PAWNS.index()] = Long.bitCount(b.blackPawns) - Long.bitCount(b.whitePawns);
         f[KNIGHTS.index()] = Long.bitCount(b.blackKnights) - Long.bitCount(b.whiteKnights);
@@ -491,7 +551,7 @@ public final class BitBoardEvaluate implements Evaluator {
         return squares;
     }
 
-    private void pawnStructure(BitBoard b, int[] f) {
+    private void pawnStructure(Bits b, int[] f) {
         Feature[] passedByRank = {PASSED_R2, PASSED_R3, PASSED_R4, PASSED_R5, PASSED_R6, PASSED_R7};
         long occupied = b.whitePieces | b.blackPieces;
         for (int color = 0; color <= 1; color++) {
@@ -534,7 +594,7 @@ public final class BitBoardEvaluate implements Evaluator {
         }
     }
 
-    private void kingSafety(BitBoard b, int[] f) {
+    private void kingSafety(Bits b, int[] f) {
         long occupied = b.whitePieces | b.blackPieces;
         for (int color = 0; color <= 1; color++) {
             boolean white = color == 1;
@@ -584,7 +644,7 @@ public final class BitBoardEvaluate implements Evaluator {
         }
     }
 
-    private void mobility(BitBoard b, int[] f) {
+    private void mobility(Bits b, int[] f) {
         long occupied = b.whitePieces | b.blackPieces;
         for (int color = 0; color <= 1; color++) {
             boolean white = color == 1;
@@ -606,7 +666,7 @@ public final class BitBoardEvaluate implements Evaluator {
         }
     }
 
-    private void pieces(BitBoard b, int[] f) {
+    private void pieces(Bits b, int[] f) {
         long allPawns = b.whitePawns | b.blackPawns;
         for (int color = 0; color <= 1; color++) {
             boolean white = color == 1;
@@ -643,7 +703,7 @@ public final class BitBoardEvaluate implements Evaluator {
 
     // ---- piece-square tables -----------------------------------------------------------------
 
-    private static long pieces(BitBoard b, int piece, boolean white) {
+    private static long pieces(Bits b, int piece, boolean white) {
         return switch (piece) {
             case 0 -> white ? b.whitePawns : b.blackPawns;
             case 1 -> white ? b.whiteKnights : b.blackKnights;
@@ -664,7 +724,7 @@ public final class BitBoardEvaluate implements Evaluator {
     }
 
     /** Black's table bonuses minus White's. */
-    private static long pst(BitBoard b, int[][] table) {
+    private static long pst(Bits b, int[][] table) {
         long sum = 0;
         for (int piece = 0; piece < 6; piece++) {
             int[] t = table[piece];

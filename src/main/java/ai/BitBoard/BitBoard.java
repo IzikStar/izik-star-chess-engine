@@ -2,6 +2,7 @@ package ai.BitBoard;
 
 import ai.BitBoard.BitPiece.*;
 import ai.board.Board;
+import ai.board.ChessPosition;
 import ai.board.Move;
 
 import java.time.Duration;
@@ -15,7 +16,7 @@ import java.util.List;
  * so the search, the evaluation interface and the rules reach it only through that interface
  * (Phase 6, R1); Phase 6 R3 replaces it with a board whose pieces are data.
  */
-public class BitBoard implements Board {
+public class BitBoard implements ChessPosition {
     // state arguments
     protected long whiteKings = 0x0, whiteQueens = 0x0, whiteRooks = 0x0, whiteBishops = 0x0, whiteKnights = 0x0, whitePawns = 0x0;
     protected long blackKings = 0x0, blackQueens = 0x0, blackRooks = 0x0, blackBishops = 0x0, blackKnights = 0x0, blackPawns = 0x0;
@@ -864,6 +865,58 @@ public class BitBoard implements Board {
     @Override
     public String toFen() {
         return BitBoardRules.toFen(this);
+    }
+
+    // ---- ChessPosition ----------------------------------------------------------------------
+
+    @Override
+    public long pieces(int player, int type) {
+        boolean white = player == 0;
+        return switch (type) {
+            case KING -> white ? whiteKings : blackKings;
+            case QUEEN -> white ? whiteQueens : blackQueens;
+            case ROOK -> white ? whiteRooks : blackRooks;
+            case BISHOP -> white ? whiteBishops : blackBishops;
+            case KNIGHT -> white ? whiteKnights : blackKnights;
+            case PAWN -> white ? whitePawns : blackPawns;
+            default -> throw new IllegalArgumentException("no piece type " + type);
+        };
+    }
+
+    @Override
+    public long occupied(int player) {
+        return player == 0 ? whitePieces : blackPieces;
+    }
+
+    @Override
+    public long attackedBy(int player) {
+        return getAllAttackedTiles(player == 0 ? 1 : 0);
+    }
+
+    @Override
+    public boolean inCheck(int player) {
+        return isCheckOn(player == 0 ? 1 : 0);
+    }
+
+    @Override
+    public int halfmoveClock() {
+        return numOfTurnsWithoutCaptureOrPawnMove;
+    }
+
+    @Override
+    public int fullmoveNumber() {
+        return numOfTurns;
+    }
+
+    @Override
+    public boolean canCastle(int player, boolean kingSide) {
+        return player == 0 ? kingSide ? canWhiteCastleKingSide : canWhiteCastleQueenSide
+                : kingSide ? canBlackCastleKingSide : canBlackCastleQueenSide;
+    }
+
+    @Override
+    public boolean hasCastled(int player) {
+        return player == 0 ? hasWhiteCastled : hasBlackCastled;
     }
 
     @Override
