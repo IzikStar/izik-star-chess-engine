@@ -1,5 +1,7 @@
 package game;
 
+import ai.variant.Variant;
+import ai.variant.Variants;
 import engine.Cancellation;
 import engine.DrawOffers;
 import engine.EngineSelector;
@@ -135,6 +137,11 @@ public final class GameSession {
         return game.fen();
     }
 
+    /** The game's rules (Phase 6 R4d): chess unless a new game, a PGN or a saved game said otherwise. */
+    public Variant variant() {
+        return game.variant();
+    }
+
     public Position position() {
         return game.position();
     }
@@ -245,17 +252,22 @@ public final class GameSession {
     }
 
     public void newGame() {
-        newGame(Position.START_FEN);
+        newGame(variant().startFen());
     }
 
     public void newGame(String fen) {
         newGame(fen, timeControl);
     }
 
-    /** A new game from {@code fen} with this time control ({@link TimeControl#NONE}: untimed). */
+    /** A new game of the current variant from {@code fen} with this time control ({@link TimeControl#NONE}: untimed). */
     public void newGame(String fen, TimeControl control) {
+        newGame(variant(), fen, control);
+    }
+
+    /** A new game of {@code variant} from {@code fen} with this time control. */
+    public void newGame(Variant variant, String fen, TimeControl control) {
         cancelEngine();
-        game = new Game(fen);
+        game = new Game(variant, fen);
         resetEnding(control);
         listeners.forEach(GameListener::positionReset);
         maybeStartEngine();
@@ -268,7 +280,7 @@ public final class GameSession {
      */
     public void loadPgn(String pgn) {
         Pgn.Parsed parsed = Pgn.read(pgn);
-        Game loaded = new Game(parsed.startFen());
+        Game loaded = new Game(parsed.variant(), parsed.startFen());
         parsed.moves().forEach(loaded::play);
         cancelEngine();
         game = loaded;
@@ -289,7 +301,13 @@ public final class GameSession {
      */
     public void resume(String startFen, List<ChessMove> moves, TimeControl control, long whiteMs, long blackMs,
                        LocalDate started) {
-        Game loaded = new Game(startFen);
+        resume(Variants.CHESS, startFen, moves, control, whiteMs, blackMs, started);
+    }
+
+    /** {@link #resume(String, List, TimeControl, long, long, LocalDate)} for a game of {@code variant}. */
+    public void resume(Variant variant, String startFen, List<ChessMove> moves, TimeControl control, long whiteMs,
+                       long blackMs, LocalDate started) {
+        Game loaded = new Game(variant, startFen);
         moves.forEach(loaded::play);
         cancelEngine();
         game = loaded;
@@ -337,7 +355,7 @@ public final class GameSession {
             return true;
         }
         boolean human = config.humanPlaysWhite();
-        if (currentPositionRepeated() || DrawOffers.engineAccepts(game.fen(), !human)) {
+        if (currentPositionRepeated() || DrawOffers.engineAccepts(variant(), game.fen(), !human)) {
             finish(GameEnd.agreed());
         } else {
             drawDeclinedAtPly = game.plyCount();
@@ -516,8 +534,17 @@ public final class GameSession {
             return false;
         }
         boolean white = clock.running();
-        finish(GameEnd.flagged(white, canMate(game.position(), !white)));
+        finish(GameEnd.flagged(white, canWin(variant(), game.position(), !white)));
         return true;
+    }
+
+    /**
+     * Whether this side could still win when the other side's time runs out. Only chess knows
+     * material that can never win; in the other variants the side with time left wins (a lone
+     * king can still reach the hill, antichess wins by losing pieces).
+     */
+    static boolean canWin(Variant variant, Position position, boolean white) {
+        return !variant.equals(Variants.CHESS) || canMate(position, white);
     }
 
     /** Whether this side has the material to mate at all (a lone king or king and one minor piece cannot). */
@@ -585,7 +612,7 @@ public final class GameSession {
 
     private SearchRequest request(int level, Cancellation cancel) {
         List<ChessMove> played = game.moves().stream().map(MoveResult::move).toList();
-        return new SearchRequest(game.fen(), game.history().get(0), played, level, cancel);
+        return new SearchRequest(game.fen(), game.history().get(0), played, level, cancel, TimeBudget.NONE, variant());
     }
 
     /** The most the side to move may spend on this move ({@link TimeBudget}), or none without a clock. */

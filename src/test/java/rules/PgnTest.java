@@ -1,5 +1,6 @@
 package rules;
 
+import ai.variant.Variants;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -108,5 +109,30 @@ class PgnTest {
         IllegalArgumentException black = assertThrows(IllegalArgumentException.class, () -> Pgn.read("1. e4 Nf3"));
         assertEquals("move 1... Nf3 is not a legal move", black.getMessage());
         assertThrows(IllegalArgumentException.class, () -> Pgn.read("[FEN \"nonsense\"]\n1. e4"));
+    }
+
+    @Test
+    @DisplayName("A variant writes its Variant tag and reads back by its rules, also as Lichess names it")
+    void variants() {
+        Game g = new Game(Variants.ANTICHESS);
+        for (String u : new String[]{"e2e3", "b7b5", "f1b5"}) {
+            g.play(u);
+        }
+        String pgn = Pgn.write(Variants.ANTICHESS, Map.of("Event", "A"), Variants.ANTICHESS.startFen(), g.moves(), null);
+        assertTrue(pgn.contains("[Variant \"Antichess\"]"), pgn);
+        assertTrue(!pgn.contains("[FEN"), "the variant's own start needs no FEN tag");
+        Pgn.Parsed back = Pgn.read(pgn);
+        assertEquals(Variants.ANTICHESS, back.variant());
+        assertEquals(3, back.moves().size());
+
+        // Bxb5 is forced in antichess; in chess the same text would allow anything
+        assertThrows(IllegalArgumentException.class, () -> Pgn.read("[Variant \"Antichess\"]\n1. e3 b5 2. Nf3"));
+        assertEquals(Variants.KING_OF_THE_HILL, Pgn.read("[Variant \"King of the Hill\"]\n1. e4 *").variant());
+        assertEquals(Variants.THREE_CHECK, Pgn.read("[Variant \"three-check\"]\n1. e4 *").variant());
+        assertEquals(Variants.CHESS, Pgn.read("[Variant \"Standard\"]\n1. e4 *").variant());
+        assertThrows(IllegalArgumentException.class, () -> Pgn.read("[Variant \"Crazyhouse\"]\n1. e4 *"));
+        // antichess promotes to a king, written e8=K or e8K
+        Pgn.Parsed king = Pgn.read("[Variant \"Antichess\"]\n[FEN \"8/4P3/8/8/8/8/8/k7 w - - 0 1\"]\n1. e8K *");
+        assertEquals('k', king.moves().get(0).promotion());
     }
 }

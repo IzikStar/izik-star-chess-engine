@@ -483,6 +483,64 @@ class WebServerTest {
         assertEquals(1, get("/api/games").getAsJsonArray("games").size());
     }
 
+    @Test
+    @DisplayName("Variants: a new game names one, its rules hold on the socket, and the PGN says which")
+    void variantGame() throws Exception {
+        startServer();
+        Client c = new Client();
+        c.await(s -> true);
+        c.send("{\"type\":\"newGame\",\"mode\":\"friend\",\"variant\":\"antichess\"}");
+        JsonObject state = c.await(s -> s.getAsJsonObject("variant").get("id").getAsString().equals("antichess"))
+                .getAsJsonObject("state");
+        assertEquals("Antichess", state.getAsJsonObject("variant").get("name").getAsString());
+        assertEquals("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1", state.get("fen").getAsString());
+        c.move("e2e3");
+        c.move("b7b5");
+        state = c.awaitPly(2).getAsJsonObject("state");
+        // a capture is there, so it is the only move
+        assertEquals(1, state.getAsJsonArray("legalMoves").size());
+        assertEquals("f1b5", state.getAsJsonArray("legalMoves").get(0).getAsString());
+        assertTrue(state.get("pgn").getAsString().contains("[Variant \"Antichess\"]"), state.get("pgn").getAsString());
+
+        // Stockfish plays chess only, so another variant's engine levels stop at the built-in engine's top
+        c.send("{\"type\":\"newGame\",\"mode\":\"engine\",\"color\":\"black\",\"level\":12,\"variant\":\"king-of-the-hill\"}");
+        state = c.awaitPly(1).getAsJsonObject("state");
+        assertEquals("king-of-the-hill", state.getAsJsonObject("variant").get("id").getAsString());
+        assertEquals(engine.Levels.STOCKFISH_FROM - 1, state.getAsJsonObject("config").get("level").getAsInt());
+
+        c.send("{\"type\":\"newGame\",\"variant\":\"no-such-game\"}");
+        assertTrue(c.awaitEvent("rejected").toString().contains("unknown variant"));
+        c.send("{\"type\":\"newGame\",\"variant\":\"antichess\",\"champion\":{\"run\":\"x\",\"generation\":1}}");
+        assertTrue(c.awaitEvent("rejected").toString().contains("champion"));
+    }
+
+    @Test
+    @DisplayName("Saved games keep their variant, and a carried-on game goes on by its rules")
+    void savedVariantGame() throws Exception {
+        java.nio.file.Path games = java.nio.file.Files.createTempDirectory("games-test");
+        server = WebServer.start(0, hub -> new GameSession(GameConfig.defaults(),
+                new EngineSelector(new MinimaxEngine(), NO_STOCKFISH), hub::execute), java.nio.file.Path.of("runs"), games);
+        Client c = new Client();
+        c.await(s -> true);
+        c.send("{\"type\":\"newGame\",\"mode\":\"friend\",\"variant\":\"three-check\"}");
+        c.awaitEvent("reset");
+        c.move("e2e4");
+        c.move("f7f6");
+        c.move("d1h5"); // check one
+        String id = c.awaitPly(3).getAsJsonObject("state").get("savedId").getAsString();
+        JsonObject saved = get("/api/games/" + id);
+        assertEquals("three-check", saved.get("variant").getAsString());
+        assertEquals("Qh5+", saved.getAsJsonArray("moves").get(2).getAsJsonObject().get("san").getAsString());
+
+        newGame(c, "friend", "white", 1);
+        c.awaitEvent("reset");
+        c.send("{\"type\":\"resumeGame\",\"id\":\"" + id + "\"}");
+        JsonObject state = c.await(s -> s.getAsJsonArray("moves").size() == 3 && id.equals(s.get("savedId").getAsString()))
+                .getAsJsonObject("state");
+        assertEquals("three-check", state.getAsJsonObject("variant").get("id").getAsString());
+        assertTrue(state.get("fen").getAsString().contains(" 2+3 "), state.get("fen").getAsString());
+    }
+
     private JsonObject get(String path) throws Exception {
         HttpResponse<String> r = HttpClient.newHttpClient().send(HttpRequest.newBuilder(
                 URI.create("http://127.0.0.1:" + server.port() + path)).build(), HttpResponse.BodyHandlers.ofString());

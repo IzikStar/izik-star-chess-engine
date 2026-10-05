@@ -1,5 +1,8 @@
 package rules;
 
+import ai.variant.Variant;
+import ai.variant.Variants;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -10,13 +13,16 @@ import java.util.regex.Pattern;
 /**
  * Portable Game Notation: writes a game for other chess programs and reads one back. Reading
  * checks every move against {@link Rules}, so a game that loads is a legal game.
+ *
+ * <p>Variants (Phase 6 R4d) go in a {@code Variant} tag with the names Lichess uses ("Antichess",
+ * "King of the Hill", "Three-check"); no tag, or "Standard", is chess.
  */
 public final class Pgn {
 
     private Pgn() {}
 
-    /** A game read from PGN: its tags, the position it starts from, and its moves. */
-    public record Parsed(Map<String, String> tags, String startFen, List<ChessMove> moves) {}
+    /** A game read from PGN: its tags, its variant, the position it starts from, and its moves. */
+    public record Parsed(Map<String, String> tags, Variant variant, String startFen, List<ChessMove> moves) {}
 
     /**
      * The game as PGN: the tags in the order given (the {@code Result} tag is set from
@@ -24,10 +30,23 @@ public final class Pgn {
      * wrapped at 80 columns, ending with the result ({@code "*"} while the game is on).
      */
     public static String write(Map<String, String> tags, String startFen, List<MoveResult> moves, String result) {
+        return write(Variants.CHESS, tags, startFen, moves, result);
+    }
+
+    /**
+     * Like {@link #write(Map, String, List, String)} for a game of {@code variant}: a variant other
+     * than chess adds its {@code Variant} tag, and only a start other than the variant's own adds
+     * {@code FEN}.
+     */
+    public static String write(Variant variant, Map<String, String> tags, String startFen, List<MoveResult> moves,
+                               String result) {
         String res = result == null ? "*" : result;
         Map<String, String> all = new LinkedHashMap<>(tags);
         all.put("Result", res);
-        if (!startFen.equals(Position.START_FEN)) {
+        if (!variant.equals(Variants.CHESS)) {
+            all.put("Variant", variant.name());
+        }
+        if (!startFen.equals(variant.startFen())) {
             all.put("SetUp", "1");
             all.put("FEN", startFen);
         }
@@ -83,7 +102,8 @@ public final class Pgn {
             tags.put(tag.group(1), tag.group(2).replace("\\\"", "\"").replace("\\\\", "\\"));
             bodyStart = tag.end();
         }
-        String startFen = tags.getOrDefault("FEN", Position.START_FEN).trim();
+        Variant variant = variant(tags.get("Variant"));
+        String startFen = tags.getOrDefault("FEN", variant.startFen()).trim();
         try {
             Position.fromFen(startFen);
         } catch (RuntimeException e) {
@@ -101,16 +121,28 @@ public final class Pgn {
             if (RESULT.matcher(token).matches()) {
                 break; // the end of the first game
             }
-            ChessMove move = find(fen, token);
+            ChessMove move = find(variant, fen, token);
             if (move == null) {
                 Position pos = Position.fromFen(fen);
                 throw new IllegalArgumentException("move " + pos.fullmoveNumber() + (pos.whiteToMove() ? ". " : "... ")
                         + raw + " is not a legal move");
             }
             moves.add(move);
-            fen = Rules.applyMove(fen, move);
+            fen = Rules.applyMove(variant, fen, move);
         }
-        return new Parsed(tags, startFen, moves);
+        return new Parsed(tags, variant, startFen, moves);
+    }
+
+    /** The variant a {@code Variant} tag names (its name or id, any case); chess for none or "Standard". */
+    static Variant variant(String tag) {
+        if (tag == null || tag.isBlank() || tag.trim().equalsIgnoreCase("standard")) {
+            return Variants.CHESS;
+        }
+        String want = tag.trim();
+        return Variants.ALL.stream()
+                .filter(v -> v.name().equalsIgnoreCase(want) || v.id().equalsIgnoreCase(want))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("unknown variant: " + want));
     }
 
     private static String stripCommentsAndVariations(String body) {
@@ -139,15 +171,15 @@ public final class Pgn {
     }
 
     /** The legal move {@code token} names in {@code fen}, or null. */
-    private static ChessMove find(String fen, String token) {
+    private static ChessMove find(Variant variant, String fen, String token) {
         String want = normalise(token);
-        List<ChessMove> legal = Rules.legalMoves(fen);
+        List<ChessMove> legal = Rules.legalMoves(variant, fen);
         for (ChessMove m : legal) {
-            if (normalise(San.of(fen, m)).equals(want)) {
+            if (normalise(San.of(variant, fen, m)).equals(want)) {
                 return m;
             }
         }
-        if (token.matches("[a-h][1-8][a-h][1-8][qrbn]?")) {
+        if (token.matches("[a-h][1-8][a-h][1-8][qrbnk]?")) {
             ChessMove uci = ChessMove.fromUci(token);
             for (ChessMove m : legal) {
                 if (m.equals(uci)) {
@@ -161,6 +193,6 @@ public final class Pgn {
     /** SAN without check marks or annotations, castling with letters, promotions with {@code =}. */
     private static String normalise(String san) {
         String s = san.replaceAll("[+#!?]+$", "").replace('0', 'O');
-        return s.replaceFirst("^([a-h](?:x[a-h])?[18])([QRBN])$", "$1=$2");
+        return s.replaceFirst("^([a-h](?:x[a-h])?[18])([QRBNK])$", "$1=$2");
     }
 }

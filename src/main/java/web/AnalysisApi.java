@@ -31,7 +31,7 @@ import java.util.function.Supplier;
  * ({@link GameAnalyzer}). One analysis runs at a time; a new one waits for the one before.
  *
  * <pre>
- * POST /api/analysis      {startFen?, moves: [uci...], depth?}  → {id} (503 if there is no Stockfish)
+ * POST /api/analysis      {startFen?, moves: [uci...], depth?, variant?}  → {id} (503 if there is no Stockfish, 422 for a variant other than chess)
  * GET  /api/analysis/{id} → {done, progress, total, error?, report?}
  * </pre>
  */
@@ -80,6 +80,9 @@ final class AnalysisApi {
     }
 
     private void start(Context ctx) {
+        if (!EvalApi.chessOnly(ctx)) {
+            return;
+        }
         List<String> engine = command.get();
         if (engine == null) {
             ctx.status(503);

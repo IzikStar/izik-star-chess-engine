@@ -1,5 +1,6 @@
 package web;
 
+import ai.variant.Variant;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import game.Clock;
@@ -33,6 +34,7 @@ final class GameStateJson {
         List<MoveResult> moves = session.moves();
         state.addProperty("startFen", moves.isEmpty() ? session.fen() : moves.get(0).fenBefore());
         state.addProperty("fen", session.fen());
+        state.add("variant", variant(session.variant()));
         state.addProperty("turn", session.whiteToMove() ? "white" : "black");
         GameStatus status = session.status();
         state.addProperty("status", status.name());
@@ -112,7 +114,7 @@ final class GameStateJson {
             tags.put("Termination", termination(session));
         }
         List<MoveResult> moves = session.moves();
-        return Pgn.write(tags, session.startFen(), moves, result);
+        return Pgn.write(session.variant(), tags, session.startFen(), moves, result);
     }
 
     private static String playerName(GameConfig config, boolean white, String opponentLabel) {
@@ -138,14 +140,32 @@ final class GameStateJson {
                 case AGREEMENT -> "Game drawn by agreement";
             };
         }
+        String mover = session.whiteToMove() ? "White" : "Black";
+        String other = session.whiteToMove() ? "Black" : "White";
         return switch (session.status()) {
-            case CHECKMATE -> (session.whiteToMove() ? "Black" : "White") + " won by checkmate";
+            case CHECKMATE -> other + " won by checkmate";
+            case HILL_REACHED -> other + " won by reaching the centre";
+            case CHECKS_GIVEN -> other + " won by giving " + session.variant().checksToWin() + " checks";
+            case NO_PIECES_LEFT -> mover + " won by losing every piece";
+            case NO_MOVES_LEFT -> mover + " won with no move left";
             case STALEMATE -> "Game drawn by stalemate";
             case DRAW_FIFTY_MOVE -> "Game drawn by the 50-move rule";
             case DRAW_THREEFOLD -> "Game drawn by repetition";
             case DRAW_INSUFFICIENT_MATERIAL -> "Game drawn by insufficient material";
             default -> "";
         };
+    }
+
+    /** The variant the game is played by: its id, its name and its goal. */
+    static JsonObject variant(Variant variant) {
+        JsonObject o = new JsonObject();
+        o.addProperty("id", variant.id());
+        o.addProperty("name", variant.name());
+        o.addProperty("goal", variant.goal().name());
+        if (variant.goal() == Variant.Goal.CHECKS) {
+            o.addProperty("checksToWin", variant.checksToWin());
+        }
+        return o;
     }
 
     static JsonObject move(MoveResult m) {

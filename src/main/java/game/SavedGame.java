@@ -24,15 +24,19 @@ import java.util.List;
  * @param pgn                the game in PGN
  * @param weights            the built-in engine's weights ({@code engine.Weights}: "tuned" or
  *                           "classic"); games saved before the choice existed were "classic"
+ * @param variant            the variant's id ({@code ai.variant.Variants}); games saved before
+ *                           variants existed were chess
  */
 public record SavedGame(String id, Instant started, Instant updated, GameConfig config,
                         String championRun, Integer championGeneration, String opponentLabel,
                         TimeControl timeControl, Long whiteMs, Long blackMs,
-                        String startFen, List<String> moves, String result, String termination, String pgn, String weights) {
+                        String startFen, List<String> moves, String result, String termination, String pgn, String weights,
+                        String variant) {
 
     public SavedGame {
         moves = List.copyOf(moves);
         weights = weights == null ? "classic" : weights;
+        variant = variant == null ? "chess" : variant;
     }
 
     public boolean finished() {

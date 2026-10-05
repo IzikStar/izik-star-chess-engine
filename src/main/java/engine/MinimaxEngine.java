@@ -5,6 +5,9 @@ import ai.Minimax;
 import ai.board.Boards;
 import ai.board.Move;
 import ai.eval.Evaluator;
+import ai.eval.Evaluators;
+import ai.variant.Variant;
+import ai.variant.Variants;
 import rules.ChessMove;
 import rules.Position;
 import rules.Rules;
@@ -28,6 +31,9 @@ import java.util.Random;
  * with its usual weights. It no longer plays the same game every time: among the moves scoring
  * within {@link #DEFAULT_VARIETY} of the best it picks one at random ({@code searchAtDepth} stays
  * deterministic, for the tests that record moves).
+ *
+ * <p>Phase 6 R4d: it plays the request's variant. Variants with the chess pieces and a king to
+ * lose keep its evaluator; any other plays with {@link Evaluators#forVariant}.
  *
  * <p>It reads the game behind the position ({@link SearchRequest#moves()}), so a move back into a
  * position the game already had is scored as a draw: when it is ahead it does not repeat.
@@ -88,7 +94,8 @@ public final class MinimaxEngine implements Engine {
     @Override
     public ChessMove bestMove(SearchRequest request) {
         String fen = request.fen();
-        List<ChessMove> legal = Rules.legalMoves(fen);
+        Variant variant = request.variant();
+        List<ChessMove> legal = Rules.legalMoves(variant, fen);
         if (legal.isEmpty() || request.cancel().isCancelled()) {
             return null;
         }
@@ -98,9 +105,9 @@ public final class MinimaxEngine implements Engine {
         }
         int depth = searchDepth(Position.fromFen(fen), level);
         long deadline = System.nanoTime() + TimeBudget.cap(timeCapMs, request.timeBudgetMs()) * 1_000_000;
-        Evaluator weights = evaluator;
-        long[] history = gameHistory(gameFens(request.startFen(), request.moves()), fen);
-        int move = Minimax.getBestMove(Boards.fromFen(fen), depth, weights,
+        Evaluator weights = Evaluators.usesChessEvaluation(variant) ? evaluator : Evaluators.forVariant(variant);
+        long[] history = gameHistory(variant, gameFens(variant, request.startFen(), request.moves()), fen);
+        int move = Minimax.getBestMove(Boards.fromFen(variant, fen), depth, weights,
                 new Minimax.Options(variety, random, true), history,
                 () -> request.cancel().isCancelled() || System.nanoTime() > deadline);
         return request.cancel().isCancelled() ? null : toLegalMove(move, legal);
@@ -169,11 +176,15 @@ public final class MinimaxEngine implements Engine {
 
     /** The positions of the game {@code startFen} + {@code moves}, oldest first (the last is the current one). */
     static List<String> gameFens(String startFen, List<ChessMove> moves) {
+        return gameFens(Variants.CHESS, startFen, moves);
+    }
+
+    static List<String> gameFens(Variant variant, String startFen, List<ChessMove> moves) {
         List<String> fens = new ArrayList<>(moves.size() + 1);
         String fen = startFen;
         fens.add(fen);
         for (ChessMove move : moves) {
-            fen = Rules.applyMove(fen, move);
+            fen = Rules.applyMove(variant, fen, move);
             fens.add(fen);
         }
         return fens;
@@ -185,16 +196,21 @@ public final class MinimaxEngine implements Engine {
      * {@code gameFens} may end with {@code fen} itself; it is left out (the search adds the root).
      */
     static long[] gameHistory(List<String> gameFens, String fen) {
+        return gameHistory(Variants.CHESS, gameFens, fen);
+    }
+
+    static long[] gameHistory(Variant variant, List<String> gameFens, String fen) {
         int end = gameFens.size();
         if (end > 0 && samePosition(gameFens.get(end - 1), fen)) {
             end--;
         }
         String[] fields = fen.split(" ");
-        int halfMoves = fields.length > 4 ? Integer.parseInt(fields[4]) : end;
+        // the half-move clock is the next-to-last field (Three-check puts its checks before it)
+        int halfMoves = fields.length >= 6 ? Integer.parseInt(fields[fields.length - 2]) : end;
         int start = Math.max(0, end - halfMoves);
         long[] keys = new long[end - start];
         for (int i = start; i < end; i++) {
-            keys[i - start] = Boards.fromFen(gameFens.get(i)).repetitionKey();
+            keys[i - start] = Boards.fromFen(variant, gameFens.get(i)).repetitionKey();
         }
         return keys;
     }
