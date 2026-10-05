@@ -15,7 +15,7 @@ import java.util.List;
  *
  * <p>Copy-make: a move makes a new position; a position keeps its children until released.
  */
-public final class GenericBoard implements ChessPosition {
+public final class GenericBoard implements ChessPosition, PieceBoard {
 
     private final BoardRules rules;
     /** [player * types + type]. */
@@ -125,6 +125,25 @@ public final class GenericBoard implements ChessPosition {
 
     public BoardRules rules() {
         return rules;
+    }
+
+    @Override
+    public Variant variant() {
+        return rules.variant;
+    }
+
+    @Override
+    public int mobility(int player, int type) {
+        int n = rules.types.size();
+        long all = occupied[0] | occupied[1];
+        long enemy = occupied[1 - player];
+        CompiledPiece piece = rules.compiled[player][type];
+        int count = 0;
+        for (long b = pieces[player * n + type]; b != 0; b &= b - 1) {
+            int sq = Long.numberOfTrailingZeros(b);
+            count += Long.bitCount(piece.targets(sq, all, enemy, (unmoved & 1L << sq) != 0));
+        }
+        return count;
     }
 
     // ---- Board ------------------------------------------------------------------------------
