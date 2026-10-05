@@ -1,5 +1,6 @@
 package ai.board;
 
+import ai.variant.TestVariants;
 import ai.variant.Variant;
 import ai.variant.Variants;
 import org.junit.jupiter.api.DisplayName;
@@ -24,6 +25,10 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
  * Phase 6 R4: every built-in variant plays exactly Fairy-Stockfish's moves. {@code oracle.txt}
  * (made by {@code tools/variant_oracle.py}) holds seeded random games with Fairy-Stockfish's legal
  * moves at every ply, game ends included, and perft counts from a few positions of each variant.
+ *
+ * <p>R5: the same for the made-up variants in {@code variants/made/*.json}, whose invented pieces
+ * (Amazon, Archbishop, Knightrider, forward-only pieces) reached Fairy-Stockfish as the Betza text in
+ * those files.
  */
 class VariantOracleTest {
 
@@ -46,7 +51,7 @@ class VariantOracleTest {
                 }
                 String[] parts = line.split(" \\| ", -1);
                 if (parts[0].equals(kind)) {
-                    Variant variant = Variants.byId(parts[1]).orElseThrow();
+                    Variant variant = Variants.byId(parts[1]).orElseGet(() -> TestVariants.made(parts[1]));
                     out.add(new Line(kind, variant, parts[2], String.join(" | ", Arrays.asList(parts).subList(3, parts.length))));
                 }
             }
