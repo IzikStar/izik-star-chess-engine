@@ -1,25 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PieceSvg } from './pieces';
+import { artUrls, PieceArt, PieceSvg } from './pieces';
+import { offsets, placementOf, reach, type Atom, type Kind, type Mode, type Reach, type Symmetry } from './reach';
 
 // "Variants" (Phase 6 R5c): the variant designer. Look at the built-in variants, make your own from
 // a copy, and invent pieces: click the squares a piece reaches, or type its Betza text. The server
 // keeps made variants as files (web.VariantsApi, game.VariantStore) and checks them on save.
 
-type Kind = 'LEAP' | 'SLIDE';
-type Mode = 'MOVE' | 'CAPTURE' | 'BOTH';
-type Symmetry = 'ONE' | 'SIDEWAYS' | 'ALL';
 type Goal = 'CHECKMATE' | 'LOSE_EVERYTHING' | 'KING_OF_THE_HILL' | 'CHECKS';
-
-export interface Atom {
-  kind: Kind;
-  forward: number;
-  right: number;
-  symmetry: Symmetry;
-  mode: Mode;
-  /** For a slide: at most this many steps; 0 = to the edge. */
-  range: number;
-  firstMoveOnly: boolean;
-}
 
 export interface PieceDef {
   name: string;
@@ -45,6 +32,8 @@ export interface VariantDef {
   castling: boolean;
   pieces: PieceDef[];
   builtIn?: boolean;
+  /** The pieces' pictures: letter -> side ("w", "b") -> when saved. */
+  art?: Record<string, Record<string, number>>;
 }
 
 interface VariantRow {
@@ -77,22 +66,6 @@ const SYMMETRIES: { id: Symmetry; name: string }[] = [
 const REACH = 3;
 const FILES = 'abcdefgh';
 
-/** The {forward, right} offsets an atom covers, each once (ai.piece.Atom.offsets). */
-export function offsets(a: Atom): [number, number][] {
-  const seen = new Map<string, [number, number]>();
-  const add = (f: number, r: number) => seen.set(`${f},${r}`, [f, r]);
-  if (a.symmetry === 'ONE') add(a.forward, a.right);
-  else if (a.symmetry === 'SIDEWAYS') {
-    add(a.forward, a.right);
-    add(a.forward, -a.right);
-  } else {
-    for (const [f, r] of [[a.forward, a.right], [a.right, a.forward]]) {
-      for (const sf of [1, -1]) for (const sr of [1, -1]) add(f * sf, r * sr);
-    }
-  }
-  return [...seen.values()];
-}
-
 function gcd(a: number, b: number): number {
   return b === 0 ? Math.abs(a) : gcd(b, a % b);
 }
@@ -107,45 +80,6 @@ function atomAt(atoms: Atom[], f: number, r: number): number {
     }
     return false;
   }));
-}
-
-type Reach = 'move' | 'capture' | 'both';
-
-/** Where a piece on an empty 8x8 board at (file, rank) of white can go, by square name. */
-export function reach(atoms: Atom[], file: number, rank: number, moved: boolean): Map<string, Reach> {
-  const out = new Map<string, Reach>();
-  const mark = (fl: number, rk: number, mode: Mode) => {
-    const sq = FILES[fl] + (rk + 1);
-    const was = out.get(sq);
-    const now: Reach = mode === 'BOTH' ? 'both' : mode === 'MOVE' ? 'move' : 'capture';
-    out.set(sq, !was || was === now ? now : 'both');
-  };
-  for (const a of atoms) {
-    if (a.firstMoveOnly && moved) continue;
-    for (const [f, r] of offsets(a)) {
-      for (let k = 1; ; k++) {
-        const fl = file + r * k;
-        const rk = rank + f * k;
-        if (fl < 0 || fl > 7 || rk < 0 || rk > 7) break;
-        mark(fl, rk, a.mode);
-        if (a.kind === 'LEAP' || (a.range > 0 && k >= a.range)) break;
-      }
-    }
-  }
-  return out;
-}
-
-/** The FEN board field as square name -> letter. */
-function placementOf(fen: string): Record<string, string> {
-  const board: Record<string, string> = {};
-  fen.trim().split(/\s+/)[0].split('/').forEach((row, i) => {
-    let file = 0;
-    for (const c of row) {
-      if (/\d/.test(c)) file += Number(c);
-      else board[FILES[file++] + (8 - i)] = c;
-    }
-  });
-  return board;
 }
 
 function withPlacement(fen: string, board: Record<string, string>): string {
@@ -187,10 +121,12 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-function MiniBoard({ board, marks, onSquare, label, testId }: {
+function MiniBoard({ board, marks, onSquare, onHover, label, testId }: {
   board: Record<string, string>;
   marks?: Map<string, Reach>;
   onSquare?: (square: string) => void;
+  /** The square under the mouse, or null when it leaves the board. */
+  onHover?: (square: string | null) => void;
   label: string;
   testId?: string;
 }) {
@@ -203,13 +139,17 @@ function MiniBoard({ board, marks, onSquare, label, testId }: {
       squares.push(
         <button type="button" key={sq} data-square={sq} aria-label={sq + (c ? ' ' + c : '') + (mark ? ' ' + mark : '')}
           className={'mini-sq ' + ((f + rank) % 2 === 1 ? 'dark' : 'light') + (mark ? ' r-' + mark : '')}
-          onClick={onSquare ? () => onSquare(sq) : undefined} tabIndex={onSquare ? 0 : -1}>
+          onClick={onSquare ? () => onSquare(sq) : undefined} tabIndex={onSquare ? 0 : -1}
+          onMouseEnter={onHover ? () => onHover(sq) : undefined}>
           {c && <PieceSvg code={(c === c.toUpperCase() ? 'w' : 'b') + c.toUpperCase()} />}
         </button>,
       );
     }
   }
-  return <div className="mini-board" role="group" aria-label={label} data-testid={testId}>{squares}</div>;
+  return (
+    <div className="mini-board" role="group" aria-label={label} data-testid={testId}
+      onMouseLeave={onHover ? () => onHover(null) : undefined}>{squares}</div>
+  );
 }
 
 /** Click squares to say where the piece goes; the tools say how. */
@@ -279,7 +219,56 @@ function MoveGrid({ atoms, letter, onChange }: { atoms: Atom[]; letter: string; 
   );
 }
 
-function PieceEditor({ piece, letters, readOnly, onChange, onAtoms, onBetza, onRemove }: {
+/** What the piece editor needs for the piece's pictures. */
+interface PictureProps {
+  /** Why pictures cannot be added yet (an unsaved variant), or null when they can. */
+  blocked: string | null;
+  urls: Record<string, string>;
+  onUpload: (side: 'w' | 'b', file: File) => void;
+  onRemove: (side: 'w' | 'b') => void;
+  error: string | null;
+}
+
+/** Upload, see and remove the piece's picture for white and for black. */
+function Pictures({ letter, pictures }: { letter: string; pictures: PictureProps }) {
+  return (
+    <div className="pictures" data-testid="pictures">
+      <span className="pictures-label">Picture</span>
+      {(['w', 'b'] as const).map((side) => {
+        const url = pictures.urls[side + letter];
+        return (
+          <div key={side} className="picture">
+            <div className={'picture-box ' + (side === 'w' ? 'light' : 'dark')}>
+              {url ? <img src={url} alt={`${side === 'w' ? 'White' : 'Black'} picture`} /> : <PieceSvg code={side + letter} />}
+            </div>
+            <div className="picture-actions">
+              <span className="small">{side === 'w' ? 'White' : 'Black'}</span>
+              <label className={'btn small-btn' + (pictures.blocked ? ' disabled' : '')}>
+                {url ? 'Change' : 'Upload'}
+                <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" hidden
+                  aria-label={`${side === 'w' ? 'White' : 'Black'} picture`} disabled={!!pictures.blocked}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) pictures.onUpload(side, f);
+                    e.target.value = '';
+                  }} />
+              </label>
+              {url && <button type="button" className="btn ghost small-btn" onClick={() => pictures.onRemove(side)}>Remove</button>}
+            </div>
+          </div>
+        );
+      })}
+      <p className="muted small picture-note">
+        {pictures.blocked ?? 'PNG, JPEG, WebP, GIF or SVG, up to 1 MB; a transparent background looks best. With one side only, the other side uses it darkened or lightened.'}
+      </p>
+      {pictures.error && <p className="error small" role="alert">{pictures.error}</p>}
+    </div>
+  );
+}
+
+function PieceEditor({ piece, letters, readOnly, pictures, onChange, onAtoms, onBetza, onRemove }: {
+  /** Null for a built-in variant (no pictures). */
+  pictures: PictureProps | null;
   piece: PieceDef;
   letters: string[];
   readOnly: boolean;
@@ -314,9 +303,7 @@ function PieceEditor({ piece, letters, readOnly, onChange, onAtoms, onBetza, onR
       .catch((e: Error) => setBetzaError(e.message));
   };
 
-  const file = FILES.indexOf(from[0]);
-  const rank = Number(from[1]) - 1;
-  const marks = useMemo(() => reach(piece.atoms, file, rank, moved), [piece.atoms, file, rank, moved]);
+  const marks = useMemo(() => reach(piece.atoms, from, true, moved), [piece.atoms, from, moved]);
   const otherLetters = letters.filter((l) => l !== piece.letter);
 
   return (
@@ -349,6 +336,7 @@ function PieceEditor({ piece, letters, readOnly, onChange, onAtoms, onBetza, onR
         <label className="inline"><input type="checkbox" checked={piece.enPassant} onChange={(e) => onChange({ ...piece, enPassant: e.target.checked })} /> En passant</label>
       </div>
       </fieldset>
+      {pictures && <Pictures letter={piece.letter} pictures={pictures} />}
       <div className="designer">
         <fieldset disabled={readOnly} className="plain">
           <MoveGrid atoms={piece.atoms} letter={piece.letter} onChange={(atoms) => onChange({ ...piece, atoms })} />
@@ -518,6 +506,13 @@ function Editor({ start, taken, onSaved, onDeleted, onCopy, onPlay }: {
   const readOnly = !!start.builtIn;
   const letters = v.pieces.map((p) => p.letter);
   const board = useMemo(() => placementOf(v.start), [v.start]);
+  /** The start-position square under the mouse: its piece's moves are shown. */
+  const [hovered, setHovered] = useState<string | null>(null);
+  const startMarks = useMemo(() => {
+    const c = hovered ? board[hovered] : undefined;
+    const p = c && v.pieces.find((q) => q.letter === c.toUpperCase());
+    return p && hovered ? reach(p.atoms, hovered, c === c.toUpperCase(), false, board) : undefined;
+  }, [hovered, board, v.pieces]);
 
   const edit = (next: VariantDef) => {
     setV(next);
@@ -550,7 +545,30 @@ function Editor({ start, taken, onSaved, onDeleted, onCopy, onPlay }: {
 
   const piece = v.pieces[picked];
 
+  const [art, setArt] = useState(start.art ?? {});
+  const [artError, setArtError] = useState<string | null>(null);
+  const artMap = useMemo(() => artUrls(v.id, art), [v.id, art]);
+  const artCall = (side: 'w' | 'b', init: RequestInit) => {
+    setArtError(null);
+    fetch(`/api/variants/${encodeURIComponent(v.id)}/art/${piece.letter}/${side}`, init)
+      .then(async (r) => {
+        const body = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(body.error ?? `${r.status} ${r.statusText}`);
+        setArt(body);
+      })
+      .catch((e: Error) => setArtError(e.message));
+  };
+  const pictures: PictureProps | null = readOnly ? null : {
+    blocked: fresh ? 'Save the variant first, then add pictures.'
+      : dirty && !start.pieces.some((p) => p.letter === piece?.letter) ? 'Save the variant first: this piece is new.' : null,
+    urls: artMap,
+    error: artError,
+    onUpload: (side, file) => artCall(side, { method: 'PUT', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file }),
+    onRemove: (side) => artCall(side, { method: 'DELETE' }),
+  };
+
   return (
+    <PieceArt.Provider value={artMap}>
     <div className="variant-editor" data-testid="variant-editor">
       <section className="panel">
         <div className="run-head">
@@ -594,7 +612,7 @@ function Editor({ start, taken, onSaved, onDeleted, onCopy, onPlay }: {
       <section className="panel">
         <h3>Start position</h3>
         <div className="start-edit">
-          <MiniBoard board={board} label="Start position" testId="start-board"
+          <MiniBoard board={board} label="Start position" testId="start-board" marks={startMarks} onHover={setHovered}
             onSquare={readOnly ? undefined : (sq) => {
               const b = { ...board };
               if (paint) b[sq] = paint;
@@ -643,7 +661,7 @@ function Editor({ start, taken, onSaved, onDeleted, onCopy, onPlay }: {
       </section>
 
       {piece && (
-          <PieceEditor key={picked} piece={piece} letters={letters} readOnly={readOnly}
+          <PieceEditor key={picked} piece={piece} letters={letters} readOnly={readOnly} pictures={pictures}
             onChange={(p) => setPiece(picked, p)}
             onAtoms={(atoms) => {
               setV((now) => ({ ...now, pieces: now.pieces.map((q, j) => (j === picked ? { ...q, atoms } : q)) }));
@@ -666,6 +684,7 @@ function Editor({ start, taken, onSaved, onDeleted, onCopy, onPlay }: {
 
       <HealthCheck variant={v} />
     </div>
+    </PieceArt.Provider>
   );
 }
 

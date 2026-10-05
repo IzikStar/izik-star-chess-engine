@@ -1,3 +1,4 @@
+import type { Atom } from './reach';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 // The JSON the server sends (web.GameHub / web.GameStateJson). The server is the only rules
@@ -36,7 +37,7 @@ export interface VariantInfo {
   /** A variant the player made (not built in). */
   custom?: boolean;
   /** Its pieces; value in centipawns (absent from an older server). */
-  pieces?: { letter: string; name: string; value?: number }[];
+  pieces?: { letter: string; name: string; value?: number; atoms?: Atom[]; invented?: boolean }[];
 }
 
 export interface MoveInfo {

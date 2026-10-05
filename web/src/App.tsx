@@ -10,10 +10,11 @@ import { MoveList, RepeatButton } from './MoveList';
 import { CHAMPION_LEVELS, maxLevelFor, NewGameDialog, type NewGameChoice } from './NewGameDialog';
 import { SettingsDialog } from './SettingsDialog';
 import { loadSettings, saveSettings, type Settings } from './settings';
-import { codeOf, PieceSvg } from './pieces';
+import { artUrls, codeOf, PieceArt, PieceSvg } from './pieces';
 import { captured, checksGiven, colorName, goalRule, pieceSetBase, engineText, LEVELS, MAX_LEVEL, isOver, kingSquare, materialOf, movesByFrom, other, resultText, timeControlOf, timeKey, turnOf, variantOf, VARIANTS, withPremoves } from './chess';
 import { useGame, type Champion, type Color, type GameEvent, type GameState, type Weights } from './protocol';
 import { play } from './sounds';
+import { inventedReach } from './reach';
 
 const EMPTY = new Map<string, string[]>();
 
@@ -133,6 +134,19 @@ export function App() {
   }, []);
 
   const { state, receivedAt, connection, send } = useGame(onEvents);
+
+  // a made variant's piece pictures (the designer saves them; the game state only names the variant)
+  const customId = state?.variant?.custom ? state.variant.id : null;
+  const [art, setArt] = useState<Record<string, string>>({});
+  useEffect(() => {
+    setArt({});
+    if (!customId) return;
+    let live = true;
+    fetch(`/api/variants/${encodeURIComponent(customId)}`).then((r) => (r.ok ? r.json() : null))
+      .then((v: { art?: Record<string, Record<string, number>> } | null) => { if (live && v) setArt(artUrls(customId, v.art)); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [customId, page]);
   const { analysis, start: startAnalysis, clear: clearAnalysis } = useAnalysis();
   const currentKey = state ? gameKey(state.startFen, state.moves.map((m) => m.uci)) : '';
   const allUci = useMemo(() => state?.moves.map((m) => m.uci) ?? [], [state?.moves]);
@@ -286,6 +300,7 @@ export function App() {
     && !(config.mode === 'engine' && moves.length === 1 && config.humanColor === 'black');
 
   return (
+    <PieceArt.Provider value={art}>
     <div className="app">
       <header className="topbar">
         <div className="brand"><span aria-hidden="true">♞</span> IzikStar Chess</div>
@@ -337,6 +352,7 @@ export function App() {
             checkSquare={checkSquare}
             hint={bestArrow ?? (live && settings.hints ? state.hint : null)}
             onMove={(uci) => send({ type: 'move', uci })}
+            reachOf={inventedReach(state.variant?.pieces, fen, state.startFen)}
             premoveColor={premoveColor}
             premoves={premoveColor ? premoves : []}
             onPremove={(uci) => {
@@ -491,6 +507,7 @@ export function App() {
         />
       )}
     </div>
+    </PieceArt.Provider>
   );
 }
 

@@ -68,6 +68,9 @@ Phase 4c (#2 to #6) refer to that repository.
   a piece reaches (jump or slide, move and/or capture, mirrored all ways, left/right or not, first
   move only), or type its [Betza](https://www.gnu.org/software/xboard/Betza.html) text (`QN` is the
   Amazon). A board beside it shows where the piece goes. Variants are saved in `variants/`.
+  Give a piece a picture (white and/or black; PNG, JPEG, WebP, GIF or SVG) and it is drawn with it
+  on every board. Hold the mouse over an invented piece, in the designer or in a game, to see the
+  squares it can go to.
   A *Health check* lets the engine play the variant against itself and says whether one side
   wins too often, games end too soon or never end, and how many moves there are to choose from.
 - **Move list with review.** Click any move, or use the arrow keys, to see that position.

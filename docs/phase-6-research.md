@@ -373,6 +373,20 @@ piece without art is its letter in a circle.
 
 R5 is complete: a player can invent pieces and a variant, check it, and play it.
 
+### After R5: pictures and moves under the mouse (owner, 2026-10-05)
+
+- Under the mouse, an invented piece shows where it can go: on the game board (violet dots, rings
+  on pieces it could take) and on the designer's start position. Pieces block, a move needs an
+  empty square and a capture an enemy; checks and pins are not looked at. The state's
+  `variant.pieces` carry `atoms` and `invented` (not one of chess's six, or moving differently)
+  for made variants; `web/src/reach.ts` does the geometry.
+- Pictures: `VariantStore.saveArt/art/artIndex/deleteArt` keep them in `variants/<id>.art/` as
+  `<letter>-<w|b>.<ext>` (PNG, JPEG, WebP, GIF, SVG, at most 1 MB). HTTP:
+  `GET/PUT/DELETE /api/variants/{id}/art/{letter}/{side}`, and `art` in `GET /api/variants/{id}`.
+  An SVG is served with a CSP that blocks scripts. A piece's pictures go when it is saved out of
+  the variant, all of them with the variant. With one side's picture only, the other side uses it
+  darkened or lightened. The React context `PieceArt` draws them on every board.
+
 ## 5. Towards "everything possible"
 
 Each layer is more flexible and slower or riskier than the one before, so it is added only when

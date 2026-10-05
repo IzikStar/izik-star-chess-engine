@@ -567,6 +567,29 @@ class WebServerTest {
         JsonObject state = c.await(s -> s.getAsJsonObject("variant").get("id").getAsString().equals("amazon-chess"))
                 .getAsJsonObject("state");
         assertTrue(state.getAsJsonObject("variant").get("custom").getAsBoolean());
+        // the board shows an invented piece's moves under the mouse: the state says how it moves
+        JsonArray statePieces = state.getAsJsonObject("variant").getAsJsonArray("pieces");
+        for (var e : statePieces) {
+            JsonObject p = e.getAsJsonObject();
+            assertEquals(p.get("letter").getAsString().equals("A"), p.get("invented").getAsBoolean(), p.toString());
+            assertTrue(p.getAsJsonArray("atoms").size() > 0, p.toString());
+        }
+        // a picture for the Amazon
+        byte[] png = {(byte) 0x89, 'P', 'N', 'G'};
+        HttpResponse<String> put = HttpClient.newHttpClient().send(HttpRequest.newBuilder(
+                        URI.create("http://127.0.0.1:" + server.port() + "/api/variants/amazon-chess/art/A/w"))
+                .header("Content-Type", "image/png").PUT(HttpRequest.BodyPublishers.ofByteArray(png)).build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, put.statusCode(), put.body());
+        assertTrue(get("/api/variants/amazon-chess").getAsJsonObject("art").getAsJsonObject("A").has("w"));
+        HttpResponse<byte[]> pic = HttpClient.newHttpClient().send(HttpRequest.newBuilder(
+                URI.create("http://127.0.0.1:" + server.port() + "/api/variants/amazon-chess/art/A/w")).build(),
+                HttpResponse.BodyHandlers.ofByteArray());
+        assertEquals(200, pic.statusCode());
+        assertEquals("image/png", pic.headers().firstValue("Content-Type").orElse("").split(";")[0]);
+        assertTrue(java.util.Arrays.equals(png, pic.body()));
+        assertEquals(404, send("GET", "/api/variants/amazon-chess/art/A/b", "").statusCode());
+        assertEquals(400, send("PUT", "/api/variants/amazon-chess/art/A/w", "<html>").statusCode());
         c.move("e2e4");
         c.move("e7e5");
         c.move("d1f3"); // the Amazon's knight jump

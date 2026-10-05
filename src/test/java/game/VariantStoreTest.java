@@ -74,4 +74,38 @@ class VariantStoreTest {
         assertEquals(1, store.custom().size());
         VariantStore.check(read);
     }
+
+    @Test
+    @DisplayName("a made piece's pictures are saved per side, listed, checked, and go with the piece or the variant")
+    void pictures() {
+        VariantStore store = new VariantStore(dir.resolve("variants"));
+        byte[] png = {(byte) 0x89, 'P', 'N', 'G'};
+        assertThrows(IllegalArgumentException.class, () -> store.saveArt("amazon-chess", 'A', 'w', "image/png", png));
+        store.save(TestVariants.AMAZON_CHESS);
+        store.saveArt("amazon-chess", 'A', 'w', "image/png", png);
+        store.saveArt("amazon-chess", 'A', 'b', "image/svg+xml", "<svg/>".getBytes());
+        VariantStore.Art art = store.art("amazon-chess", 'A', 'w').orElseThrow();
+        assertEquals("image/png", art.type());
+        assertEquals(4, art.bytes().length);
+        assertEquals(java.util.Set.of('w', 'b'), store.artIndex("amazon-chess").get('A').keySet());
+        // a new picture replaces the old, whatever its type
+        store.saveArt("amazon-chess", 'A', 'b', "image/png", png);
+        assertEquals("image/png", store.art("amazon-chess", 'A', 'b').orElseThrow().type());
+        assertThrows(IllegalArgumentException.class, () -> store.saveArt("amazon-chess", 'A', 'w', "text/html", png));
+        assertThrows(IllegalArgumentException.class, () -> store.saveArt("amazon-chess", 'Z', 'w', "image/png", png));
+        assertThrows(IllegalArgumentException.class, () -> store.saveArt("amazon-chess", 'A', 'x', "image/png", png));
+        assertThrows(IllegalArgumentException.class,
+                () -> store.saveArt("amazon-chess", 'A', 'w', "image/png", new byte[VariantStore.MAX_ART_BYTES + 1]));
+        assertThrows(IllegalArgumentException.class, () -> store.saveArt("chess", 'K', 'w', "image/png", png));
+        assertTrue(store.deleteArt("amazon-chess", 'A', 'b'));
+        assertTrue(store.art("amazon-chess", 'A', 'b').isEmpty());
+
+        // saved without the Amazon: its picture goes; deleting the variant takes the rest
+        store.saveArt("amazon-chess", 'N', 'w', "image/png", png);
+        Variant noAmazon = VariantJson.read(VariantJson.write(Variants.CHESS).replace("\"chess\"", "\"amazon-chess\""));
+        store.save(noAmazon);
+        assertEquals(java.util.Set.of('N'), store.artIndex("amazon-chess").keySet());
+        assertTrue(store.delete("amazon-chess"));
+        assertFalse(Files.exists(dir.resolve("variants").resolve("amazon-chess.art")));
+    }
 }

@@ -12,6 +12,8 @@ import io.javalin.Javalin;
 import io.javalin.http.Context;
 import io.javalin.http.NotFoundResponse;
 
+import java.util.Optional;
+
 /**
  * The variants, built in and made by the player (Phase 6 R5a), for the variant designer:
  * <ul>
@@ -21,6 +23,10 @@ import io.javalin.http.NotFoundResponse;
  *       the path's); 400 {error} says why one cannot be played</li>
  *   <li>{@code DELETE /api/variants/{id}}: removes a made variant (games played with it keep their copy)</li>
  *   <li>{@code POST /api/betza} {text} → {atoms}, or {atoms} → {text}; 400 {error} for text that is not Betza</li>
+ *   <li>{@code GET/PUT/DELETE /api/variants/{id}/art/{letter}/{side}}: a made piece's picture for
+ *       white ({@code w}) or black ({@code b}); PUT takes the image as the body with its
+ *       Content-Type (PNG, JPEG, WebP, GIF or SVG, at most 1 MB). {@code GET /api/variants/{id}}
+ *       lists them as {@code art: {letter: {side: savedMillis}}}</li>
  * </ul>
  */
 final class VariantsApi {
@@ -53,7 +59,49 @@ final class VariantsApi {
                     .orElseThrow(() -> new NotFoundResponse("no variant " + ctx.pathParam("id")));
             JsonObject o = VariantJson.toTree(v);
             o.addProperty("builtIn", VariantStore.isBuiltIn(v.id()));
+            o.add("art", artIndex(v.id()));
             json(ctx, o);
+        });
+        app.get("/api/variants/{id}/art/{letter}/{side}", ctx -> {
+            VariantStore.Art art;
+            try {
+                art = artKey(ctx, (id, letter, side) -> store.art(id, letter, side)).orElse(null);
+            } catch (IllegalArgumentException e) {
+                art = null;
+            }
+            if (art == null) {
+                throw new NotFoundResponse("no picture");
+            }
+            ctx.header("Cache-Control", "no-cache");
+            // an uploaded SVG is shown as an image only, never run as a page
+            ctx.header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'");
+            ctx.header("X-Content-Type-Options", "nosniff");
+            ctx.contentType(art.type()).result(art.bytes());
+        });
+        app.put("/api/variants/{id}/art/{letter}/{side}", ctx -> {
+            try {
+                String type = String.valueOf(ctx.contentType()).split(";")[0].trim();
+                artKey(ctx, (id, letter, side) -> {
+                    store.saveArt(id, letter, side, type, ctx.bodyAsBytes());
+                    return Optional.empty();
+                });
+            } catch (IllegalArgumentException e) {
+                error(ctx, 400, e.getMessage());
+                return;
+            }
+            json(ctx, artIndex(ctx.pathParam("id")));
+        });
+        app.delete("/api/variants/{id}/art/{letter}/{side}", ctx -> {
+            try {
+                artKey(ctx, (id, letter, side) -> {
+                    store.deleteArt(id, letter, side);
+                    return Optional.empty();
+                });
+            } catch (IllegalArgumentException e) {
+                error(ctx, 400, e.getMessage());
+                return;
+            }
+            json(ctx, artIndex(ctx.pathParam("id")));
         });
         app.put("/api/variants/{id}", this::save);
         app.delete("/api/variants/{id}", ctx -> {
@@ -68,6 +116,30 @@ final class VariantsApi {
             ctx.status(204);
         });
         app.post("/api/betza", this::betza);
+    }
+
+    private interface ArtAction {
+        Optional<VariantStore.Art> run(String id, char letter, char side);
+    }
+
+    /** Runs {@code action} on the path's variant, letter and side; a malformed one is a 400. */
+    private static Optional<VariantStore.Art> artKey(Context ctx, ArtAction action) {
+        String letter = ctx.pathParam("letter");
+        String side = ctx.pathParam("side");
+        if (letter.length() != 1 || side.length() != 1) {
+            throw new IllegalArgumentException("a picture is for one letter and side w or b");
+        }
+        return action.run(ctx.pathParam("id"), letter.charAt(0), side.charAt(0));
+    }
+
+    private JsonObject artIndex(String id) {
+        JsonObject art = new JsonObject();
+        store.artIndex(id).forEach((letter, sides) -> {
+            JsonObject o = new JsonObject();
+            sides.forEach((side, millis) -> o.addProperty(String.valueOf(side), millis));
+            art.add(String.valueOf(letter), o);
+        });
+        return art;
     }
 
     private void save(Context ctx) {
@@ -89,6 +161,7 @@ final class VariantsApi {
         }
         JsonObject o = VariantJson.toTree(v);
         o.addProperty("builtIn", false);
+        o.add("art", artIndex(v.id()));
         json(ctx, o);
     }
 

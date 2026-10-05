@@ -113,6 +113,14 @@ public final class VariantStore {
             } catch (AtomicMoveNotSupportedException e) {
                 Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
             }
+            // pictures of pieces the variant no longer has go with them
+            for (var e : artIndex(variant.id()).entrySet()) {
+                if (variant.pieces().stream().noneMatch(t -> t.letter() == e.getKey())) {
+                    for (char side : e.getValue().keySet()) {
+                        deleteArt(variant.id(), e.getKey(), side);
+                    }
+                }
+            }
         } catch (IOException e) {
             throw new UncheckedIOException("could not save the variant to " + file, e);
         }
@@ -124,9 +132,123 @@ public final class VariantStore {
             return false;
         }
         try {
+            deleteAllArt(id);
             return Files.deleteIfExists(file(id));
         } catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+    }
+
+    /** The picture types a piece's art may have, by file extension. */
+    public static final java.util.Map<String, String> ART_TYPES = java.util.Map.of(
+            "png", "image/png", "jpg", "image/jpeg", "webp", "image/webp", "gif", "image/gif", "svg", "image/svg+xml");
+
+    /** The largest picture a piece may have. */
+    public static final int MAX_ART_BYTES = 1 << 20;
+
+    /** A piece's picture: its bytes, media type and when it was saved (for the browser's cache). */
+    public record Art(byte[] bytes, String type, long modified) {}
+
+    private Path artDir(String id) {
+        return dir.resolve(id + ".art");
+    }
+
+    private static void checkArtKey(char letter, char side) {
+        if (letter < 'A' || letter > 'Z' || (side != 'w' && side != 'b')) {
+            throw new IllegalArgumentException("a picture is for a letter A-Z and side w or b");
+        }
+    }
+
+    /**
+     * Saves the picture of a made variant's piece for one side ({@code w} or {@code b}), replacing
+     * the one there was.
+     *
+     * @throws IllegalArgumentException if there is no such made variant or piece, or the picture is
+     *         not a PNG, JPEG, WebP, GIF or SVG of at most {@link #MAX_ART_BYTES}
+     */
+    public synchronized void saveArt(String id, char letter, char side, String type, byte[] bytes) {
+        checkArtKey(letter, side);
+        Variant variant = byId(id).filter(v -> !isBuiltIn(v.id()))
+                .orElseThrow(() -> new IllegalArgumentException("save the variant first: no made variant " + id));
+        if (variant.pieces().stream().noneMatch(t -> t.letter() == letter)) {
+            throw new IllegalArgumentException(id + " has no piece " + letter);
+        }
+        String ext = ART_TYPES.entrySet().stream().filter(e -> e.getValue().equals(type)).map(java.util.Map.Entry::getKey)
+                .findFirst().orElseThrow(() -> new IllegalArgumentException("a picture is PNG, JPEG, WebP, GIF or SVG, not " + type));
+        if (bytes.length == 0 || bytes.length > MAX_ART_BYTES) {
+            throw new IllegalArgumentException("a picture is at most " + MAX_ART_BYTES / 1024 + " KB");
+        }
+        try {
+            Files.createDirectories(artDir(id));
+            deleteArt(id, letter, side);
+            Files.write(artDir(id).resolve(letter + "-" + side + "." + ext), bytes);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** The picture of a piece for one side, if there is one. */
+    public synchronized Optional<Art> art(String id, char letter, char side) {
+        if (!id.matches("[a-z0-9-]{1,64}")) {
+            return Optional.empty();
+        }
+        checkArtKey(letter, side);
+        for (var e : ART_TYPES.entrySet()) {
+            Path f = artDir(id).resolve(letter + "-" + side + "." + e.getKey());
+            if (Files.isRegularFile(f)) {
+                try {
+                    return Optional.of(new Art(Files.readAllBytes(f), e.getValue(), Files.getLastModifiedTime(f).toMillis()));
+                } catch (IOException ex) {
+                    throw new UncheckedIOException(ex);
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** Which pieces of a variant have pictures: letter -> side ({@code w}, {@code b}) -> when saved. */
+    public synchronized java.util.Map<Character, java.util.Map<Character, Long>> artIndex(String id) {
+        java.util.Map<Character, java.util.Map<Character, Long>> out = new java.util.TreeMap<>();
+        if (!id.matches("[a-z0-9-]{1,64}") || !Files.isDirectory(artDir(id))) {
+            return out;
+        }
+        try (Stream<Path> files = Files.list(artDir(id))) {
+            for (Path f : files.toList()) {
+                String n = f.getFileName().toString();
+                if (n.matches("[A-Z]-[wb]\\.[a-z]+") && ART_TYPES.containsKey(n.substring(4))) {
+                    out.computeIfAbsent(n.charAt(0), k -> new java.util.TreeMap<>())
+                            .put(n.charAt(2), Files.getLastModifiedTime(f).toMillis());
+                }
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return out;
+    }
+
+    /** Removes a piece's picture for one side; false if there was none. */
+    public synchronized boolean deleteArt(String id, char letter, char side) {
+        checkArtKey(letter, side);
+        boolean any = false;
+        try {
+            for (String ext : ART_TYPES.keySet()) {
+                any |= Files.deleteIfExists(artDir(id).resolve(letter + "-" + side + "." + ext));
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return any;
+    }
+
+    private void deleteAllArt(String id) throws IOException {
+        Path art = artDir(id);
+        if (Files.isDirectory(art)) {
+            try (Stream<Path> files = Files.list(art)) {
+                for (Path f : files.toList()) {
+                    Files.deleteIfExists(f);
+                }
+            }
+            Files.deleteIfExists(art);
         }
     }
 
