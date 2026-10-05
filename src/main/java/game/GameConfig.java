@@ -22,11 +22,11 @@ public record GameConfig(Mode mode, boolean humanPlaysWhite, int skillLevel, int
     }
 
     /**
-     * The application's defaults: play White against the engine at Level 4 (a 3-ply search): a
+     * The application's defaults: play White against the engine at Level 5 (a 3-ply search): a
      * real opponent from the first screen, not random moves.
      */
     public static GameConfig defaults() {
-        return new GameConfig(Mode.HUMAN_VS_ENGINE, true, 4);
+        return new GameConfig(Mode.HUMAN_VS_ENGINE, true, 5);
     }
 
     public GameConfig withMode(Mode mode) {

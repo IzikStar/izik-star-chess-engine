@@ -59,10 +59,10 @@ class EngineTest {
     }
 
     @Test
-    @DisplayName("Search depth: level - 1, deeper with few pieces left, at most depth 7")
+    @DisplayName("Search depth: the level's depth, deeper with few pieces left, at most depth 7")
     void depthFormula() {
-        assertEquals(3, MinimaxEngine.searchDepth(Position.fromFen(Position.START_FEN), 4));
-        assertEquals(5, MinimaxEngine.searchDepth(Position.fromFen(PROMOTION), 4));
+        assertEquals(3, MinimaxEngine.searchDepth(Position.fromFen(Position.START_FEN), 5));
+        assertEquals(5, MinimaxEngine.searchDepth(Position.fromFen(PROMOTION), 5));
         assertEquals(1, MinimaxEngine.searchDepth(Position.fromFen(Position.START_FEN), 1));
         assertEquals(7, MinimaxEngine.searchDepth(Position.fromFen(Position.START_FEN), Levels.TOP_BUILT_IN));
         assertEquals(7, MinimaxEngine.searchDepth(Position.fromFen(Position.START_FEN), Levels.MAX));

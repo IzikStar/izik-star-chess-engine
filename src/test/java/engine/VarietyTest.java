@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** The engine does not play the same game every time, yet a seed repeats it (Phase 5). */
 class VarietyTest {
 
-    private static final int LEVEL = 4; // depth 3 in the opening
+    private static final int LEVEL = 5; // depth 3 in the opening
 
     private static ChessMove move(MinimaxEngine engine, String fen) {
         return engine.bestMove(SearchRequest.of(fen, LEVEL));

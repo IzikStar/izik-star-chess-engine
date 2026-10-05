@@ -22,14 +22,14 @@ class LevelsTest {
     }
 
     @Test
-    @DisplayName("Depth rises one ply a level up to depth 7; Level 1 is depth 1 with random moves")
+    @DisplayName("Levels 1-3 are depth 1 with fewer random moves, then depths 2, 3, 4, 6, 7")
     void builtInLevels() {
         assertEquals(100, Levels.randomPercent(0));
-        assertEquals(1, Levels.builtInDepth(1));
-        assertEquals(25, Levels.randomPercent(1));
-        for (int level = 2; level <= 8; level++) {
-            assertEquals(level - 1, Levels.builtInDepth(level));
-            assertEquals(0, Levels.randomPercent(level));
+        int[] depth = {0, 1, 1, 1, 2, 3, 4, 6, 7};
+        int[] random = {100, 25, 12, 0, 0, 0, 0, 0, 0};
+        for (int level = 1; level <= 8; level++) {
+            assertEquals(depth[level], Levels.builtInDepth(level), "level " + level);
+            assertEquals(random[level], Levels.randomPercent(level), "level " + level);
         }
     }
 

@@ -6,18 +6,19 @@ package engine;
  *
  * <ul>
  *   <li>0: random legal moves, below the ladder.</li>
- *   <li>1: the built-in engine at depth 1, but a quarter of its moves are random.</li>
- *   <li>2-8: the built-in engine at depth 1-7 ({@link MinimaxEngine#searchDepth}). Depth 7 is the
- *       deepest that fits the 5 s cap in the middlegame; depth 8 took about 9 s and, held to the
- *       cap, was no stronger.</li>
+ *   <li>1-2: the built-in engine at depth 1, a quarter (1) or an eighth (2) of its moves random.</li>
+ *   <li>3-8: the built-in engine at depth 1, 2, 3, 4, 6, 7 ({@link MinimaxEngine#searchDepth}).
+ *       Depth 5 is left out: it measured only about 120 Elo above depth 4 and 100 below depth 6.
+ *       Depth 7 is the deepest that fits the 5 s cap in the middlegame; depth 8 took about 9 s
+ *       and, held to the cap, was no stronger.</li>
  *   <li>9-12: Stockfish held to a UCI_Elo, half a second a move.</li>
  *   <li>13: Stockfish at full strength, a second a move.</li>
  * </ul>
  * Hints ({@link #HINT}) are the strongest the app has: Stockfish at full strength for
  * {@link #HINT_MOVE_TIME_MS}, or without Stockfish the built-in engine's top level.
  *
- * The steps between levels are about 250 Elo, on Stockfish's UCI_Elo scale (a computer rating
- * list, not a human federation's).
+ * The steps between levels are 150-350 Elo as measured by {@code arena.LadderCalibration}, on
+ * Stockfish's UCI_Elo scale (a computer rating list, not a human federation's).
  */
 public final class Levels {
 
@@ -32,8 +33,10 @@ public final class Levels {
     /** How long Stockfish thinks about a hint. */
     public static final long HINT_MOVE_TIME_MS = 4000;
 
-    /** Level 1 plays this share of its moves at random, in percent. */
-    public static final int LEVEL_1_RANDOM_PERCENT = 25;
+    /** The built-in engine's nominal search depth at Levels 1-8. */
+    private static final int[] DEPTH = {1, 1, 1, 2, 3, 4, 6, 7};
+    /** The share of its moves Levels 1-8 play at random, in percent. */
+    private static final int[] RANDOM_PERCENT = {25, 12, 0, 0, 0, 0, 0, 0};
 
     /** Stockfish's UCI_Elo for Levels 9-12. */
     private static final int[] STOCKFISH_ELO = {2150, 2400, 2650, 2900};
@@ -54,7 +57,7 @@ public final class Levels {
         if (level <= RANDOM) {
             return 0;
         }
-        return Math.max(1, Math.min(TOP_BUILT_IN, level) - 1);
+        return DEPTH[Math.min(TOP_BUILT_IN, level) - 1];
     }
 
     /** The share of random moves at a built-in level, in percent. */
@@ -62,7 +65,7 @@ public final class Levels {
         if (level <= RANDOM) {
             return 100;
         }
-        return level == 1 ? LEVEL_1_RANDOM_PERCENT : 0;
+        return RANDOM_PERCENT[Math.min(TOP_BUILT_IN, level) - 1];
     }
 
     /** Stockfish's UCI_Elo at {@code level}, or 0 for full strength (Level 13 and hints). */

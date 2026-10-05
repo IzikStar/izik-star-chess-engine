@@ -126,9 +126,9 @@ class StressTest {
 
     @Test
     @Tag("stress")
-    @DisplayName("Engine-vs-engine at the app's computer-game level (Level 4) ends, 5 games")
+    @DisplayName("Engine-vs-engine at the app's computer-game level (Level 5) ends, 5 games")
     void computerGameLevel() throws Exception {
-        assertEquals(5, engineVsEngine(builtInOnly(), 4, 5, 600));
+        assertEquals(5, engineVsEngine(builtInOnly(), 5, 5, 600));
     }
 
     @Test

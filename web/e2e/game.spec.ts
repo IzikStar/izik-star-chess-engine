@@ -108,12 +108,12 @@ test('the strength slider runs from Level 0 to 13 and shows each level\'s Elo', 
   await slider.fill('6');
   // the tuned weights are the default; the classic ones are the ladder's measured numbers
   await expect(dialog.getByRole('button', { name: 'Tuned', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await expect(dialog.getByTestId('level-elo')).toHaveText(' · ≈ 1740 Elo');
+  await expect(dialog.getByTestId('level-elo')).toHaveText(' · ≈ 1580 Elo');
   await dialog.getByRole('button', { name: 'Classic', exact: true }).click();
-  await expect(dialog.getByTestId('level-elo')).toHaveText(' · ≈ 1530 Elo');
+  await expect(dialog.getByTestId('level-elo')).toHaveText(' · ≈ 1460 Elo');
   await expect(dialog.getByTestId('weights-note')).toContainText('hand-written');
   await slider.fill('13');
-  await expect(dialog.getByTestId('level-elo')).toHaveText(' · 3190+ Elo');
+  await expect(dialog.getByTestId('level-elo')).toHaveText(' · 3500+ Elo');
   await dialog.getByRole('button', { name: 'Cancel' }).click();
 });
 

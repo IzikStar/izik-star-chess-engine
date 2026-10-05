@@ -19,11 +19,12 @@ Phase 4c (#2 to #6) refer to that repository.
 
 - **Play against the computer or a friend**, or watch the engine play itself (each side at its
   own level). Pick White, Black or a random colour in the *New game* dialog.
-- **Difficulty Levels 0-13**, each about 250 Elo above the one below, with the Elo shown next to
-  the level ([table](docs/difficulty-ladder.md)). The app opens on Level 4, a real but beatable
-  opponent.
-  - Level 0 plays random legal moves; Level 1 is depth 1 with a quarter of its moves random.
-  - Levels 2-8 use the built-in engine and search one ply deeper per level, up to depth 7.
+- **Difficulty Levels 0-13**, 150-350 Elo apart as measured against Stockfish, with the Elo shown
+  next to the level ([table](docs/difficulty-ladder.md)). The app opens on Level 5, a real but
+  beatable opponent.
+  - Level 0 plays random legal moves; Levels 1 and 2 are depth 1 with a quarter and an eighth of
+    their moves random.
+  - Levels 3-8 use the built-in engine at depth 1, 2, 3, 4, 6 and 7.
   - Levels 9-13 hand the move to Stockfish if it is installed (held to a UCI_Elo of 2150-2900,
     then full strength), and fall back to the built-in engine at Level 8 if it is not (the game
     tells you).
@@ -98,7 +99,7 @@ A short summary; [docs/architecture.md](docs/architecture.md) has the details.
 - **Search.** [`ai/Minimax.java`](src/main/java/ai/Minimax.java): alpha-beta with iterative
   deepening (stops at 5 s or when the game moves on), a transposition table, killer and history
   move ordering, quiescence through captures, and repetition detection. Depth comes from the
-  level (1 ply at Level 2 to 7 plies at Level 8, deeper once the board thins out); any root move
+  level (1 ply at Levels 1-3 to 7 plies at Level 8, deeper once the board thins out); any root move
   within 0.2 pawn of the best may be played, so games vary.
 - **Evaluation.** [`ai/eval/ChessEvaluate.java`](src/main/java/ai/eval/ChessEvaluate.java): 499
   named, bounded parameters in centipawns, each with a middlegame and an endgame value blended by
