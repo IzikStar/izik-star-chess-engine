@@ -21,12 +21,18 @@ public final class RunPgn {
         return GamePgn.write(g, event, round, depth);
     }
 
+    /** One game of {@code variant}. */
+    public static String game(ai.variant.Variant variant, GameRecord g, String event, int round, int depth) {
+        return GamePgn.write(variant, g, event, round, depth);
+    }
+
     /**
      * Writes the games of a run: every generation, or only {@code generation} (-1 for all); only
      * the games of {@code member} when it is 0 or more. Returns how many games it wrote.
      */
     public static int write(RunStore store, int generation, int member, Writer out) throws IOException {
         String event = store.run().map(RunStore.RunRow::name).orElse("evolution run");
+        ai.variant.Variant variant = store.run().map(r -> r.settings().variant()).orElse(ai.variant.Variants.CHESS);
         int written = 0;
         for (RunStore.GenerationRow row : store.generations()) {
             if (generation >= 0 && row.number() != generation) {
@@ -40,7 +46,7 @@ public final class RunPgn {
                     if (member >= 0 && !isMember(g, member, kind, row)) {
                         continue;
                     }
-                    out.write(game(g, event, row.number(), depths.get(i)));
+                    out.write(game(variant, g, event, row.number(), depths.get(i)));
                     out.write('\n');
                     written++;
                 }

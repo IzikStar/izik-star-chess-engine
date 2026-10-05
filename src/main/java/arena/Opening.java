@@ -17,6 +17,32 @@ public record Opening(String name, List<String> moves) {
         moves = List.copyOf(moves);
     }
 
+    /**
+     * {@code count} openings of {@code variant} made of {@code plies} random legal moves each, named
+     * "random 1", "random 2"...; a line that ends the game is drawn again. The same seed gives the same
+     * openings. Variants have no opening book, so their games start like this.
+     */
+    public static List<Opening> random(ai.variant.Variant variant, int count, int plies, long seed) {
+        java.util.Random random = new java.util.Random(seed);
+        List<Opening> openings = new ArrayList<>();
+        java.util.Set<List<String>> seen = new java.util.HashSet<>();
+        int tries = 0;
+        while (openings.size() < count && tries++ < count * 50) {
+            rules.Game game = new rules.Game(variant);
+            List<String> moves = new ArrayList<>();
+            for (int i = 0; i < plies && !game.status().isGameOver(); i++) {
+                List<rules.ChessMove> legal = game.legalMoves();
+                rules.ChessMove move = legal.get(random.nextInt(legal.size()));
+                game.play(move);
+                moves.add(move.toUci());
+            }
+            if (!game.status().isGameOver() && seen.add(moves)) {
+                openings.add(new Opening("random " + (openings.size() + 1), moves));
+            }
+        }
+        return List.copyOf(openings);
+    }
+
     /** The arena's suite of about fifty balanced openings ({@code arena/openings.txt}). */
     public static List<Opening> suite() {
         try (InputStream in = Opening.class.getResourceAsStream("/arena/openings.txt")) {

@@ -21,6 +21,16 @@ public final class Evaluators {
         return PieceSetEvaluate.of(variant);
     }
 
+    /** The parameters {@code variant}'s evaluation is built from: the chess schema or the piece set's. */
+    public static ParamSchema schema(Variant variant) {
+        return usesChessEvaluation(variant) ? ChessEvaluate.SCHEMA : PieceSetEvaluate.schema(variant);
+    }
+
+    /** {@code variant}'s evaluation with {@code params} (of {@link #schema(Variant)}). */
+    public static Evaluator evaluator(Variant variant, ParamVector params) {
+        return usesChessEvaluation(variant) ? new ChessEvaluate(params) : new PieceSetEvaluate(variant, params);
+    }
+
     public static boolean usesChessEvaluation(Variant variant) {
         return variant.pieces().equals(StandardPieces.ALL) && variant.grid().equals(Grid.CHESS)
                 && variant.goal() != Variant.Goal.LOSE_EVERYTHING;

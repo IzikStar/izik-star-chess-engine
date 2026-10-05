@@ -2,6 +2,8 @@ package arena;
 
 import ai.Minimax;
 import engine.MinimaxEngine;
+import ai.variant.Variant;
+import ai.variant.Variants;
 import rules.ChessMove;
 import rules.Game;
 import rules.GameStatus;
@@ -24,7 +26,19 @@ public final class Match {
      * {@code seed} always give the same game.
      */
     public static GameRecord play(Player white, Player black, Opening opening, int maxPlies, long seed) {
-        Game game = new Game();
+        return play(Variants.CHESS, white, black, opening, maxPlies, seed);
+    }
+
+    /**
+     * A game of {@code variant}, as {@link #play(Player, Player, Opening, int, long)}. Engines outside
+     * this program (Stockfish) play chess only.
+     */
+    public static GameRecord play(Variant variant, Player white, Player black, Opening opening, int maxPlies, long seed) {
+        boolean chess = variant.equals(Variants.CHESS);
+        if (!chess && (white.isExternal() || black.isExternal())) {
+            throw new IllegalArgumentException("an outside engine plays chess only, not " + variant.name());
+        }
+        Game game = new Game(variant);
         for (String uci : opening.moves()) {
             game.play(uci);
         }
@@ -40,6 +54,8 @@ public final class Match {
                 ChessMove move;
                 if (uci != null) {
                     move = uci.move(game.moves().stream().map(MoveResult::move).map(ChessMove::toUci).toList());
+                } else if (!chess) {
+                    move = MinimaxEngine.searchAtDepth(variant, game.history(), side.depth(), side.evaluator(), options);
                 } else if (side.moveMillis() > 0) {
                     move = MinimaxEngine.searchWithin(game.fen(), game.history(), side.depth(), side.evaluator(), options,
                             side.moveMillis());

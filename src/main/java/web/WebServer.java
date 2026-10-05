@@ -201,6 +201,7 @@ public final class WebServer {
                     + "or <code>npm run dev</code> in <code>web/</code> during development.</p>"));
         }
         lab.routes(app);
+        new LabJobs(lab, variantStore).routes(app);
         AnalysisApi analysis = new AnalysisApi();
         analysis.routes(app);
         EvalApi eval = new EvalApi();

@@ -105,7 +105,9 @@ public final class MinimaxEngine implements Engine {
         }
         int depth = searchDepth(Position.fromFen(fen), level);
         long deadline = System.nanoTime() + TimeBudget.cap(timeCapMs, request.timeBudgetMs()) * 1_000_000;
-        Evaluator weights = Evaluators.usesChessEvaluation(variant) ? evaluator : Evaluators.forVariant(variant);
+        // the engine's own weights (the app's, or a champion's) when they are for this variant's evaluation
+        Evaluator own = evaluator;
+        Evaluator weights = own.params().schema() == Evaluators.schema(variant) ? own : Evaluators.forVariant(variant);
         long[] history = gameHistory(variant, gameFens(variant, request.startFen(), request.moves()), fen);
         int move = Minimax.getBestMove(Boards.fromFen(variant, fen), depth, weights,
                 new Minimax.Options(variety, random, true), history,
@@ -169,6 +171,23 @@ public final class MinimaxEngine implements Engine {
         int move = Minimax.getBestMove(Boards.fromFen(variant, fen), depth, weights, options,
                 gameHistory(variant, gameFens, fen), stop);
         return stop.getAsBoolean() ? null : toLegalMove(move, legal);
+    }
+
+    /**
+     * A {@code variant} game's move at exactly {@code depth} with {@code evaluator}, in a game whose
+     * positions so far are {@code gameFens} (oldest first, the current one last); {@code null} if
+     * there is no legal move. The arena plays variant games with this.
+     */
+    public static ChessMove searchAtDepth(Variant variant, List<String> gameFens, int depth, Evaluator evaluator,
+                                          Minimax.Options options) {
+        String fen = gameFens.get(gameFens.size() - 1);
+        List<ChessMove> legal = Rules.legalMoves(variant, fen);
+        if (legal.isEmpty()) {
+            return null;
+        }
+        int move = Minimax.getBestMove(Boards.fromFen(variant, fen), depth, evaluator, options,
+                gameHistory(variant, gameFens, fen), () -> false);
+        return toLegalMove(move, legal);
     }
 
     /**

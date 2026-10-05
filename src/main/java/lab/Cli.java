@@ -36,6 +36,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *   --stockfish-from N   Stockfish yardsticks from this generation on
  *   --deep-depth N --deep-share 10-40      percent of games at the deep depth, first-last generation
  *   --member-stockfish-openings N          every member plays Stockfish over N openings (both colours)
+ *   --variant ID | --variant-file FILE     play a variant (antichess...) or a made variant's JSON
+ *   --opening-plies N --random-openings N  start games from N random moves (variants: 4), from this many openings
+ *   --options key=value,key=value          the algorithm's settings (evolution.FromZero: population, start...)
  * </pre>
  *
  * Ctrl+C stops a run after the generation in progress; {@code resume} continues it.
@@ -104,7 +107,7 @@ public final class Cli {
         try (RunStore store = RunStore.open(file)) {
             RunStore.GenerationRow row = store.generations().stream().filter(r -> r.number() == generation)
                     .findFirst().orElseThrow(() -> new IllegalArgumentException("generation " + generation + " is not finished"));
-            Files.writeString(out, store.members(generation, ai.eval.ChessEvaluate.SCHEMA).get(row.champion()).toJson());
+            Files.writeString(out, store.members(generation, ai.eval.Evaluators.schema(store.run().orElseThrow().settings().variant())).get(row.champion()).toJson());
             System.out.println("generation " + generation + "'s champion (#" + row.champion() + ") written to " + out);
         }
     }
@@ -120,13 +123,45 @@ public final class Cli {
                 o.containsKey("yardsticks") ? List.of(o.get("yardsticks").split(",")) : d.yardsticks(),
                 integer(o, "stockfish-from", d.stockfishFrom()), integer(o, "deep-depth", d.deepDepth()),
                 share(o, 0, d.deepShareFirst()), share(o, 1, d.deepShareLast()),
-                integer(o, "member-stockfish-openings", d.memberStockfishOpenings()));
+                integer(o, "member-stockfish-openings", d.memberStockfishOpenings()),
+                variantJson(o) != null ? ai.variant.VariantJson.read(variantJson(o)).id() : o.getOrDefault("variant", "chess"),
+                variantJson(o), integer(o, "opening-plies", o.containsKey("variant")
+                        || o.containsKey("variant-file") ? 4 : 0), integer(o, "random-openings", 50), algorithmOptions(o));
         Evolution evolution = EvolutionRunner.algorithm(o.getOrDefault("algorithm", "evolution.RandomMutationExample"));
         String name = o.getOrDefault("name", file.getFileName().toString().replaceFirst("\\.db$", ""));
         try (RunStore store = RunStore.open(file)) {
             EvolutionRunner.start(store, name, evolution, settings, printer(), stopOnCtrlC());
             show(store);
         }
+    }
+
+    /** {@code --variant-file made.json}: a made variant's definition, as the Variants tab saves it. */
+    private static String variantJson(Map<String, String> o) {
+        if (!o.containsKey("variant-file")) {
+            return null;
+        }
+        try {
+            String json = Files.readString(Path.of(o.get("variant-file")));
+            ai.variant.VariantJson.read(json); // fail now, not in the middle of a run
+            return json;
+        } catch (IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+    }
+
+    /** {@code --options population=16,start=zero}: the algorithm's own settings. */
+    private static Map<String, String> algorithmOptions(Map<String, String> o) {
+        Map<String, String> options = new java.util.LinkedHashMap<>();
+        if (o.containsKey("options")) {
+            for (String pair : o.get("options").split(",")) {
+                String[] kv = pair.split("=", 2);
+                if (kv.length != 2) {
+                    throw new IllegalArgumentException("expected key=value in --options, got " + pair);
+                }
+                options.put(kv[0].trim(), kv[1].trim());
+            }
+        }
+        return options;
     }
 
     private static void resume(Path file, Map<String, String> o) {

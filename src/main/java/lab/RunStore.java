@@ -239,6 +239,40 @@ public final class RunStore implements AutoCloseable {
         return games;
     }
 
+    /** What a generation's games of one kind came to, counted by SQL (no moves are read). */
+    public record Stats(int games, int whiteWins, int blackWins, int draws, double averagePlies, int capped) {
+        public double decisiveShare() {
+            return games == 0 ? 0 : (whiteWins + blackWins) / (double) games;
+        }
+    }
+
+    public Stats stats(int generation, String kind) {
+        try (PreparedStatement p = db.prepareStatement("SELECT COUNT(*), SUM(result = 'WHITE_WINS'), SUM(result = 'BLACK_WINS'),"
+                + " SUM(result = 'DRAW'), AVG(plies), SUM(reason = 'PLY_CAP') FROM game WHERE generation = ? AND kind = ?")) {
+            p.setInt(1, generation);
+            p.setString(2, kind);
+            try (ResultSet r = p.executeQuery()) {
+                r.next();
+                return new Stats(r.getInt(1), r.getInt(2), r.getInt(3), r.getInt(4), r.getDouble(5), r.getInt(6));
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /** How many games a generation has stored so far, of every kind. */
+    public int gameCount(int generation) {
+        try (PreparedStatement p = db.prepareStatement("SELECT COUNT(*) FROM game WHERE generation = ?")) {
+            p.setInt(1, generation);
+            try (ResultSet r = p.executeQuery()) {
+                r.next();
+                return r.getInt(1);
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
     /** Every game of the run, population and yardstick, in the order played. */
     public List<GameRecord> allGames() {
         List<GameRecord> games = new ArrayList<>();

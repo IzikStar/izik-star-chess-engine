@@ -42,6 +42,23 @@ public final class Players {
         return parse(spec, name, depth, variety, HALL_OF_FAME);
     }
 
+    /**
+     * The player {@code spec} names in a game of {@code variant}: in a variant other than chess,
+     * "default" and "zero" are its piece-set evaluation's defaults and all zeros, a file or hall of
+     * fame entry holds weights of that evaluation, and Stockfish does not play.
+     */
+    public static Player parse(String spec, String name, int depth, int variety, Path hallOfFame,
+                               ai.variant.Variant variant) {
+        if (ai.eval.Evaluators.schema(variant) == ChessEvaluate.SCHEMA) {
+            return parse(spec, name, depth, variety, hallOfFame);
+        }
+        if (isStockfish(spec)) {
+            throw new IllegalArgumentException("Stockfish plays chess only, not " + variant.name());
+        }
+        return Player.of(name, ai.eval.Evaluators.evaluator(variant, params(spec, hallOfFame,
+                ai.eval.Evaluators.schema(variant))), depth, variety);
+    }
+
     public static Player parse(String spec, String name, int depth, int variety, Path hallOfFame) {
         if (isStockfish(spec)) {
             String[] parts = spec.substring(3).split("@");
@@ -59,8 +76,23 @@ public final class Players {
 
     /** As {@link #params(String)}, looking up "hof:NAME" in {@code hallOfFame}. */
     public static ParamVector params(String spec, Path hallOfFame) {
+        return params(spec, hallOfFame, ChessEvaluate.SCHEMA);
+    }
+
+    /**
+     * The weights of {@code schema} that {@code spec} names: "default", "zero" (every weight 0), a
+     * parameter file, "hof:NAME", or (the chess schema only) a preset.
+     */
+    public static ParamVector params(String spec, Path hallOfFame, ai.eval.ParamSchema schema) {
         if (spec.equals("default")) {
-            return ChessEvaluate.SCHEMA.defaults();
+            return schema.defaults();
+        }
+        if (spec.equals("zero")) {
+            int[] zero = new int[schema.size()];
+            for (int i = 0; i < zero.length; i++) {
+                zero[i] = schema.spec(i).clamp(0);
+            }
+            return new ParamVector(schema, zero);
         }
         if (spec.startsWith("hof:")) {
             Path entry = hallOfFame.resolve(spec.substring(4) + ".json");
@@ -68,7 +100,7 @@ public final class Players {
                 // an entry is a JSON object whose "params" are the weights
                 String json = com.google.gson.JsonParser.parseString(Files.readString(entry)).getAsJsonObject()
                         .get("params").toString();
-                return ParamVector.fromJson(ChessEvaluate.SCHEMA, json);
+                return ParamVector.fromJson(schema, json);
             } catch (IOException e) {
                 throw new IllegalArgumentException("no hall of fame entry " + spec.substring(4) + " in " + hallOfFame, e);
             }
@@ -76,10 +108,13 @@ public final class Players {
         Path file = Path.of(spec);
         if (Files.isRegularFile(file)) {
             try {
-                return ParamVector.fromJson(ChessEvaluate.SCHEMA, Files.readString(file));
+                return ParamVector.fromJson(schema, Files.readString(file));
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
+        }
+        if (schema != ChessEvaluate.SCHEMA) {
+            throw new IllegalArgumentException("no player " + spec + " for this game (use default, zero, a file or hof:NAME)");
         }
         return ChessEvaluate.preset(spec);
     }

@@ -510,8 +510,7 @@ class WebServerTest {
 
         c.send("{\"type\":\"newGame\",\"variant\":\"no-such-game\"}");
         assertTrue(c.awaitEvent("rejected").toString().contains("unknown variant"));
-        c.send("{\"type\":\"newGame\",\"variant\":\"antichess\",\"champion\":{\"run\":\"x\",\"generation\":1}}");
-        assertTrue(c.awaitEvent("rejected").toString().contains("champion"));
+        // a champion of any game can be played in that game; the Lab's browser test plays an antichess one
     }
 
     @Test

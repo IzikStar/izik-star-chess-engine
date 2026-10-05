@@ -1,6 +1,8 @@
 package lab;
 
-import ai.eval.ChessEvaluate;
+import ai.eval.Evaluators;
+import ai.variant.Variant;
+import ai.variant.Variants;
 import ai.eval.ParamSchema;
 import ai.eval.ParamVector;
 import arena.GameRecord;
@@ -38,6 +40,9 @@ public final class EvolutionRunner {
 
     /** Hears what a run does, for progress output. Called from the playing threads too. */
     public interface Listener {
+        /** A generation is about to play about {@code games} games. */
+        default void generationStarted(int generation, int games) {}
+
         default void game(int generation, GameRecord game) {}
 
         default void generation(RunStore.GenerationRow row) {}
@@ -45,25 +50,62 @@ public final class EvolutionRunner {
         Listener SILENT = new Listener() {};
     }
 
-    private static final ParamSchema SCHEMA = ChessEvaluate.SCHEMA;
-
     private final RunStore store;
     private final Evolution evolution;
     private final RunSettings settings;
     private final Listener listener;
+    private final Variant variant;
+    private final ParamSchema schema;
+    private final List<Opening> openings;
 
     private EvolutionRunner(RunStore store, Evolution evolution, RunSettings settings, Listener listener) {
         this.store = store;
         this.evolution = evolution;
         this.settings = settings;
         this.listener = listener;
+        variant = settings.variant();
+        schema = Evaluators.schema(variant);
+        openings = settings.openings();
+        Map<String, String> values = new java.util.LinkedHashMap<>(Evolution.resolve(evolution.options(),
+                settings.algorithmOptions()));
+        values.putIfAbsent("generations", String.valueOf(settings.generations()));
+        evolution.configure(values);
     }
 
     /** Starts a new run in an empty store and plays it until done or {@code stop}. */
     public static void start(RunStore store, String name, Evolution evolution, RunSettings settings,
                              Listener listener, BooleanSupplier stop) {
-        store.createRun(name, evolution.getClass().getName(), settings);
-        new EvolutionRunner(store, evolution, settings, listener).play(stop);
+        start(store, name, evolution, settings, listener, stop, () -> false);
+    }
+
+    /**
+     * As {@link #start(RunStore, String, Evolution, RunSettings, Listener, BooleanSupplier)}; {@code stop}
+     * is honoured between generations, {@code stopNow} between games, dropping the generation under way
+     * (a resumed run plays it again).
+     */
+    public static void start(RunStore store, String name, Evolution evolution, RunSettings settings,
+                             Listener listener, BooleanSupplier stop, BooleanSupplier stopNow) {
+        RunSettings resolved = check(settings.withAlgorithmOptions(
+                Evolution.resolve(evolution.options(), settings.algorithmOptions())));
+        store.createRun(name, evolution.getClass().getName(), resolved);
+        new EvolutionRunner(store, evolution, resolved, listener).play(stop, stopNow);
+    }
+
+    /**
+     * {@code settings} if a run can play them: the variant exists, a variant other than chess starts
+     * from random openings and has no Stockfish in it. Throws {@link IllegalArgumentException} otherwise.
+     */
+    public static RunSettings check(RunSettings settings) {
+        Variant variant = settings.variant();
+        if (!variant.equals(Variants.CHESS)) {
+            if (settings.openingPlies() == 0) {
+                throw new IllegalArgumentException(variant.name() + " has no opening book: give random opening moves");
+            }
+            if (settings.memberStockfishOpenings() > 0 || settings.yardsticks().stream().anyMatch(Players::isStockfish)) {
+                throw new IllegalArgumentException("Stockfish plays chess only, not " + variant.name());
+            }
+        }
+        return settings;
     }
 
     /**
@@ -71,8 +113,19 @@ public final class EvolutionRunner {
      * played again from the start. {@code evolution} should be the algorithm that started it.
      */
     public static void resume(RunStore store, Evolution evolution, Listener listener, BooleanSupplier stop) {
+        resume(store, evolution, listener, stop, () -> false);
+    }
+
+    /** As {@link #resume(RunStore, Evolution, Listener, BooleanSupplier)} with a {@code stopNow} between games. */
+    public static void resume(RunStore store, Evolution evolution, Listener listener, BooleanSupplier stop,
+                              BooleanSupplier stopNow) {
         RunStore.RunRow run = store.run().orElseThrow(() -> new IllegalStateException("no run in this file"));
-        new EvolutionRunner(store, evolution, run.settings(), listener).play(stop);
+        new EvolutionRunner(store, evolution, run.settings(), listener).play(stop, stopNow);
+    }
+
+    /** The evolution algorithms this program ships, for the Lab to offer. */
+    public static List<String> algorithms() {
+        return List.of("evolution.FromZero", "evolution.MaterialExperiment", "evolution.RandomMutationExample");
     }
 
     /** Creates the algorithm named {@code className} (it needs a public no-argument constructor). */
@@ -84,7 +137,7 @@ public final class EvolutionRunner {
         }
     }
 
-    private void play(BooleanSupplier stop) {
+    private void play(BooleanSupplier stop, BooleanSupplier stopNow) {
         if ((settings.yardsticks().stream().anyMatch(Players::isStockfish) || settings.memberStockfishOpenings() > 0)
                 && StockfishLocator.find().isEmpty()) {
             throw new IllegalStateException("the yardsticks include Stockfish, but it is not installed;"
@@ -92,11 +145,18 @@ public final class EvolutionRunner {
         }
         List<RunStore.GenerationRow> done = store.generations();
         int number = done.isEmpty() ? 0 : done.getLast().number() + 1;
-        while (number < settings.generations() && !stop.getAsBoolean()) {
-            playGeneration(number);
-            number++;
+        this.stopNow = stopNow;
+        try {
+            while (number < settings.generations() && !stop.getAsBoolean() && !stopNow.getAsBoolean()) {
+                playGeneration(number);
+                number++;
+            }
+        } catch (Tournament.Cancelled e) {
+            // stopped between games: the generation under way is played again on resume
         }
     }
+
+    private BooleanSupplier stopNow = () -> false;
 
     /** A {@code Random} for one generation's choices: the same on a resumed run. */
     private Random random(int generation, int purpose) {
@@ -105,12 +165,12 @@ public final class EvolutionRunner {
 
     private void playGeneration(int number) {
         store.deleteGames(number); // left over if the run stopped inside this generation
-        List<ParamVector> population = store.members(number, SCHEMA);
+        List<ParamVector> population = store.members(number, schema);
         if (population.isEmpty()) {
             if (number > 0) {
                 throw new IllegalStateException("generation " + number + " has no stored members");
             }
-            population = evolution.firstGeneration(SCHEMA, random(0, 0));
+            population = evolution.firstGeneration(schema, random(0, 0));
             check(population);
             store.saveMembers(0, population);
         }
@@ -124,7 +184,7 @@ public final class EvolutionRunner {
             }
             return list;
         });
-        List<Opening> suite = Opening.suite();
+        List<Opening> suite = openings;
         List<Pairing> pairings = evolution.pairings(population, random(number, 1));
         boolean[] deep = deepUnits(number, (int) pairings.stream().filter(p -> p.depth() == 0).count()
                 * settings.openingsPerPairing(), random(number, 3));
@@ -145,7 +205,13 @@ public final class EvolutionRunner {
                 depths.add(depth);
             }
         }
-        List<GameRecord> games = Tournament.play(fixtures, tournamentSettings(), g -> listener.game(number, g));
+        int planned = fixtures.size() + 2 * population.size() * settings.memberStockfishOpenings();
+        if (settings.yardstickEvery() > 0 && settings.yardstickOpenings() > 0
+                && (number % settings.yardstickEvery() == 0 || number == settings.generations() - 1)) {
+            planned += 2 * settings.yardstickOpenings() * settings.yardsticksAt(number).size();
+        }
+        listener.generationStarted(number, planned);
+        List<GameRecord> games = Tournament.play(fixtures, tournamentSettings(), g -> listener.game(number, g), stopNow);
         for (int i = 0; i < games.size(); i++) {
             GameRecord g = games.get(i);
             store.saveGame(number, "population", Integer.parseInt(g.white()), Integer.parseInt(g.black()), g,
@@ -257,7 +323,7 @@ public final class EvolutionRunner {
      * through the suite from generation to generation), each with both colours, at the run's depth.
      */
     private List<GameRecord> membersAgainstStockfish(int number, List<ParamVector> population, int level) {
-        List<Opening> suite = Opening.suite();
+        List<Opening> suite = openings;
         int count = settings.memberStockfishOpenings();
         List<Tournament.Fixture> fixtures = new ArrayList<>();
         long seed = (settings.seed() * 13 + number) * 1_000_003L + 500_009L;
@@ -272,7 +338,7 @@ public final class EvolutionRunner {
                 fixtures.add(new Tournament.Fixture(sf, member, opening, seed++));
             }
         }
-        List<GameRecord> games = Tournament.play(fixtures, tournamentSettings(), g -> listener.game(number, g));
+        List<GameRecord> games = Tournament.play(fixtures, tournamentSettings(), g -> listener.game(number, g), stopNow);
         for (GameRecord g : games) {
             boolean memberWhite = !g.white().startsWith("sf");
             store.saveGame(number, "stockfish", memberWhite ? Integer.parseInt(g.white()) : -1,
@@ -310,7 +376,7 @@ public final class EvolutionRunner {
      * suite, each with both colours, the generation's share of them at the deep depth.
      */
     private List<RunStore.YardstickResult> yardsticks(int number, int champion, ParamVector params) {
-        List<Opening> openings = Opening.suite().subList(0, Math.min(settings.yardstickOpenings(), Opening.suite().size()));
+        List<Opening> openings = this.openings.subList(0, Math.min(settings.yardstickOpenings(), this.openings.size()));
         List<RunStore.YardstickResult> results = new ArrayList<>();
         Map<ParamVector, String> played = new HashMap<>();
         List<String> due = settings.yardsticksAt(number);
@@ -319,7 +385,7 @@ public final class EvolutionRunner {
             int level = spec.equals(RunSettings.STOCKFISH_AUTO) ? stockfishLevel(store.generations(), number) : 0;
             String playing = level > 0 ? "sf:" + level : spec;
             if (!Players.isStockfish(playing)) {
-                ParamVector weights = Players.params(playing, HallOfFame.besides(store.file()).dir());
+                ParamVector weights = Players.params(playing, HallOfFame.besides(store.file()).dir(), schema);
                 String same = played.putIfAbsent(weights, spec);
                 if (same != null) { // the same weights as an earlier yardstick: the same result
                     for (RunStore.YardstickResult r : List.copyOf(results)) {
@@ -338,13 +404,13 @@ public final class EvolutionRunner {
                 int depth = deep[k] ? settings.deepDepth() : settings.depth();
                 Player candidate = player("champion", params, depth);
                 Player opponent = Players.parse(playing, "yardstick", depth, settings.variety(),
-                        HallOfFame.besides(store.file()).dir());
+                        HallOfFame.besides(store.file()).dir(), variant);
                 fixtures.add(new Tournament.Fixture(candidate, opponent, openings.get(k), seed++));
                 fixtures.add(new Tournament.Fixture(opponent, candidate, openings.get(k), seed++));
                 depths.add(depth);
                 depths.add(depth);
             }
-            List<GameRecord> games = Tournament.play(fixtures, tournamentSettings(), g -> listener.game(number, g));
+            List<GameRecord> games = Tournament.play(fixtures, tournamentSettings(), g -> listener.game(number, g), stopNow);
             Map<Integer, List<GameRecord>> byDepth = new TreeMap<>();
             for (int i = 0; i < games.size(); i++) {
                 GameRecord g = games.get(i);
@@ -360,20 +426,20 @@ public final class EvolutionRunner {
     }
 
     private Player player(String name, ParamVector params, int depth) {
-        return Player.of(name, new ChessEvaluate(params), depth, settings.variety());
+        return Player.of(name, Evaluators.evaluator(variant, params), depth, settings.variety());
     }
 
     private Tournament.Settings tournamentSettings() {
-        return new Tournament.Settings(settings.maxPlies(), settings.threads(), settings.seed());
+        return new Tournament.Settings(settings.maxPlies(), settings.threads(), settings.seed(), variant);
     }
 
-    private static void check(List<ParamVector> population) {
+    private void check(List<ParamVector> population) {
         if (population == null || population.size() < 2) {
             throw new IllegalStateException("a generation needs at least two members");
         }
         for (ParamVector member : population) {
-            if (member.schema() != SCHEMA) {
-                throw new IllegalStateException("members must use ChessEvaluate.SCHEMA");
+            if (member.schema() != schema) {
+                throw new IllegalStateException("members must use the schema the runner hands firstGeneration");
             }
         }
     }

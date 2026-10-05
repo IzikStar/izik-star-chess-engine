@@ -21,6 +21,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EvolutionRunnerTest {
@@ -259,5 +260,64 @@ class EvolutionRunnerTest {
             assertEquals("default", g.black());
             assertEquals(List.of(0), store.gameDepths(0, "yardstick"));
         }
+    }
+
+    @Test
+    @DisplayName("A run plays a variant: antichess from zero, with random openings, the piece-set weights and a stop between games")
+    void antichessFromZero(@TempDir Path dir) {
+        RunSettings settings = new RunSettings(3, 1, 1, 20, 60, 2, 5, 1, 2, List.of("zero", "default"), 0, 0, 0, 0, 0,
+                "antichess", null, 4, 6, java.util.Map.of("population", "4", "evolve", "material"));
+        evolution.FromZero algorithm = new evolution.FromZero();
+        try (RunStore store = RunStore.open(dir.resolve("anti.db"))) {
+            java.util.concurrent.atomic.AtomicInteger games = new java.util.concurrent.atomic.AtomicInteger();
+            EvolutionRunner.start(store, "anti", algorithm, settings, new EvolutionRunner.Listener() {
+                @Override
+                public void game(int generation, arena.GameRecord g) {
+                    games.incrementAndGet();
+                }
+            }, () -> false, () -> games.get() >= 45); // 20 games a generation: stop inside generation 2
+
+            RunStore.RunRow run = store.run().orElseThrow();
+            ai.eval.ParamSchema schema = ai.eval.Evaluators.schema(ai.variant.Variants.ANTICHESS);
+            assertEquals("antichess", run.settings().variantId());
+            assertEquals("4", run.settings().algorithmOptions().get("population"));
+            assertEquals("3", run.settings().algorithmOptions().get("survivors")); // the defaults are filled in
+            List<RunStore.GenerationRow> rows = store.generations();
+            assertEquals(2, rows.size(), "generation 2 was dropped by the stop");
+            assertEquals(4, store.members(0, schema).size());
+            // member 0 starts from nothing, the others around it
+            assertEquals(0, store.members(0, schema).getFirst().get("material.queen"));
+            assertTrue(store.members(0, schema).get(1).toArray().length == schema.size());
+            // antichess games end with no pieces or no moves left, never by mate
+            for (arena.GameRecord g : store.games(0, "population")) {
+                assertTrue(g.reason().equals("NO_PIECES_LEFT") || g.reason().equals("NO_MOVES_LEFT")
+                        || g.reason().equals("PLY_CAP") || g.reason().startsWith("DRAW"), g.reason());
+                assertTrue(g.opening().startsWith("random "));
+            }
+            // "zero" and "default" are the same weights in antichess: the second yardstick copies the first
+            assertEquals(2, rows.getFirst().yardsticks().size());
+            assertEquals(rows.getFirst().yardsticks().get(0).score(), rows.getFirst().yardsticks().get(1).score());
+
+            // resume plays generation 2 again and finishes
+            EvolutionRunner.resume(store, new evolution.FromZero(), EvolutionRunner.Listener.SILENT, () -> false);
+            assertEquals(3, store.generations().size());
+            assertEquals(1, HallOfFame.besides(store.file()).list().size());
+            HallOfFame.Entry last = HallOfFame.besides(store.file()).list().getFirst();
+            assertEquals("antichess", last.game().id());
+            assertEquals(schema, last.params().schema());
+        }
+    }
+
+    @Test
+    @DisplayName("Settings a run cannot play are refused: a variant from the chess opening book, or with Stockfish")
+    void refusesImpossibleVariantSettings() {
+        RunSettings book = new RunSettings(1, 1, 1, 20, 60, 1, 1, 0, 0, List.of("zero"), 0, 0, 0, 0, 0,
+                "antichess", null, 0, 50, java.util.Map.of());
+        assertThrows(IllegalArgumentException.class, () -> EvolutionRunner.check(book));
+        RunSettings stockfish = new RunSettings(1, 1, 1, 20, 60, 1, 1, 0, 0, List.of("sf:auto"), 0, 0, 0, 0, 0,
+                "antichess", null, 4, 50, java.util.Map.of());
+        assertThrows(IllegalArgumentException.class, () -> EvolutionRunner.check(stockfish));
+        assertThrows(IllegalArgumentException.class, () -> new RunSettings(1, 1, 1, 20, 60, 1, 1, 0, 0, List.of("zero"),
+                0, 0, 0, 0, 0, "no-such-game", null, 4, 50, java.util.Map.of()).variant());
     }
 }

@@ -558,8 +558,11 @@ equal time; every changed move in `same-moves.txt` explained.
 > four variants (chess, Antichess, King of the Hill, Three-check) are played end to end in the
 > app, checked against Fairy-Stockfish. The *Variants* tab invents pieces (grid or Betza text) and
 > variants, runs a self-play health check, and plays them; invented pieces are checked against
-> Fairy-Stockfish too. Next: R6 extensions, only when an experiment needs them. Research, target architecture and steps are in
-> [docs/phase-6-research.md](docs/phase-6-research.md).
+> Fairy-Stockfish too. **Stage 2 done** (2026-10-05): evolution runs play any variant, the Lab
+> starts, stops and resumes runs from the browser over several screens, and the first experiment,
+> evolution from zero on antichess, ran from it (`docs/experiments/`). Next: R6 extensions, only
+> when an experiment needs them, and the small value network. Research, target architecture and
+> steps are in [docs/phase-6-research.md](docs/phase-6-research.md).
 
 **Goal.** Let the owner invent pieces and variants: piece types become data read by one move
 generator, behind a `Board` interface that the search, the evaluation and the rules use, so

@@ -41,6 +41,8 @@ import java.util.stream.Stream;
  * GET /api/lab/runs/{file}/generations/{n}/games/{i} one game, move by move, for replay
  * GET /api/lab/runs/{file}/pgn                       every game of the run, PGN (a download)
  * POST /api/lab/runs/{file}/generations/{n}/keep     {member, name?, note?}: into the hall of fame
+ * GET /api/lab/runs/{file}/schema                    every parameter the run's weights have
+ * GET /api/lab/runs/{file}/generations/{n}/members/{i} a member's weights, a parameter file (a download)
  * GET /api/lab/fame                                  the hall of fame, newest first
  * GET /api/lab/fame/{name}/pgn                       an entry's games, PGN (a download)
  * </pre>
@@ -48,7 +50,6 @@ import java.util.stream.Stream;
 final class LabApi {
 
     private static final Pattern RUN_FILE = Pattern.compile("[A-Za-z0-9._-]+\\.db");
-    private static final ParamSchema SCHEMA = ChessEvaluate.SCHEMA;
     /** The weight table shows at most this many parameters, those that moved most first. */
     static final int MAX_WEIGHTS = 60;
 
@@ -69,6 +70,11 @@ final class LabApi {
                 runPgn(ctx.pathParam("file"))));
         app.post("/api/lab/runs/{file}/generations/{n}/keep", ctx -> json(ctx, keep(ctx.pathParam("file"),
                 Integer.parseInt(ctx.pathParam("n")), JsonParser.parseString(ctx.body()).getAsJsonObject())));
+        app.get("/api/lab/runs/{file}/schema", ctx -> json(ctx, schemaOf(ctx.pathParam("file"))));
+        app.get("/api/lab/runs/{file}/generations/{n}/members/{i}", ctx -> ctx.header("Content-Disposition",
+                        "attachment; filename=\"" + ctx.pathParam("file").replaceFirst("\\.db$", "") + "-g" + ctx.pathParam("n")
+                                + "-m" + ctx.pathParam("i") + ".json\"").contentType("application/json")
+                .result(memberJson(ctx.pathParam("file"), Integer.parseInt(ctx.pathParam("n")), Integer.parseInt(ctx.pathParam("i")))));
         app.get("/api/lab/fame", ctx -> json(ctx, fame()));
         app.get("/api/lab/fame/{name}/pgn", ctx -> download(ctx, ctx.pathParam("name") + ".pgn",
                 hall().get(ctx.pathParam("name")).orElseThrow(() -> new NotFoundResponse("no such entry")).pgn()));
@@ -182,6 +188,25 @@ final class LabApi {
         o.addProperty("algorithm", run.algorithm());
         o.addProperty("startedAt", run.startedAt());
         o.add("settings", JsonParser.parseString(run.settings().toJson()));
+        try {
+            ai.variant.Variant v = run.settings().variant();
+            o.addProperty("variantName", v.name());
+            o.addProperty("variantId", v.id());
+        } catch (IllegalArgumentException e) {
+            o.addProperty("variantName", run.settings().variantId());
+            o.addProperty("variantId", run.settings().variantId());
+        }
+        return o;
+    }
+
+    private static JsonObject stats(RunStore.Stats s) {
+        JsonObject o = new JsonObject();
+        o.addProperty("games", s.games());
+        o.addProperty("whiteWins", s.whiteWins());
+        o.addProperty("blackWins", s.blackWins());
+        o.addProperty("draws", s.draws());
+        o.addProperty("averagePlies", s.averagePlies());
+        o.addProperty("capped", s.capped());
         return o;
     }
 
@@ -190,6 +215,7 @@ final class LabApi {
             RunStore.RunRow run = store.run().orElseThrow(() -> new NotFoundResponse("no run in " + file));
             JsonObject out = summary(file, run);
             List<RunStore.GenerationRow> rows = store.generations();
+            ParamSchema schema = schema(run);
             JsonArray generations = new JsonArray();
             List<ParamVector> champions = new ArrayList<>();
             for (RunStore.GenerationRow row : rows) {
@@ -199,6 +225,7 @@ final class LabApi {
                 g.addProperty("championScore", row.championScore());
                 g.addProperty("games", row.games());
                 g.addProperty("finishedAt", row.finishedAt());
+                g.add("stats", stats(store.stats(row.number(), "population")));
                 row.yardstick().ifPresent(score -> g.add("yardstick", score(score)));
                 JsonArray yardsticks = new JsonArray();
                 for (RunStore.YardstickResult y : row.yardsticks()) {
@@ -210,20 +237,25 @@ final class LabApi {
                 }
                 g.add("yardsticks", yardsticks);
                 generations.add(g);
-                champions.add(store.members(row.number(), SCHEMA).get(row.champion()));
+                champions.add(store.members(row.number(), schema).get(row.champion()));
             }
             out.add("generations", generations);
-            out.add("weights", weights(champions));
+            out.add("weights", weights(schema, champions));
+            out.addProperty("parameters", schema.size());
+            // the members of the generation under way (the next one's are stored when a generation finishes)
+            int next = rows.isEmpty() ? 0 : rows.getLast().number() + 1;
+            out.addProperty("nextGeneration", next);
+            out.addProperty("nextGenerationGames", next < run.settings().generations() ? store.gameCount(next) : 0);
             return out;
         }
     }
 
     /** The parameters some champion moved away from its default, those that moved most first. */
-    static JsonArray weights(List<ParamVector> champions) {
+    static JsonArray weights(ParamSchema schema, List<ParamVector> champions) {
         record Moved(ParamSpec spec, int index, double change) {}
         List<Moved> moved = new ArrayList<>();
-        for (int i = 0; i < SCHEMA.size(); i++) {
-            ParamSpec spec = SCHEMA.spec(i);
+        for (int i = 0; i < schema.size(); i++) {
+            ParamSpec spec = schema.spec(i);
             double change = 0;
             for (ParamVector c : champions) {
                 change = Math.max(change, Math.abs(c.get(i) - spec.defaultValue()) / (double) (spec.max() - spec.min()));
@@ -272,12 +304,15 @@ final class LabApi {
                 depths.addAll(d);
             }
             List<GameRecord> games = games(store, number);
-            int size = store.members(number, SCHEMA).size();
+            ParamSchema schema = schema(store.run().orElseThrow(() -> new NotFoundResponse("no run in " + file)));
+            int size = store.members(number, schema).size();
             JsonObject out = new JsonObject();
             out.addProperty("number", number);
             out.addProperty("members", size);
-            out.add("standings", standings(new Generation(number, store.members(number, SCHEMA),
+            List<ParamVector> members = store.members(number, schema);
+            out.add("standings", standings(new Generation(number, members,
                     store.games(number, "population"), store.games(number, "stockfish"), 0)));
+            out.add("members", members(schema, members));
             JsonArray list = new JsonArray();
             for (int i = 0; i < games.size(); i++) {
                 GameRecord g = games.get(i);
@@ -324,6 +359,57 @@ final class LabApi {
         return out;
     }
 
+    /** Each member's weights that are not at their default, by name, with the schema's groups. */
+    static JsonArray members(ParamSchema schema, List<ParamVector> members) {
+        JsonArray out = new JsonArray();
+        for (int m = 0; m < members.size(); m++) {
+            ParamVector p = members.get(m);
+            JsonObject o = new JsonObject();
+            o.addProperty("index", m);
+            JsonObject values = new JsonObject();
+            for (int i = 0; i < schema.size(); i++) {
+                if (p.get(i) != schema.spec(i).defaultValue()) {
+                    values.addProperty(schema.spec(i).name(), p.get(i));
+                }
+            }
+            o.add("values", values);
+            out.add(o);
+        }
+        return out;
+    }
+
+    /** A member's weights as a parameter file (for {@code arena.Cli} or the designer). */
+    String memberJson(String file, int number, int member) {
+        try (RunStore store = open(file)) {
+            List<ParamVector> members = store.members(number, schema(store.run().orElseThrow()));
+            if (member < 0 || member >= members.size()) {
+                throw new NotFoundResponse("no member " + member + " in generation " + number);
+            }
+            return members.get(member).toJson();
+        }
+    }
+
+    /** The schema of a run's weights: every parameter's name, group, default, range and description. */
+    JsonObject schemaOf(String file) {
+        try (RunStore store = open(file)) {
+            ParamSchema schema = schema(store.run().orElseThrow(() -> new NotFoundResponse("no run in " + file)));
+            JsonArray list = new JsonArray();
+            for (ParamSpec spec : schema.specs()) {
+                JsonObject o = new JsonObject();
+                o.addProperty("name", spec.name());
+                o.addProperty("group", spec.group());
+                o.addProperty("default", spec.defaultValue());
+                o.addProperty("min", spec.min());
+                o.addProperty("max", spec.max());
+                o.addProperty("description", spec.description());
+                list.add(o);
+            }
+            JsonObject out = new JsonObject();
+            out.add("parameters", list);
+            return out;
+        }
+    }
+
     JsonObject game(String file, int number, int index) {
         try (RunStore store = open(file)) {
             List<GameRecord> games = games(store, number);
@@ -331,7 +417,7 @@ final class LabApi {
                 throw new NotFoundResponse("no game " + index + " in generation " + number);
             }
             GameRecord record = games.get(index);
-            Game game = new Game();
+            Game game = new Game(store.run().map(r -> r.settings().variant()).orElse(ai.variant.Variants.CHESS));
             JsonArray moves = new JsonArray();
             for (String uci : record.moves()) {
                 MoveResult m = game.play(uci);
@@ -355,19 +441,24 @@ final class LabApi {
 
     // ---- the champion as an opponent -----------------------------------------
 
+    /** A champion to play against: its weights and the game they are for. */
+    record Champion(ParamVector params, ai.variant.Variant variant) {}
+
     /**
-     * The weights of generation {@code number}'s champion in run {@code file}, or of the hall of
-     * fame's entry NAME when {@code file} is "hof:NAME".
+     * Generation {@code number}'s champion in run {@code file}, or the hall of fame's entry NAME
+     * when {@code file} is "hof:NAME".
      */
-    ParamVector champion(String file, int number) {
+    Champion champion(String file, int number) {
         if (file.startsWith("hof:")) {
-            return hall().get(file.substring(4)).orElseThrow(() ->
-                    new IllegalArgumentException("no hall of fame entry " + file.substring(4))).params();
+            HallOfFame.Entry e = hall().get(file.substring(4)).orElseThrow(() ->
+                    new IllegalArgumentException("no hall of fame entry " + file.substring(4)));
+            return new Champion(e.params(), e.game());
         }
         try (RunStore store = open(file)) {
             RunStore.GenerationRow row = store.generations().stream().filter(r -> r.number() == number).findFirst()
                     .orElseThrow(() -> new IllegalArgumentException("generation " + number + " is not finished"));
-            return store.members(number, SCHEMA).get(row.champion());
+            RunStore.RunRow run = store.run().orElseThrow();
+            return new Champion(store.members(number, schema(run)).get(row.champion()), run.settings().variant());
         }
     }
 
@@ -381,11 +472,23 @@ final class LabApi {
         }
     }
 
-    private RunStore open(String file) {
+    private static ParamSchema schema(RunStore.RunRow run) {
+        return ai.eval.Evaluators.schema(run.settings().variant());
+    }
+
+    RunStore open(String file) {
         if (!RUN_FILE.matcher(file).matches() || !Files.isRegularFile(dir.resolve(file))) {
             throw new NotFoundResponse("no run file " + file);
         }
         return RunStore.open(dir.resolve(file));
+    }
+
+    Path dir() {
+        return dir;
+    }
+
+    static boolean isRunFile(String name) {
+        return RUN_FILE.matcher(name).matches();
     }
 
     private static JsonObject score(Score s) {

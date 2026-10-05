@@ -41,4 +41,31 @@ public interface Evolution {
 
     /** The next population, from this generation's members and games. */
     List<ParamVector> nextGeneration(Generation generation, Random random);
+
+    /** The settings this algorithm offers the Lab and the command line; none by default. */
+    default List<Option> options() {
+        return List.of();
+    }
+
+    /**
+     * The values chosen for {@link #options()} (each checked, every option present: a missing one
+     * has its default), before the first call of a run. The runner also passes "generations", the
+     * run's length, whether or not it is an option.
+     */
+    default void configure(java.util.Map<String, String> values) {}
+
+    /** {@code chosen} checked against {@code options}, with the defaults filled in. */
+    static java.util.Map<String, String> resolve(List<Option> options, java.util.Map<String, String> chosen) {
+        java.util.Map<String, String> out = new java.util.LinkedHashMap<>();
+        for (Option o : options) {
+            String v = chosen.get(o.key());
+            out.put(o.key(), v == null || v.isBlank() ? o.defaultValue() : o.check(v));
+        }
+        for (String key : chosen.keySet()) {
+            if (options.stream().noneMatch(o -> o.key().equals(key))) {
+                throw new IllegalArgumentException("unknown setting " + key);
+            }
+        }
+        return out;
+    }
 }
