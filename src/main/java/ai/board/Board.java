@@ -57,6 +57,14 @@ public interface Board {
      */
     Outcome outcome();
 
+    /**
+     * True when the game ended here by the variant's own goal (a royal piece on the hill, the last
+     * check, no pieces left), not by mate, a position without moves or a draw rule.
+     */
+    default boolean goalReached() {
+        return false;
+    }
+
     /** True when the game ends in this position. */
     default boolean isOver() {
         return outcome() != Outcome.ONGOING;

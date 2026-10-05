@@ -178,10 +178,7 @@ final class GameStateJson {
 
     /** "1-0", "0-1", "1/2-1/2", or null while the game is on. */
     static String result(GameStatus status, boolean whiteToMove) {
-        if (status == GameStatus.CHECKMATE) {
-            return whiteToMove ? "0-1" : "1-0";
-        }
-        return status.isDraw() ? "1/2-1/2" : null;
+        return status.result(whiteToMove);
     }
 
     /** White's material minus Black's (P 1, N/B 3, R 5, Q 9), as the Swing score panel showed it. */

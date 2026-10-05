@@ -197,6 +197,11 @@ public final class GenericBoard implements ChessPosition {
         return halfmove >= 100 ? Outcome.DRAW : Outcome.ONGOING;
     }
 
+    @Override
+    public boolean goalReached() {
+        return goalOutcome() != Outcome.ONGOING;
+    }
+
     /** The game is over by the variant's goal, before anyone looks at the moves; else ONGOING. */
     private Outcome goalOutcome() {
         switch (rules.goal) {

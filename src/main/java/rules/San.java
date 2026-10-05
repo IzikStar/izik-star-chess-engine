@@ -1,5 +1,7 @@
 package rules;
 
+import ai.variant.Variant;
+import ai.variant.Variants;
 import java.util.List;
 
 /**
@@ -11,6 +13,11 @@ public final class San {
     private San() {}
 
     public static String of(String fen, ChessMove move) {
+        return of(Variants.CHESS, fen, move);
+    }
+
+    /** SAN in {@code variant}: a piece's letter is its own; check and mate marks follow the variant's rules. */
+    public static String of(Variant variant, String fen, ChessMove move) {
         Position pos = Position.fromFen(fen);
         char piece = pos.pieceAt(move.from());
         if (piece == 0) {
@@ -28,7 +35,7 @@ public final class San {
                     san.append((char) ('a' + Square.file(move.from()))).append('x');
                 }
             } else {
-                san.append(kind).append(disambiguation(fen, pos, move, piece));
+                san.append(kind).append(disambiguation(variant, fen, pos, move, piece));
                 if (capture) {
                     san.append('x');
                 }
@@ -39,10 +46,12 @@ public final class San {
             }
         }
 
-        GameStatus after = Rules.status(Rules.applyMove(fen, move));
-        if (after == GameStatus.CHECKMATE) {
-            san.append('#');
-        } else if (after == GameStatus.CHECK || (after.isGameOver() && Rules.isCheck(Rules.applyMove(fen, move)))) {
+        String next = Rules.applyMove(variant, fen, move);
+        GameStatus after = Rules.status(variant, next);
+        boolean check = after == GameStatus.CHECK || after.isGameOver() && Rules.isCheck(variant, next);
+        if (after == GameStatus.CHECKMATE || check && after.sideToMoveLost()) {
+            san.append('#'); // mate, or a check that wins (the last check in three-check)
+        } else if (check) {
             san.append('+');
         }
         return san.toString();
@@ -63,8 +72,8 @@ public final class San {
                 && Square.file(move.from()) != Square.file(move.to());
     }
 
-    private static String disambiguation(String fen, Position pos, ChessMove move, char piece) {
-        List<ChessMove> legal = Rules.legalMoves(fen);
+    private static String disambiguation(Variant variant, String fen, Position pos, ChessMove move, char piece) {
+        List<ChessMove> legal = Rules.legalMoves(variant, fen);
         boolean ambiguous = false;
         boolean sameFile = false;
         boolean sameRank = false;
