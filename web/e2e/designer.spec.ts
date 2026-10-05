@@ -57,3 +57,19 @@ test('a variant the server cannot play is refused with the reason', async ({ pag
   await editor.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(editor.getByRole('alert')).toBeVisible();
 });
+
+test('the health check plays a variant against itself and reports', async ({ page }) => {
+  await page.goto('/#variants');
+  await page.getByTestId('variant-list').getByRole('button', { name: /Antichess/ }).click();
+  await expect(page.getByTestId('variant-editor').getByRole('heading', { name: 'Antichess' })).toBeVisible();
+  const health = page.getByTestId('health');
+  await health.getByLabel('Games').selectOption('20');
+  await health.getByLabel('Depth').selectOption('1');
+  await health.getByRole('button', { name: 'Run' }).click();
+  const report = page.getByTestId('health-report');
+  await expect(report).toBeVisible({ timeout: 60_000 });
+  await expect(report).toContainText('White wins');
+  await expect(report).toContainText('Lost every piece');
+  await health.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${SHOTS}/health.png`, fullPage: true });
+});

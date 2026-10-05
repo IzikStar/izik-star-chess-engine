@@ -153,6 +153,25 @@ public final class MinimaxEngine implements Engine {
     }
 
     /**
+     * A {@code variant} game's move at exactly {@code depth}, in a game whose positions so far are
+     * {@code gameFens} (oldest first, the current one last), with the evaluation the app plays that
+     * variant with; {@code null} if there is no legal move or {@code stop} said so. The variant
+     * health check plays with this.
+     */
+    public static ChessMove searchAtDepth(Variant variant, List<String> gameFens, int depth, Minimax.Options options,
+                                          java.util.function.BooleanSupplier stop) {
+        String fen = gameFens.get(gameFens.size() - 1);
+        List<ChessMove> legal = Rules.legalMoves(variant, fen);
+        if (legal.isEmpty()) {
+            return null;
+        }
+        Evaluator weights = Evaluators.usesChessEvaluation(variant) ? Weights.DEFAULT.evaluator() : Evaluators.forVariant(variant);
+        int move = Minimax.getBestMove(Boards.fromFen(variant, fen), depth, weights, options,
+                gameHistory(variant, gameFens, fen), stop);
+        return stop.getAsBoolean() ? null : toLegalMove(move, legal);
+    }
+
+    /**
      * Like {@link #searchAtDepth(String, int, Evaluator, Minimax.Options)}, but deepening only while
      * {@code millis} have not passed: the move of the deepest depth finished in time.
      */

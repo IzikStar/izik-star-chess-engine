@@ -369,6 +369,126 @@ function PieceEditor({ piece, letters, readOnly, onChange, onAtoms, onBetza, onR
   );
 }
 
+interface HealthReport {
+  games: number;
+  whiteWins: number;
+  blackWins: number;
+  draws: number;
+  averagePlies: number;
+  shortest: number;
+  longest: number;
+  movesPerTurn: number;
+  whiteScore: number;
+  decisiveShare: number;
+  endings: Record<string, number>;
+  notes: string[];
+}
+
+interface HealthState {
+  running: boolean;
+  cancelled?: boolean;
+  variantId?: string;
+  variantName?: string;
+  games?: number;
+  depth?: number;
+  done?: number;
+  report?: HealthReport;
+  error?: string;
+}
+
+const ENDINGS: Record<string, string> = {
+  CHECKMATE: 'Checkmate',
+  STALEMATE: 'Stalemate',
+  DRAW_FIFTY_MOVE: '50-move rule',
+  DRAW_THREEFOLD: 'Repetition',
+  DRAW_INSUFFICIENT_MATERIAL: 'Not enough material',
+  HILL_REACHED: 'King reached the centre',
+  CHECKS_GIVEN: 'Checks given',
+  NO_PIECES_LEFT: 'Lost every piece',
+  NO_MOVES_LEFT: 'No move left',
+  PLY_CAP: 'Still going at move 150',
+};
+
+const pct = (n: number, of: number) => (of ? Math.round((100 * n) / of) : 0) + '%';
+
+/** Self-play of the built-in engine: is the variant balanced, decisive, long enough, rich in choices? */
+function HealthCheck({ variant }: { variant: VariantDef }) {
+  const [games, setGames] = useState(100);
+  const [depth, setDepth] = useState(2);
+  const [state, setState] = useState<HealthState | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const poll = useCallback(() => api<HealthState>('/api/health').then(setState).catch(() => {}), []);
+  useEffect(() => { poll(); }, [poll]);
+  useEffect(() => {
+    if (!state?.running) return;
+    const t = setTimeout(poll, 500);
+    return () => clearTimeout(t);
+  }, [state, poll]);
+
+  const start = () => {
+    setError(null);
+    api<HealthState>('/api/health', { method: 'POST', body: JSON.stringify({ variant, games, depth }) })
+      .then(setState)
+      .catch((e: Error) => setError(e.message));
+  };
+
+  const mine = state && state.variantId === variant.id ? state : null;
+  const r = mine?.report;
+  return (
+    <section className="panel health" aria-label="Health check" data-testid="health">
+      <div className="run-head">
+        <h3>Health check</h3>
+        <div className="filters">
+          <label className="inline">Games
+            <select value={games} onChange={(e) => setGames(Number(e.target.value))} aria-label="Games">
+              {[20, 50, 100, 200].map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </label>
+          <label className="inline">Depth
+            <select value={depth} onChange={(e) => setDepth(Number(e.target.value))} aria-label="Depth">
+              {[1, 2, 3].map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </label>
+          {mine?.running
+            ? <button type="button" className="btn" onClick={() => api<HealthState>('/api/health', { method: 'DELETE' }).then(setState)}>Stop</button>
+            : <button type="button" className="btn primary" onClick={start}>Run</button>}
+        </div>
+      </div>
+      <p className="muted small">The engine plays this variant against itself (a few random moves first, so the games differ) and the games show whether it is fun to play: balanced, decisive, not over at once, with moves to choose from. Unsaved changes are checked too.</p>
+      {error && <p className="error" role="alert">{error}</p>}
+      {state?.running && !mine && <p className="muted small">A check of {state.variantName} is running; Run stops it.</p>}
+      {mine?.running && (
+        <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={mine.games} aria-valuenow={mine.done}>
+          <div style={{ width: pct(mine.done ?? 0, mine.games ?? 1) }} />
+          <span>{mine.done} of {mine.games} games</span>
+        </div>
+      )}
+      {mine?.error && <p className="error">{mine.error}</p>}
+      {r && (
+        <div className="health-report" data-testid="health-report">
+          <div className="score-bar" aria-label={`White ${r.whiteWins}, draws ${r.draws}, black ${r.blackWins}`}>
+            <div className="w" style={{ flex: r.whiteWins }} />
+            <div className="d" style={{ flex: r.draws }} />
+            <div className="b" style={{ flex: r.blackWins }} />
+          </div>
+          <table>
+            <tbody>
+              <tr><th>White wins</th><td>{r.whiteWins} ({pct(r.whiteWins, r.games)})</td><th>Games</th><td>{r.games} at depth {mine?.depth}</td></tr>
+              <tr><th>Black wins</th><td>{r.blackWins} ({pct(r.blackWins, r.games)})</td><th>Length</th><td>{Math.round(r.averagePlies / 2)} moves on average ({Math.ceil(r.shortest / 2)} to {Math.ceil(r.longest / 2)})</td></tr>
+              <tr><th>Draws</th><td>{r.draws} ({pct(r.draws, r.games)})</td><th>Choices</th><td>{r.movesPerTurn.toFixed(1)} moves per turn</td></tr>
+            </tbody>
+          </table>
+          <p className="small"><b>Endings:</b> {Object.entries(r.endings).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${ENDINGS[k] ?? k} ${n}`).join(' · ')}</p>
+          {r.notes.length
+            ? <ul className="notes">{r.notes.map((n) => <li key={n}>{n}</li>)}</ul>
+            : <p className="ok">Nothing stands out: balanced, decisive enough, and with choices.</p>}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function blankPiece(letters: string[]): PieceDef {
   const letter = 'ACDEFGHIJLMOSTUVWXYZ'.split('').find((l) => !letters.includes(l)) ?? 'Z';
   return { name: 'New piece', letter, value: 300, royal: false, promotesTo: '', enPassant: false, castlingRole: 'NONE', atoms: [] };
@@ -510,6 +630,8 @@ function Editor({ start, taken, onSaved, onDeleted, onCopy }: {
           ))}
         </div>
       </section>
+
+      <HealthCheck variant={v} />
 
       {piece && (
           <PieceEditor key={picked} piece={piece} letters={letters} readOnly={readOnly}
