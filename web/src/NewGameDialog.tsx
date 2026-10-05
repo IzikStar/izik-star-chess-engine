@@ -120,7 +120,7 @@ export function NewGameDialog({ initial, stockfish, onStart, onCancel }: {
       variant,
       level: Math.min(choice.level, top),
       blackLevel: Math.min(choice.blackLevel, top),
-      champion: usesChessWeights(variant) ? choice.champion : null,
+      champion: choice.champion && (choice.champion.variant ?? 'chess') === variant ? choice.champion : null,
     });
   };
 
@@ -184,7 +184,7 @@ export function NewGameDialog({ initial, stockfish, onStart, onCancel }: {
         )}
         {choice.mode === 'engine' && choice.champion && (
           <div className="champion-pick" data-testid="champion-pick">
-            <span><strong>{choice.champion.label}</strong><br /><span className="muted">An evolved set of weights from the lab</span></span>
+            <span><strong>{choice.champion.label}</strong><br /><span className="muted">An evolved set of weights from the lab{choice.champion.variant && choice.champion.variant !== 'chess' ? `, for ${madeVariant?.name ?? VARIANTS.find((v) => v.id === choice.champion!.variant)?.name ?? choice.champion.variant}` : ''}</span></span>
             <button type="button" className="btn" onClick={() => set({ champion: null })}>Usual engine</button>
           </div>
         )}

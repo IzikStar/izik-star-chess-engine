@@ -1,6 +1,11 @@
 package lab;
 
 import ai.eval.ChessEvaluate;
+import ai.eval.Evaluators;
+import ai.eval.ParamSchema;
+import ai.variant.Variant;
+import ai.variant.VariantJson;
+import ai.variant.Variants;
 import ai.eval.ParamVector;
 import arena.GameRecord;
 import arena.Score;
@@ -46,9 +51,21 @@ public final class HallOfFame {
      * @param reason     why it was kept: "last champion", "beat classic", or the note given by hand
      * @param yardsticks how it did, one line each, e.g. "classic, depth 3: +12 =3 -5 (67.5%), Elo +127 [+8, +276]"
      * @param pgn        its games, PGN
+     * @param variant    the game its weights are for; chess when null
      */
     public record Entry(String name, String reason, String savedAt, String run, String runName, int generation,
-                        int member, ParamVector params, List<String> yardsticks, String pgn) {
+                        int member, ParamVector params, List<String> yardsticks, String pgn, Variant variant) {
+
+        /** A chess entry. */
+        public Entry(String name, String reason, String savedAt, String run, String runName, int generation,
+                     int member, ParamVector params, List<String> yardsticks, String pgn) {
+            this(name, reason, savedAt, run, runName, generation, member, params, yardsticks, pgn, null);
+        }
+
+        /** The game its weights are for. */
+        public Variant game() {
+            return variant == null ? Variants.CHESS : variant;
+        }
 
         public Entry {
             if (!NAME.matcher(name).matches()) {
@@ -88,6 +105,9 @@ public final class HallOfFame {
         entry.yardsticks().forEach(yardsticks::add);
         o.add("yardsticks", yardsticks);
         o.add("params", JsonParser.parseString(entry.params().toJson()));
+        if (entry.variant() != null && !entry.variant().equals(Variants.CHESS)) {
+            o.add("variant", VariantJson.toTree(entry.variant()));
+        }
         o.addProperty("pgn", entry.pgn());
         try {
             Files.createDirectories(dir);
@@ -105,7 +125,7 @@ public final class HallOfFame {
         Entry kept = get(entry.name()).filter(old -> !old.reason().contains(entry.reason()))
                 .map(old -> new Entry(entry.name(), old.reason() + "; " + entry.reason(), entry.savedAt(), entry.run(),
                         entry.runName(), entry.generation(), entry.member(), entry.params(), entry.yardsticks(),
-                        entry.pgn()))
+                        entry.pgn(), entry.variant()))
                 .orElse(entry);
         save(kept);
         return kept;
@@ -137,10 +157,12 @@ public final class HallOfFame {
             JsonObject o = JsonParser.parseString(Files.readString(file)).getAsJsonObject();
             List<String> yardsticks = new ArrayList<>();
             o.getAsJsonArray("yardsticks").forEach(e -> yardsticks.add(e.getAsString()));
+            Variant variant = o.has("variant") ? VariantJson.fromTree(o.getAsJsonObject("variant")) : null;
+            ParamSchema schema = variant == null ? ChessEvaluate.SCHEMA : Evaluators.schema(variant);
             return new Entry(o.get("name").getAsString(), o.get("reason").getAsString(), o.get("savedAt").getAsString(),
                     string(o, "run"), string(o, "runName"), o.get("generation").getAsInt(), o.get("member").getAsInt(),
-                    ParamVector.fromJson(ChessEvaluate.SCHEMA, o.get("params").toString()), yardsticks,
-                    string(o, "pgn"));
+                    ParamVector.fromJson(schema, o.get("params").toString()), yardsticks,
+                    string(o, "pgn"), variant);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -165,7 +187,8 @@ public final class HallOfFame {
      */
     public static Entry fromRun(RunStore store, Path runFile, int generation, int member, String name, String reason) {
         RunStore.RunRow run = store.run().orElseThrow(() -> new IllegalArgumentException("no run in " + runFile));
-        List<ParamVector> members = store.members(generation, ChessEvaluate.SCHEMA);
+        Variant variant = run.settings().variant();
+        List<ParamVector> members = store.members(generation, Evaluators.schema(variant));
         if (member < 0 || member >= members.size()) {
             throw new IllegalArgumentException("generation " + generation + " has no member " + member);
         }
@@ -193,12 +216,12 @@ public final class HallOfFame {
                         ? new GameRecord(g.white().equals(self) ? name : g.white(), g.black().equals(self) ? name : g.black(),
                         g.opening(), g.moves(), g.result(), g.reason(), g.seed())
                         : g;
-                pgn.append(RunPgn.game(named, run.name(), generation, depths.get(i))).append('\n');
+                pgn.append(RunPgn.game(variant, named, run.name(), generation, depths.get(i))).append('\n');
             }
         }
         String fileName = runFile.getFileName().toString();
         return new Entry(name, reason, Instant.now().toString(), fileName, run.name(), generation, member,
-                members.get(member), yardsticks, pgn.toString());
+                members.get(member), yardsticks, pgn.toString(), variant.equals(Variants.CHESS) ? null : variant);
     }
 
     /**

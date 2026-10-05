@@ -1,11 +1,15 @@
 package arena;
 
+import ai.variant.Variant;
+import ai.variant.Variants;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 /**
@@ -27,8 +31,15 @@ public final class Tournament {
      * @param maxPlies a game still going after this many plies is a draw
      * @param threads  games played at once
      * @param seed     with the same pairings and openings, the same seed gives the same games
+     * @param variant  the game the players play
      */
-    public record Settings(int maxPlies, int threads, long seed) {
+    public record Settings(int maxPlies, int threads, long seed, Variant variant) {
+
+        /** Chess games. */
+        public Settings(int maxPlies, int threads, long seed) {
+            this(maxPlies, threads, seed, Variants.CHESS);
+        }
+
         public static Settings defaults() {
             return new Settings(Match.DEFAULT_MAX_PLIES, Math.max(1, Runtime.getRuntime().availableProcessors() - 1), 1);
         }
@@ -72,12 +83,31 @@ public final class Tournament {
      * each fixture has its own). The returned list is in the fixtures' order.
      */
     public static List<GameRecord> play(List<Fixture> fixtures, Settings settings, Consumer<GameRecord> onGame) {
+        return play(fixtures, settings, onGame, () -> false);
+    }
+
+    /** Thrown by {@link #play(List, Settings, Consumer, BooleanSupplier)} when it was cancelled. */
+    public static final class Cancelled extends RuntimeException {
+        Cancelled() {
+            super("the games were cancelled");
+        }
+    }
+
+    /**
+     * As {@link #play(List, Settings, Consumer)}, giving up (with {@link Cancelled}) as soon as
+     * {@code cancel} says so: games not started are dropped, games under way finish.
+     */
+    public static List<GameRecord> play(List<Fixture> fixtures, Settings settings, Consumer<GameRecord> onGame,
+                                        BooleanSupplier cancel) {
         ExecutorService pool = Executors.newFixedThreadPool(settings.threads());
         try {
             List<Future<GameRecord>> games = new ArrayList<>();
             for (Fixture f : fixtures) {
                 games.add(pool.submit(() -> {
-                    GameRecord game = Match.play(f.white(), f.black(), f.opening(), settings.maxPlies(), f.seed());
+                    if (cancel.getAsBoolean()) {
+                        throw new Cancelled();
+                    }
+                    GameRecord game = Match.play(settings.variant(), f.white(), f.black(), f.opening(), settings.maxPlies(), f.seed());
                     onGame.accept(game);
                     return game;
                 }));
@@ -91,6 +121,9 @@ public final class Tournament {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("interrupted", e);
         } catch (ExecutionException e) {
+            if (e.getCause() instanceof Cancelled c) {
+                throw c;
+            }
             throw new IllegalStateException("a game failed", e.getCause());
         } finally {
             pool.shutdownNow();

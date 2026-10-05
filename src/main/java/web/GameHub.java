@@ -1,6 +1,5 @@
 package web;
 
-import ai.eval.ChessEvaluate;
 import ai.eval.Evaluators;
 import ai.variant.Variant;
 import ai.variant.VariantJson;
@@ -294,15 +293,12 @@ final class GameHub implements GameListener {
                 .orElseThrow(() -> new IllegalArgumentException("unknown variant: " + variantId));
         JsonElement champion = msg.get("champion");
         boolean playsChampion = champion != null && !champion.isJsonNull();
-        if (playsChampion && !Evaluators.usesChessEvaluation(variant)) {
-            throw new IllegalArgumentException("a champion plays with the chess pieces only, not " + variant.name());
-        }
         leaveGame(mode != GameConfig.Mode.ENGINE_VS_ENGINE);
         if (msg.has("weights") && !msg.get("weights").isJsonNull()) {
             weights = Weights.of(msg.get("weights").getAsString());
         }
         playAs(playsChampion ? champion.getAsJsonObject().get("run").getAsString() : null,
-                playsChampion ? champion.getAsJsonObject().get("generation").getAsInt() : 0);
+                playsChampion ? champion.getAsJsonObject().get("generation").getAsInt() : 0, variant);
         if (opponent != null || !variant.equals(Variants.CHESS)) {
             // the champion is the built-in engine, and Stockfish plays only chess: its levels would
             // hand the game to Stockfish, or say they did
@@ -320,7 +316,7 @@ final class GameHub implements GameListener {
      * The engine plays as an evolved champion ({@code run} and {@code generation}), or with its usual
      * weights when {@code run} is null. Sets {@link #opponent}.
      */
-    private void playAs(String run, int generation) {
+    private void playAs(String run, int generation, Variant variant) {
         opponent = null;
         if (builtIn == null) {
             return;
@@ -332,10 +328,15 @@ final class GameHub implements GameListener {
         if (lab == null) {
             throw new IllegalStateException("no lab to play a champion from");
         }
-        builtIn.useEvaluator(new ChessEvaluate(lab.champion(run, generation)));
+        LabApi.Champion champion = lab.champion(run, generation);
+        if (!Evaluators.schema(variant).equals(Evaluators.schema(champion.variant()))) {
+            throw new IllegalArgumentException("that champion plays " + champion.variant().name() + ", not " + variant.name());
+        }
+        builtIn.useEvaluator(Evaluators.evaluator(variant, champion.params()));
         opponent = new JsonObject();
         opponent.addProperty("run", run);
         opponent.addProperty("generation", generation);
+        opponent.addProperty("variant", champion.variant().id());
         opponent.addProperty("label", "Champion of " + lab.name(run) + ", generation " + generation);
     }
 
@@ -356,7 +357,7 @@ final class GameHub implements GameListener {
         moves.forEach(check::play);
         record(true);
         weights = Weights.of(saved.weights());
-        playAs(saved.championRun(), saved.championGeneration() == null ? 0 : saved.championGeneration());
+        playAs(saved.championRun(), saved.championGeneration() == null ? 0 : saved.championGeneration(), variant);
         TimeControl control = saved.timeControl();
         long initial = control.initialMs();
         session.updateConfig(new GameConfig(GameConfig.Mode.HUMAN_VS_HUMAN, saved.config().humanPlaysWhite(), saved.config().skillLevel()));

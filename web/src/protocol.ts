@@ -135,6 +135,8 @@ export interface Champion {
   run: string;
   generation: number;
   label: string;
+  /** The game its weights are for ("chess", "antichess", a made variant's id); chess when missing. */
+  variant?: string;
 }
 
 export type GameEvent =

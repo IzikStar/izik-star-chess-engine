@@ -404,3 +404,49 @@ and the UI protocol do not change when they arrive.
 5. **Players:** more than two. Needs another search (max^n or paranoid), not only another board.
 6. **Code:** pieces or squares whose behaviour is a function someone writes, sandboxed and
    time-limited. Full freedom, at the price of speed and of the perft oracle.
+
+## 6. Roadmap stage 2: the Lab runs the experiments (2026-10-05)
+
+The owner's second roadmap stage: run evolution from the browser, on any game, with "a lot of
+control", and start the first experiment, evolution from zero on antichess (decision D2).
+
+### What changed
+
+- **Runs play any variant.** `RunSettings` carries `variantId` and, for a made variant, its
+  whole definition (`variantDef`), so the run plays it even if the file changes later; plus
+  `openingPlies`/`randomOpenings` (variants have no opening book: `Opening.random` draws openings
+  of a few random legal moves from the seed) and `algorithmOptions`. `EvolutionRunner` reads the
+  schema from `Evaluators.schema(variant)`, plays with `Evaluators.evaluator(variant, params)`,
+  and `Tournament.Settings` names the variant; `Match.play(variant, ...)` runs the game. Stockfish
+  stays chess only (`EvolutionRunner.check` refuses it elsewhere), `Players.params(spec,
+  hallOfFame, schema)` reads "default", "zero", a file or a hall of fame entry for any schema, and
+  a hall of fame entry remembers its variant. PGN gets the `Variant` tag.
+- **Algorithms with settings.** `Evolution.options()` lists `Option`s (number or choice, with a
+  label and help); `configure(values)` gets them checked with the defaults filled in. The Lab
+  renders them as fields, the CLI takes `--options key=value,...`, and the run file stores them.
+- **`evolution.FromZero`**: start zero/random/defaults, member 0 the start itself; evolve
+  material, material+mobility or everything; elitism, immigrants, tournament selection of 3,
+  uniform/average/no crossover, Gaussian mutation whose step shrinks log-evenly from first to
+  last generation; steps scale with each weight's range.
+- **Stopping between games.** `Tournament.play(..., cancel)` throws `Cancelled`; the runner's
+  `stopNow` drops the generation under way, which a resume replays (as before).
+- **`web.LabJobs`**: one run at a time inside the game server, on its own threads:
+  `GET /api/lab/algorithms`, `GET /api/lab/job` (generation, games done of planned),
+  `POST /api/lab/runs` (name, algorithm, variant, settings, options; 400 with the reason),
+  `POST .../resume`, `POST .../stop {now}`, `DELETE .../{file}`. `LabApi` gained per-generation
+  stats by SQL (`RunStore.stats`), members with their weights, a member's parameter file, the
+  run's schema, and the variant in every summary. The champion of a variant run plays its own
+  game: `GameHub.playAs` checks the schema and `MinimaxEngine.bestMove` uses the engine's own
+  evaluator whenever its schema is the variant's.
+- **The Lab** (`web/src/Lab.tsx` + `web/src/lab/`): hash routes under `#lab`: runs (cards,
+  controls), new run (every setting explained, the algorithm's options, yardsticks, what it adds
+  up to), a run (overview charts, generations table, weights, settings with the CLI line, a
+  generation with standings showing each member's material weights, games by kind, replay, keep),
+  hall of fame, and a guide in plain words.
+
+### The first experiment
+
+"Antichess from zero 1": `FromZero`, population 20, survivors 4, immigrants 2, material and
+mobility from zero, steps 150→10 cp, depth 4 with 10→40% at depth 5, 2 random openings (4 plies)
+per pairing, 80 generations, champion against the all-zero engine every 5 generations over 25
+openings. Write-up in `docs/experiments/antichess-zero-1.md` when it is done.

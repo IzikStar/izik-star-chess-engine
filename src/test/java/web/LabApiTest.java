@@ -116,7 +116,7 @@ class LabApiTest {
             JsonObject opponent = state.getAsJsonObject("opponent");
             assertEquals("Champion of Tiny run, generation 1", opponent.get("label").getAsString());
             assertEquals(8, state.getAsJsonObject("config").get("level").getAsInt()); // capped: no Stockfish
-            assertEquals(lab.champion("tiny.db", 1), builtIn.evaluator().params());
+            assertEquals(lab.champion("tiny.db", 1).params(), builtIn.evaluator().params());
 
             hub.onMessage(client, "{\"type\":\"newGame\",\"mode\":\"engine\",\"color\":\"white\",\"level\":3}");
             JsonObject usual = until(messages, s -> s.get("opponent").isJsonNull());
@@ -173,7 +173,8 @@ class LabApiTest {
         assertEquals("my-pick", lab.keep("tiny.db", 0, body).get("name").getAsString());
         HallOfFame.Entry entry = lab.hall().get("my-pick").orElseThrow();
         assertEquals("plays nice endgames", entry.reason());
-        assertEquals(entry.params(), lab.champion("hof:my-pick", 0));
+        assertEquals(entry.params(), lab.champion("hof:my-pick", 0).params());
+        assertEquals("chess", lab.champion("hof:my-pick", 0).variant().id());
         assertTrue(entry.pgn().contains("[White \"#2\"]") || entry.pgn().contains("[Black \"#2\"]"));
         assertTrue(lab.runPgn("tiny.db").startsWith("[Event \"Tiny run\"]"));
     }

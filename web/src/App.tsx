@@ -22,7 +22,8 @@ type Page = 'game' | 'games' | 'variants' | 'lab';
 
 function pageOf(): Page {
   const hash = location.hash.slice(1);
-  return hash === 'lab' || hash === 'games' || hash === 'variants' ? hash : 'game';
+  if (hash === 'lab' || hash.startsWith('lab/')) return 'lab';
+  return hash === 'games' || hash === 'variants' ? hash : 'game';
 }
 
 function stored(key: string, fallback: string): string {
@@ -470,7 +471,7 @@ export function App() {
         <NewGameDialog
           stockfish={state.stockfish}
           initial={{ mode: dialogChampion ? 'engine' : config.mode, color: config.humanColor, level: config.level, blackLevel: config.blackLevel, autoFlip, champion: dialogChampion, weights, time: timeKey(state.clock),
-            variant: dialogChampion ? 'chess' : dialogVariant ?? variant }}
+            variant: dialogChampion ? dialogChampion.variant ?? 'chess' : dialogVariant ?? variant }}
           onStart={(choice) => {
             showPage('game');
             startNewGame(choice);

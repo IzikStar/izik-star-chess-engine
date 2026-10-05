@@ -156,7 +156,6 @@ input[type='range'] { width: 100%; accent-color: var(--accent); }
 /* ---- Lab (Phase 5): evolution runs ---- */
 .tabs { display: flex; gap: 2px; margin-left: 12px; }
 .tabs .btn.on { color: var(--fg); background: var(--surface-2); }
-.lab { flex: 1; display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 20px; padding: 20px; max-width: 1400px; width: 100%; margin: 0 auto; align-items: start; }
 .panel { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 14px 16px; }
 .panel h2 { margin: 0 0 4px; font-size: 18px; }
 .panel h3 { margin: 12px 0 8px; font-size: 15px; }
@@ -177,10 +176,10 @@ input[type='range'] { width: 100%; accent-color: var(--accent); }
 .chart .err { stroke: var(--accent); stroke-opacity: 0.45; stroke-width: 3; }
 .chart .dot { fill: var(--accent); }
 .table-wrap { overflow-x: auto; }
-.lab table { border-collapse: collapse; width: 100%; font-size: 13px; }
-.lab th { text-align: left; font-weight: 600; color: var(--muted); padding: 4px 8px; border-bottom: 1px solid var(--line); }
-.lab td { padding: 4px 8px; border-bottom: 1px solid var(--line); }
-.lab .mono { font-family: var(--mono); }
+.lab-page table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.lab-page th { text-align: left; font-weight: 600; color: var(--muted); padding: 4px 8px; border-bottom: 1px solid var(--line); }
+.lab-page td { padding: 4px 8px; border-bottom: 1px solid var(--line); }
+.lab-page .mono { font-family: var(--mono); }
 .weights td.up { color: var(--accent); font-weight: 600; }
 .weights td.down { color: var(--warn); font-weight: 600; }
 .spark { width: 120px; height: 24px; display: block; }
@@ -201,7 +200,6 @@ input[type='range'] { width: 100%; accent-color: var(--accent); }
 .replay .mv.current { background: var(--accent); color: var(--accent-fg); }
 .champion-pick { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--accent); border-radius: 9px; background: var(--accent-soft); font-size: 14px; }
 @media (max-width: 900px) {
-  .lab { grid-template-columns: 1fr; }
   .games-replay { grid-template-columns: 1fr; }
 }
 
@@ -312,10 +310,10 @@ textarea.pgn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1
 .runs .fame li { display: flex; flex-direction: column; gap: 2px; padding: 6px 10px; }
 .runs .fame strong { overflow-wrap: anywhere; }
 .runs .fame .fame-actions { display: flex; gap: 12px; }
-.runs .fame .link, .lab a.link { width: auto; display: inline; padding: 0; border: 0; background: none; color: var(--accent); font-weight: 600; text-decoration: underline; cursor: pointer; font-size: 13px; }
-.lab .keep { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 12px; }
-.lab .keep input { flex: 1 1 200px; min-width: 0; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); color: var(--fg); }
-.lab a.btn { text-decoration: none; color: var(--fg); display: inline-block; }
+.lab-page .link { width: auto; display: inline; padding: 0; border: 0; background: none; color: var(--accent); font-weight: 600; text-decoration: underline; cursor: pointer; font-size: 13px; }
+.lab-page .keep { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 12px; }
+.lab-page .keep input { flex: 1 1 200px; min-width: 0; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); color: var(--fg); }
+.lab-page a.btn { text-decoration: none; color: var(--fg); display: inline-block; }
 
 /* New game dialog: a line under a choice explaining it */
 .field-note { margin: -4px 0 12px; font-size: 13px; }
@@ -426,3 +424,66 @@ label.btn.small-btn { display: inline-block; cursor: pointer; color: var(--fg); 
 label.btn.disabled { opacity: 0.5; cursor: default; pointer-events: none; }
 .picture-note { width: 100%; margin: 0; }
 .mini-sq img { width: 92%; height: 92%; }
+
+/* ---- Lab screens (roadmap stage 2): runs, new run, one run, hall of fame, guide ---- */
+.lab-page { flex: 1; display: flex; flex-direction: column; gap: 16px; padding: 16px 20px 32px; max-width: 1400px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+.lab-nav { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.lab-nav .btn.on, .sub-tabs .btn.on { color: var(--fg); background: var(--surface-2); }
+.lab-nav .job-pill { margin-left: auto; display: flex; align-items: center; gap: 8px; color: var(--fg); }
+.lab-nav .job-pill .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+.lab-screen { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.lab-screen h2 { margin: 0 0 6px; font-size: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.lab-screen h3 { margin: 0 0 6px; font-size: 16px; }
+.lab-screen h4 { margin: 12px 0 6px; font-size: 14px; }
+.lab-screen p { margin: 6px 0; }
+.lab-screen .error { color: var(--warn); font-weight: 600; }
+.lab-screen .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.lab-page .btn.danger { color: var(--warn); }
+.state { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+.state.playing { background: var(--accent-soft); color: var(--accent); }
+.state.stopping { background: var(--warn-soft); color: var(--warn); }
+.state.finished { background: var(--accent); color: var(--accent-fg); }
+.progress { height: 8px; border-radius: 999px; background: var(--surface-2); overflow: hidden; margin: 8px 0 4px; }
+.progress .bar { height: 100%; background: var(--accent); transition: width 0.4s; }
+.run-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 14px; }
+.run-card { display: flex; flex-direction: column; gap: 4px; }
+.run-card.playing { border-color: var(--accent); }
+.run-card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.run-card .title { font-size: 18px; font-weight: 700; text-decoration: none; color: var(--fg); }
+.run-card .title:hover { text-decoration: underline; }
+.run-card .actions { margin-top: 8px; }
+.sub-tabs { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.sub-tabs .pick { margin-left: auto; }
+.lab-page .pick { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.lab-page .pick select, .lab-page select, .new-run input:not([type='checkbox']) { font: inherit; font-size: 14px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); color: var(--fg); }
+.chart-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.series { margin: 0; }
+.series figcaption { font-size: 13px; color: var(--muted); margin-bottom: 2px; }
+.series figcaption strong { color: var(--fg); font-size: 15px; }
+.chart.small { width: 100%; height: auto; }
+.lab-page table tr.on td { background: var(--accent-soft); }
+.lab-page table tr.champion td { font-weight: 600; }
+.lab-page .standings tbody tr, .lab-page .games tbody tr { cursor: pointer; }
+.lab-page td.up { color: var(--accent); font-weight: 600; }
+.lab-page td.down { color: var(--warn); font-weight: 600; }
+.lab-page table.settings th { width: 220px; vertical-align: top; }
+.lab-page pre.cli { background: var(--surface-2); padding: 10px; border-radius: 8px; overflow-x: auto; font-size: 12px; white-space: pre; }
+.lab-page .seg.small button { padding: 4px 10px; font-size: 13px; }
+.lab-page ul.plain { margin: 0; padding: 0; list-style: none; font-size: 12px; }
+.lab-page .fame-actions { display: flex; gap: 10px; white-space: nowrap; }
+/* the new-run form */
+.setting-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px 18px; margin-top: 10px; align-items: start; }
+.setting { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.setting.wide { grid-column: 1 / -1; }
+.setting-label { font-size: 13px; font-weight: 600; color: var(--muted); }
+.setting .help { font-size: 12px; color: var(--muted); line-height: 1.4; }
+.setting .checks { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.setting .check { font-size: 14px; }
+.summary p { font-size: 15px; line-height: 1.6; }
+.guide ol, .guide ul { line-height: 1.6; }
+.guide li { margin-bottom: 6px; }
+@media (max-width: 900px) {
+  .run-cards { grid-template-columns: 1fr; }
+  .lab-nav .job-pill { margin-left: 0; width: 100%; }
+}

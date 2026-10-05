@@ -99,6 +99,25 @@ java -jar target/izikstar-chess-3.1.0.jar                                  # the
 | `--yardsticks` | who the champion is measured against, comma-separated (see below) | default,classic,sf:auto |
 | `--stockfish-from` | Stockfish yardsticks only from this generation on | 10 |
 | `--member-stockfish-openings` | every member (not only the champion) plays Stockfish over this many openings, both colours, at `--depth`; `Generation.stockfishScore(i)` hands the results to the algorithm. The level moves like `sf:auto`, by the population's average | 0 (off) |
+| `--variant ID` / `--variant-file FILE` | play a variant: a built-in id (`antichess`, `king-of-the-hill`, `three-check`) or a made variant's JSON (as the Variants tab saves it) | chess |
+| `--opening-plies N` / `--random-openings N` | start every game from one of N openings of N random moves (variants have no book; chess may use them too) | 4 / 50 for a variant, the book for chess |
+| `--options k=v,k=v` | the algorithm's own settings (`Evolution.options()`; `FromZero`: population, survivors, immigrants, start, startSpread, evolve, stepFirst, stepLast, rate, crossover) | the algorithm's defaults |
+
+**The Lab does all of this from the browser.** Its *New run* screen has every setting above with
+an explanation, the algorithm's own settings as fields, and the yardsticks as checkboxes; a run
+started there is the same file `lab.Cli` writes, so either can resume it. The Lab shows the run
+as it plays (generation, games done), stops it after the generation or at once, and the *Settings*
+screen of any run prints the command line that replays it.
+
+**Variants.** A run on antichess, King of the Hill, three-check or a made variant evolves the
+piece-set evaluation (`PieceSetEvaluate`: material, mobility and a value per square for each
+piece type) instead of the chess one; in antichess it starts from all zeros. Yardsticks there are
+`default` (the piece values), `zero`, a file or a hall of fame entry of the same game; Stockfish
+does not play variants.
+
+**Algorithm settings.** An `Evolution` may list `Option`s (`options()`), each a number with a
+range or a choice with a help line; `configure(values)` hands over the chosen values, checked,
+with the defaults filled in, plus `generations`. `FromZero` shows the pattern.
 
 **Yardsticks** are players that never change. Each can be `default` (the schema defaults),
 `classic` (the hand-written weights), any parameter file, `sf:1500` (Stockfish held to UCI_Elo
@@ -229,5 +248,6 @@ weights are pulled back toward them. `lab.Cli export` positions from a run's gam
 | Runner, record, CLI, export | `src/main/java/lab/` |
 | Matches, tournaments, Elo | `src/main/java/arena/` (`arena.Cli match` for head-to-head checks) |
 | Parameters and evaluation | `src/main/java/ai/eval/`, `src/main/java/ai/eval/ChessEvaluate.java` |
-| Lab page | `web/src/Lab.tsx`, served by `web.LabApi` |
+| Lab page | `web/src/Lab.tsx` and `web/src/lab/` (runs, new run, a run, hall of fame, guide), served by `web.LabApi` (reading) and `web.LabJobs` (start, stop, resume, delete) |
+| Algorithms that ship | `evolution.FromZero` (any game, every choice a setting), `evolution.MaterialExperiment` (chess), the example |
 | Design and decisions | `docs/phase-5-research.md` (§9 is the log of what was built) |

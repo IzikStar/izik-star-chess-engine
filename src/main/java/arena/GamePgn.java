@@ -3,7 +3,6 @@ package arena;
 import rules.Game;
 import rules.MoveResult;
 import rules.Pgn;
-import rules.Position;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -21,7 +20,12 @@ public final class GamePgn {
 
     /** One game. {@code depth} 0 leaves the depth out. */
     public static String write(GameRecord g, String event, int round, int depth) {
-        Game game = new Game();
+        return write(ai.variant.Variants.CHESS, g, event, round, depth);
+    }
+
+    /** One game of {@code variant}, which gets its {@code Variant} tag. */
+    public static String write(ai.variant.Variant variant, GameRecord g, String event, int round, int depth) {
+        Game game = new Game(variant);
         List<MoveResult> moves = new ArrayList<>();
         g.moves().forEach(uci -> moves.add(game.play(uci)));
         Map<String, String> tags = new LinkedHashMap<>();
@@ -36,7 +40,7 @@ public final class GamePgn {
         }
         tags.put("Termination", g.reason().equals("PLY_CAP") ? "adjudication" : "normal");
         tags.put("EndReason", g.reason());
-        return Pgn.write(tags, Position.START_FEN, moves, switch (g.result()) {
+        return Pgn.write(variant, tags, variant.startFen(), moves, switch (g.result()) {
             case WHITE_WINS -> "1-0";
             case BLACK_WINS -> "0-1";
             case DRAW -> "1/2-1/2";

@@ -196,10 +196,18 @@ src/main/java/
 │   ├── piece/      pieces as data: atoms, piece types, the six chess pieces, compiled tables
 │   ├── eval/       the evaluation: parameter vectors and the chess evaluation
 │   └── openingBook/  (not wired in yet)
+│   └── variant/    a variant: pieces, start position, goal (chess, antichess, made ones)
 ├── engine/         Engine interface: the built-in search, Stockfish, and which one plays a level
-├── game/           GameSession: turn-taking, the engine thread, events for any front end
-└── web/            local web server: the browser UI's files, and the game over one WebSocket
-web/                the browser UI: React + TypeScript (Vite), board by react-chessboard
+├── game/           GameSession: turn-taking, the engine thread, events for any front end;
+│                   saved games, the player's variants
+├── arena/          engine against engine: matches, tournaments, openings, Elo, Stockfish as a player
+├── evolution/      the Evolution API and the algorithms (FromZero, MaterialExperiment, the example)
+├── lab/            runs: the runner, the SQLite record, the hall of fame, Texel tuning, the CLI,
+│                   the variant health check
+└── web/            local web server: the browser UI's files, the game over one WebSocket, and the
+                    HTTP APIs (games, variants, analysis, the Lab's runs and jobs)
+web/                the browser UI: React + TypeScript (Vite), board by react-chessboard;
+                    web/src/lab/ is the Lab's screens
 ```
 
 Lower layers never import higher ones, and nothing below `web` imports Swing, AWT or the web
@@ -224,7 +232,9 @@ structure. Two documents describe it honestly instead of hiding the problems:
 | 4 | One concurrency model; a proper Stockfish session | Done ([research](docs/phase-4-research.md)) |
 | 4b | Fix the move generator's rule bugs; make the search fast enough for Levels 6-7 | Done ([research](docs/phase-4b-research.md)) |
 | 4c | Replace the Swing screens with a browser UI | Done ([research](docs/ui-research.md)) |
-| 5 | Groundwork for an engine that learns by self-play evolution | In progress: parameters, quiescence, arena, run record and lab page done ([research](docs/phase-5-research.md)) |
+| 5 | Groundwork for an engine that learns by self-play evolution | Done: parameters, quiescence, arena, run record, Lab ([research](docs/phase-5-research.md)) |
+| 6 | Pieces as data: any piece set and variant on one board, a piece designer, a health check | Done R1-R5 ([research](docs/phase-6-research.md)) |
+| 6, stage 2 | The Lab runs experiments on any game from the browser; evolution from zero on antichess | Done ([research](docs/phase-6-research.md) §6) |
 
 Phase 2 is a good example of the approach:
 
@@ -289,29 +299,53 @@ their defaults). Options: `--depth`, `--openings`, `--threads`, `--max-plies`, `
 `--seed` (the same seed replays the same games), `--old-search A|B` (that side searches without
 quiescence).
 
-## Evolution runs and the lab page
+## Evolution runs and the Lab
 
-An evolution run lets an algorithm breed sets of weights: each generation plays a tournament,
-and the algorithm builds the next generation from the results. The algorithm is a class that
-implements [`evolution.Evolution`](src/main/java/evolution/Evolution.java);
-[`RandomMutationExample`](src/main/java/evolution/RandomMutationExample.java) is a deliberately
-naive one. Every member, game and result goes into one SQLite file per run:
+An evolution run lets an algorithm breed sets of evaluation weights: each generation plays a
+tournament, and the algorithm builds the next generation from the results. The algorithm is a
+class that implements [`evolution.Evolution`](src/main/java/evolution/Evolution.java). Three
+ship: [`FromZero`](src/main/java/evolution/FromZero.java), a genetic algorithm with every choice
+a setting (start from nothing, random or the defaults; survivors, immigrants, tournament
+selection, crossover, a mutation step that shrinks over the run) that plays any game;
+[`MaterialExperiment`](src/main/java/evolution/MaterialExperiment.java), the design of the first
+chess experiment; and the naive
+[`RandomMutationExample`](src/main/java/evolution/RandomMutationExample.java). Every member,
+game and result goes into one SQLite file per run.
+
+A run plays chess or any variant (built-in or made in the *Variants* tab). Chess runs evolve the
+tuned chess evaluation; any other game evolves an evaluation built from its pieces (material,
+mobility, a value per square), which in antichess starts from all zeros, so the engine learns the
+game from nothing. Variants start from random openings and have no Stockfish yardstick.
+
+The **Lab** tab of the web app runs the experiments:
+
+- **Runs**: every run as a card with its game, algorithm, progress and state; open, stop (after
+  the generation or at once), resume or delete it; play its champion.
+- **New run**: every setting of a run with a line saying what it does, the algorithm's own
+  settings, the yardsticks to measure against, and what it adds up to (games and a rough time).
+- **A run**: progress bar and live game count; the champion's Elo against each yardstick with its
+  interval; charts of the champion's score, decisive games and game length per generation; every
+  generation in a table; how the champions' weights moved; the settings, with the equivalent
+  command line. **A generation**: the champion against the yardsticks, standings of every member
+  with what it thinks each piece is worth and its weights as a download, every game (replay on
+  the board), keep a member in the hall of fame.
+- **Hall of fame** and **How it works**, a plain-words guide to generations, champions,
+  yardsticks and Elo intervals.
+
+The same runs from the command line (the Lab's *Settings* screen prints the command for any run):
 
 ```bash
-java -cp target/izikstar-chess-3.1.0.jar lab.Cli run runs/first.db --algorithm evolution.RandomMutationExample --generations 20
-java -cp target/izikstar-chess-3.1.0.jar lab.Cli resume runs/first.db   # after Ctrl+C
-java -cp target/izikstar-chess-3.1.0.jar lab.Cli export runs/first.db positions.csv
-java -cp target/izikstar-chess-3.1.0.jar lab.Cli champion runs/first.db 19 champion.json
+java -cp target/izikstar-chess-3.1.0.jar lab.Cli run runs/anti.db --algorithm evolution.FromZero --variant antichess \
+     --generations 30 --depth 3 --options population=16,start=zero,evolve=material+mobility --yardsticks zero
+java -cp target/izikstar-chess-3.1.0.jar lab.Cli resume runs/anti.db   # after Ctrl+C or a stop from the Lab
+java -cp target/izikstar-chess-3.1.0.jar lab.Cli export runs/anti.db positions.csv
+java -cp target/izikstar-chess-3.1.0.jar lab.Cli champion runs/anti.db 29 champion.json
 ```
 
-[docs/evolution-guide.md](docs/evolution-guide.md) explains the API, the numbers and the traps.
+[docs/evolution-guide.md](docs/evolution-guide.md) explains the API, the numbers and the traps;
+[docs/experiments/](docs/experiments/) holds the write-ups of the experiments run so far.
 
-The **Lab** tab of the web app (it reads `runs/`, or `--runs DIR`) shows each run as it goes: the
-champion's Elo against the default weights with its error bar, how the champions' weights moved,
-and every game, which you can replay on the board. **Play the champion** starts a game against
-any generation's best set of weights.
-
-![The lab page](docs/images/lab.png)
+![A generation in the Lab](docs/images/lab.png)
 
 ## Tests
 
@@ -386,11 +420,11 @@ GitHub releases into `engine/stockfish/` and uses it at once, no restart. Or do 
 
 ## Roadmap
 
-- **Phase 5:** make every evaluation weight a parameter (about 500 of them), a self-play arena
-  that plays many games in parallel, a record of every run, and a lab screen to watch the
-  engine evolve and play its champion. The evolution algorithm itself is mine to write.
-- **Phase 6:** a small neural network that reads the board, trained and evolved on the games the
-  arena records.
+- **Done:** every evaluation weight a parameter, a self-play arena, a record of every run, and a
+  Lab that runs experiments on any game and plays their champions; pieces as data with a
+  designer for new pieces and variants.
+- **Next:** a small neural network that reads the board (Python training on CPU, Java inference),
+  trained on one game's self-play; then wider variants (fairy pieces, other boards).
 - **Later:** the online opening book.
 - **Longer term:** split the headless `rules`/engine core into a backend service behind the
   web front end that Phase 4c started.
