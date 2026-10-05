@@ -1,6 +1,6 @@
 # IzikStar Chess
 
-A chess game in Java with its own bitboard engine: legal move generation, alpha-beta search and
+A chess game in Java with its own engine, where pieces are data: legal move generation, alpha-beta search and
 a hand-tuned evaluation. Stockfish can optionally take over the top difficulty levels. You play
 in the browser: the jar starts a small local server and opens the game.
 
@@ -68,26 +68,33 @@ Phase 4c (#2 to #6) refer to that repository.
 Everything below describes code that runs today. Parts that exist but are not wired in yet are
 marked as such.
 
-### Board representation: bitboards
+### Pieces as data, one board
 
-[`ai/BitBoard/BitBoard.java`](src/main/java/ai/BitBoard/BitBoard.java) stores a position as
-twelve 64-bit `long` masks, one per piece type and colour. It also stores combined occupancy
-masks, side to move, castling rights, the en-passant square and the move clocks. Making a move
-returns a **new** `BitBoard`, so positions are immutable. That keeps the search free of
-make/unmake bugs, at some cost in allocation.
+A piece is data ([`ai/piece/`](src/main/java/ai/piece/)): a list of *atoms*, each a leap (a
+fixed offset, like the knight's (1,2)) or a slide (a direction until blocked, with an optional
+range), marked move, capture or both, with a symmetry (all eight directions, mirrored left-right,
+or one) and optionally "first move only". A piece type adds whether it is royal, what it promotes
+to, en passant and castling roles, and a starting value. The six chess pieces are defined this
+way in [`StandardPieces`](src/main/java/ai/piece/StandardPieces.java); a new piece is a new
+definition, not new code (Phase 6, [research](docs/phase-6-research.md)).
+
+[`ai/board/GenericBoard.java`](src/main/java/ai/board/GenericBoard.java) plays any such piece
+set ([`BoardRules`](src/main/java/ai/board/BoardRules.java): pieces, grid, start position). It
+stores one 64-bit mask per player and piece type, plus side to move, castling rights (found from
+the start position), the en-passant square, unmoved pieces and the move clocks. Making a move
+returns a **new** position, so positions are immutable and the search has nothing to undo.
+Everything else (search, rules, evaluation) talks to the [`Board`](src/main/java/ai/board/Board.java)
+interface, with players numbered from 0 and squares as plain ids.
 
 ### Move generation
 
-Each piece type has a generator in [`ai/BitBoard/BitPiece/`](src/main/java/ai/BitBoard/BitPiece/):
-
-- Knights, kings and pawns use shifts and file masks.
-- Bishops, rooks and queens walk their rays one square at a time until they hit a piece.
-- Castling, en passant and promotion are handled as special cases.
-
-The generators first produce pseudo-legal moves. Any move that leaves the mover's own king on
-an attacked square is then dropped, so only legal moves remain. Whether a square is attacked
-comes from [`Attacks`](src/main/java/ai/BitBoard/Attacks.java): lookup tables for knights, kings
-and pawns, and ray walks for bishops, rooks and queens.
+Each piece is compiled once into per-square tables
+([`CompiledPiece`](src/main/java/ai/piece/CompiledPiece.java)): one mask of leap targets, and for
+slides the squares of each ray, so the first piece in the way is the lowest or highest set bit of
+"ray AND occupied". Moves that leave the mover's royal piece attacked are dropped. A square is
+attacked by a piece exactly when the same piece of the other side, standing on that square, would
+attack the attacker, so one table serves both questions; the test is skipped for moves that
+provably cannot expose the king.
 
 Perft tests count the moves to a fixed depth in 23 positions and compare the totals with the
 published values and with Stockfish (Phase 4b).
@@ -100,7 +107,7 @@ e.g. `e2e4`), the position status (check, mate, stalemate or draw) and the posit
 ### Search
 
 [`ai/Minimax.java`](src/main/java/ai/Minimax.java) runs a **minimax search with alpha-beta
-pruning** over bitboard positions:
+pruning** over `Board` positions:
 
 - **Transposition table.** The depths of one search share a table keyed by a Zobrist hash of
   everything the evaluation reads (pieces, side to move, castling rights, en passant, move
@@ -121,8 +128,8 @@ pruning** over bitboard positions:
   exchange: it plays on through captures and queen promotions until the position is quiet, so
   it never counts a piece that is about to be taken back. At the same depth this wins about 90%
   of the points against the search without it.
-- **Repetition.** Positions get Zobrist hashes
-  ([`ZobristHashing`](src/main/java/ai/BitBoard/ZobristHashing.java)). A per-branch stack
+- **Repetition.** Positions get Zobrist hashes (keyed per player and piece type in
+  [`BoardRules`](src/main/java/ai/board/BoardRules.java)). A per-branch stack
   ([`BoardStateTracker`](src/main/java/ai/BoardStateTracker.java)) uses them to spot threefold
   repetition inside the search tree.
 - **Variety.** Any root move scoring within 0.2 pawn of the best may be played, picked at
@@ -130,7 +137,7 @@ pruning** over bitboard positions:
 
 ### Evaluation
 
-[`ai/BitBoard/BitBoardEvaluate.java`](src/main/java/ai/BitBoard/BitBoardEvaluate.java) scores a
+[`ai/eval/ChessEvaluate.java`](src/main/java/ai/eval/ChessEvaluate.java) scores a
 position with hand-written terms, mostly computed with bit masks and popcounts. Since Phase 5
 every weight is a named, bounded parameter (about 500 of them, saved and loaded as JSON), each
 with a middlegame and an endgame value blended by the material left; the defaults reproduce the
@@ -168,8 +175,10 @@ keeps failing the built-in engine takes over.
 ```
 src/main/java/
 ├── rules/          headless rules API: FEN in, legal moves / status / SAN out; one game's history
-├── ai/             Minimax search and evaluation over bitboards
-│   ├── BitBoard/   bitboard position, per-piece move generators, attack tables
+├── ai/             Minimax search, transposition table
+│   ├── board/      the Board interface and the generic board that plays any piece set
+│   ├── piece/      pieces as data: atoms, piece types, the six chess pieces, compiled tables
+│   ├── eval/       the evaluation: parameter vectors and the chess evaluation
 │   └── openingBook/  (not wired in yet)
 ├── engine/         Engine interface: the built-in search, Stockfish, and which one plays a level
 ├── game/           GameSession: turn-taking, the engine thread, events for any front end
@@ -302,12 +311,12 @@ any generation's best set of weights.
   well-known positions, so any behaviour change during the refactor shows up as a test failure.
   The positions include the start position, Fool's mate, back-rank mate, stalemate, castling, en
   passant, promotion, repetition, insufficient material, the 50-move rule and SAN `+`/`#`
-  suffixes. The tests check both entry points to the rules (the object model and the bitboard)
+  suffixes. The tests check both entry points to the rules (the game API and the search's board)
   and require them to agree.
 - **Rules tests** ([`src/test/java/rules/RulesTest.java`](src/test/java/rules/RulesTest.java))
   cover the headless `rules` API directly.
 - **Perft tests** ([`RulesPerftTest`](src/test/java/rules/RulesPerftTest.java),
-  [`SearchPerftTest`](src/test/java/ai/BitBoard/SearchPerftTest.java)) count every legal move
+  [`SearchPerftTest`](src/test/java/ai/board/SearchPerftTest.java)) count every legal move
   sequence to a fixed depth from 23 positions, through the `rules` API and through the search's
   own move list, and compare with published counts and Stockfish.
   [`MoveGenerationBugsTest`](src/test/java/rules/MoveGenerationBugsTest.java) has one test per
@@ -320,7 +329,7 @@ any generation's best set of weights.
   compare 300 random games with Stockfish's legal moves at every ply, and time Levels 6 and 7
   ([`SearchSpeedTest`](src/test/java/engine/SearchSpeedTest.java)).
 - **Smoke tests** ([`AppSmokeTest`](src/test/java/characterization/AppSmokeTest.java)) play a
-  scripted game to checkmate, and play a full random game inside the bitboard engine.
+  scripted game to checkmate, and play a full random game on the search's board.
 - **Known-bug tests** are tagged `known-bug`. They assert the *correct* behaviour and are
   expected to fail until a phase fixes the bug. The four from Phase 0 were all fixed in Phase 2
   and became regular tests, so the profile is currently empty.

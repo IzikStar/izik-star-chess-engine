@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * The move-generator bugs a player can see, found by the Phase 4b perft suite
  * (docs/phase-4b-research.md §2.3), one test per bug. Expected moves are Stockfish's.
- * Bug #7 is not visible here; {@code ai.BitBoard.SearchEnPassantTest} covers it.
+ * Bug #7 is not visible here; {@code ai.board.SearchEnPassantTest} covers it.
  */
 class MoveGenerationBugsTest {
 

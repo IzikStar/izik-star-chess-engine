@@ -1,6 +1,6 @@
 package lab;
 
-import ai.BitBoard.BitBoardEvaluate;
+import ai.eval.ChessEvaluate;
 import ai.eval.ParamVector;
 import arena.GameRecord;
 import arena.Score;
@@ -139,7 +139,7 @@ public final class HallOfFame {
             o.getAsJsonArray("yardsticks").forEach(e -> yardsticks.add(e.getAsString()));
             return new Entry(o.get("name").getAsString(), o.get("reason").getAsString(), o.get("savedAt").getAsString(),
                     string(o, "run"), string(o, "runName"), o.get("generation").getAsInt(), o.get("member").getAsInt(),
-                    ParamVector.fromJson(BitBoardEvaluate.SCHEMA, o.get("params").toString()), yardsticks,
+                    ParamVector.fromJson(ChessEvaluate.SCHEMA, o.get("params").toString()), yardsticks,
                     string(o, "pgn"));
         } catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -165,7 +165,7 @@ public final class HallOfFame {
      */
     public static Entry fromRun(RunStore store, Path runFile, int generation, int member, String name, String reason) {
         RunStore.RunRow run = store.run().orElseThrow(() -> new IllegalArgumentException("no run in " + runFile));
-        List<ParamVector> members = store.members(generation, BitBoardEvaluate.SCHEMA);
+        List<ParamVector> members = store.members(generation, ChessEvaluate.SCHEMA);
         if (member < 0 || member >= members.size()) {
             throw new IllegalArgumentException("generation " + generation + " has no member " + member);
         }

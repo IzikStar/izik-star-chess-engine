@@ -31,9 +31,9 @@ class DrawDetectionTest extends CharacterizationTestBase {
     @Test
     @DisplayName("Bitboard declares the 50-move draw at 100 plies (50 full moves), not 50 plies")
     void bitboardFiftyMoveThresholdIsCorrect() {
-        assertEquals(1, bit("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 70 36").getStatus(),
+        assertEquals(1, status(board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 70 36")),
                 "still in progress at 35 moves");
-        assertEquals(0, bit("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 100 51").getStatus(),
+        assertEquals(0, status(board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 100 51")),
                 "draw at 50 full moves");
     }
 

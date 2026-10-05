@@ -1,6 +1,6 @@
 package evolution;
 
-import ai.BitBoard.BitBoardEvaluate;
+import ai.eval.ChessEvaluate;
 import ai.eval.ParamVector;
 import arena.GameRecord;
 import arena.GameRecord.Result;
@@ -18,7 +18,7 @@ class GenerationTest {
         return new GameRecord(Generation.name(white), Generation.name(black), "x", List.of(), result, "test", 0);
     }
 
-    private static final ParamVector D = BitBoardEvaluate.SCHEMA.defaults();
+    private static final ParamVector D = ChessEvaluate.SCHEMA.defaults();
 
     @Test
     @DisplayName("Points, games, head-to-head and ranking")

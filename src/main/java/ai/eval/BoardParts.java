@@ -1,4 +1,4 @@
-package ai.BitBoard;
+package ai.eval;
 
 public class BoardParts {
     // information:
@@ -62,25 +62,6 @@ public class BoardParts {
     // the squares the king crosses when castling queen side; b1/b8 must be empty but may be attacked
     public static final long WHITE_QUEEN_SIDE_CASTLE_PATH = Tile.D1.position | Tile.C1.position;
     public static final long BLACK_QUEEN_SIDE_CASTLE_PATH = Tile.D8.position | Tile.C8.position;
-
-    public static void printAllTiles() {
-        // List of all tiles
-        Tile[] tiles = {
-                Tile.A1, Tile.B1, Tile.C1, Tile.D1, Tile.E1, Tile.F1, Tile.G1, Tile.H1,
-                Tile.A2, Tile.B2, Tile.C2, Tile.D2, Tile.E2, Tile.F2, Tile.G2, Tile.H2,
-                Tile.A3, Tile.B3, Tile.C3, Tile.D3, Tile.E3, Tile.F3, Tile.G3, Tile.H3,
-                Tile.A4, Tile.B4, Tile.C4, Tile.D4, Tile.E4, Tile.F4, Tile.G4, Tile.H4,
-                Tile.A5, Tile.B5, Tile.C5, Tile.D5, Tile.E5, Tile.F5, Tile.G5, Tile.H5,
-                Tile.A6, Tile.B6, Tile.C6, Tile.D6, Tile.E6, Tile.F6, Tile.G6, Tile.H6,
-                Tile.A7, Tile.B7, Tile.C7, Tile.D7, Tile.E7, Tile.F7, Tile.G7, Tile.H7,
-                Tile.A8, Tile.B8, Tile.C8, Tile.D8, Tile.E8, Tile.F8, Tile.G8, Tile.H8
-        };
-
-        // Print each tile and its bitboard representation
-        for (Tile tile : tiles) {
-            System.out.println(tile.name + ": " + BitOperations.printBitboard(tile.position));
-        }
-    }
 
     public static long getPawnsStartingPosition(int color) {
         return color == 1 ? SECOND_RANK : SEVENTH_RANK;
@@ -167,29 +148,6 @@ public class BoardParts {
         public static final Tile G1 = new Tile("G1", 0x4000000000000000L);
         public static final Tile H1 = new Tile("H1", 0x8000000000000000L);
 
-    }
-
-    public static void main(String[] args) {
-//        System.out.println(BitOperations.printBitboard(FIRST_RANK));
-//        System.out.println(BitOperations.printBitboard(SECOND_RANK));
-//        System.out.println(BitOperations.printBitboard(THIRD_RANK));
-//        System.out.println(BitOperations.printBitboard(FOURTH_RANK));
-//        System.out.println(BitOperations.printBitboard(FIFTH_RANK));
-//        System.out.println(BitOperations.printBitboard(SIXTH_RANK));
-//        System.out.println(BitOperations.printBitboard(SEVENTH_RANK));
-//        System.out.println(BitOperations.printBitboard(EIGHTH_RANK));
-//
-//        System.out.println(BitOperations.printBitboard(A_FILE));
-//        System.out.println(BitOperations.printBitboard(B_FILE));
-//        System.out.println(BitOperations.printBitboard(C_FILE));
-//        System.out.println(BitOperations.printBitboard(D_FILE));
-//        System.out.println(BitOperations.printBitboard(E_FILE));
-//        System.out.println(BitOperations.printBitboard(F_FILE));
-//        System.out.println(BitOperations.printBitboard(G_FILE));
-//        System.out.println(BitOperations.printBitboard(H_FILE));
-
-        // printAllTiles();
-        // System.out.println(CENTER == (Tile.E4.position | Tile.D4.position | Tile.E5.position | Tile.D5.position));
     }
 
 }

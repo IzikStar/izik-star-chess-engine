@@ -1,6 +1,6 @@
 package web;
 
-import ai.BitBoard.BitBoardEvaluate;
+import ai.eval.ChessEvaluate;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import engine.Engine;
@@ -127,7 +127,7 @@ class LabApiTest {
             hub.onMessage(client, "{\"type\":\"newGame\",\"mode\":\"engine\",\"color\":\"white\",\"level\":3,"
                     + "\"weights\":\"classic\"}");
             until(messages, s -> s.get("weights").getAsString().equals("classic"));
-            assertEquals(BitBoardEvaluate.CLASSIC.params(), builtIn.evaluator().params());
+            assertEquals(ChessEvaluate.CLASSIC.params(), builtIn.evaluator().params());
             hub.onMessage(client, "{\"type\":\"newGame\",\"mode\":\"engine\",\"color\":\"black\",\"level\":3}");
             JsonObject again = until(messages, s -> s.getAsJsonObject("config").get("humanColor").getAsString().equals("black"));
             assertEquals("classic", again.get("weights").getAsString());

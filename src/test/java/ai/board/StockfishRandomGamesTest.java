@@ -1,4 +1,4 @@
-package ai.BitBoard;
+package ai.board;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -49,7 +49,7 @@ class StockfishRandomGamesTest {
             Random random = new Random(2026);
             for (int game = 0; game < GAMES; game++) {
                 String fen = Position.START_FEN;
-                BitBoard board = BitBoardRules.fromFen(fen);
+                Board board = Boards.fromFen(fen);
                 List<String> played = new ArrayList<>();
                 for (int ply = 0; ply < MAX_PLIES; ply++) {
                     toStockfish.write("position fen " + Position.START_FEN
@@ -57,10 +57,10 @@ class StockfishRandomGamesTest {
                     toStockfish.flush();
                     List<String> expected = stockfishMoves(fromStockfish);
 
-                    Map<String, BitBoard> children = new HashMap<>();
+                    Map<String, Board> children = new HashMap<>();
                     List<String> search = new ArrayList<>();
-                    for (BitBoard child : board.getNextStates()) {
-                        String uci = SearchBoards.uci(board, child);
+                    for (Board child : board.children()) {
+                        String uci = SearchBoards.uci(child);
                         search.add(uci);
                         children.put(uci, child);
                     }
@@ -77,7 +77,7 @@ class StockfishRandomGamesTest {
 
                     String move = expected.get(random.nextInt(expected.size()));
                     fen = Rules.applyMove(fen, ChessMove.fromUci(move));
-                    board.nextStates = null;
+                    board.releaseChildren();
                     board = children.get(move);
                     played.add(move);
                 }

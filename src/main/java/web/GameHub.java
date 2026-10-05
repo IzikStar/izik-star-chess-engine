@@ -1,6 +1,6 @@
 package web;
 
-import ai.BitBoard.BitBoardEvaluate;
+import ai.eval.ChessEvaluate;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -298,7 +298,7 @@ final class GameHub implements GameListener {
         if (lab == null) {
             throw new IllegalStateException("no lab to play a champion from");
         }
-        builtIn.useEvaluator(new BitBoardEvaluate(lab.champion(run, generation)));
+        builtIn.useEvaluator(new ChessEvaluate(lab.champion(run, generation)));
         opponent = new JsonObject();
         opponent.addProperty("run", run);
         opponent.addProperty("generation", generation);

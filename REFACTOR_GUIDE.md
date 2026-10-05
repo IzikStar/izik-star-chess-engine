@@ -554,8 +554,9 @@ equal time; every changed move in `same-moves.txt` explained.
 
 ## Phase 6 — Pieces as data
 
-> **Status: R1 merged (PR #25); R2 in review** (branch `phase-6-pieces-as-data`). Research, target architecture and
-> steps are in [docs/phase-6-research.md](docs/phase-6-research.md).
+> **Status: R1-R3 done** (PRs #25-#28 and the R3c deletion of `ai.BitBoard`): the engine plays on
+> `GenericBoard`, pieces as data. Next: R4, a variant end to end. Research, target architecture
+> and steps are in [docs/phase-6-research.md](docs/phase-6-research.md).
 
 **Goal.** Let the owner invent pieces and variants: piece types become data read by one move
 generator, behind a `Board` interface that the search, the evaluation and the rules use, so

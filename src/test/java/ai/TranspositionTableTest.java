@@ -1,8 +1,7 @@
 package ai;
 
-import ai.BitBoard.BitBoard;
-import ai.BitBoard.BitBoardEvaluate;
-import ai.BitBoard.BitBoardRules;
+import ai.eval.ChessEvaluate;
+import ai.board.Boards;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -45,8 +44,8 @@ class TranspositionTableTest {
     @DisplayName("Depths 1-4 find the same score with and without the table and the ordering")
     void sameScore(String fen) {
         for (int depth = 1; depth <= 4; depth++) {
-            int before = Minimax.searchValue(BitBoardRules.fromFen(fen), depth, BitBoardEvaluate.DEFAULT, OFF);
-            int after = Minimax.searchValue(BitBoardRules.fromFen(fen), depth, BitBoardEvaluate.DEFAULT, ON);
+            int before = Minimax.searchValue(Boards.fromFen(fen), depth, ChessEvaluate.DEFAULT, OFF);
+            int after = Minimax.searchValue(Boards.fromFen(fen), depth, ChessEvaluate.DEFAULT, ON);
             assertEquals(before, after, "depth " + depth);
         }
     }
@@ -60,8 +59,8 @@ class TranspositionTableTest {
     @DisplayName("Mate scores read from the table keep their distance to the mate")
     void mateScores(String fen) {
         for (int depth = 1; depth <= 5; depth++) {
-            int before = Minimax.searchValue(BitBoardRules.fromFen(fen), depth, BitBoardEvaluate.DEFAULT, OFF);
-            int after = Minimax.searchValue(BitBoardRules.fromFen(fen), depth, BitBoardEvaluate.DEFAULT, ON);
+            int before = Minimax.searchValue(Boards.fromFen(fen), depth, ChessEvaluate.DEFAULT, OFF);
+            int after = Minimax.searchValue(Boards.fromFen(fen), depth, ChessEvaluate.DEFAULT, ON);
             assertEquals(before, after, "depth " + depth);
         }
     }
@@ -92,9 +91,9 @@ class TranspositionTableTest {
     @DisplayName("Searches with the same seed pick the same moves, so arena games stay repeatable")
     void deterministic() {
         String fen = "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 6 5";
-        int first = Minimax.getBestMove(BitBoardRules.fromFen(fen), 4, BitBoardEvaluate.DEFAULT,
+        int first = Minimax.getBestMove(Boards.fromFen(fen), 4, ChessEvaluate.DEFAULT,
                 new Minimax.Options(5, new Random(3), true), () -> false);
-        int second = Minimax.getBestMove(BitBoardRules.fromFen(fen), 4, BitBoardEvaluate.DEFAULT,
+        int second = Minimax.getBestMove(Boards.fromFen(fen), 4, ChessEvaluate.DEFAULT,
                 new Minimax.Options(5, new Random(3), true), () -> false);
         assertEquals(first, second);
     }

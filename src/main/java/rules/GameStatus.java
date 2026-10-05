@@ -2,7 +2,7 @@ package rules;
 
 /**
  * The single answer to "what is the state of this game" — the value Phase 2 collapses three
- * independent code paths ({@code CheckScanner}, {@code BitBoard.getStatus}, and the
+ * independent code paths ({@code CheckScanner}, the old bitboard's {@code getStatus}, and the
  * simulate-and-revert in {@code Move.getStatusString}) down into.
  */
 public enum GameStatus {

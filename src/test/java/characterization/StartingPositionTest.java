@@ -38,7 +38,7 @@ class StartingPositionTest extends CharacterizationTestBase {
     @Test
     @DisplayName("Bitboard path: initial position status is in-progress (1)")
     void bitStartingStatus() {
-        assertEquals(1, bit(START).getStatus());
+        assertEquals(1, status(board(START)));
     }
 
     @Test

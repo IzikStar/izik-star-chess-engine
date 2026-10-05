@@ -1,4 +1,4 @@
-package ai.BitBoard;
+package ai.eval;
 
 import ai.board.Board;
 import ai.board.ChessPosition;
@@ -41,7 +41,7 @@ import java.util.Set;
  * <p>An instance holds only its weights; nothing is written while evaluating, so one instance can
  * serve searches on several threads.
  */
-public final class BitBoardEvaluate implements Evaluator {
+public final class ChessEvaluate implements Evaluator {
 
     /**
      * Score of a mated side, from the winner's point of view. Kept well inside {@code int} range
@@ -188,14 +188,14 @@ public final class BitBoardEvaluate implements Evaluator {
      * ({@code presets/tuned-v1.json}, fitted by {@code lab.Cli tune} to Stockfish self-play), where
      * evolution starts.
      */
-    public static final BitBoardEvaluate DEFAULT = new BitBoardEvaluate(SCHEMA.defaults());
+    public static final ChessEvaluate DEFAULT = new ChessEvaluate(SCHEMA.defaults());
 
     /**
      * The hand-written weights the engine has always played with ({@code presets/classic.json}),
      * kept as they are so they can be compared against and improved by hand. The game plays with
      * these until other weights beat them in the arena.
      */
-    public static final BitBoardEvaluate CLASSIC = new BitBoardEvaluate(preset("classic"));
+    public static final ChessEvaluate CLASSIC = new ChessEvaluate(preset("classic"));
 
     /** A saved set of weights from {@code src/main/resources/presets/<name>.json}. */
     public static ParamVector preset(String name) {
@@ -203,7 +203,7 @@ public final class BitBoardEvaluate implements Evaluator {
     }
 
     private static ParamVector preset(ParamSchema schema, String name) {
-        try (InputStream in = BitBoardEvaluate.class.getResourceAsStream("/presets/" + name + ".json")) {
+        try (InputStream in = ChessEvaluate.class.getResourceAsStream("/presets/" + name + ".json")) {
             if (in == null) {
                 throw new IllegalArgumentException("no preset " + name);
             }
@@ -291,7 +291,7 @@ public final class BitBoardEvaluate implements Evaluator {
     /** Which feature groups have a non-zero weight (so the others are skipped). */
     private final boolean pawnStructure, kingSafety, mobility, pieces, activity;
 
-    public BitBoardEvaluate(ParamVector params) {
+    public ChessEvaluate(ParamVector params) {
         if (params.schema() != SCHEMA) {
             throw new IllegalArgumentException("parameters are not for the hand-written evaluation");
         }

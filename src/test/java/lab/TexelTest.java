@@ -1,7 +1,7 @@
 package lab;
 
-import ai.BitBoard.BitBoardEvaluate;
-import ai.BitBoard.BitBoardRules;
+import ai.eval.ChessEvaluate;
+import ai.board.Boards;
 import ai.eval.ParamVector;
 import arena.GameRecord;
 import arena.Opening;
@@ -38,12 +38,12 @@ class TexelTest {
     @Test
     @DisplayName("The fit's model scores a position as the evaluation does, from White's side")
     void modelMatchesTheEvaluation() {
-        ParamVector p = BitBoardEvaluate.CLASSIC.params().with("pst.knight.d4.mg", 25).with("pieces.bishopPair.eg", 40)
+        ParamVector p = ChessEvaluate.CLASSIC.params().with("pst.knight.d4.mg", 25).with("pieces.bishopPair.eg", 40)
                 .with("mobility.rook.mg", 3).with("pst.pawn.c6.eg", 30);
-        BitBoardEvaluate eval = new BitBoardEvaluate(p);
+        ChessEvaluate eval = new ChessEvaluate(p);
         for (String fen : FENS) {
             double model = Texel.eval(Texel.sample(fen, 0.5), weights(p));
-            int engine = eval.evaluate(BitBoardRules.fromFen(fen), 0);
+            int engine = eval.evaluate(Boards.fromFen(fen), 0);
             assertEquals(engine, model, 1.0, fen);
         }
     }
@@ -52,8 +52,8 @@ class TexelTest {
     @DisplayName("Moving a table's average into the material value leaves every score as it was")
     void centeringKeepsScores() {
         Random random = new Random(3);
-        double[] w = weights(BitBoardEvaluate.CLASSIC.params());
-        for (int i = 2 * BitBoardEvaluate.NAMED + 3; i < w.length; i++) {
+        double[] w = weights(ChessEvaluate.CLASSIC.params());
+        for (int i = 2 * ChessEvaluate.NAMED + 3; i < w.length; i++) {
             w[i] = random.nextInt(80) - 20;
         }
         double[] centered = w.clone();
@@ -73,7 +73,7 @@ class TexelTest {
             samples.add(Texel.sample("4k3/pppppppp/8/8/8/8/PPPPPPPP/1N2K3 w - - 0 30", 1));
             samples.add(Texel.sample("4k3/pppppppp/8/8/8/8/PPPPPPPP/4K3 w - - 0 30", 0.5));
         }
-        ParamVector start = BitBoardEvaluate.CLASSIC.params().with("material.knight.eg", 50);
+        ParamVector start = ChessEvaluate.CLASSIC.params().with("material.knight.eg", 50);
         Texel.Result r = Texel.tune(samples, start, 200, 0, s -> {});
         assertTrue(r.endError() < r.startError());
         assertTrue(r.params().get("material.knight.eg") > 50, "knight " + r.params().get("material.knight.eg"));

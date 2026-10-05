@@ -1,6 +1,6 @@
 package lab;
 
-import ai.BitBoard.BitBoardEvaluate;
+import ai.eval.ChessEvaluate;
 import ai.eval.ParamSchema;
 import ai.eval.ParamVector;
 import arena.GameRecord;
@@ -45,7 +45,7 @@ public final class EvolutionRunner {
         Listener SILENT = new Listener() {};
     }
 
-    private static final ParamSchema SCHEMA = BitBoardEvaluate.SCHEMA;
+    private static final ParamSchema SCHEMA = ChessEvaluate.SCHEMA;
 
     private final RunStore store;
     private final Evolution evolution;
@@ -360,7 +360,7 @@ public final class EvolutionRunner {
     }
 
     private Player player(String name, ParamVector params, int depth) {
-        return Player.of(name, new BitBoardEvaluate(params), depth, settings.variety());
+        return Player.of(name, new ChessEvaluate(params), depth, settings.variety());
     }
 
     private Tournament.Settings tournamentSettings() {
@@ -373,7 +373,7 @@ public final class EvolutionRunner {
         }
         for (ParamVector member : population) {
             if (member.schema() != SCHEMA) {
-                throw new IllegalStateException("members must use BitBoardEvaluate.SCHEMA");
+                throw new IllegalStateException("members must use ChessEvaluate.SCHEMA");
             }
         }
     }

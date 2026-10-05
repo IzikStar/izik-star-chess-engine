@@ -1,6 +1,6 @@
 package engine;
 
-import ai.BitBoard.BitBoardEvaluate;
+import ai.eval.ChessEvaluate;
 import ai.Minimax;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -35,7 +35,7 @@ class RepetitionTest {
     }
 
     private static ChessMove search(Game game, int depth) {
-        return MinimaxEngine.searchAtDepth(game.fen(), game.history(), depth, BitBoardEvaluate.DEFAULT,
+        return MinimaxEngine.searchAtDepth(game.fen(), game.history(), depth, ChessEvaluate.DEFAULT,
                 Minimax.Options.DEFAULT);
     }
 
@@ -58,8 +58,8 @@ class RepetitionTest {
     @DisplayName("Level 4 with a queen up mates instead of drawing by repetition")
     void winsTheGame() {
         Game game = new Game(QUEEN_UP);
-        MinimaxEngine white = new MinimaxEngine(new Random(1), MinimaxEngine.TIME_CAP_MS, BitBoardEvaluate.DEFAULT, 0);
-        MinimaxEngine black = new MinimaxEngine(new Random(2), MinimaxEngine.TIME_CAP_MS, BitBoardEvaluate.DEFAULT, 0);
+        MinimaxEngine white = new MinimaxEngine(new Random(1), MinimaxEngine.TIME_CAP_MS, ChessEvaluate.DEFAULT, 0);
+        MinimaxEngine black = new MinimaxEngine(new Random(2), MinimaxEngine.TIME_CAP_MS, ChessEvaluate.DEFAULT, 0);
         while (!game.status().isGameOver() && game.plyCount() < 100) {
             boolean whiteToMove = game.fen().split(" ")[1].equals("w");
             List<ChessMove> moves = game.moves().stream().map(MoveResult::move).toList();

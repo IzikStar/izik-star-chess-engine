@@ -1,7 +1,7 @@
 package characterization;
 
-import ai.BitBoard.BitBoard;
-import ai.BitBoard.BitBoardRules;
+import ai.board.Board;
+import ai.board.Boards;
 import rules.ChessMove;
 import rules.Rules;
 
@@ -13,7 +13,7 @@ import rules.Rules;
  * unified them behind {@code rules.Rules}; Phase 3 deleted the object model ({@code BoardState},
  * {@code pieces.*}, {@code main.Move}), so the old "OO path" assertions now run against the game
  * API ({@code rules.Rules} / {@code rules.Game}) — the same questions, the same expected answers.
- * The "bitboard path" ({@link BitBoard}) is still checked directly: the search runs on it.
+ * The "board path" ({@link Board}, what the search runs on) is still checked directly.
  */
 public abstract class CharacterizationTestBase {
 
@@ -48,8 +48,20 @@ public abstract class CharacterizationTestBase {
 
     // ---- Helpers ----------------------------------------------------------
 
-    protected static BitBoard bit(String fen) {
-        return BitBoardRules.fromFen(fen);
+    protected static Board board(String fen) {
+        return Boards.fromFen(fen);
+    }
+
+    /**
+     * The search board's verdict in the old bitboard's numbers: 1 the game goes on, 0 a draw
+     * (stalemate or the 50-move rule), {@code Integer.MAX_VALUE} White is mated,
+     * {@code Integer.MIN_VALUE} Black is mated.
+     */
+    protected static int status(Board b) {
+        if (b.children().isEmpty()) {
+            return !b.inCheck() ? 0 : b.sideToMove() == 0 ? Integer.MAX_VALUE : Integer.MIN_VALUE;
+        }
+        return b.isOver() ? 0 : 1;
     }
 
     /** Legal moves for the side to move, via the game API ({@code rules.Rules}). */
@@ -57,9 +69,9 @@ public abstract class CharacterizationTestBase {
         return Rules.legalMoves(fen).size();
     }
 
-    /** Legal moves for the side to move, via the bitboard rule path. */
+    /** Legal moves for the side to move, via the search board. */
     protected static int legalMovesBit(String fen) {
-        return bit(fen).getNextStates().size();
+        return board(fen).children().size();
     }
 
     /** True if {@code uci} is legal in {@code fen}. */

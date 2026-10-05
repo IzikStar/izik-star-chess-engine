@@ -1,6 +1,6 @@
 package ai.eval;
 
-import ai.BitBoard.BitBoardEvaluate;
+import ai.eval.ChessEvaluate;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -11,13 +11,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ParamVectorTest {
 
-    private final ParamSchema schema = BitBoardEvaluate.SCHEMA;
+    private final ParamSchema schema = ChessEvaluate.SCHEMA;
 
     @Test
     @DisplayName("The defaults are the Texel-tuned preset, most parameters filled in")
     void defaults() {
         ParamVector d = schema.defaults();
-        assertEquals(BitBoardEvaluate.preset("tuned-v1"), d);
+        assertEquals(ChessEvaluate.preset("tuned-v1"), d);
         int filled = 0;
         for (int v : d.toArray()) {
             filled += v != 0 ? 1 : 0;
@@ -64,8 +64,8 @@ class ParamVectorTest {
     @Test
     @DisplayName("The classic preset is the hand-written weights, in centipawns")
     void classic() {
-        ParamVector c = BitBoardEvaluate.preset("classic");
-        assertEquals(c, BitBoardEvaluate.CLASSIC.params());
+        ParamVector c = ChessEvaluate.preset("classic");
+        assertEquals(c, ChessEvaluate.CLASSIC.params());
         assertEquals(100, c.get("material.pawn.mg"));
         assertEquals(330, c.get("material.bishop.eg"));
         assertEquals(8, c.get("development.openingUntilTurn"));

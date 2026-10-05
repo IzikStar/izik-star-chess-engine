@@ -8,7 +8,7 @@ it does not.
 ## 1. What an individual is
 
 An individual is a **parameter vector**: one integer for each of the 499 weights of the
-evaluation (`ai.eval.ParamVector`, over the schema `BitBoardEvaluate.SCHEMA`).
+evaluation (`ai.eval.ParamVector`, over the schema `ChessEvaluate.SCHEMA`).
 
 - Every parameter has a name, a group, a default, a `min`/`max` range and a description
   (`ParamSpec`). See below for the defaults.
@@ -17,7 +17,7 @@ evaluation (`ai.eval.ParamVector`, over the schema `BitBoardEvaluate.SCHEMA`).
   converted.)
 - `schema.defaults()` is where evolution starts: the Texel-tuned weights, preset `tuned-v1`
   (`src/main/resources/presets/tuned-v1.json`, see section 6). The hand-written weights the
-  engine has always played with are kept as the preset `classic` (`BitBoardEvaluate.CLASSIC`,
+  engine has always played with are kept as the preset `classic` (`ChessEvaluate.CLASSIC`,
   `src/main/resources/presets/classic.json`), and the game plays with them. Edit that file to
   improve them by hand; `engine.SameMoveTest` records the moves they play.
 - Most terms come in pairs, `.mg` (middlegame) and `.eg` (endgame). The engine blends the two by
@@ -228,6 +228,6 @@ weights are pulled back toward them. `lab.Cli export` positions from a run's gam
 | Your API | `src/main/java/evolution/` (`Evolution`, `Generation`, `Pairing`, the example) |
 | Runner, record, CLI, export | `src/main/java/lab/` |
 | Matches, tournaments, Elo | `src/main/java/arena/` (`arena.Cli match` for head-to-head checks) |
-| Parameters and evaluation | `src/main/java/ai/eval/`, `src/main/java/ai/BitBoard/BitBoardEvaluate.java` |
+| Parameters and evaluation | `src/main/java/ai/eval/`, `src/main/java/ai/eval/ChessEvaluate.java` |
 | Lab page | `web/src/Lab.tsx`, served by `web.LabApi` |
 | Design and decisions | `docs/phase-5-research.md` (§9 is the log of what was built) |

@@ -44,7 +44,7 @@ class SearchTest extends CharacterizationTestBase {
     }
 
     /**
-     * Was Bug B: {@code BitBoardEvaluate.evaluate} negated {@code Integer.MIN_VALUE} for a White
+     * Was Bug B: {@code ChessEvaluate.evaluate} negated {@code Integer.MIN_VALUE} for a White
      * engine, which overflows, so delivering mate scored as the worst outcome (it played Kf7).
      */
     @Test
@@ -75,11 +75,9 @@ class SearchTest extends CharacterizationTestBase {
     @Test
     @DisplayName("Search position hash sees pawns and the side to move")
     void searchHashSeesPawnsAndSideToMove() {
-        long start = ai.BitBoard.ZobristHashing.computeHash(bit(START));
-        long afterE4Placement = ai.BitBoard.ZobristHashing.computeHash(
-                bit("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 1"));
-        long blackToMove = ai.BitBoard.ZobristHashing.computeHash(
-                bit("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1"));
+        long start = board(START).searchKey();
+        long afterE4Placement = board("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 1").searchKey();
+        long blackToMove = board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1").searchKey();
         assertTrue(start != afterE4Placement, "a pawn move changes the hash");
         assertTrue(start != blackToMove, "the side to move changes the hash");
     }

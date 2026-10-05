@@ -1,6 +1,6 @@
 package characterization;
 
-import ai.BitBoard.BitBoard;
+import ai.board.Board;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>Headless, no Swing, no synthetic input. It drives the real rules core
  * ({@code rules.Game}, the API the UI's game session drives) and the real engine board
- * representation ({@code BitBoard}, which the minimax search runs on) through complete games.
+ * representation ({@code ai.board.Board}, which the minimax search runs on) through complete games.
  * (A third test round-tripped the Swing UI's saved-game files; it went with that UI in Phase 4c.)
  *
  * <p>Tagged {@code "smoke"} and excluded from the default {@code mvn test} run because a
@@ -64,16 +64,16 @@ class AppSmokeTest extends CharacterizationTestBase {
     @DisplayName("A full random game in the bitboard engine terminates cleanly")
     void randomGameInBitboardEngine() {
         Random rnd = new Random(20260905L);
-        BitBoard b = bit(START);
+        Board b = board(START);
 
         int ply = 0;
         final int cap = 4000; // generous; the current per-ply 50-move counter ends games far sooner
-        int status = b.getStatus();
+        int status = status(b);
         while (status == 1 && ply < cap) {
-            List<BitBoard> next = b.getNextStates();
+            List<? extends Board> next = b.children();
             assertTrue(!next.isEmpty(), "status==1 implies at least one legal move (ply " + ply + ")");
             b = next.get(rnd.nextInt(next.size()));
-            status = b.getStatus();
+            status = status(b);
             ply++;
         }
 

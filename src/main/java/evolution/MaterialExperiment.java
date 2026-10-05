@@ -1,6 +1,6 @@
 package evolution;
 
-import ai.BitBoard.BitBoardEvaluate;
+import ai.eval.ChessEvaluate;
 import ai.eval.ParamSchema;
 import ai.eval.ParamVector;
 
@@ -52,7 +52,7 @@ public class MaterialExperiment implements Evolution {
     @Override
     public List<ParamVector> firstGeneration(ParamSchema schema, Random random) {
         List<ParamVector> population = new ArrayList<>();
-        for (ParamVector start : List.of(schema.defaults(), BitBoardEvaluate.preset("classic"))) {
+        for (ParamVector start : List.of(schema.defaults(), ChessEvaluate.preset("classic"))) {
             for (int i = 0; i < MUTANTS_PER_START; i++) {
                 population.add(mutate(start, MUTATION, random));
             }

@@ -57,18 +57,14 @@ class LayeringTest {
     }
 
     @Test
-    @DisplayName("Only the board package knows the bitboard; everything else uses ai.board.Board (Phase 6)")
-    void onlyTheBoardKnowsTheBitboard() throws IOException {
-        // the chess evaluation is the one exception: it is the bitboard's own evaluator
-        Pattern bitboard = Pattern.compile("ai\\.BitBoard\\.(?!BitBoardEvaluate\\b)\\w");
+    @DisplayName("Only the board package names the board implementation; everything else uses ai.board.Board (Phase 6)")
+    void onlyTheBoardPackageKnowsTheImplementation() throws IOException {
+        Pattern implementation = Pattern.compile("\\bGenericBoard\\b");
         List<String> violations = new ArrayList<>();
         try (Stream<Path> files = Files.walk(SRC)) {
             for (Path file : files.filter(p -> p.toString().endsWith(".java")).toList()) {
                 String rel = SRC.relativize(file).toString().replace('\\', '/');
-                if (rel.startsWith("ai/BitBoard/") || rel.equals("ai/board/Boards.java")) {
-                    continue;
-                }
-                if (bitboard.matcher(Files.readString(file)).find()) {
+                if (!rel.startsWith("ai/board/") && implementation.matcher(Files.readString(file)).find()) {
                     violations.add(rel);
                 }
             }
@@ -77,9 +73,9 @@ class LayeringTest {
     }
 
     @Test
-    @DisplayName("The legacy object-model classes and the Swing UI stay deleted")
+    @DisplayName("The legacy object-model classes, the Swing UI and the old bitboard stay deleted")
     void legacyClassesStayDeleted() {
-        for (String gone : new String[]{"ai/BoardState.java", "pieces", "ai/myEngine.java", "main", "GUI"}) {
+        for (String gone : new String[]{"ai/BoardState.java", "pieces", "ai/myEngine.java", "main", "GUI", "ai/BitBoard"}) {
             assertEquals(false, Files.exists(SRC.resolve(gone)), gone + " is back");
         }
     }

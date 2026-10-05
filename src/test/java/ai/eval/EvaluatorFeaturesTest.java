@@ -1,7 +1,7 @@
-package ai.BitBoard;
+package ai.eval;
 
-import ai.eval.ParamSpec;
-import ai.eval.ParamVector;
+import ai.board.Board;
+import ai.board.Boards;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import rules.ChessMove;
@@ -17,11 +17,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /** Phase 5 step 1b: the new features measure what they say, and the score is features × weights. */
 class EvaluatorFeaturesTest {
 
-    private static final BitBoardEvaluate EVAL = BitBoardEvaluate.DEFAULT;
+    private static final ChessEvaluate EVAL = ChessEvaluate.DEFAULT;
 
     private static int feature(String fen, String name) {
-        int i = BitBoardEvaluate.SCHEMA.indexOf(name + ".mg") / 2; // named features come first, as mg/eg pairs
-        return EVAL.features(BitBoardRules.fromFen(fen)).values()[i];
+        int i = ChessEvaluate.SCHEMA.indexOf(name + ".mg") / 2; // named features come first, as mg/eg pairs
+        return EVAL.features(Boards.fromFen(fen)).values()[i];
     }
 
     /** Positions from seeded random games (not finished ones). */
@@ -125,8 +125,8 @@ class EvaluatorFeaturesTest {
     @DisplayName("Every feature changes sign when the colours are swapped (no side is favoured by a sign slip)")
     void mirrorSymmetry() {
         for (String fen : randomPositions(11, 400)) {
-            int[] a = EVAL.features(BitBoardRules.fromFen(fen)).values();
-            int[] b = EVAL.features(BitBoardRules.fromFen(mirror(fen))).values();
+            int[] a = EVAL.features(Boards.fromFen(fen)).values();
+            int[] b = EVAL.features(Boards.fromFen(mirror(fen))).values();
             for (int i = 0; i < a.length; i++) {
                 assertEquals(-a[i], b[i], fen + " feature " + i);
             }
@@ -137,21 +137,21 @@ class EvaluatorFeaturesTest {
     @DisplayName("The score is the tapered sum of features × weights, for random weights")
     void scoreIsFeaturesTimesWeights() {
         Random random = new Random(3);
-        int named = BitBoardEvaluate.NAMED;
-        int pst = BitBoardEvaluate.PST_SIZE;
-        int[] values = BitBoardEvaluate.SCHEMA.defaults().toArray();
+        int named = ChessEvaluate.NAMED;
+        int pst = ChessEvaluate.PST_SIZE;
+        int[] values = ChessEvaluate.SCHEMA.defaults().toArray();
         for (int i = 0; i < values.length; i++) {
-            ParamSpec spec = BitBoardEvaluate.SCHEMA.spec(i);
+            ParamSpec spec = ChessEvaluate.SCHEMA.spec(i);
             boolean gate = i >= named * 2 && i < named * 2 + 3;
             if (!gate) {
                 values[i] = spec.min() + random.nextInt(spec.max() - spec.min() + 1);
             }
         }
-        ParamVector params = new ParamVector(BitBoardEvaluate.SCHEMA, values);
-        BitBoardEvaluate eval = new BitBoardEvaluate(params);
+        ParamVector params = new ParamVector(ChessEvaluate.SCHEMA, values);
+        ChessEvaluate eval = new ChessEvaluate(params);
         for (String fen : randomPositions(12, 300)) {
-            BitBoard board = BitBoardRules.fromFen(fen);
-            BitBoardEvaluate.Features f = eval.features(board);
+            Board board = Boards.fromFen(fen);
+            ChessEvaluate.Features f = eval.features(board);
             long mg = 0;
             long eg = 0;
             for (int i = 0; i < named; i++) {
@@ -163,7 +163,7 @@ class EvaluatorFeaturesTest {
                 mg += (long) f.values()[named + j] * params.get(base + j);
                 eg += (long) f.values()[named + j] * params.get(base + pst + j);
             }
-            long expected = (mg * f.phase() + eg * (BitBoardEvaluate.MAX_PHASE - f.phase())) / BitBoardEvaluate.MAX_PHASE;
+            long expected = (mg * f.phase() + eg * (ChessEvaluate.MAX_PHASE - f.phase())) / ChessEvaluate.MAX_PHASE;
             assertEquals(expected, eval.evaluate(board, 1), fen);
         }
     }
