@@ -1,5 +1,6 @@
 package rules;
 
+import ai.variant.TestVariants;
 import ai.variant.Variant;
 import ai.variant.Variants;
 import org.junit.jupiter.api.DisplayName;
@@ -40,7 +41,7 @@ class RulesVariantTest {
             for (String line : new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8)).lines().toList()) {
                 String[] parts = line.split(" \\| ", -1);
                 if (parts[0].trim().equals(kind)) {
-                    out.add(new Line(Variants.byId(parts[1]).orElseThrow(), parts[2],
+                    out.add(new Line(Variants.byId(parts[1]).orElseGet(() -> TestVariants.made(parts[1])), parts[2],
                             java.util.Arrays.copyOfRange(parts, 3, parts.length)));
                 }
             }

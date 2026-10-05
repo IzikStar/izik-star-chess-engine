@@ -300,6 +300,23 @@ piece without art is its letter in a circle.
   game in `WebServerTest` (saved over HTTP, played over the socket, the variant deleted, the game
   still carried on).
 
+### R5b (branch `phase-6-fairy-pieces`)
+
+- Five made-up variants live in `src/test/resources/variants/made/*.json`: Amazon chess (`QN`
+  for the queen), Archbishop chess (`BN` for the knights), Knightrider chess (`NN` for the
+  bishops), Forward chess (a Scout `fW3bW` and a Guard `mWcFffN`, no castling) and Amazon
+  antichess (forced captures, the king an ordinary piece).
+- `tools/variant_oracle.py` gives each one to Fairy-Stockfish as a config whose invented pieces
+  are `customPieceN = <letter>:<Betza>` with the Betza text **our writer** put in the file, then
+  records random games and perft like the built-ins. `ai.board.VariantOracleTest` reads the
+  variants from the same files (`TestVariants.made`) with the atoms removed; `rules.RulesVariantTest` checks the SAN and game ends, so our Betza parser, our writer and the
+  move generator and SAN are all checked against Fairy-Stockfish: 3,600 more positions and 105 perft
+  counts, all equal on the first run (promotions to the new pieces and antichess game ends
+  included).
+- Known difference, not covered: our "first move only" means the piece has not left its start
+  square; Fairy-Stockfish allows `i` moves only from the double-step rank. The two agree for pawns,
+  so no test variant gives `i` to another piece.
+
 ## 5. Towards "everything possible"
 
 Each layer is more flexible and slower or riskier than the one before, so it is added only when

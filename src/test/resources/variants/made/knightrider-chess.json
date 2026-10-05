@@ -1,0 +1,175 @@
+{
+  "id": "knightrider-chess",
+  "name": "Knightrider chess",
+  "width": 8,
+  "height": 8,
+  "start": "rnjqkjnr/pppppppp/8/8/8/8/PPPPPPPP/RNJQKJNR w KQkq - 0 1",
+  "goal": "CHECKMATE",
+  "checksToWin": 0,
+  "forcedCapture": false,
+  "castling": true,
+  "pieces": [
+    {
+      "name": "King",
+      "letter": "K",
+      "value": 0,
+      "royal": true,
+      "promotesTo": "",
+      "enPassant": false,
+      "castlingRole": "KING",
+      "atoms": [
+        {
+          "kind": "LEAP",
+          "forward": 1,
+          "right": 0,
+          "symmetry": "ALL",
+          "mode": "BOTH",
+          "range": 0,
+          "firstMoveOnly": false
+        },
+        {
+          "kind": "LEAP",
+          "forward": 1,
+          "right": 1,
+          "symmetry": "ALL",
+          "mode": "BOTH",
+          "range": 0,
+          "firstMoveOnly": false
+        }
+      ],
+      "betza": "WF"
+    },
+    {
+      "name": "Queen",
+      "letter": "Q",
+      "value": 900,
+      "royal": false,
+      "promotesTo": "",
+      "enPassant": false,
+      "castlingRole": "NONE",
+      "atoms": [
+        {
+          "kind": "SLIDE",
+          "forward": 1,
+          "right": 0,
+          "symmetry": "ALL",
+          "mode": "BOTH",
+          "range": 0,
+          "firstMoveOnly": false
+        },
+        {
+          "kind": "SLIDE",
+          "forward": 1,
+          "right": 1,
+          "symmetry": "ALL",
+          "mode": "BOTH",
+          "range": 0,
+          "firstMoveOnly": false
+        }
+      ],
+      "betza": "RB"
+    },
+    {
+      "name": "Rook",
+      "letter": "R",
+      "value": 500,
+      "royal": false,
+      "promotesTo": "",
+      "enPassant": false,
+      "castlingRole": "ROOK",
+      "atoms": [
+        {
+          "kind": "SLIDE",
+          "forward": 1,
+          "right": 0,
+          "symmetry": "ALL",
+          "mode": "BOTH",
+          "range": 0,
+          "firstMoveOnly": false
+        }
+      ],
+      "betza": "R"
+    },
+    {
+      "name": "Knightrider",
+      "letter": "J",
+      "value": 700,
+      "royal": false,
+      "promotesTo": "",
+      "enPassant": false,
+      "castlingRole": "NONE",
+      "atoms": [
+        {
+          "kind": "SLIDE",
+          "forward": 2,
+          "right": 1,
+          "symmetry": "ALL",
+          "mode": "BOTH",
+          "range": 0,
+          "firstMoveOnly": false
+        }
+      ],
+      "betza": "NN"
+    },
+    {
+      "name": "Knight",
+      "letter": "N",
+      "value": 320,
+      "royal": false,
+      "promotesTo": "",
+      "enPassant": false,
+      "castlingRole": "NONE",
+      "atoms": [
+        {
+          "kind": "LEAP",
+          "forward": 2,
+          "right": 1,
+          "symmetry": "ALL",
+          "mode": "BOTH",
+          "range": 0,
+          "firstMoveOnly": false
+        }
+      ],
+      "betza": "N"
+    },
+    {
+      "name": "Pawn",
+      "letter": "P",
+      "value": 100,
+      "royal": false,
+      "promotesTo": "QRJN",
+      "enPassant": true,
+      "castlingRole": "NONE",
+      "atoms": [
+        {
+          "kind": "SLIDE",
+          "forward": 1,
+          "right": 0,
+          "symmetry": "ONE",
+          "mode": "MOVE",
+          "range": 1,
+          "firstMoveOnly": false
+        },
+        {
+          "kind": "SLIDE",
+          "forward": 1,
+          "right": 0,
+          "symmetry": "ONE",
+          "mode": "MOVE",
+          "range": 2,
+          "firstMoveOnly": true
+        },
+        {
+          "kind": "LEAP",
+          "forward": 1,
+          "right": 1,
+          "symmetry": "SIDEWAYS",
+          "mode": "CAPTURE",
+          "range": 0,
+          "firstMoveOnly": false
+        }
+      ],
+      "betza": "mfWimfW2cfF"
+    }
+  ]
+}
