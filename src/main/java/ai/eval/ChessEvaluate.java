@@ -1,6 +1,7 @@
 package ai.eval;
 
 import ai.board.Board;
+import ai.board.Outcome;
 import ai.board.ChessPosition;
 import ai.eval.Evaluator;
 import ai.eval.ParamSchema;
@@ -347,11 +348,10 @@ public final class ChessEvaluate implements Evaluator {
         int value;
         if (board.whiteKings == 0) return switchSides ? MATE : -MATE;
         if (board.blackKings == 0) return switchSides ? -MATE : MATE;
-        value = status(chess);
-        if (value != 1) {
-            // getStatus(): MIN_VALUE = Black is mated, MAX_VALUE = White is mated, 0 = draw.
-            value = value == Integer.MIN_VALUE ? -MATE : value == Integer.MAX_VALUE ? MATE : 0;
-            return switchSides ? value : -value;
+        Outcome outcome = position.outcome(); // mate, stalemate, 50 moves, or the variant's goal
+        if (outcome != Outcome.ONGOING) {
+            int forMover = outcome == Outcome.WIN ? MATE : outcome == Outcome.LOSS ? -MATE : 0;
+            return position.sideToMove() == rootPlayer ? forMover : -forMover;
         }
         int[] f = new int[NAMED];
         measure(board, f, false);
@@ -401,19 +401,6 @@ public final class ChessEvaluate implements Evaluator {
      * @param whiteToMove whose move it is (the features are always Black minus White)
      */
     public record Features(int[] values, int phase, boolean whiteToMove) {}
-
-    /**
-     * 1 while the game goes on; when it is over, Integer.MIN_VALUE when Black is mated,
-     * Integer.MAX_VALUE when White is mated and 0 for a draw (stalemate or the 50-move rule).
-     */
-    private static int status(ChessPosition p) {
-        if (!p.hasLegalMove()) {
-            if (p.inCheck(1)) return Integer.MIN_VALUE;
-            if (p.inCheck(0)) return Integer.MAX_VALUE;
-            return 0;
-        }
-        return p.halfmoveClock() >= 100 ? 0 : 1;
-    }
 
     /**
      * The position's piece sets under the names the measuring code reads (Phase 6: the evaluation

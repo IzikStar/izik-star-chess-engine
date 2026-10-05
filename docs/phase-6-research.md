@@ -216,6 +216,24 @@ variant choice in the New game dialog and a drawing for pieces without one.
   game ends with Fairy-Stockfish (`oracle.txt` now has `san` and `end` lines), plus hand-made
   positions for each goal.
 
+### R4c (branch `phase-6-variant-eval`)
+
+- `ai.eval.Evaluators.forVariant(variant)` picks the evaluation: the chess pieces on the chess
+  board with a royal king to lose (chess, King of the Hill, Three-check) keep `ChessEvaluate`, so
+  the difficulty ladder and `tuned-v1` do not move; any other variant gets a `PieceSetEvaluate`.
+- `PieceSetEvaluate` builds its `ParamSchema` from the piece set: per piece `material.<piece>`,
+  `mobility.<piece>` and `square.<piece>.<square>` (64 on the chess board, seen from the owner's
+  side). Material starts at the piece's value (royal pieces 0), the rest at 0; in antichess every
+  weight starts at 0, so an evolution run there starts from nothing. Mobility is counted only when
+  some mobility weight is not 0, so a fresh evaluation costs no move generation.
+- It reads the board through `ai.board.PieceBoard` (pieces and mobility by type), which
+  `GenericBoard` implements.
+- Game ends are scored from `Board.outcome()` in both evaluations, so a reached hill or a third
+  check is a mate for the search, as checkmate is.
+- Checks: `ai.eval.PieceSetEvaluateTest` (colour symmetry with random weights, antichess's zero
+  start, a forced antichess win found with all weights at 0, variant goals as mate in
+  `ChessEvaluate`). `SameMoveTest` is unchanged.
+
 ## 5. Towards "everything possible"
 
 Each layer is more flexible and slower or riskier than the one before, so it is added only when
