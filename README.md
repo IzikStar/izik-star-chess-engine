@@ -30,6 +30,12 @@ Phase 4c (#2 to #6) refer to that repository.
 - **Full chess rules.** Castling, en passant, promotion (pick the piece on the board), check,
   checkmate and stalemate. Draws are detected by the 50-move rule, threefold repetition and
   insufficient material.
+- **Variants.** Pick the game in the *New game* dialog: chess, Antichess (lose every piece to
+  win; captures are forced), King of the Hill (or bring your king to the centre) or Three-check
+  (or give check three times; each player's card counts the checks). The built-in engine plays
+  them all, up to Level 8 (Stockfish plays chess only, so its levels, the evaluation bar and the
+  analysis are for chess games). Saved games and PGN keep the variant (a `Variant` tag, as
+  Lichess writes it). Every variant's rules are checked against Fairy-Stockfish.
 - **Click or drag** to move; the legal moves of the selected piece are marked.
 - **Game analysis** with Stockfish: an evaluation bar beside the board, a graph, a mark on every
   move (best, inaccuracy, mistake, blunder) and per side an accuracy and a rough Elo estimate

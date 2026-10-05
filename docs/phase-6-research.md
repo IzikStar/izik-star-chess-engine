@@ -254,6 +254,22 @@ variant choice in the New game dialog and a drawing for pieces without one.
   `GameEndingsTest`, `EvalApiTest`, and two socket games in `WebServerTest` (antichess's forced
   capture and PGN tag, King of the Hill against the engine, a three-check game saved and carried on).
 
+### R4e (branch `phase-6-variant-ui`)
+
+- The New game dialog has a *Game* choice (Chess, Antichess, King of the Hill, Three-check) with
+  the variant's rule under it. Outside chess the strength slider stops at Level 8, the Elo next
+  to a level is hidden (it is a chess Elo), and antichess hides the weights choice (it plays with
+  its own evaluation). Rematch and *Play Level n* keep the variant; a lab champion starts chess.
+- The game screen names the variant and its rule under the status line; Three-check shows each
+  side's checks on its card (`✚ 1/3`); antichess shows no material lead. The evaluation bar and
+  *Analyse* are for chess only. The result line, sounds and *My games* (variant in the opponent
+  column, kept out of the per-level Elo table) read the variant endings.
+- The promotion picker offers the pieces the legal moves name (an antichess pawn may become a
+  king). A piece letter with no drawing is drawn as its letter in a circle (`LetterPiece`), so a
+  variant with new pieces (R5) can be shown before it has art.
+- Checks: `web/e2e/variants.spec.ts` (antichess forced capture and promotion to king, the
+  three-check counter, King of the Hill against the engine with the ladder capped).
+
 ## 5. Towards "everything possible"
 
 Each layer is more flexible and slower or riskier than the one before, so it is added only when

@@ -1,6 +1,30 @@
 // Display helpers only. Nothing here decides what is legal; that comes from the server.
 
-import type { Color, GameEnd, GameState, Status, StockfishInfo, Weights } from './protocol';
+import type { Color, GameEnd, GameState, Status, StockfishInfo, VariantId, Weights } from './protocol';
+
+/** The variants the New game dialog offers, with the rule that makes each one different. */
+export const VARIANTS: { id: VariantId; name: string; rule: string }[] = [
+  { id: 'chess', name: 'Chess', rule: 'The usual game: checkmate the king.' },
+  { id: 'antichess', name: 'Antichess', rule: 'Lose every piece to win. Captures are forced and the king is an ordinary piece.' },
+  { id: 'king-of-the-hill', name: 'King of the Hill', rule: 'Checkmate, or bring your king to one of the four centre squares.' },
+  { id: 'three-check', name: 'Three-check', rule: 'Checkmate, or give check three times.' },
+];
+
+/** The game's variant id; a state without one is chess. */
+export function variantOf(state: GameState): VariantId {
+  return state.variant?.id ?? 'chess';
+}
+
+/**
+ * Three-check: the checks each side has given, from the FEN's "3+3" field (the checks each side
+ * still has to give); null in any other game.
+ */
+export function checksGiven(fen: string, toWin = 3): Record<Color, number> | null {
+  const field = fen.split(' ').find((f) => /^\d+\+\d+$/.test(f));
+  if (!field) return null;
+  const [white, black] = field.split('+').map(Number);
+  return { white: toWin - white, black: toWin - black };
+}
 
 export const VALUES: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 const START_COUNT: Record<string, number> = { p: 8, n: 2, b: 2, r: 2, q: 1 };
@@ -153,6 +177,14 @@ export function resultText(status: Status, turn: Color, end: GameEnd | null = nu
       return 'Draw by threefold repetition';
     case 'DRAW_INSUFFICIENT_MATERIAL':
       return 'Draw · not enough material to mate';
+    case 'HILL_REACHED':
+      return `King on the hill · ${colorName(other(turn))} wins`;
+    case 'CHECKS_GIVEN':
+      return `Third check · ${colorName(other(turn))} wins`;
+    case 'NO_PIECES_LEFT':
+      return `${colorName(turn)} has lost every piece · ${colorName(turn)} wins`;
+    case 'NO_MOVES_LEFT':
+      return `${colorName(turn)} has no move left · ${colorName(turn)} wins`;
     default:
       return '';
   }

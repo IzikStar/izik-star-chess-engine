@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnalysisPanel, EvalBar, useAnalysis } from './Analysis';
 import { Board } from './Board';
-import { colorName, formatClock, kingSquare, LEVELS, levelElo, other, STOCKFISH_FROM_LEVEL, turnOf } from './chess';
+import { colorName, formatClock, kingSquare, LEVELS, levelElo, other, STOCKFISH_FROM_LEVEL, turnOf, VARIANTS } from './chess';
 import { MoveList, RepeatButton } from './MoveList';
-import type { Color, MoveInfo, Weights } from './protocol';
+import type { Color, MoveInfo, VariantId, Weights } from './protocol';
 
 // "My games": every game played in the app, saved by the server after each move (web.GamesApi,
 // game.GameArchive). Look one through with Stockfish's analysis, carry an unfinished one on, or
@@ -22,6 +22,8 @@ export interface GameSummary {
   opponent: string | null;
   /** The built-in engine's weights ("classic" for games from before the choice). */
   weights: Weights;
+  /** The game's variant ("chess" for games from before variants; absent from an older server). */
+  variant?: VariantId;
   time: { initialMs: number; incrementMs: number } | null;
   plies: number;
   result: Result | null;
@@ -51,8 +53,9 @@ export function outcomeOf(g: GameSummary): Outcome {
 const OUTCOME_TEXT: Record<Outcome, string> = { won: 'Won', lost: 'Lost', drawn: 'Draw', unfinished: 'Unfinished', played: '' };
 
 function opponentText(g: GameSummary): string {
-  if (g.mode === 'friend') return 'Two players';
-  return g.opponent ?? `Level ${g.level} · ${LEVELS[g.level]?.name ?? ''}${weightsSuffix(g.level, g.weights)}`;
+  const variant = g.variant && g.variant !== 'chess' ? `${VARIANTS.find((v) => v.id === g.variant)?.name ?? g.variant} · ` : '';
+  if (g.mode === 'friend') return variant + 'Two players';
+  return variant + (g.opponent ?? `Level ${g.level} · ${LEVELS[g.level]?.name ?? ''}${weightsSuffix(g.level, g.weights)}`);
 }
 
 /** " (classic weights)" for a built-in level played with the classic weights; the tuned ones are the default. */
@@ -191,7 +194,8 @@ function ByLevel({ games }: { games: GameSummary[] }) {
   const rows = new Map<string, { level: number; weights: Weights; won: number; drawn: number; lost: number }>();
   for (const g of games) {
     const o = outcomeOf(g);
-    if (g.mode !== 'engine' || g.opponent || (o !== 'won' && o !== 'drawn' && o !== 'lost')) continue;
+    // the levels' Elo is a chess Elo: a variant game says nothing about it
+    if (g.mode !== 'engine' || g.opponent || (g.variant ?? 'chess') !== 'chess' || (o !== 'won' && o !== 'drawn' && o !== 'lost')) continue;
     const weights: Weights = g.level >= STOCKFISH_FROM_LEVEL ? 'tuned' : g.weights;
     const key = `${g.level}:${weights}`;
     const r = rows.get(key) ?? { level: g.level, weights, won: 0, drawn: 0, lost: 0 };
@@ -343,7 +347,9 @@ function GameReview({ id, live, onBack, onResume, onShowLive }: {
             {game.result === null && (live
               ? <button type="button" className="btn primary" onClick={onShowLive}>Back to this game</button>
               : <button type="button" className="btn primary" onClick={() => onResume(game.id)}>Continue this game</button>)}
-            <button type="button" className="btn" disabled={moves.length === 0 || analysis.status === 'running'} onClick={analyse}>Analyse game</button>
+            {(game.variant ?? 'chess') === 'chess' && (
+              <button type="button" className="btn" disabled={moves.length === 0 || analysis.status === 'running'} onClick={analyse}>Analyse game</button>
+            )}
           </div>
         </section>
 

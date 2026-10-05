@@ -144,11 +144,28 @@ const WHITE: Palette = {
   detail: '#5a564f',
 };
 
-/** One piece as an SVG, e.g. `<PieceSvg code="wN" />`. */
+/**
+ * A piece with no drawing of its own (a variant's new piece): its letter in a circle, in the
+ * set's colours, so any piece a variant defines can stand on the board.
+ */
+export function LetterPiece({ code, style, className }: { code: string; style?: CSSProperties; className?: string }) {
+  const pal = code[0] === 'w' ? WHITE : BLACK;
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%" style={style}
+      className={className} data-piece={code} role="img" aria-label={`${code[0] === 'w' ? 'white' : 'black'} piece ${code[1]}`}>
+      <circle cx="50" cy="52" r="34" fill={code[0] === 'w' ? '#f4efe4' : '#2b2b2b'} stroke={pal.outline} strokeWidth={2.5} />
+      <text x="50" y="53" textAnchor="middle" dominantBaseline="central" fontSize="40" fontWeight="700"
+        fontFamily="system-ui, sans-serif" fill={code[0] === 'w' ? '#2a2a2a' : '#f4efe4'}>{code[1]}</text>
+    </svg>
+  );
+}
+
+/** One piece as an SVG, e.g. `<PieceSvg code="wN" />`; a letter with no drawing gets {@link LetterPiece}. */
 export function PieceSvg({ code, style, className }: { code: string; style?: CSSProperties; className?: string }) {
   const id = 'pc' + useId().replace(/[^a-zA-Z0-9]/g, '');
   const pal = code[0] === 'w' ? WHITE : BLACK;
   const parts = SHAPES[code[1]];
+  if (!parts) return <LetterPiece code={code} style={style} className={className} />;
   const name = { P: 'pawn', R: 'rook', N: 'knight', B: 'bishop', Q: 'queen', K: 'king' }[code[1]];
   return (
     <svg
@@ -189,10 +206,10 @@ export function PieceSvg({ code, style, className }: { code: string; style?: CSS
   );
 }
 
-/** The set in react-chessboard's shape: wP, wN, ... bK. */
+/** The set in react-chessboard's shape: wP, wN, ... bK, and a lettered circle for every other letter. */
 export const pieceSet: PieceRenderObject = Object.fromEntries(
   ['w', 'b'].flatMap((c) =>
-    Object.keys(SHAPES).map((p) => [c + p, (props?: { svgStyle?: CSSProperties }) => <PieceSvg code={c + p} style={props?.svgStyle} />]),
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((p) => [c + p, (props?: { svgStyle?: CSSProperties }) => <PieceSvg code={c + p} style={props?.svgStyle} />]),
   ),
 );
 
