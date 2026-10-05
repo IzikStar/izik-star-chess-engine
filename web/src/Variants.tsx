@@ -336,8 +336,6 @@ function PieceEditor({ piece, letters, readOnly, onChange, onAtoms, onBetza, onR
         <label>Value<input type="number" value={piece.value} step={10} onChange={(e) => onChange({ ...piece, value: Number(e.target.value) })} /></label>
         <label>Promotes to<input value={piece.promotesTo} placeholder="none" aria-label="Promotes to"
           onChange={(e) => onChange({ ...piece, promotesTo: e.target.value.toUpperCase().replace(/[^A-Z]/g, '') })} /></label>
-        <label className="inline"><input type="checkbox" checked={piece.royal} onChange={(e) => onChange({ ...piece, royal: e.target.checked })} /> Royal (must not be captured)</label>
-        <label className="inline"><input type="checkbox" checked={piece.enPassant} onChange={(e) => onChange({ ...piece, enPassant: e.target.checked })} /> En passant</label>
         <label>Castling
           <select value={piece.castlingRole} onChange={(e) => onChange({ ...piece, castlingRole: e.target.value as PieceDef['castlingRole'] })}>
             <option value="NONE">No</option>
@@ -345,6 +343,10 @@ function PieceEditor({ piece, letters, readOnly, onChange, onAtoms, onBetza, onR
             <option value="ROOK">Castled with (like a rook)</option>
           </select>
         </label>
+      </div>
+      <div className="check-row">
+        <label className="inline"><input type="checkbox" checked={piece.royal} onChange={(e) => onChange({ ...piece, royal: e.target.checked })} /> Royal (must not be captured)</label>
+        <label className="inline"><input type="checkbox" checked={piece.enPassant} onChange={(e) => onChange({ ...piece, enPassant: e.target.checked })} /> En passant</label>
       </div>
       </fieldset>
       <div className="designer">
@@ -640,8 +642,6 @@ function Editor({ start, taken, onSaved, onDeleted, onCopy, onPlay }: {
         </div>
       </section>
 
-      <HealthCheck variant={v} />
-
       {piece && (
           <PieceEditor key={picked} piece={piece} letters={letters} readOnly={readOnly}
             onChange={(p) => setPiece(picked, p)}
@@ -663,6 +663,8 @@ function Editor({ start, taken, onSaved, onDeleted, onCopy, onPlay }: {
               setPicked(0);
             }} />
       )}
+
+      <HealthCheck variant={v} />
     </div>
   );
 }
