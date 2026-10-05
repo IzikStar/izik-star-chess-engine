@@ -554,7 +554,7 @@ equal time; every changed move in `same-moves.txt` explained.
 
 ## Phase 6 — Pieces as data
 
-> **Status: R1 in review** (branch `phase-6-board-interface`). Research, target architecture and
+> **Status: R1 merged (PR #25); R2 in review** (branch `phase-6-pieces-as-data`). Research, target architecture and
 > steps are in [docs/phase-6-research.md](docs/phase-6-research.md).
 
 **Goal.** Let the owner invent pieces and variants: piece types become data read by one move
