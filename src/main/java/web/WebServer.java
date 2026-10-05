@@ -6,6 +6,7 @@ import engine.StockfishEngine;
 import game.GameArchive;
 import game.GameConfig;
 import game.GameSession;
+import game.VariantStore;
 import io.javalin.Javalin;
 import io.javalin.http.staticfiles.Location;
 import io.javalin.websocket.WsContext;
@@ -40,7 +41,8 @@ import java.util.stream.Collectors;
  *
  * <p>Arguments: {@code --port N} (default 7070, then the next free one up to 7079),
  * {@code --no-browser}, {@code --runs DIR} (the evolution runs, default {@code runs}), {@code --games DIR}
- * (where the player's games are saved, default {@code games}), {@code --lan} (listen on every network
+ * (where the player's games are saved, default {@code games}), {@code --variants DIR} (the variants
+ * the player made, default {@code variants}), {@code --lan} (listen on every network
  * interface, so a phone on the same Wi-Fi or tailnet can open the game; there is no password).
  */
 public final class WebServer {
@@ -69,6 +71,7 @@ public final class WebServer {
         boolean browser = true;
         Path runs = Path.of("runs");
         Path games = Path.of("games");
+        Path variants = Path.of("variants");
         String host = LOCAL_ONLY;
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
@@ -76,15 +79,16 @@ public final class WebServer {
                 case "--no-browser" -> browser = false;
                 case "--runs" -> runs = Path.of(args[++i]);
                 case "--games" -> games = Path.of(args[++i]);
+                case "--variants" -> variants = Path.of(args[++i]);
                 case "--lan" -> host = ALL_INTERFACES;
                 default -> {
                     System.err.println("unknown argument: " + args[i]
-                            + " (use --port N, --no-browser, --runs DIR, --games DIR, --lan)");
+                            + " (use --port N, --no-browser, --runs DIR, --games DIR, --variants DIR, --lan)");
                     System.exit(2);
                 }
             }
         }
-        WebServer server = startOnFreePort(port, port == DEFAULT_PORT ? 10 : 1, runs, games, host);
+        WebServer server = startOnFreePort(port, port == DEFAULT_PORT ? 10 : 1, runs, games, variants, host);
         String url = "http://localhost:" + server.port() + "/";
         System.out.println("IzikStar Chess is running at " + url + " (Ctrl+C to stop)");
         if (host.equals(ALL_INTERFACES)) {
@@ -102,11 +106,11 @@ public final class WebServer {
         }
     }
 
-    private static WebServer startOnFreePort(int first, int attempts, Path runs, Path games, String host) {
+    private static WebServer startOnFreePort(int first, int attempts, Path runs, Path games, Path variants, String host) {
         RuntimeException last = null;
         for (int port = first; port < first + attempts; port++) {
             try {
-                return start(port, defaultSession(), runs, games, host);
+                return start(port, defaultSession(), runs, games, variants, host);
             } catch (RuntimeException e) {
                 last = e; // port taken: try the next one
             }
@@ -157,9 +161,16 @@ public final class WebServer {
         return start(port, sessions, runs, games, LOCAL_ONLY);
     }
 
-    /** As {@link #start(int, SessionFactory, Path, Path)}, listening on {@code host}. */
+    /** As {@link #start(int, SessionFactory, Path, Path)}, listening on {@code host}; made variants next to the games. */
     static WebServer start(int port, SessionFactory sessions, Path runs, Path games, String host) {
+        return start(port, sessions, runs, games, games.resolveSibling(games.getFileName() + "-variants"), host);
+    }
+
+    /** As {@link #start(int, SessionFactory, Path, Path, String)}, with the player's variants in {@code variants}. */
+    static WebServer start(int port, SessionFactory sessions, Path runs, Path games, Path variants, String host) {
         GameHub hub = new GameHub();
+        VariantStore variantStore = new VariantStore(variants);
+        hub.useVariants(variantStore);
         GameArchive archive = new GameArchive(games);
         hub.useArchive(archive);
         LabApi lab = new LabApi(runs);
@@ -193,6 +204,7 @@ public final class WebServer {
         eval.routes(app);
         new StockfishApi(hub::stockfish, hub::refresh).routes(app);
         new GamesApi(archive).routes(app);
+        new VariantsApi(variantStore).routes(app);
         app.ws("/ws", ws -> {
             ws.onConnect(ctx -> {
                 GameHub.Client client = ctx::send;

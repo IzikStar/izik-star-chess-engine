@@ -21,7 +21,7 @@ import rules.Game;
  *   <li>{@code DELETE /api/games/{id}}</li>
  * </ul>
  * A summary is {id, started, updated, mode: engine|friend, humanColor, level, opponent (a
- * champion's name, or null), weights (tuned|classic), variant (an id from ai.variant.Variants; chess for games saved before variants), time {initialMs, incrementMs} or null, plies, result (null while
+ * champion's name, or null), weights (tuned|classic), variant (an id: a built-in from ai.variant.Variants or one the player made; chess for games saved before variants), variantName, time {initialMs, incrementMs} or null, plies, result (null while
  * unfinished), termination}. Carrying a game on goes over the game's WebSocket ({@code resumeGame}).
  */
 final class GamesApi {
@@ -67,6 +67,7 @@ final class GamesApi {
         o.addProperty("opponent", g.opponentLabel());
         o.addProperty("weights", g.weights());
         o.addProperty("variant", g.variant());
+        o.addProperty("variantName", variantName(g));
         if (g.timeControl().isTimed()) {
             JsonObject time = new JsonObject();
             time.addProperty("initialMs", g.timeControl().initialMs());
@@ -81,10 +82,22 @@ final class GamesApi {
         return o;
     }
 
+    /** The variant's name as the game knew it (a made variant's from its copy in the game). */
+    private static String variantName(SavedGame g) {
+        try {
+            if (g.variantDef() != null) {
+                return ai.variant.VariantJson.read(g.variantDef()).name();
+            }
+        } catch (RuntimeException e) {
+            return g.variant();
+        }
+        return Variants.byId(g.variant()).map(ai.variant.Variant::name).orElse(g.variant());
+    }
+
     private static JsonObject detail(SavedGame g) {
         JsonObject o = summary(g);
         o.addProperty("startFen", g.startFen());
-        Game game = new Game(Variants.byId(g.variant())
+        Game game = new Game(g.variantDef() != null ? ai.variant.VariantJson.read(g.variantDef()) : Variants.byId(g.variant())
                 .orElseThrow(() -> new IllegalArgumentException("unknown variant " + g.variant())), g.startFen());
         JsonArray moves = new JsonArray();
         g.moves().forEach(uci -> moves.add(GameStateJson.move(game.play(uci))));

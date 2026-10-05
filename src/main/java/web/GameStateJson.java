@@ -165,6 +165,15 @@ final class GameStateJson {
         if (variant.goal() == Variant.Goal.CHECKS) {
             o.addProperty("checksToWin", variant.checksToWin());
         }
+        o.addProperty("custom", !game.VariantStore.isBuiltIn(variant.id()));
+        JsonArray pieces = new JsonArray();
+        for (ai.piece.PieceType t : variant.pieces()) {
+            JsonObject p = new JsonObject();
+            p.addProperty("letter", String.valueOf(t.letter()));
+            p.addProperty("name", t.name());
+            pieces.add(p);
+        }
+        o.add("pieces", pieces);
         return o;
     }
 

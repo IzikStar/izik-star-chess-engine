@@ -26,12 +26,14 @@ import java.util.List;
  *                           "classic"); games saved before the choice existed were "classic"
  * @param variant            the variant's id ({@code ai.variant.Variants}); games saved before
  *                           variants existed were chess
+ * @param variantDef         a made variant's whole definition ({@code ai.variant.VariantJson}) as it
+ *                           was when the game was played, or {@code null} for a built-in one
  */
 public record SavedGame(String id, Instant started, Instant updated, GameConfig config,
                         String championRun, Integer championGeneration, String opponentLabel,
                         TimeControl timeControl, Long whiteMs, Long blackMs,
                         String startFen, List<String> moves, String result, String termination, String pgn, String weights,
-                        String variant) {
+                        String variant, String variantDef) {
 
     public SavedGame {
         moves = List.copyOf(moves);

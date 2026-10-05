@@ -270,6 +270,36 @@ variant choice in the New game dialog and a drawing for pieces without one.
 - Checks: `web/e2e/variants.spec.ts` (antichess forced capture and promotion to king, the
   three-check counter, King of the Hill against the engine with the ladder capped).
 
+## 4e. R5 — the piece designer and the health check (owner: "go", 2026-10-05)
+
+Steps: **R5a** Betza text and the player's variants as files; R5b Fairy-Stockfish checks invented
+pieces; R5c the designer in the UI (a *Variants* tab); R5d the variant health check (self-play
+statistics); R5e made variants in the New game dialog, and one browser test through the whole
+path. Defaults taken: the designer is its own tab; pieces are what the atoms already say (leaps up
+to 3 squares, slides with a range, symmetry, first move only, moves and captures apart) on 8x8; a
+piece without art is its letter in a circle.
+
+### R5a (branch `phase-6-made-variants`)
+
+- `ai.piece.Betza` writes atoms as Betza text and reads it back, in Fairy-Stockfish's dialect
+  (checked by hand against `pyffish`: `rfN` is two forward and one right, `frN` one forward and
+  two right, `ff`/`fs`/`bb`/`bs` the knight's pairs, `rN` both moves with the long leg to the
+  right, `W2` a rider of range 2). Leapers `W F D N A H C Z G`, riders as a doubled letter or
+  `R B Q`, `K`, modifiers `m c i` and `f b l r v s`. The pawn is `mfWimfW2cfF`.
+- `VariantJson` writes each piece's Betza next to its atoms, and reads a piece from Betza alone.
+- `game.VariantStore`: the player's variants, one file each in `variants/` (`--variants DIR`),
+  after the built-ins. A save is refused with the reason when the id is a built-in's, a piece
+  promotes to a piece the variant lacks, the start position does not read, or the game is over at
+  the start; two plies of every line are generated as a smoke test.
+- A game of a made variant keeps a copy of the variant (`SavedGame.variantDef`), so editing or
+  deleting the variant never breaks its games; PGN reads a made variant's name too.
+- HTTP: `GET/PUT/DELETE /api/variants[/{id}]`, `POST /api/betza` (text to atoms and back). The
+  state's `variant` carries `custom` and the pieces' letters and names.
+- Checks: `ai.piece.BetzaTest` (the chess pieces, Fairy's direction pairs, 400 random atoms written
+  and read back to the same moves on random boards), `game.VariantStoreTest`, and an Amazon-chess
+  game in `WebServerTest` (saved over HTTP, played over the socket, the variant deleted, the game
+  still carried on).
+
 ## 5. Towards "everything possible"
 
 Each layer is more flexible and slower or riskier than the one before, so it is added only when

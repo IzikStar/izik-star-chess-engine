@@ -148,6 +148,9 @@ public final class GameArchive {
         o.addProperty("pgn", g.pgn());
         o.addProperty("weights", g.weights());
         o.addProperty("variant", g.variant());
+        if (g.variantDef() != null) {
+            o.add("variantDef", JsonParser.parseString(g.variantDef()));
+        }
         return o;
     }
 
@@ -164,7 +167,8 @@ public final class GameArchive {
                 new TimeControl(o.get("initialMs").getAsLong(), o.get("incrementMs").getAsLong()),
                 number(o, "whiteMs"), number(o, "blackMs"), o.get("startFen").getAsString(), moves,
                 string(o, "result"), string(o, "termination"), string(o, "pgn"), string(o, "weights"),
-                string(o, "variant"));
+                string(o, "variant"), o.has("variantDef") && !o.get("variantDef").isJsonNull()
+                        ? o.get("variantDef").toString() : null);
     }
 
     private static String string(JsonObject o, String key) {
