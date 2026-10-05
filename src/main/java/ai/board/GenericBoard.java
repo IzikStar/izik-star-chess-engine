@@ -364,6 +364,23 @@ public final class GenericBoard implements ChessPosition, PieceBoard {
     }
 
     @Override
+    public long checkedRoyals() {
+        int n = rules.types.size();
+        long checked = 0;
+        for (int t = 0; t < n; t++) {
+            if (rules.royal[t]) {
+                for (long b = pieces[side * n + t]; b != 0; b &= b - 1) {
+                    int sq = Long.numberOfTrailingZeros(b);
+                    if (attacked(sq, 1 - side)) {
+                        checked |= 1L << sq;
+                    }
+                }
+            }
+        }
+        return checked;
+    }
+
+    @Override
     public boolean inCheck(int player) {
         int n = rules.types.size();
         for (int t = 0; t < n; t++) {

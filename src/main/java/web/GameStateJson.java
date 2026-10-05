@@ -38,6 +38,7 @@ final class GameStateJson {
         state.addProperty("turn", session.whiteToMove() ? "white" : "black");
         GameStatus status = session.status();
         state.addProperty("status", status.name());
+        state.add("checked", squares(rules.Rules.checkedSquares(session.variant(), session.fen())));
         state.addProperty("result", session.result());
         state.add("end", end(session.end()));
         state.add("clock", clock(session.clock()));
@@ -201,7 +202,14 @@ final class GameStateJson {
         o.addProperty("enPassant", m.enPassant());
         o.addProperty("promotion", m.isPromotion());
         o.addProperty("status", m.status().name());
+        o.add("checked", squares(m.checked()));
         return o;
+    }
+
+    private static JsonArray squares(List<String> squares) {
+        JsonArray a = new JsonArray();
+        squares.forEach(a::add);
+        return a;
     }
 
     static JsonObject config(GameConfig config) {

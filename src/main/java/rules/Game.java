@@ -91,7 +91,7 @@ public final class Game {
                 && Math.abs(Square.file(move.from()) - Square.file(move.to())) == 2;
         fenHistory.add(after);
         MoveResult result = new MoveResult(move, san, piece, captured, castling, enPassant,
-                pos.fullmoveNumber(), before, after, status());
+                pos.fullmoveNumber(), before, after, status(), Rules.checkedSquares(variant, after));
         moves.add(result);
         return result;
     }

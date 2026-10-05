@@ -129,4 +129,24 @@ class RulesVariantTest {
         assertEquals(GameStatus.CHECKS_GIVEN, last.status());
         assertEquals("1-0", game.status().result(false));
     }
+
+    @Test
+    @DisplayName("the squares in check are the attacked royal pieces, not always the king")
+    void checkedSquares() {
+        assertEquals(List.of("e8"), Rules.checkedSquares(Variants.CHESS, "4k3/8/8/8/8/8/8/4R1K1 b - - 0 1"));
+        assertEquals(List.of(), Rules.checkedSquares(Variants.CHESS, "4k3/8/8/8/8/8/8/3R2K1 b - - 0 1"));
+
+        ai.piece.PieceType a = TestVariants.AMAZON;
+        ai.piece.PieceType royalAmazon = new ai.piece.PieceType(a.name(), a.letter(), a.atoms(), true, List.of(),
+                false, a.castling(), a.value());
+        Variant v = new Variant("royal-amazon", "Royal amazon",
+                List.of(ai.piece.StandardPieces.KING, royalAmazon, ai.piece.StandardPieces.ROOK),
+                ai.piece.Grid.CHESS, "a3k3/8/8/8/8/8/8/R3K3 w - - 0 1", Variant.Goal.CHECKMATE, 0, false, false);
+        // the rook attacks Black's royal amazon on a8; Black's king on e8 is safe
+        String fen = "a3k3/8/8/8/8/8/8/R3K3 b - - 0 1";
+        assertTrue(Rules.isCheck(v, fen));
+        assertEquals(List.of("a8"), Rules.checkedSquares(v, fen));
+        Game game = new Game(v, "a3k3/8/8/8/8/8/8/1R2K3 w - - 0 1");
+        assertEquals(List.of("a8"), game.play("b1a1").checked());
+    }
 }

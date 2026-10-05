@@ -86,6 +86,22 @@ public final class Rules {
         return Boards.fromFen(variant, fen).inCheck();
     }
 
+    /**
+     * The squares of the side to move's royal pieces that are attacked, top-left first (chess: the
+     * king's square when in check, else none). A made variant may have several royal pieces.
+     */
+    public static java.util.List<String> checkedSquares(Variant variant, String fen) {
+        long checked = Boards.fromFen(variant, fen).checkedRoyals();
+        int width = variant.grid().width();
+        int height = variant.grid().height();
+        java.util.List<String> squares = new java.util.ArrayList<>();
+        for (long b = checked; b != 0; b &= b - 1) {
+            int sq = Long.numberOfTrailingZeros(b);
+            squares.add("" + (char) ('a' + sq % width) + (height - sq / width));
+        }
+        return squares;
+    }
+
     public static boolean hasLegalMove(String fen) {
         return !Boards.fromFen(fen).children().isEmpty();
     }

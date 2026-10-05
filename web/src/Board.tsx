@@ -12,7 +12,8 @@ interface Props {
   /** Legal moves by start square; empty when the board should not accept moves. */
   legal: Map<string, string[]>;
   lastMove: string | null;
-  checkSquare: string | null;
+  /** Royal pieces in check, marked red. */
+  checkSquares: string[];
   hint: string | null;
   onMove: (uci: string) => void;
   onSelect: () => void;
@@ -50,7 +51,7 @@ const CHECK = 'radial-gradient(circle, rgba(255, 0, 0, 0.85) 0%, rgba(231, 0, 0,
  * moves it is given. For planning: right-click a square to mark it, right-drag to draw an arrow;
  * a left click or the next move clears them.
  */
-export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, onMove, onSelect, onIllegal, premoveColor, premoves, onPremove, badge, reachOf }: Props) {
+export function Board({ fen, orientation, legal, lastMove, checkSquares, hint, onMove, onSelect, onIllegal, premoveColor, premoves, onPremove, badge, reachOf }: Props) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   /** choices: the pieces the pawn may become, as the legal moves name them (a premove offers the usual four). */
@@ -112,7 +113,7 @@ export function Board({ fen, orientation, legal, lastMove, checkSquare, hint, on
     add(lastMove.slice(0, 2), { backgroundColor: LAST });
     add(lastMove.slice(2, 4), { backgroundColor: LAST });
   }
-  if (checkSquare) add(checkSquare, { backgroundImage: CHECK });
+  for (const sq of checkSquares) add(sq, { backgroundImage: CHECK });
   for (const uci of premoves) {
     add(uci.slice(0, 2), { backgroundColor: PREMOVE });
     add(uci.slice(2, 4), { backgroundColor: PREMOVE });

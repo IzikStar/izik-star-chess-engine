@@ -105,6 +105,17 @@ export function turnOf(fen: string): Color {
   return fen.split(' ')[1] === 'b' ? 'black' : 'white';
 }
 
+/**
+ * The squares to mark as in check: the server's list of attacked royal pieces, or (from a server
+ * older than that) the king of the side to move when the status says check.
+ */
+export function checkedSquares(checked: string[] | undefined, status: string, fen: string): string[] {
+  if (checked) return checked;
+  if (status !== 'CHECK' && status !== 'CHECKMATE') return [];
+  const king = kingSquare(fen, turnOf(fen));
+  return king ? [king] : [];
+}
+
 export function kingSquare(fen: string, color: Color): string | null {
   const king = color === 'white' ? 'K' : 'k';
   const entry = Object.entries(boardOf(fen)).find(([, p]) => p === king);
