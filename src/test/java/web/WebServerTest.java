@@ -587,6 +587,29 @@ class WebServerTest {
         assertTrue(state.get("pgn").getAsString().contains("[Variant \"Amazon chess\"]"));
     }
 
+    @Test
+    @DisplayName("The health check plays a variant, saved or not, against itself and reports")
+    void healthCheck() throws Exception {
+        server = WebServer.start(0, hub -> new GameSession(GameConfig.defaults(),
+                new EngineSelector(new MinimaxEngine(), NO_STOCKFISH), hub::execute));
+        assertFalse(get("/api/health").get("running").getAsBoolean());
+        String amazon = ai.variant.VariantJson.write(ai.variant.TestVariants.AMAZON_CHESS);
+        assertEquals(400, send("POST", "/api/health", "{\"games\":4,\"depth\":1}").statusCode());
+        assertEquals(400, send("POST", "/api/health", "{\"games\":0,\"depth\":1,\"variant\":" + amazon + "}").statusCode());
+        HttpResponse<String> started = send("POST", "/api/health", "{\"games\":4,\"depth\":1,\"variant\":" + amazon + "}");
+        assertEquals(200, started.statusCode(), started.body());
+        JsonObject state = get("/api/health");
+        for (int i = 0; i < 600 && state.get("running").getAsBoolean(); i++) {
+            Thread.sleep(100);
+            state = get("/api/health");
+        }
+        assertEquals("amazon-chess", state.get("variantId").getAsString());
+        assertEquals(4, state.get("done").getAsInt());
+        JsonObject report = state.getAsJsonObject("report");
+        assertEquals(4, report.get("whiteWins").getAsInt() + report.get("blackWins").getAsInt() + report.get("draws").getAsInt());
+        assertTrue(report.get("movesPerTurn").getAsDouble() > 10, report.toString());
+    }
+
     private HttpResponse<String> send(String method, String path, String body) throws Exception {
         return HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + server.port() + path))
                 .method(method, HttpRequest.BodyPublishers.ofString(body)).build(), HttpResponse.BodyHandlers.ofString());

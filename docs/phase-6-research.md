@@ -337,6 +337,27 @@ piece without art is its letter in a circle.
   text, 8 and 35 squares on the preview, put it on d1/d8, save, reload, delete; an empty board is
   refused with a reason).
 
+### R5d (branch `phase-6-health`)
+
+- `lab.VariantHealth`: the built-in engine plays a variant against itself on every core but one.
+  Each game opens with 4 random plies so the games differ. Both sides then search to the same depth
+  (with the app's usual variety, and the variant's own evaluation), and a game is stopped as a draw
+  at 300 plies. The report gives white/black/draw counts, white's score, the decisive share, average,
+  shortest and longest length, the average number of legal moves per turn, the endings by kind,
+  and plain-word notes: one side scores 65% or more, 70% draws, 30% still going at the cap, under 10
+  moves a game, or fewer than 8 moves to choose from. The same settings always give the same report.
+- `MinimaxEngine.searchAtDepth(variant, gameFens, depth, options, stop)` is the variant search it
+  plays with.
+- HTTP (`web.HealthApi`): `POST /api/health` {variant, games, depth} starts a check of the variant
+  as sent, so unsaved changes are checked too. Only one check runs at a time, and a new one stops
+  the last. `GET /api/health` returns progress and the report; `DELETE` stops the check.
+- UI: a *Health check* panel in the designer (games 20-200, depth 1-3), with a progress bar, a
+  white/draw/black bar, a table and the notes.
+- Speed on 4 cores, 40 games at depth 3: chess 15 s, King of the Hill 8 s, three-check 5 s,
+  antichess 2 s. The built-ins come out balanced (white 43-58%), and none gets a note.
+- Checks: `lab.VariantHealthTest` (counts, progress, same report twice, antichess and Amazon
+  chess, cancel, the notes), `WebServerTest.healthCheck`, and `e2e/designer.spec.ts`.
+
 ## 5. Towards "everything possible"
 
 Each layer is more flexible and slower or riskier than the one before, so it is added only when

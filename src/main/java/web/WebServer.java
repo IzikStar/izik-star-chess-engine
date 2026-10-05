@@ -37,7 +37,8 @@ import java.util.stream.Collectors;
  * unless started with {@code --lan}, and opens the default browser on start.
  *
  * <p>It also serves the lab page's API over the evolution runs in a folder ({@link LabApi}) and
- * game analysis with Stockfish ({@link AnalysisApi}), the live evaluation bar ({@link EvalApi}), and the player's saved games ({@link GamesApi}).
+ * game analysis with Stockfish ({@link AnalysisApi}), the live evaluation bar ({@link EvalApi}), the player's saved games ({@link GamesApi}),
+ * the variants ({@link VariantsApi}) and their health check ({@link HealthApi}).
  *
  * <p>Arguments: {@code --port N} (default 7070, then the next free one up to 7079),
  * {@code --no-browser}, {@code --runs DIR} (the evolution runs, default {@code runs}), {@code --games DIR}
@@ -58,12 +59,14 @@ public final class WebServer {
     private final GameHub hub;
     private final AnalysisApi analysis;
     private final EvalApi eval;
+    private final HealthApi health;
 
-    private WebServer(Javalin app, GameHub hub, AnalysisApi analysis, EvalApi eval) {
+    private WebServer(Javalin app, GameHub hub, AnalysisApi analysis, EvalApi eval, HealthApi health) {
         this.app = app;
         this.hub = hub;
         this.analysis = analysis;
         this.eval = eval;
+        this.health = health;
     }
 
     public static void main(String[] args) {
@@ -205,6 +208,8 @@ public final class WebServer {
         new StockfishApi(hub::stockfish, hub::refresh).routes(app);
         new GamesApi(archive).routes(app);
         new VariantsApi(variantStore).routes(app);
+        HealthApi health = new HealthApi();
+        health.routes(app);
         app.ws("/ws", ws -> {
             ws.onConnect(ctx -> {
                 GameHub.Client client = ctx::send;
@@ -226,7 +231,7 @@ public final class WebServer {
         });
         app.start(host, port);
         hub.execute(session::start);
-        return new WebServer(app, hub, analysis, eval);
+        return new WebServer(app, hub, analysis, eval, health);
     }
 
     int port() {
@@ -237,6 +242,7 @@ public final class WebServer {
         hub.shutdown();
         analysis.shutdown();
         eval.shutdown();
+        health.stop();
         app.stop();
     }
 
