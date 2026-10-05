@@ -317,3 +317,9 @@ textarea.pgn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1
 
 /* New game dialog: a line under a choice explaining it */
 .field-note { margin: -4px 0 12px; font-size: 13px; }
+
+/* Settings dialog */
+.dialog .field select { font: inherit; font-size: 14px; padding: 7px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); color: var(--fg); width: 100%; }
+.dialog .field .check + .check { margin-top: 6px; }
+.dialog .sub-label { display: block; margin: 12px 0 6px; font-size: 13px; }
+.dialog .field-note { margin: 8px 0 0; }

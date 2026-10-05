@@ -99,6 +99,50 @@ export function useAnalysis() {
   return { analysis: state, start, clear };
 }
 
+/**
+ * The live evaluation bar's scores: Stockfish's score of the position shown (web.EvalApi), asked
+ * for each new position and kept, so going back over the game asks nothing twice. Returns the
+ * score for {@code key}, or while that one is on its way the last one shown, so the bar does not
+ * flicker; null before any score, or when the server has no Stockfish.
+ */
+export function useLiveEval(enabled: boolean, startFen: string, moves: string[]): { score: Score | null; unavailable: boolean } {
+  const cache = useRef(new Map<string, Score>());
+  const [, setVersion] = useState(0);
+  const [unavailable, setUnavailable] = useState(false);
+  const last = useRef<Score | null>(null);
+  const key = gameKey(startFen, moves);
+  const cached = cache.current.get(key);
+
+  // turned off and on again (say after installing Stockfish): try once more
+  useEffect(() => setUnavailable(false), [enabled]);
+
+  useEffect(() => {
+    if (!enabled || unavailable || cache.current.has(key)) return;
+    const abort = new AbortController();
+    fetch('/api/eval', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ startFen, moves }),
+      signal: abort.signal,
+    }).then(async (res) => {
+      const body = await res.json();
+      if (res.status === 503 && body.noStockfish) setUnavailable(true);
+      else if (res.ok) {
+        cache.current.set(key, body.score);
+        setVersion((v) => v + 1);
+      }
+    }).catch(() => {
+      // aborted (the position changed first) or the server is away: the next position asks again
+    });
+    return () => abort.abort();
+    // moves is the array behind key: key alone says when to ask
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, unavailable, key]);
+
+  if (cached) last.current = cached;
+  return { score: enabled ? cached ?? last.current : null, unavailable };
+}
+
 /** Lichess's winning chances for White, 0-100 (the same curve the server uses). */
 export function whiteWinChance(s: Score): number {
   if (s.mate !== undefined) return s.mate > 0 ? 100 : s.mate < 0 ? 0 : 50;

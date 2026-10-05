@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
  * unless started with {@code --lan}, and opens the default browser on start.
  *
  * <p>It also serves the lab page's API over the evolution runs in a folder ({@link LabApi}) and
- * game analysis with Stockfish ({@link AnalysisApi}), and the player's saved games ({@link GamesApi}).
+ * game analysis with Stockfish ({@link AnalysisApi}), the live evaluation bar ({@link EvalApi}), and the player's saved games ({@link GamesApi}).
  *
  * <p>Arguments: {@code --port N} (default 7070, then the next free one up to 7079),
  * {@code --no-browser}, {@code --runs DIR} (the evolution runs, default {@code runs}), {@code --games DIR}
@@ -55,11 +55,13 @@ public final class WebServer {
     private final Javalin app;
     private final GameHub hub;
     private final AnalysisApi analysis;
+    private final EvalApi eval;
 
-    private WebServer(Javalin app, GameHub hub, AnalysisApi analysis) {
+    private WebServer(Javalin app, GameHub hub, AnalysisApi analysis, EvalApi eval) {
         this.app = app;
         this.hub = hub;
         this.analysis = analysis;
+        this.eval = eval;
     }
 
     public static void main(String[] args) {
@@ -187,6 +189,8 @@ public final class WebServer {
         lab.routes(app);
         AnalysisApi analysis = new AnalysisApi();
         analysis.routes(app);
+        EvalApi eval = new EvalApi();
+        eval.routes(app);
         new StockfishApi(hub::stockfish, hub::refresh).routes(app);
         new GamesApi(archive).routes(app);
         app.ws("/ws", ws -> {
@@ -210,7 +214,7 @@ public final class WebServer {
         });
         app.start(host, port);
         hub.execute(session::start);
-        return new WebServer(app, hub, analysis);
+        return new WebServer(app, hub, analysis, eval);
     }
 
     int port() {
@@ -220,6 +224,7 @@ public final class WebServer {
     void stop() {
         hub.shutdown();
         analysis.shutdown();
+        eval.shutdown();
         app.stop();
     }
 
