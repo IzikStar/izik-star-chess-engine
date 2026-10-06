@@ -1,0 +1,52 @@
+/* The variant health check (variants/Health.tsx). Colours come from the tokens in styles.css. */
+.hc { min-width: 0; }
+.hc-advanced { margin: 4px 0 10px; border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; background: var(--surface-2); }
+.hc-advanced > summary { cursor: pointer; font-weight: 600; font-size: 14px; padding: 2px 0; }
+.hc-advanced[open] > summary { margin-bottom: 8px; }
+.hc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px 14px; }
+.hc-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.hc-grid input, .hc-grid select { font: inherit; font-weight: 400; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; min-width: 0; }
+.hc-advanced p { margin: 10px 0 4px; }
+.hc .filters select { font: inherit; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
+.hc-progress { height: 22px; border-radius: 6px; }
+
+.hc-report { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.hc-section { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 10px; min-width: 0; }
+.hc-section h4 { margin: 0 0 8px; font-size: 14px; }
+.hc-readings { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 3px; font-size: 14px; }
+.hc-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px 24px; }
+
+.hc-report .hc-table { border-collapse: collapse; font-size: 13px; width: 100%; }
+.hc-report .hc-table th, .hc-report .hc-table td { padding: 4px 10px 4px 0; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.hc-report .hc-table thead th { font-weight: 600; color: var(--muted); white-space: nowrap; }
+.hc-report .hc-table tbody th { font-weight: 600; color: var(--muted); }
+.hc-report .hc-table .n { text-align: right; font-variant-numeric: tabular-nums; }
+.hc-report .hc-table tr > :first-child { white-space: nowrap; }
+.hc-report .hc-table .bar-cell { width: 22%; min-width: 70px; position: relative; }
+.hc-bar { display: inline-block; height: 10px; border-radius: 0 4px 4px 0; background: var(--accent); vertical-align: middle; max-width: 100%; }
+.hc-bar-label { margin-left: 6px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.hc-figure { margin: 0; }
+.hc-chart { display: block; max-width: 100%; height: auto; font-size: 11px; fill: var(--muted); }
+.hc-chart .grid { stroke: var(--line); }
+.hc-chart .label { fill: var(--fg); font-size: 12px; }
+.hc-chart .res-w { fill: #f4efe4; stroke: var(--muted); stroke-width: 0.75; }
+.hc-chart .res-d { fill: var(--muted); }
+.hc-chart .res-b { fill: #2b2b2b; stroke: var(--muted); stroke-width: 0.75; }
+.hc-chart .whisker { stroke: var(--fg); stroke-width: 1.5; }
+.hc-chart .len-decisive, .hc-legend .len-decisive { fill: var(--accent); background: var(--accent); }
+.hc-chart .len-drawn, .hc-legend .len-drawn { fill: var(--muted); background: var(--muted); opacity: 0.55; }
+.hc-chart .still, .hc-legend .still { fill: var(--accent-soft); background: var(--accent-soft); }
+.hc-chart .line { fill: none; stroke: var(--accent); stroke-width: 2; }
+.hc-chart .dot { fill: var(--accent); stroke: var(--surface); stroke-width: 1.5; }
+.hc-chart .hit { fill: transparent; }
+.hc-chart .hit:hover { fill: var(--fg); fill-opacity: 0.06; }
+.hc-legend { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 2px; }
+.hc-legend .key { display: inline-block; width: 12px; height: 10px; border-radius: 2px; margin-left: 8px; }
+.hc-legend .key:first-child { margin-left: 0; }
+.hc-legend .line-key { height: 2px; background: var(--accent); }
+
+.hc-sample { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; margin-bottom: 6px; }
+.hc-sample > summary { cursor: pointer; font-size: 14px; }
+.hc-moves { font-family: var(--mono); font-size: 12px; line-height: 1.6; word-break: break-word; margin: 8px 0; }
+.hc-sample .small-btn { padding: 3px 8px; font-size: 13px; }

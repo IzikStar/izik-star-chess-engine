@@ -12,15 +12,15 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
-/** One running {@link ExternalEngine} for one game. */
-final class UciSession implements AutoCloseable {
+/** One running {@link ExternalEngine} for one game (also the variant health check's Fairy-Stockfish games). */
+public final class UciSession implements AutoCloseable {
 
     private final ExternalEngine engine;
     private final Process process;
     private final BufferedReader in;
     private final PrintWriter out;
 
-    UciSession(ExternalEngine engine) {
+    public UciSession(ExternalEngine engine) {
         this.engine = engine;
         try {
             process = new ProcessBuilder(engine.command()).redirectErrorStream(true).start();
@@ -40,7 +40,7 @@ final class UciSession implements AutoCloseable {
     }
 
     /** The engine's move after {@code moves} (UCI) from the start position. */
-    ChessMove move(List<String> moves) {
+    public ChessMove move(List<String> moves) {
         StringBuilder position = new StringBuilder("position startpos");
         if (!moves.isEmpty()) {
             position.append(" moves");
