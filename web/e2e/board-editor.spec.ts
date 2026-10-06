@@ -24,7 +24,7 @@ async function drag(page: Page, from: Locator, to: Locator | { x: number; y: num
 }
 
 async function copyChess(page: Page, name: string) {
-  await page.goto('/#variants');
+  await page.goto('/#variants/chess');
   const editor = page.getByTestId('variant-editor');
   await expect(editor.getByRole('heading', { name: 'Chess' })).toBeVisible();
   await editor.getByRole('button', { name: 'Make a copy' }).click();
@@ -32,8 +32,15 @@ async function copyChess(page: Page, name: string) {
   return editor;
 }
 
+/** Opens one of the variant's screens by its tab. */
+async function tab(page: Page, name: 'Overview' | 'Board' | 'Pieces' | 'Health') {
+  await page.getByRole('navigation', { name: 'Variant screens' }).getByRole('link', { name }).click();
+  await expect(page.getByRole('navigation', { name: 'Variant screens' }).getByRole('link', { name })).toHaveAttribute('aria-current', 'page');
+}
+
 test('the start-position editor: click, drag, swap, stamp, take away, keys', async ({ page }) => {
   const editor = await copyChess(page, 'Board editor test');
+  await tab(page, 'Board');
   const board = page.getByTestId('start-board');
   const sq = (name: string) => board.locator(`[data-square="${name}"]`);
   const piece = (name: string, code: string) => sq(name).locator(`[data-piece="${code}"]`);
@@ -108,6 +115,7 @@ test('the start-position editor: click, drag, swap, stamp, take away, keys', asy
 
 test('draw a piece picture and see it on the board', async ({ page }) => {
   const editor = await copyChess(page, 'Drawn piece');
+  await tab(page, 'Pieces');
   await editor.getByRole('button', { name: 'Add a piece' }).click();
   const pieceEditor = page.getByTestId('piece-editor');
   await pieceEditor.getByLabel('Name', { exact: true }).fill('Wizard');
@@ -115,6 +123,7 @@ test('draw a piece picture and see it on the board', async ({ page }) => {
   await pieceEditor.getByLabel('Betza').press('Enter');
   await expect(page.getByTestId('piece-preview').locator('.r-both')).toHaveCount(8);
   // put it on d4 and e5 with the little palette
+  await tab(page, 'Board');
   const board = page.getByTestId('start-board');
   for (const [square, name] of [['d4', 'white Wizard'], ['e5', 'black Wizard']]) {
     await board.locator(`[data-square="${square}"]`).click();
@@ -123,6 +132,8 @@ test('draw a piece picture and see it on the board', async ({ page }) => {
   await editor.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(editor.getByRole('button', { name: 'Saved', exact: true })).toBeVisible();
 
+  await tab(page, 'Pieces');
+  await page.getByTestId('piece-list').getByRole('button', { name: /Wizard/ }).click();
   const pictures = page.getByTestId('pictures');
   await pictures.getByRole('button', { name: 'Draw it' }).first().click();
   const dialog = page.getByRole('dialog', { name: 'Draw the A' });
@@ -167,11 +178,12 @@ test('draw a piece picture and see it on the board', async ({ page }) => {
   await dialog.getByRole('button', { name: 'Save pictures' }).click();
   await expect(dialog).toBeHidden();
 
-  // both sides have their own picture now, on the board and in the piece editor
-  await expect(board.locator('[data-square="d4"] img[data-piece="wA"]')).toBeVisible();
-  await expect(board.locator('[data-square="e5"] img[data-piece="bA"]')).toBeVisible();
+  // both sides have their own picture now, in the piece editor and on the board
   await expect(pictures.getByRole('img', { name: 'White picture' })).toBeVisible();
   await expect(pictures.getByRole('img', { name: 'Black picture' })).toBeVisible();
+  await tab(page, 'Board');
+  await expect(board.locator('[data-square="d4"] img[data-piece="wA"]')).toBeVisible();
+  await expect(board.locator('[data-square="e5"] img[data-piece="bA"]')).toBeVisible();
   await expect(board.locator('[data-square="e5"] img[data-piece="bA"]')).not.toHaveCSS('filter', /brightness/);
 
   page.once('dialog', (d) => d.accept());

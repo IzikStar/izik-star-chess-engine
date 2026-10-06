@@ -6,6 +6,7 @@ import { PgnDialog } from './PgnDialog';
 import { Games } from './Games';
 import { Lab } from './Lab';
 import { Variants } from './Variants';
+import { mayLeave } from './variants/model';
 import { MoveList, RepeatButton } from './MoveList';
 import { CHAMPION_LEVELS, maxLevelFor, NewGameDialog, type NewGameChoice } from './NewGameDialog';
 import { SettingsDialog } from './SettingsDialog';
@@ -26,7 +27,8 @@ type Page = 'game' | 'games' | 'variants' | 'lab';
 function pageOf(): Page {
   const hash = location.hash.slice(1);
   if (hash === 'lab' || hash.startsWith('lab/')) return 'lab';
-  return hash === 'games' || hash === 'variants' ? hash : 'game';
+  if (hash === 'variants' || hash.startsWith('variants/')) return 'variants';
+  return hash === 'games' ? hash : 'game';
 }
 
 function stored(key: string, fallback: string): string {
@@ -167,13 +169,33 @@ export function App() {
     if (analysis.status !== 'idle' && currentKey !== analysis.key && !currentKey.startsWith(analysis.key + ' ')) clearAnalysis();
   }, [currentKey, analysis, clearAnalysis]);
 
+  /** The page and hash shown, to stay on a variant with unsaved changes when the player says so. */
+  const pageRef = useRef(page);
+  pageRef.current = page;
+  const hashRef = useRef(location.hash);
   useEffect(() => {
-    const onHash = () => setPage(pageOf());
+    const onHash = () => {
+      const next = pageOf();
+      if (pageRef.current === 'variants' && next !== 'variants' && !mayLeave()) {
+        history.replaceState(null, '', hashRef.current);
+        return;
+      }
+      hashRef.current = location.hash;
+      setPage(next);
+    };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
   const showPage = (p: Page) => {
+    if (page === 'variants' && p !== 'variants' && !mayLeave()) return;
+    if (p === 'variants') {
+      // the variant screens follow the hash: going there is a hash change they hear
+      if (location.hash !== '#variants') location.hash = 'variants';
+      setPage(p);
+      return;
+    }
     history.replaceState(null, '', p === 'game' ? location.pathname : '#' + p);
+    hashRef.current = location.hash;
     setPage(p);
   };
 

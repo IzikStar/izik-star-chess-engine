@@ -9,6 +9,7 @@ const SHOTS = '../target/e2e-screens';
 test('the health check runs with advanced settings and shows the statistics', async ({ page }) => {
   await page.goto('/#variants');
   await page.getByTestId('variant-list').getByRole('button', { name: /Antichess/ }).click();
+  await page.getByTestId('variant-editor').getByRole('link', { name: 'Health' }).click();
   await expect(page.getByTestId('variant-editor').getByRole('heading', { name: 'Antichess' })).toBeVisible();
   const health = page.getByTestId('health');
   await health.getByLabel('Games', { exact: true }).selectOption('20');

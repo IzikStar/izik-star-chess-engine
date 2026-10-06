@@ -599,7 +599,27 @@ class WebServerTest {
         HttpResponse<String> saved = send("PUT", "/api/variants/amazon-chess", amazon);
         assertEquals(200, saved.statusCode(), saved.body());
         JsonArray list = get("/api/variants").getAsJsonArray("variants");
-        assertEquals("amazon-chess", list.get(list.size() - 1).getAsJsonObject().get("id").getAsString());
+        JsonObject row = list.get(list.size() - 1).getAsJsonObject();
+        assertEquals("amazon-chess", row.get("id").getAsString());
+        assertEquals("", row.get("family").getAsString());
+        assertEquals(6, row.get("pieces").getAsInt());
+        assertEquals(8, row.get("width").getAsInt());
+        assertEquals(8, row.get("height").getAsInt());
+        assertTrue(row.get("start").getAsString().startsWith("rnbakbnr/"), row.toString());
+        assertTrue(row.get("modified").getAsLong() > 0);
+        assertEquals(0, list.get(0).getAsJsonObject().get("modified").getAsLong());
+        assertEquals("", get("/api/variants/chess").get("family").getAsString());
+        // family and notes ride along in the body, are kept beside the variant, and come back
+        JsonObject withAbout = JsonParser.parseString(amazon).getAsJsonObject();
+        withAbout.addProperty("family", "Amazons");
+        withAbout.addProperty("notes", "Queen plus knight");
+        HttpResponse<String> again = send("PUT", "/api/variants/amazon-chess", withAbout.toString());
+        assertEquals(200, again.statusCode(), again.body());
+        assertEquals("Amazons", JsonParser.parseString(again.body()).getAsJsonObject().get("family").getAsString());
+        assertEquals("Amazons", get("/api/variants/amazon-chess").get("family").getAsString());
+        assertEquals("Queen plus knight", get("/api/variants/amazon-chess").get("notes").getAsString());
+        list = get("/api/variants").getAsJsonArray("variants");
+        assertEquals("Amazons", list.get(list.size() - 1).getAsJsonObject().get("family").getAsString());
         assertEquals("RBN", get("/api/variants/amazon-chess").getAsJsonArray("pieces").get(1).getAsJsonObject()
                 .get("betza").getAsString());
         HttpResponse<String> betza = send("POST", "/api/betza", "{\"text\":\"fmWcfF\"}");
@@ -644,6 +664,7 @@ class WebServerTest {
         // deleting the variant leaves its games playable: each keeps its own copy
         assertEquals(204, send("DELETE", "/api/variants/amazon-chess", "").statusCode());
         assertEquals(400, send("DELETE", "/api/variants/chess", "").statusCode());
+        assertEquals(404, send("GET", "/api/variants/amazon-chess", "").statusCode());
         JsonObject game = get("/api/games/" + id);
         assertEquals("Amazon chess", game.get("variantName").getAsString());
         assertEquals("Af3", game.getAsJsonArray("moves").get(2).getAsJsonObject().get("san").getAsString());
