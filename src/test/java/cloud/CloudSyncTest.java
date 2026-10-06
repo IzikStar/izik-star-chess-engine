@@ -235,6 +235,20 @@ class CloudSyncTest {
     }
 
     @Test
+    @DisplayName("Started with another folder, a copy does not take the files it remembers for deleted")
+    void movedFolderDeletesNothing() throws Exception {
+        Copy a = copy("a");
+        write(a.games().resolve("g1.json"), "1");
+        a.sync().syncOnce();
+        CloudSync moved = new CloudSync(d1, "a", Map.of("games", tmp.resolve("elsewhere")), a.runs(),
+                a.root().resolve("cloud-sync.db"));
+        Files.createDirectories(tmp.resolve("elsewhere"));
+        moved.syncOnce();
+        assertEquals(0, d1.select("SELECT deleted FROM files WHERE path = 'g1.json'").get(0).get("deleted").getAsInt());
+        assertEquals("1", Files.readString(tmp.resolve("elsewhere/g1.json")), "it fetches them instead");
+    }
+
+    @Test
     @DisplayName("Names that could escape the folder are never written")
     void unsafeNames() {
         Path dir = tmp.resolve("games");

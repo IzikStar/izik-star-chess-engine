@@ -121,6 +121,24 @@ public final class CloudSync implements AutoCloseable {
         } catch (SQLException e) {
             throw new IllegalStateException("cannot open " + stateFile, e);
         }
+        // What was synced from another folder says nothing about this one: started with another
+        // --runs or --games, a copy would otherwise take every file it remembers for deleted.
+        for (Map.Entry<String, Path> f : folders.entrySet()) {
+            if (folderMoved("folder:" + f.getKey(), f.getValue())) {
+                stateUpdate("DELETE FROM file_state WHERE folder = ?", f.getKey());
+                stateUpdate("DELETE FROM meta WHERE key = 'files_cursor'");
+            }
+        }
+        if (folderMoved("runs", runs)) {
+            stateUpdate("DELETE FROM run_state");
+        }
+    }
+
+    private boolean folderMoved(String key, Path dir) {
+        String now = dir.toAbsolutePath().normalize().toString();
+        String before = meta(key, null);
+        setMeta(key, now);
+        return before != null && !before.equals(now);
     }
 
     /** Syncs now and then every {@link #PERIOD} on a background thread. */
@@ -300,6 +318,9 @@ public final class CloudSync implements AutoCloseable {
         List<String[]> changed = new ArrayList<>(); // folder, rel, sha
         List<String[]> gone = new ArrayList<>();
         for (Map.Entry<String, Path> f : folders.entrySet()) {
+            if (!Files.isDirectory(f.getValue())) {
+                continue; // not there (yet): nothing to send, and nothing deleted
+            }
             Map<String, String> known = fileStates(f.getKey());
             Set<String> present = new LinkedHashSet<>();
             for (String rel : listFiles(f.getValue())) {
@@ -492,8 +513,9 @@ public final class CloudSync implements AutoCloseable {
                 waitingGenerations--;
             }
         }
-        // runs deleted here
-        for (Map.Entry<String, RunState> e : runStates().entrySet()) {
+        // runs deleted here (a missing folder is not a deletion)
+        for (Map.Entry<String, RunState> e : Files.isDirectory(runs) ? runStates().entrySet()
+                : Map.<String, RunState>of().entrySet()) {
             if (e.getValue().role.equals("own") && !Files.exists(runs.resolve(e.getKey()))) {
                 String file = e.getKey();
                 for (JsonObject g : db.query("SELECT number FROM run_generations WHERE file = ?", file)) {
