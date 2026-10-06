@@ -43,6 +43,36 @@ class VariantStoreTest {
     }
 
     @Test
+    @DisplayName("a made variant's family and notes are kept beside it, not in it, and go with it")
+    void about() throws Exception {
+        VariantStore store = new VariantStore(dir);
+        assertThrows(IllegalArgumentException.class, () -> store.saveAbout("amazon-chess", new VariantStore.About("Amazons", "")));
+        store.save(TestVariants.AMAZON_CHESS);
+        assertEquals(VariantStore.About.NONE, store.about("amazon-chess"));
+        store.saveAbout("amazon-chess", new VariantStore.About("  Amazons ", "Queen plus knight.\nTry it."));
+        assertEquals(new VariantStore.About("Amazons", "Queen plus knight.\nTry it."), store.about("amazon-chess"));
+        assertTrue(Files.isRegularFile(dir.resolve("amazon-chess.about")));
+        // the sidecar is not a variant, and the variant file has no trace of it
+        assertEquals(1, store.custom().size());
+        assertFalse(Files.readString(dir.resolve("amazon-chess.json")).contains("Amazons"));
+        assertTrue(store.modified("amazon-chess") > 0);
+        assertEquals(0, store.modified("chess"));
+        assertEquals(VariantStore.About.NONE, store.about("chess"));
+        assertThrows(IllegalArgumentException.class, () -> store.saveAbout("chess", new VariantStore.About("x", "")));
+        // saving the variant again keeps them; empty ones remove the file
+        store.save(TestVariants.AMAZON_CHESS);
+        assertEquals("Amazons", store.about("amazon-chess").family());
+        store.saveAbout("amazon-chess", VariantStore.About.NONE);
+        assertFalse(Files.exists(dir.resolve("amazon-chess.about")));
+        // a broken sidecar reads as none
+        Files.writeString(dir.resolve("amazon-chess.about"), "{not json");
+        assertEquals(VariantStore.About.NONE, store.about("amazon-chess"));
+        store.saveAbout("amazon-chess", new VariantStore.About("Amazons", ""));
+        assertTrue(store.delete("amazon-chess"));
+        assertFalse(Files.exists(dir.resolve("amazon-chess.about")));
+    }
+
+    @Test
     @DisplayName("a built-in's id, or a variant that cannot be played, is refused with the reason")
     void refused() {
         VariantStore store = new VariantStore(dir);

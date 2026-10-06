@@ -58,11 +58,17 @@ test('on a phone the opponent sits above the board and you below it, the top bar
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 
-test('the variant designer puts the list beside the open variant on a wide screen', async ({ page }) => {
-  await page.goto('/#variants');
-  const list = await page.getByTestId('variant-list').boundingBox();
-  const editor = await page.getByRole('button', { name: 'Make a copy' }).boundingBox();
-  expect(editor!.x).toBeGreaterThan(list!.x + list!.width);
+test('a variant\'s actions sit in its header, above its screens, on a wide screen and on a phone', async ({ page }) => {
+  for (const width of [1400, 390]) {
+    await page.setViewportSize({ width, height: 860 });
+    await page.goto('/#variants/chess/board');
+    const copy = await page.getByRole('button', { name: 'Make a copy' }).boundingBox();
+    const tabs = await page.getByRole('navigation', { name: 'Variant screens' }).boundingBox();
+    const board = await page.getByTestId('start-board').boundingBox();
+    expect(copy!.y).toBeLessThan(tabs!.y);
+    expect(tabs!.y).toBeLessThan(board!.y);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  }
 });
 
 test('a win sets off confetti over the board; a new game clears it', async ({ page }) => {

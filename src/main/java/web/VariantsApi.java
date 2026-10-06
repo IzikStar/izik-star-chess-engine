@@ -17,11 +17,16 @@ import java.util.Optional;
 /**
  * The variants, built in and made by the player (Phase 6 R5a), for the variant designer:
  * <ul>
- *   <li>{@code GET /api/variants}: {folder, variants: [{id, name, builtIn, goal, checksToWin}...]}, built-ins first</li>
- *   <li>{@code GET /api/variants/{id}}: the whole variant ({@code ai.variant.VariantJson}) plus builtIn</li>
+ *   <li>{@code GET /api/variants}: {folder, variants: [{id, name, builtIn, goal, checksToWin, family,
+ *       notes, pieces, width, height, start, modified}...]}, built-ins first; {@code pieces} is how many
+ *       piece types, {@code modified} when a made variant last changed (epoch millis, 0 for a built-in)</li>
+ *   <li>{@code GET /api/variants/{id}}: the whole variant ({@code ai.variant.VariantJson}) plus builtIn,
+ *       family and notes</li>
  *   <li>{@code PUT /api/variants/{id}}: saves a made variant (the body is the whole variant, its id
- *       the path's); 400 {error} says why one cannot be played</li>
- *   <li>{@code DELETE /api/variants/{id}}: removes a made variant (games played with it keep their copy)</li>
+ *       the path's, plus optional family and notes, kept beside it by {@link VariantStore#saveAbout});
+ *       400 {error} says why one cannot be played</li>
+ *   <li>{@code DELETE /api/variants/{id}}: removes a made variant and its notes (games played with it
+ *       keep their copy)</li>
  *   <li>{@code POST /api/betza} {text} → {atoms}, or {atoms} → {text}; 400 {error} for text that is not Betza</li>
  *   <li>{@code GET/PUT/DELETE /api/variants/{id}/art/{letter}/{side}}: a made piece's picture for
  *       white ({@code w}) or black ({@code b}); PUT takes the image as the body with its
@@ -50,6 +55,14 @@ final class VariantsApi {
                 o.addProperty("fairy", arena.FairyStockfish.plays(v)); // Fairy-Stockfish can be its yardstick
                 o.addProperty("goal", v.goal().name());
                 o.addProperty("checksToWin", v.checksToWin());
+                VariantStore.About about = store.about(v.id());
+                o.addProperty("family", about.family());
+                o.addProperty("notes", about.notes());
+                o.addProperty("pieces", v.pieces().size());
+                o.addProperty("width", v.grid().width());
+                o.addProperty("height", v.grid().height());
+                o.addProperty("start", v.startFen());
+                o.addProperty("modified", store.modified(v.id()));
                 list.add(o);
             }
             out.add("variants", list);
@@ -60,6 +73,7 @@ final class VariantsApi {
                     .orElseThrow(() -> new NotFoundResponse("no variant " + ctx.pathParam("id")));
             JsonObject o = VariantJson.toTree(v);
             o.addProperty("builtIn", VariantStore.isBuiltIn(v.id()));
+            addAbout(o, store.about(v.id()));
             o.add("art", artIndex(v.id()));
             json(ctx, o);
         });
@@ -145,14 +159,18 @@ final class VariantsApi {
 
     private void save(Context ctx) {
         Variant v;
+        VariantStore.About about;
         try {
             JsonObject body = JsonParser.parseString(ctx.body()).getAsJsonObject();
             body.remove("builtIn");
+            body.remove("art");
+            about = new VariantStore.About(text(body.remove("family")), text(body.remove("notes")));
             v = VariantJson.fromTree(body);
             if (!v.id().equals(ctx.pathParam("id"))) {
                 throw new IllegalArgumentException("the variant's id is \"" + v.id() + "\", not \"" + ctx.pathParam("id") + "\"");
             }
             store.save(v);
+            store.saveAbout(v.id(), about);
         } catch (IllegalArgumentException e) {
             error(ctx, 400, e.getMessage());
             return;
@@ -162,8 +180,18 @@ final class VariantsApi {
         }
         JsonObject o = VariantJson.toTree(v);
         o.addProperty("builtIn", false);
+        addAbout(o, about);
         o.add("art", artIndex(v.id()));
         json(ctx, o);
+    }
+
+    private static String text(JsonElement e) {
+        return e == null || e.isJsonNull() ? "" : e.getAsString();
+    }
+
+    private static void addAbout(JsonObject o, VariantStore.About about) {
+        o.addProperty("family", about.family());
+        o.addProperty("notes", about.notes());
     }
 
     private void betza(Context ctx) {

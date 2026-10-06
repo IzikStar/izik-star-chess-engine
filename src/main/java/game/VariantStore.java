@@ -133,10 +133,95 @@ public final class VariantStore {
         }
         try {
             deleteAllArt(id);
+            Files.deleteIfExists(aboutFile(id));
             return Files.deleteIfExists(file(id));
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    /**
+     * What the player wrote about a made variant, kept beside it in {@code <id>.about} (JSON) so the
+     * variant's own file stays the engine's: the family it belongs to (variants that are small
+     * changes of one idea share one) and free notes. Empty strings when there are none.
+     */
+    public record About(String family, String notes) {
+        public static final About NONE = new About("", "");
+
+        public About {
+            family = family == null ? "" : family.strip();
+            notes = notes == null ? "" : notes;
+            if (family.length() > 100 || notes.length() > 10_000) {
+                throw new IllegalArgumentException("a family name is at most 100 characters and notes at most 10000");
+            }
+        }
+    }
+
+    /** The family and notes of a made variant ({@link About#NONE} for a built-in, or when none were saved). */
+    public synchronized About about(String id) {
+        if (!id.matches("[a-z0-9-]{1,64}") || isBuiltIn(id) || !Files.isRegularFile(aboutFile(id))) {
+            return About.NONE;
+        }
+        try {
+            com.google.gson.JsonObject o = com.google.gson.JsonParser
+                    .parseString(Files.readString(aboutFile(id), StandardCharsets.UTF_8)).getAsJsonObject();
+            return new About(o.has("family") ? o.get("family").getAsString() : "",
+                    o.has("notes") ? o.get("notes").getAsString() : "");
+        } catch (IOException | RuntimeException e) {
+            System.err.println("Skipping unreadable notes " + aboutFile(id) + ": " + e.getMessage());
+            return About.NONE;
+        }
+    }
+
+    /**
+     * Saves the family and notes of a made variant that is saved already; empty ones remove the file.
+     *
+     * @throws IllegalArgumentException if there is no such made variant
+     */
+    public synchronized void saveAbout(String id, About about) {
+        if (isBuiltIn(id) || !id.matches("[a-z0-9-]{1,64}") || !Files.isRegularFile(file(id))) {
+            throw new IllegalArgumentException("save the variant first: no made variant " + id);
+        }
+        try {
+            if (about.family().isEmpty() && about.notes().isEmpty()) {
+                Files.deleteIfExists(aboutFile(id));
+                return;
+            }
+            com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+            o.addProperty("family", about.family());
+            o.addProperty("notes", about.notes());
+            Path tmp = dir.resolve(id + ".about.tmp");
+            Files.writeString(tmp, o.toString(), StandardCharsets.UTF_8);
+            try {
+                Files.move(tmp, aboutFile(id), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException e) {
+                Files.move(tmp, aboutFile(id), StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** When a made variant, or what was written about it, last changed (epoch millis); 0 for a built-in. */
+    public synchronized long modified(String id) {
+        if (isBuiltIn(id) || !id.matches("[a-z0-9-]{1,64}")) {
+            return 0;
+        }
+        long at = 0;
+        for (Path f : List.of(file(id), aboutFile(id))) {
+            try {
+                if (Files.isRegularFile(f)) {
+                    at = Math.max(at, Files.getLastModifiedTime(f).toMillis());
+                }
+            } catch (IOException e) {
+                // unknown: leave it out
+            }
+        }
+        return at;
+    }
+
+    private Path aboutFile(String id) {
+        return dir.resolve(id + ".about");
     }
 
     /** The picture types a piece's art may have, by file extension. */

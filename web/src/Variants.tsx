@@ -1,629 +1,215 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { artUrls, PieceArt, PieceSvg } from './pieces';
-import { BoardEditor } from './variants/BoardEditor';
-import { PieceDrawerDialog } from './variants/PieceDrawer';
-import { offsets, placementOf, reach, type Atom, type Kind, type Mode, type Reach, type Symmetry } from './reach';
-import { HealthPage } from './variants/Health';
+import { VariantList } from './variants/List';
+import { VariantPage, type OpenVariant } from './variants/VariantPage';
+import {
+  api, freeId, mayLeave, NEW_ID, setLeaveGuard, slug, variantsHash, variantsRoute,
+  type Route, type Tab, type VariantDef, type VariantRow,
+} from './variants/model';
+import './variants/pages.css';
 
-// "Variants" (Phase 6 R5c): the variant designer. Look at the built-in variants, make your own from
-// a copy, and invent pieces: click the squares a piece reaches, or type its Betza text. The server
-// keeps made variants as files (web.VariantsApi, game.VariantStore) and checks them on save.
+export type { PieceDef, VariantDef } from './variants/model';
+export { slug } from './variants/model';
 
-type Goal = 'CHECKMATE' | 'LOSE_EVERYTHING' | 'KING_OF_THE_HILL' | 'CHECKS';
+// "Variants": the variant designer, over several screens chosen by the hash below "#variants" (like
+// the Lab): the list of variants (#variants), and one variant's Overview, Board, Pieces and Health
+// (#variants/<id>/...). Most of it is about making new variants; the built-in ones can be looked at
+// and copied. The server keeps made variants as files (web.VariantsApi, game.VariantStore) and
+// checks them on save.
 
-export interface PieceDef {
-  name: string;
-  letter: string;
-  value: number;
-  royal: boolean;
-  promotesTo: string;
-  enPassant: boolean;
-  castlingRole: 'NONE' | 'KING' | 'ROOK';
-  atoms: Atom[];
-  betza?: string;
-}
-
-export interface VariantDef {
-  id: string;
-  name: string;
-  width: number;
-  height: number;
-  start: string;
-  goal: Goal;
-  checksToWin: number;
-  forcedCapture: boolean;
-  castling: boolean;
-  pieces: PieceDef[];
-  builtIn?: boolean;
-  /** The pieces' pictures: letter -> side ("w", "b") -> when saved. */
-  art?: Record<string, Record<string, number>>;
-}
-
-interface VariantRow {
-  id: string;
-  name: string;
-  builtIn: boolean;
-  goal: Goal;
-}
-
-const GOALS: { id: Goal; name: string }[] = [
-  { id: 'CHECKMATE', name: 'Checkmate' },
-  { id: 'LOSE_EVERYTHING', name: 'Lose everything' },
-  { id: 'KING_OF_THE_HILL', name: 'King to the centre' },
-  { id: 'CHECKS', name: 'Give N checks' },
-];
-
-const MODES: { id: Mode; name: string }[] = [
-  { id: 'BOTH', name: 'Move + capture' },
-  { id: 'MOVE', name: 'Move only' },
-  { id: 'CAPTURE', name: 'Capture only' },
-];
-
-const SYMMETRIES: { id: Symmetry; name: string }[] = [
-  { id: 'ALL', name: 'All 8 ways' },
-  { id: 'SIDEWAYS', name: 'Mirror left/right' },
-  { id: 'ONE', name: 'Just this one' },
-];
-
-/** How far a leap may go in the designer: up to 3 squares each way. */
-const REACH = 3;
-const FILES = 'abcdefgh';
-
-function gcd(a: number, b: number): number {
-  return b === 0 ? Math.abs(a) : gcd(b, a % b);
-}
-
-/** The atom covering {forward, right} in the designer grid, if any (a slide covers each of its steps). */
-function atomAt(atoms: Atom[], f: number, r: number): number {
-  return atoms.findIndex((a) => offsets(a).some(([df, dr]) => {
-    if (a.kind === 'LEAP') return df === f && dr === r;
-    for (let k = 1; k <= REACH * 2; k++) {
-      if (a.range > 0 && k > a.range) break;
-      if (df * k === f && dr * k === r) return true;
-    }
-    return false;
-  }));
-}
-
-function withPlacement(fen: string, board: Record<string, string>): string {
-  const rows: string[] = [];
-  for (let rank = 8; rank >= 1; rank--) {
-    let row = '';
-    let empty = 0;
-    for (const f of FILES) {
-      const c = board[f + rank];
-      if (c) {
-        row += (empty || '') + c;
-        empty = 0;
-      } else empty++;
-    }
-    rows.push(row + (empty || ''));
-  }
-  const rest = fen.trim().split(/\s+/).slice(1);
-  return [rows.join('/'), ...(rest.length ? rest : ['w', '-', '-', '0', '1'])].join(' ');
-}
-
-/** "My Amazon chess" -> "my-amazon-chess". */
-export function slug(name: string): string {
-  return name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'variant';
-}
-
-/** An id for a variant called {@code name} that no other variant has. */
-function freeId(name: string, taken: Set<string>): string {
-  const base = slug(name);
-  let id = base;
-  for (let n = 2; taken.has(id); n++) id = `${base}-${n}`;
-  return id;
-}
-
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, { ...init, headers: { 'Content-Type': 'application/json' } });
-  if (res.status === 204) return undefined as T;
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error ?? `${res.status} ${res.statusText}`);
-  return body as T;
-}
-
-function MiniBoard({ board, marks, onSquare, onHover, label, testId }: {
-  board: Record<string, string>;
-  marks?: Map<string, Reach>;
-  onSquare?: (square: string) => void;
-  /** The square under the mouse, or null when it leaves the board. */
-  onHover?: (square: string | null) => void;
-  label: string;
-  testId?: string;
-}) {
-  const squares = [];
-  for (let rank = 8; rank >= 1; rank--) {
-    for (let f = 0; f < 8; f++) {
-      const sq = FILES[f] + rank;
-      const c = board[sq];
-      const mark = marks?.get(sq);
-      squares.push(
-        <button type="button" key={sq} data-square={sq} aria-label={sq + (c ? ' ' + c : '') + (mark ? ' ' + mark : '')}
-          className={'mini-sq ' + ((f + rank) % 2 === 1 ? 'dark' : 'light') + (mark ? ' r-' + mark : '')}
-          onClick={onSquare ? () => onSquare(sq) : undefined} tabIndex={onSquare ? 0 : -1}
-          onMouseEnter={onHover ? () => onHover(sq) : undefined}>
-          {c && <PieceSvg code={(c === c.toUpperCase() ? 'w' : 'b') + c.toUpperCase()} />}
-        </button>,
-      );
-    }
-  }
-  return (
-    <div className="mini-board" role="group" aria-label={label} data-testid={testId}
-      onMouseLeave={onHover ? () => onHover(null) : undefined}>{squares}</div>
-  );
-}
-
-/** Click squares to say where the piece goes; the tools say how. */
-function MoveGrid({ atoms, letter, onChange }: { atoms: Atom[]; letter: string; onChange: (atoms: Atom[]) => void }) {
-  const [kind, setKind] = useState<Kind>('LEAP');
-  const [mode, setMode] = useState<Mode>('BOTH');
-  const [symmetry, setSymmetry] = useState<Symmetry>('ALL');
-  const [range, setRange] = useState(0);
-  const [firstMove, setFirstMove] = useState(false);
-
-  const click = (f: number, r: number) => {
-    const i = atomAt(atoms, f, r);
-    if (i >= 0) {
-      onChange(atoms.filter((_, j) => j !== i));
-      return;
-    }
-    const g = kind === 'SLIDE' ? gcd(f, r) : 1;
-    onChange([...atoms, { kind, forward: f / g, right: r / g, symmetry, mode, range: kind === 'SLIDE' ? range : 0, firstMoveOnly: firstMove }]);
-  };
-
-  const cells = [];
-  for (let f = REACH; f >= -REACH; f--) {
-    for (let r = -REACH; r <= REACH; r++) {
-      const centre = f === 0 && r === 0;
-      const i = centre ? -1 : atomAt(atoms, f, r);
-      const a = i >= 0 ? atoms[i] : null;
-      cells.push(
-        <button type="button" key={`${f},${r}`} disabled={centre}
-          className={'grid-sq' + (centre ? ' centre' : '') + (a ? ' r-' + a.mode.toLowerCase() + (a.kind === 'SLIDE' ? ' slide' : '') + (a.firstMoveOnly ? ' first' : '') : '')}
-          aria-label={centre ? 'the piece' : `${f} forward, ${r} right${a ? ': ' + a.kind.toLowerCase() + ' ' + a.mode.toLowerCase() : ''}`}
-          data-offset={`${f},${r}`} onClick={() => click(f, r)}>
-          {centre ? <PieceSvg code={'w' + letter} /> : a?.kind === 'SLIDE'
-            ? <span className="ray" style={{ transform: `rotate(${Math.atan2(-f, r)}rad)` }}>→</span> : ''}
-        </button>,
-      );
-    }
-  }
-
-  return (
-    <div className="move-grid-wrap">
-      <div className="tools">
-        <div className="seg small" role="group" aria-label="Kind">
-          <button type="button" className={kind === 'LEAP' ? 'on' : ''} onClick={() => setKind('LEAP')}>Jump</button>
-          <button type="button" className={kind === 'SLIDE' ? 'on' : ''} onClick={() => setKind('SLIDE')}>Slide</button>
-        </div>
-        <div className="seg small" role="group" aria-label="Mode">
-          {MODES.map((m) => <button type="button" key={m.id} className={mode === m.id ? 'on' : ''} onClick={() => setMode(m.id)}>{m.name}</button>)}
-        </div>
-        <div className="seg small" role="group" aria-label="Directions">
-          {SYMMETRIES.map((s) => <button type="button" key={s.id} className={symmetry === s.id ? 'on' : ''} onClick={() => setSymmetry(s.id)}>{s.name}</button>)}
-        </div>
-        <div className="tool-row">
-          {kind === 'SLIDE' && (
-            <label className="inline">Steps
-              <select value={range} onChange={(e) => setRange(Number(e.target.value))} aria-label="Slide steps">
-                <option value={0}>to the edge</option>
-                {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>at most {n}</option>)}
-              </select>
-            </label>
-          )}
-          <label className="inline"><input type="checkbox" checked={firstMove} onChange={(e) => setFirstMove(e.target.checked)} /> First move only</label>
-        </div>
-      </div>
-      <div className="move-grid" role="group" aria-label="Where the piece goes (up is forward)" data-testid="move-grid">{cells}</div>
-      <p className="muted small">Up is forward for the piece's owner. Click a square to add a move with the tools above; click a lit square to take it away.</p>
-    </div>
-  );
-}
-
-/** What the piece editor needs for the piece's pictures. */
-interface PictureProps {
-  /** Why pictures cannot be added yet (an unsaved variant), or null when they can. */
-  blocked: string | null;
-  urls: Record<string, string>;
-  onUpload: (side: 'w' | 'b', file: File) => void | Promise<void>;
-  onRemove: (side: 'w' | 'b') => void;
-  error: string | null;
-}
-
-/** Upload, see and remove the piece's picture for white and for black. */
-function Pictures({ letter, pictures }: { letter: string; pictures: PictureProps }) {
-  const [drawing, setDrawing] = useState<'w' | 'b' | null>(null);
-  return (
-    <div className="pictures" data-testid="pictures">
-      <span className="pictures-label">Picture</span>
-      {(['w', 'b'] as const).map((side) => {
-        const url = pictures.urls[side + letter];
-        return (
-          <div key={side} className="picture">
-            <div className={'picture-box ' + (side === 'w' ? 'light' : 'dark')}>
-              {url ? <img src={url} alt={`${side === 'w' ? 'White' : 'Black'} picture`} /> : <PieceSvg code={side + letter} />}
-            </div>
-            <div className="picture-actions">
-              <span className="small">{side === 'w' ? 'White' : 'Black'}</span>
-              <label className={'btn small-btn' + (pictures.blocked ? ' disabled' : '')}>
-                {url ? 'Change' : 'Upload'}
-                <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" hidden
-                  aria-label={`${side === 'w' ? 'White' : 'Black'} picture`} disabled={!!pictures.blocked}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) pictures.onUpload(side, f);
-                    e.target.value = '';
-                  }} />
-              </label>
-              <button type="button" className="btn small-btn" disabled={!!pictures.blocked} onClick={() => setDrawing(side)}>Draw it</button>
-              {url && <button type="button" className="btn ghost small-btn" onClick={() => pictures.onRemove(side)}>Remove</button>}
-            </div>
-          </div>
-        );
-      })}
-      <p className="muted small picture-note">
-        {pictures.blocked ?? 'PNG, JPEG, WebP, GIF or SVG, up to 1 MB; a transparent background looks best. With one side only, the other side uses it darkened or lightened.'}
-      </p>
-      {pictures.error && <p className="error small" role="alert">{pictures.error}</p>}
-      {drawing && (
-        <PieceDrawerDialog title={`Draw the ${letter}`} side={drawing}
-          initial={{ w: pictures.urls['w' + letter], b: pictures.urls['b' + letter] }}
-          onClose={() => setDrawing(null)}
-          onSave={async (drawn) => {
-            for (const side of ['w', 'b'] as const) {
-              const blob = drawn[side];
-              if (blob) await pictures.onUpload(side, new File([blob], `${letter}-${side}.png`, { type: 'image/png' }));
-            }
-            setDrawing(null);
-          }} />
-      )}
-    </div>
-  );
-}
-
-function PieceEditor({ piece, letters, readOnly, pictures, onChange, onAtoms, onBetza, onRemove }: {
-  /** Null for a built-in variant (no pictures). */
-  pictures: PictureProps | null;
-  piece: PieceDef;
-  letters: string[];
-  readOnly: boolean;
-  onChange: (p: PieceDef) => void;
-  /** New moves for the piece, from its Betza text (applied to the piece as it is by then). */
-  onAtoms: (atoms: Atom[]) => void;
-  /** The piece's moves as Betza text, once the server has written them ('' when Betza has no letter for them). */
-  onBetza: (text: string) => void;
-  onRemove: () => void;
-}) {
-  const [text, setText] = useState(piece.betza ?? '');
-  const [betzaError, setBetzaError] = useState<string | null>(null);
-  /** The Betza text last read or written, so leaving the field unchanged reads nothing. */
-  const synced = useRef(piece.betza ?? '');
-  const [from, setFrom] = useState('d4');
-  const [moved, setMoved] = useState(false);
-
-  // the atoms changed (or another piece was picked): write them as Betza
-  useEffect(() => {
-    let live = true;
-    api<{ text: string }>('/api/betza', { method: 'POST', body: JSON.stringify({ atoms: piece.atoms }) })
-      .then((r) => { if (live) { setText(r.text); synced.current = r.text; setBetzaError(null); onBetza(r.text); } })
-      .catch(() => { if (live) { setText(''); synced.current = ''; onBetza(''); } });
-    return () => { live = false; };
-  }, [piece.atoms]);
-
-  const readText = () => {
-    if (text === synced.current) return;
-    synced.current = text;
-    api<{ atoms: Atom[] }>('/api/betza', { method: 'POST', body: JSON.stringify({ text }) })
-      .then((r) => { setBetzaError(null); onAtoms(r.atoms); })
-      .catch((e: Error) => setBetzaError(e.message));
-  };
-
-  const marks = useMemo(() => reach(piece.atoms, from, true, moved), [piece.atoms, from, moved]);
-  const otherLetters = letters.filter((l) => l !== piece.letter);
-
-  return (
-    <section className="panel piece-editor" aria-label={`Piece ${piece.name}`} data-testid="piece-editor">
-      <div className="run-head">
-        <h3>{piece.name || 'New piece'}</h3>
-        {!readOnly && <button type="button" className="btn ghost" onClick={onRemove}>Remove piece</button>}
-      </div>
-      <fieldset disabled={readOnly} className="plain">
-      <div className="form-grid">
-        <label>Name<input value={piece.name} onChange={(e) => onChange({ ...piece, name: e.target.value })} /></label>
-        <label>Letter<input value={piece.letter} maxLength={1} aria-label="Letter"
-          onChange={(e) => {
-            const l = e.target.value.toUpperCase();
-            if (/^[A-Z]$/.test(l) && !otherLetters.includes(l)) onChange({ ...piece, letter: l });
-          }} /></label>
-        <label>Value<input type="number" value={piece.value} step={10} onChange={(e) => onChange({ ...piece, value: Number(e.target.value) })} /></label>
-        <label>Promotes to<input value={piece.promotesTo} placeholder="none" aria-label="Promotes to"
-          onChange={(e) => onChange({ ...piece, promotesTo: e.target.value.toUpperCase().replace(/[^A-Z]/g, '') })} /></label>
-        <label>Castling
-          <select value={piece.castlingRole} onChange={(e) => onChange({ ...piece, castlingRole: e.target.value as PieceDef['castlingRole'] })}>
-            <option value="NONE">No</option>
-            <option value="KING">Castles (like a king)</option>
-            <option value="ROOK">Castled with (like a rook)</option>
-          </select>
-        </label>
-      </div>
-      <div className="check-row">
-        <label className="inline"><input type="checkbox" checked={piece.royal} onChange={(e) => onChange({ ...piece, royal: e.target.checked })} /> Royal (must not be captured)</label>
-        <label className="inline"><input type="checkbox" checked={piece.enPassant} onChange={(e) => onChange({ ...piece, enPassant: e.target.checked })} /> En passant</label>
-      </div>
-      </fieldset>
-      {pictures && <Pictures letter={piece.letter} pictures={pictures} />}
-      <div className="designer">
-        <fieldset disabled={readOnly} className="plain">
-          <MoveGrid atoms={piece.atoms} letter={piece.letter} onChange={(atoms) => onChange({ ...piece, atoms })} />
-        </fieldset>
-        <div className="preview">
-          <MiniBoard board={{ [from]: piece.letter }} marks={marks} label="Preview: click a square to move the piece"
-            onSquare={setFrom} testId="piece-preview" />
-          <label className="inline"><input type="checkbox" checked={moved} onChange={(e) => setMoved(e.target.checked)} /> It has moved already</label>
-          <p className="muted small legend"><span className="key r-both" /> move or capture <span className="key r-move" /> move only <span className="key r-capture" /> capture only</p>
-        </div>
-      </div>
-      <label className="betza">Betza
-        <input value={text} aria-label="Betza" spellCheck={false} readOnly={readOnly}
-          onChange={(e) => setText(e.target.value)} onBlur={readOnly ? undefined : readText}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !readOnly) readText(); }} />
-      </label>
-      {betzaError && <p className="error small">{betzaError}</p>}
-      <p className="muted small">Betza is the usual way to write fairy pieces: W one step straight, F one diagonal, N the knight, R/B/Q riders, a digit limits the steps (R2), m = move only, c = capture only, f/b/l/r = forward/back/left/right, i = first move only. QN is the Amazon.</p>
-    </section>
-  );
-}
-
-function blankPiece(letters: string[]): PieceDef {
-  const letter = 'ACDEFGHIJLMOSTUVWXYZ'.split('').find((l) => !letters.includes(l)) ?? 'Z';
-  return { name: 'New piece', letter, value: 300, royal: false, promotesTo: '', enPassant: false, castlingRole: 'NONE', atoms: [] };
-}
-
-function Editor({ start, taken, onSaved, onDeleted, onCopy, onPlay }: {
-  start: VariantDef;
-  /** Opens the New game dialog on this variant. */
-  onPlay: (id: string) => void;
-  /** The ids already used: a new variant's id follows its name, away from these. */
-  taken: Set<string>;
-  onSaved: (v: VariantDef) => void;
-  onDeleted: () => void;
-  onCopy: (v: VariantDef) => void;
-}) {
-  const [v, setV] = useState(start);
-  const [picked, setPicked] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
-  /** Changed since it was opened or saved. */
-  const [dirty, setDirty] = useState(false);
-  /** Not saved yet: the id (its file's name) still follows the name. */
-  const [fresh, setFresh] = useState(!taken.has(start.id));
-  const readOnly = !!start.builtIn;
-  const letters = v.pieces.map((p) => p.letter);
-  const board = useMemo(() => placementOf(v.start), [v.start]);
-  /** The start-position square under the mouse: its piece's moves are shown. */
-  const [hovered, setHovered] = useState<string | null>(null);
-  const startMarks = useMemo(() => {
-    const c = hovered ? board[hovered] : undefined;
-    const p = c && v.pieces.find((q) => q.letter === c.toUpperCase());
-    return p && hovered ? reach(p.atoms, hovered, c === c.toUpperCase(), false, board) : undefined;
-  }, [hovered, board, v.pieces]);
-
-  const edit = (next: VariantDef) => {
-    setV(next);
-    setSaved(false);
-    setDirty(true);
-  };
-  const setPiece = (i: number, p: PieceDef) => {
-    const old = v.pieces[i];
-    let start = v.start;
-    let pieces = v.pieces.map((q, j) => (j === i ? p : q));
-    if (old.letter !== p.letter) {
-      // a new letter: the start position and the promotions follow it
-      const b = placementOf(start);
-      for (const sq in b) {
-        if (b[sq] === old.letter) b[sq] = p.letter;
-        else if (b[sq] === old.letter.toLowerCase()) b[sq] = p.letter.toLowerCase();
-      }
-      start = withPlacement(start, b);
-      pieces = pieces.map((q) => ({ ...q, promotesTo: q.promotesTo.replaceAll(old.letter, p.letter) }));
-    }
-    edit({ ...v, start, pieces });
-  };
-
-  const save = () => {
-    setError(null);
-    api<VariantDef>(`/api/variants/${encodeURIComponent(v.id)}`, { method: 'PUT', body: JSON.stringify(v) })
-      .then((r) => { setSaved(true); setDirty(false); setFresh(false); onSaved(r); })
-      .catch((e: Error) => setError(e.message));
-  };
-
-  const piece = v.pieces[picked];
-
-  const [art, setArt] = useState(start.art ?? {});
-  const [artError, setArtError] = useState<string | null>(null);
-  const artMap = useMemo(() => artUrls(v.id, art), [v.id, art]);
-  const artCall = (side: 'w' | 'b', init: RequestInit) => {
-    setArtError(null);
-    return fetch(`/api/variants/${encodeURIComponent(v.id)}/art/${piece.letter}/${side}`, init)
-      .then(async (r) => {
-        const body = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(body.error ?? `${r.status} ${r.statusText}`);
-        setArt(body);
-      })
-      .catch((e: Error) => setArtError(e.message));
-  };
-  const pictures: PictureProps | null = readOnly ? null : {
-    blocked: fresh ? 'Save the variant first, then add pictures.'
-      : dirty && !start.pieces.some((p) => p.letter === piece?.letter) ? 'Save the variant first: this piece is new.' : null,
-    urls: artMap,
-    error: artError,
-    onUpload: (side, file) => artCall(side, { method: 'PUT', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file }),
-    onRemove: (side) => artCall(side, { method: 'DELETE' }),
-  };
-
-  return (
-    <PieceArt.Provider value={artMap}>
-    <div className="variant-editor" data-testid="variant-editor">
-      <section className="panel">
-        <div className="run-head">
-          <h2>{v.name}</h2>
-          <div className="filters">
-            {!fresh && (
-              <button type="button" className="btn primary" disabled={dirty} title={dirty ? 'Save it first' : undefined}
-                onClick={() => onPlay(v.id)}>Play it</button>
-            )}
-            <button type="button" className="btn" onClick={() => onCopy(v)}>Make a copy</button>
-            {!readOnly && <button type="button" className="btn ghost" onClick={() => {
-              if (!confirm(`Delete ${v.name}? Games played with it keep their copy.`)) return;
-              api(`/api/variants/${encodeURIComponent(v.id)}`, { method: 'DELETE' }).then(onDeleted).catch((e: Error) => setError(e.message));
-            }}>Delete</button>}
-            {!readOnly && <button type="button" className="btn primary" onClick={save}>{saved ? 'Saved' : 'Save'}</button>}
-          </div>
-        </div>
-        {readOnly && <p className="muted small">A built-in variant: make a copy to change it.</p>}
-        {error && <p className="error" role="alert">{error}</p>}
-        <fieldset disabled={readOnly} className="plain">
-          <div className="form-grid">
-            <label>Name<input value={v.name} onChange={(e) => edit({ ...v, name: e.target.value, id: fresh ? freeId(e.target.value, taken) : v.id })} /></label>
-            <label>Goal
-              <select value={v.goal} aria-label="Goal" onChange={(e) => {
-                const goal = e.target.value as Goal;
-                edit({ ...v, goal, checksToWin: goal === 'CHECKS' ? v.checksToWin || 3 : 0 });
-              }}>
-                {GOALS.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-              </select>
-            </label>
-            {v.goal === 'CHECKS' && (
-              <label>Checks to win<input type="number" min={1} max={20} value={v.checksToWin}
-                onChange={(e) => edit({ ...v, checksToWin: Math.max(1, Number(e.target.value)) })} /></label>
-            )}
-            <label className="inline"><input type="checkbox" checked={v.forcedCapture} onChange={(e) => edit({ ...v, forcedCapture: e.target.checked })} /> Captures are forced</label>
-            <label className="inline"><input type="checkbox" checked={v.castling} onChange={(e) => edit({ ...v, castling: e.target.checked })} /> Castling</label>
-          </div>
-        </fieldset>
-      </section>
-
-      <section className="panel">
-        <h3>Start position</h3>
-        <BoardEditor board={board} pieces={v.pieces} label="Start position" testId="start-board" marks={startMarks} onHover={setHovered}
-          onChange={readOnly ? undefined : (b) => edit({ ...v, start: withPlacement(v.start, b) })} />
-        <label className="fen">FEN
-          <input value={v.start} disabled={readOnly} spellCheck={false} aria-label="Start FEN" onChange={(e) => edit({ ...v, start: e.target.value })} />
-        </label>
-      </section>
-
-      <section className="panel">
-        <div className="run-head">
-          <h3>Pieces</h3>
-          {!readOnly && v.pieces.length < 16 && (
-            <button type="button" className="btn" onClick={() => {
-              edit({ ...v, pieces: [...v.pieces, blankPiece(letters)] });
-              setPicked(v.pieces.length);
-            }}>Add a piece</button>
-          )}
-        </div>
-        <div className="piece-list" role="group" aria-label="Pieces">
-          {v.pieces.map((p, i) => (
-            <button type="button" key={i} className={'piece-chip' + (i === picked ? ' on' : '')} aria-pressed={i === picked} onClick={() => setPicked(i)}>
-              <span className="chip-icon"><PieceSvg code={'w' + p.letter} /></span>
-              <span>{p.name}</span>
-              <span className="muted small">{p.betza ?? ''}</span>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {piece && (
-          <PieceEditor key={picked} piece={piece} letters={letters} readOnly={readOnly} pictures={pictures}
-            onChange={(p) => setPiece(picked, p)}
-            onAtoms={(atoms) => {
-              setV((now) => ({ ...now, pieces: now.pieces.map((q, j) => (j === picked ? { ...q, atoms } : q)) }));
-              setSaved(false);
-              setDirty(true);
-            }}
-            onBetza={(text) => setV((now) => ({ ...now, pieces: now.pieces.map((q, j) => (j === picked ? { ...q, betza: text } : q)) }))}
-            onRemove={() => {
-              const letter = piece.letter;
-              const b = placementOf(v.start);
-              for (const sq in b) if (b[sq].toUpperCase() === letter) delete b[sq];
-              edit({
-                ...v,
-                start: withPlacement(v.start, b),
-                pieces: v.pieces.filter((_, j) => j !== picked).map((q) => ({ ...q, promotesTo: q.promotesTo.replaceAll(letter, '') })),
-              });
-              setPicked(0);
-            }} />
-      )}
-
-      <HealthPage variant={v} />
-    </div>
-    </PieceArt.Provider>
-  );
-}
+/** The route's key for "is this still the same variant": its id, or "new" for the unsaved one. */
+const keyOf = (r: Route) => r.id;
 
 export function Variants({ onPlay }: { onPlay: (id: string) => void }) {
   const [rows, setRows] = useState<VariantRow[] | null>(null);
   const [folder, setFolder] = useState('');
+  const [listError, setListError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [open, setOpen] = useState<VariantDef | null>(null);
-  /** Changes when another variant is opened (not when the open one is renamed or saved). */
-  const [openKey, setOpenKey] = useState(0);
-  const openVariant = (v: VariantDef | null) => {
-    setOpen(v);
-    setOpenKey((k) => k + 1);
+  const [route, setRoute] = useState<Route>(() => variantsRoute());
+  const [open, setOpen] = useState<OpenVariant | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  // the guard reads the latest state through refs: it is asked from event handlers
+  const openRef = useRef(open);
+  openRef.current = open;
+  const routeRef = useRef(route);
+  routeRef.current = route;
+  /** The hash we are on, to go back to when the player stays with unsaved changes. */
+  const hashRef = useRef(location.hash);
+  /** Set for one navigation the page itself started (a copy, a delete): no question asked. */
+  const skipGuard = useRef(false);
+
+  useEffect(() => {
+    setLeaveGuard({
+      dirty: () => !!openRef.current?.dirty,
+      discard: () => { if (openRef.current) openRef.current = { ...openRef.current, dirty: false }; setOpen((o) => (o ? { ...o, dirty: false } : o)); },
+      name: () => openRef.current?.def.name || 'This variant',
+    });
+    return () => setLeaveGuard(null);
+  }, []);
+
+  useEffect(() => {
+    const onHash = () => {
+      if (!location.hash.startsWith('#variants')) return; // another page: App asks
+      const next = variantsRoute();
+      if (keyOf(next) !== keyOf(routeRef.current) && !skipGuard.current && !mayLeave()) {
+        history.replaceState(null, '', hashRef.current);
+        return;
+      }
+      skipGuard.current = false;
+      hashRef.current = location.hash;
+      setRoute(next);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
+  // closing the tab or reloading with unsaved changes: the browser asks
+  useEffect(() => {
+    if (!open?.dirty) return;
+    const ask = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', ask);
+    return () => window.removeEventListener('beforeunload', ask);
+  }, [open?.dirty]);
+
+  const go = (hash: string, opts: { force?: boolean; replace?: boolean } = {}) => {
+    if (opts.replace) {
+      history.replaceState(null, '', hash);
+      hashRef.current = hash;
+      setRoute(variantsRoute(hash));
+      return;
+    }
+    if (location.hash === hash) return;
+    skipGuard.current = !!opts.force;
+    location.hash = hash;
   };
 
   const load = useCallback(() => {
     api<{ folder: string; variants: VariantRow[] }>('/api/variants')
-      .then((r) => { setRows(r.variants); setFolder(r.folder); })
-      .catch((e: Error) => setError(e.message));
+      .then((r) => { setRows(r.variants); setFolder(r.folder); setListError(null); })
+      .catch((e: Error) => setListError(e.message));
   }, []);
   useEffect(load, [load]);
 
-  const show = (id: string) => {
-    api<VariantDef>(`/api/variants/${encodeURIComponent(id)}`).then(openVariant).catch((e: Error) => setError(e.message));
-  };
-
   const taken = useMemo(() => new Set(rows?.map((r) => r.id)), [rows]);
-  const copyOf = (v: VariantDef) => {
-    let name = v.builtIn ? `My ${v.name}` : `${v.name} copy`;
-    for (let n = 2; taken.has(slug(name)); n++) name = (v.builtIn ? `My ${v.name}` : `${v.name} copy`) + ' ' + n;
-    openVariant({ ...v, id: slug(name), name, builtIn: false });
+  const families = useMemo(() => [...new Set((rows ?? []).filter((r) => !r.builtIn && r.family).map((r) => r.family))].sort(), [rows]);
+
+  /** A new variant, not saved yet, made from {@code from}. */
+  const startNew = useCallback((from: VariantDef, name: string, family: string) => {
+    setError(null);
+    setSaved(false);
+    setOpen({
+      def: { ...from, id: freeId(name, taken), name, builtIn: false, family, notes: from.builtIn ? '' : from.notes ?? '', art: {} },
+      savedPieces: [],
+      fresh: true,
+      dirty: true,
+    });
+  }, [taken]);
+
+  const blankName = useCallback(() => {
+    let name = 'New variant';
+    for (let n = 2; taken.has(slug(name)); n++) name = `New variant ${n}`;
+    return name;
+  }, [taken]);
+
+  // open what the route names: a saved variant from the server, or the unsaved new one
+  useEffect(() => {
+    const id = route.id;
+    if (!id) {
+      if (openRef.current) setOpen(null);
+      return;
+    }
+    const now = openRef.current;
+    if (id === NEW_ID) {
+      if (now?.fresh) return;
+      if (!rows) return; // the name needs the ids taken
+      api<VariantDef>('/api/variants/chess').then((chess) => startNew(chess, blankName(), '')).catch((e: Error) => setError(e.message));
+      return;
+    }
+    if (now && !now.fresh && now.def.id === id) return;
+    let live = true;
+    setError(null);
+    api<VariantDef>(`/api/variants/${encodeURIComponent(id)}`)
+      .then((v) => {
+        if (!live) return;
+        setSaved(false);
+        setOpen({ def: v, savedPieces: v.pieces, fresh: false, dirty: false });
+      })
+      .catch((e: Error) => { if (live) { setOpen(null); setError(e.message); } });
+    return () => { live = false; };
+  }, [route.id, rows, startNew, blankName]);
+
+  const edit = (x: VariantDef | ((now: VariantDef) => VariantDef)) => {
+    setSaved(false);
+    setOpen((o) => {
+      if (!o) return o;
+      let def = typeof x === 'function' ? x(o.def) : x;
+      if (o.fresh && def.name !== o.def.name) def = { ...def, id: freeId(def.name, taken) };
+      return { ...o, def, dirty: true };
+    });
+  };
+  const patch = (f: (def: VariantDef) => VariantDef) => setOpen((o) => (o ? { ...o, def: f(o.def) } : o));
+
+  const save = () => {
+    if (!open) return;
+    setError(null);
+    const wasFresh = open.fresh;
+    api<VariantDef>(`/api/variants/${encodeURIComponent(open.def.id)}`, { method: 'PUT', body: JSON.stringify(open.def) })
+      .then((r) => {
+        // keep the Betza text the editor wrote; the server's answer has the rest
+        setOpen((o) => ({ def: { ...r, pieces: r.pieces.map((p, i) => ({ ...p, betza: p.betza ?? o?.def.pieces[i]?.betza })) }, savedPieces: r.pieces, fresh: false, dirty: false }));
+        setSaved(true);
+        load();
+        if (wasFresh) go(variantsHash(r.id, routeRef.current.tab, routeRef.current.letter), { replace: true });
+      })
+      .catch((e: Error) => setError(e.message));
   };
 
-  useEffect(() => {
-    if (rows && !open && rows.length) show(rows[0].id);
-  }, [rows, open]);
+  const copy = () => {
+    if (!open) return;
+    const v = open.def;
+    const base = v.builtIn ? `My ${v.name}` : `${v.name} copy`;
+    let name = base;
+    for (let n = 2; taken.has(slug(name)); n++) name = `${base} ${n}`;
+    startNew(v, name, v.family?.trim() || v.name);
+    go(variantsHash(NEW_ID, routeRef.current.tab === 'health' ? 'overview' : routeRef.current.tab, routeRef.current.letter), { force: true });
+  };
 
+  const remove = () => {
+    if (!open) return;
+    const v = open.def;
+    if (!confirm(`Delete ${v.name}? Games played with it keep their copy.`)) return;
+    api(`/api/variants/${encodeURIComponent(v.id)}`, { method: 'DELETE' })
+      .then(() => { setOpen(null); load(); go('#variants', { force: true }); })
+      .catch((e: Error) => setError(e.message));
+  };
+
+  const onRoute = (tab: Tab, letter: string | null = null, replace = false) => {
+    const id = routeRef.current.id ?? NEW_ID;
+    go(variantsHash(id, tab, letter), { replace });
+  };
+
+  if (!route.id) {
+    return (
+      <main className="lab-page variants-page">
+        <VariantList rows={rows} folder={folder} error={listError}
+          onOpen={(id) => go(variantsHash(id))}
+          onNew={() => go(variantsHash(NEW_ID))} />
+      </main>
+    );
+  }
   return (
-    <main className="lab variants">
-      <aside className="panel">
-        <h2>Variants</h2>
-        {error && <p className="error">{error}</p>}
-        {!rows && !error && <p className="muted">Loading…</p>}
-        {rows && (
-          <ul className="variant-list" data-testid="variant-list">
-            {rows.map((r) => (
-              <li key={r.id}>
-                <button type="button" className={'btn ghost' + (open?.id === r.id ? ' on' : '')} onClick={() => show(r.id)}>
-                  {r.name}{r.builtIn && <span className="tag">Built in</span>}
-                </button>
-              </li>
-            ))}
-            {open && !rows.some((r) => r.id === open.id) && (
-              <li><button type="button" className="btn ghost on">New variant<span className="tag">Not saved</span></button></li>
-            )}
-          </ul>
-        )}
-        {folder && <p className="muted small">Your variants are kept in <code>{folder}</code>.</p>}
-      </aside>
+    <main className="lab-page variants-page">
+      {!open && error && (
+        <section className="panel">
+          <p className="error" role="alert">{error}</p>
+          <a className="back-link" href="#variants">← All variants</a>
+        </section>
+      )}
+      {!open && !error && <p className="muted">Loading…</p>}
       {open && (
-        <Editor key={openKey} start={open} taken={taken}
-          onSaved={(v) => { load(); setOpen(v); }}
-          onDeleted={() => { openVariant(null); load(); }}
-          onCopy={copyOf} onPlay={onPlay} />
+        <VariantPage open={open} route={route} families={families} error={error} saved={saved}
+          onEdit={edit} onPatch={patch} onSave={save} onCopy={copy} onDelete={remove}
+          onPlay={() => onPlay(open.def.id)} onRoute={onRoute} />
       )}
     </main>
   );

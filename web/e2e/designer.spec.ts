@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 // The variant designer (Phase 6 R5c): copy a built-in variant, invent a piece by clicking squares
 // and by Betza text, put it in the start position, save, and delete.
@@ -7,18 +7,27 @@ const SHOTS = '../target/e2e-screens';
 /** A 1x1 PNG, enough for a piece's picture. */
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
 
+/** Opens one of the variant's screens by its tab. */
+async function tab(page: Page, name: 'Overview' | 'Board' | 'Pieces' | 'Health') {
+  const link = page.getByRole('navigation', { name: 'Variant screens' }).getByRole('link', { name });
+  await link.click();
+  await expect(link).toHaveAttribute('aria-current', 'page');
+}
+
 test('make a variant with an invented piece', async ({ page }) => {
   await page.goto('/#variants');
+  await page.getByTestId('variant-list').getByRole('button', { name: /^Chess/ }).click();
   const editor = page.getByTestId('variant-editor');
   await expect(editor.getByRole('heading', { name: 'Chess' })).toBeVisible();
-  await expect(editor.getByText('A built-in variant: make a copy to change it.')).toBeVisible();
+  await expect(page.getByTestId('builtin-cta')).toContainText('built-in variant, shown read-only');
   await expect(editor.getByRole('button', { name: 'Save', exact: true })).toHaveCount(0);
 
-  await editor.getByRole('button', { name: 'Make a copy' }).click();
+  await page.getByTestId('builtin-cta').getByRole('button', { name: 'Make your own copy' }).click();
   await expect(editor.getByRole('heading', { name: 'My Chess' })).toBeVisible();
   await editor.getByLabel('Name', { exact: true }).first().fill('Designer test');
 
   // a new piece: one jump makes a knight in all eight ways
+  await tab(page, 'Pieces');
   await editor.getByRole('button', { name: 'Add a piece' }).click();
   const piece = page.getByTestId('piece-editor');
   await page.getByTestId('move-grid').locator('[data-offset="2,1"]').click();
@@ -32,6 +41,7 @@ test('make a variant with an invented piece', async ({ page }) => {
   await piece.getByLabel('Name', { exact: true }).fill('Amazon');
 
   // it replaces the queens
+  await tab(page, 'Board');
   await page.getByRole('button', { name: 'white A', exact: true }).click();
   await page.getByTestId('start-board').locator('[data-square="d1"]').click();
   await page.getByRole('button', { name: 'black A', exact: true }).click();
@@ -41,18 +51,20 @@ test('make a variant with an invented piece', async ({ page }) => {
 
   await editor.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(editor.getByRole('button', { name: 'Saved', exact: true })).toBeVisible();
-  await page.reload();
+  await page.goto('/#variants');
   const list = page.getByTestId('variant-list');
-  await list.getByRole('button', { name: 'Designer test' }).click();
+  await list.getByRole('button', { name: /Designer test/ }).click();
+  await tab(page, 'Pieces');
   await expect(page.getByRole('button', { name: /Amazon/ })).toBeVisible();
 
   page.once('dialog', (d) => d.accept());
   await editor.getByRole('button', { name: 'Delete' }).click();
-  await expect(list.getByRole('button', { name: 'Designer test' })).toHaveCount(0);
+  await expect(list).toBeVisible();
+  await expect(list.getByRole('button', { name: /Designer test/ })).toHaveCount(0);
 });
 
 test('a variant the server cannot play is refused with the reason', async ({ page }) => {
-  await page.goto('/#variants');
+  await page.goto('/#variants/chess/board');
   const editor = page.getByTestId('variant-editor');
   await editor.getByRole('button', { name: 'Make a copy' }).click();
   await editor.getByLabel('Start FEN').fill('8/8/8/8/8/8/8/8 w - - 0 1');
@@ -61,8 +73,7 @@ test('a variant the server cannot play is refused with the reason', async ({ pag
 });
 
 test('the health check plays a variant against itself and reports', async ({ page }) => {
-  await page.goto('/#variants');
-  await page.getByTestId('variant-list').getByRole('button', { name: /Antichess/ }).click();
+  await page.goto('/#variants/antichess/health');
   await expect(page.getByTestId('variant-editor').getByRole('heading', { name: 'Antichess' })).toBeVisible();
   const health = page.getByTestId('health');
   await health.getByLabel('Games').selectOption('20');
@@ -77,11 +88,12 @@ test('the health check plays a variant against itself and reports', async ({ pag
 });
 
 test('the whole path: invent a piece, save the variant, play it from New game', async ({ page }) => {
-  await page.goto('/#variants');
+  await page.goto('/#variants/chess');
   const editor = page.getByTestId('variant-editor');
   await expect(editor.getByRole('heading', { name: 'Chess' })).toBeVisible();
   await editor.getByRole('button', { name: 'Make a copy' }).click();
   await editor.getByLabel('Name', { exact: true }).first().fill('Amazon path');
+  await tab(page, 'Pieces');
   await editor.getByRole('button', { name: 'Add a piece' }).click();
   const piece = page.getByTestId('piece-editor');
   await piece.getByLabel('Name', { exact: true }).fill('Amazon');
@@ -89,6 +101,7 @@ test('the whole path: invent a piece, save the variant, play it from New game', 
   await piece.getByLabel('Betza').fill('QN');
   await piece.getByLabel('Betza').press('Enter');
   await expect(page.getByTestId('piece-preview').locator('.r-both')).toHaveCount(35);
+  await tab(page, 'Board');
   await page.getByRole('button', { name: 'white A', exact: true }).click();
   await page.getByTestId('start-board').locator('[data-square="d1"]').click();
   await page.getByRole('button', { name: 'black A', exact: true }).click();
@@ -97,7 +110,11 @@ test('the whole path: invent a piece, save the variant, play it from New game', 
   await expect(editor.getByRole('button', { name: 'Saved', exact: true })).toBeVisible();
 
   // a picture for the white Amazon; the start position shows it, and black's stands in darkened
+  await tab(page, 'Pieces');
+  await page.getByTestId('piece-list').getByRole('button', { name: /Amazon/ }).click();
   await page.getByTestId('pictures').getByLabel('White picture').setInputFiles({ name: 'amazon.png', mimeType: 'image/png', buffer: PNG });
+  await expect(page.getByTestId('pictures').getByRole('img', { name: 'White picture' })).toBeVisible();
+  await tab(page, 'Board');
   await expect(page.getByTestId('start-board').locator('[data-square="d1"] img[data-piece="wA"]')).toBeVisible();
   await expect(page.getByTestId('start-board').locator('[data-square="d8"] img[data-piece="bA"]')).toBeVisible();
 
