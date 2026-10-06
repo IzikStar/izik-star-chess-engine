@@ -6,9 +6,13 @@ import { expect, test, type Page } from '@playwright/test';
 const SHOTS = '../target/e2e-screens';
 const square = (page: Page, name: string) => page.locator(`[data-square="${name}"]`).first();
 
+/** Plays a move and waits for the server to take it, so the next click is not lost to the redraw. */
 async function clickMove(page: Page, from: string, to: string) {
+  const moves = page.getByTestId('move-list').getByRole('button');
+  const before = await moves.count();
   await square(page, from).click();
   await square(page, to).click();
+  await expect(moves).toHaveCount(before + 1);
 }
 
 async function friendGame(page: Page, time = 'Untimed') {
@@ -74,4 +78,37 @@ test('games are saved as they are played, reviewed, and carried on', async ({ pa
   await expect(table.locator('tbody tr')).toHaveCount(2);
   await expect(table.locator('tbody tr').first()).toContainText('Playing');
   await expect(table.locator('tbody tr').first().locator('td').nth(4)).toHaveText('2');
+});
+
+test('a game the engine plays against itself is saved too, with both levels', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'New game' }).click();
+  const dialog = page.getByRole('dialog', { name: 'New game' });
+  await dialog.getByRole('button', { name: 'Watch the engine', exact: true }).click();
+  await dialog.getByLabel("White's strength", { exact: true }).fill('0');
+  await dialog.getByLabel("Black's strength").fill('1');
+  await dialog.getByRole('button', { name: 'Start game' }).click();
+  await expect(dialog).toBeHidden();
+  await expect.poll(() => page.getByTestId('move-list').getByRole('button').count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(4);
+
+  await page.getByRole('button', { name: 'My games' }).click();
+  const table = page.getByTestId('saved-games');
+  const row = table.locator('tbody tr', { hasText: 'Level 0 Random moves vs Level 1 Beginner' });
+  await expect(row).toHaveCount(1);
+  await expect(row).toContainText('Playing');
+
+  // the opponent filter has its own entry for these games
+  await page.getByLabel('Opponent').selectOption('computer');
+  await expect(table.locator('tbody tr')).toHaveCount(1);
+  await expect(table.locator('tbody tr').first()).toContainText('vs Level 1 Beginner');
+
+  // it opens for review like any other game
+  await table.locator('tbody tr').first().click();
+  await expect(page.getByTestId('review-head')).toContainText('Level 0 Random moves vs Level 1 Beginner');
+  await expect(page.getByRole('button', { name: 'Analyse game' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Back to this game' }).click();
+
+  // stop it, so the specs after this one find a quiet board
+  await friendGame(page);
+  await expect(page.getByText('No moves yet.')).toBeVisible();
 });

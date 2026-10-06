@@ -20,8 +20,9 @@ import rules.Game;
  *       and pgn</li>
  *   <li>{@code DELETE /api/games/{id}}</li>
  * </ul>
- * A summary is {id, started, updated, mode: engine|friend, humanColor, level, opponent (a
- * champion's name, or null), weights (tuned|classic), variant (an id: a built-in from ai.variant.Variants or one the player made; chess for games saved before variants), variantName, time {initialMs, incrementMs} or null, plies, result (null while
+ * A summary is {id, started, updated, mode: engine|friend|computer (computer: the engine played
+ * itself), humanColor, level (in computer mode White's), blackLevel (Black's in computer mode, else
+ * the same as level), opponent (a champion's name, or null), weights (tuned|classic), variant (an id: a built-in from ai.variant.Variants or one the player made; chess for games saved before variants), variantName, time {initialMs, incrementMs} or null, plies, result (null while
  * unfinished), termination}. Carrying a game on goes over the game's WebSocket ({@code resumeGame}).
  */
 final class GamesApi {
@@ -64,6 +65,7 @@ final class GamesApi {
         o.addProperty("mode", c.get("mode").getAsString());
         o.addProperty("humanColor", c.get("humanColor").getAsString());
         o.addProperty("level", config.skillLevel());
+        o.addProperty("blackLevel", config.skillLevelFor(false));
         o.addProperty("opponent", g.opponentLabel());
         o.addProperty("weights", g.weights());
         o.addProperty("variant", g.variant());
