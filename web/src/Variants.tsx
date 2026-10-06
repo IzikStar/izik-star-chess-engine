@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { artUrls, PieceArt, PieceSvg } from './pieces';
+import { BoardEditor } from './variants/BoardEditor';
+import { PieceDrawerDialog } from './variants/PieceDrawer';
 import { offsets, placementOf, reach, type Atom, type Kind, type Mode, type Reach, type Symmetry } from './reach';
 
 // "Variants" (Phase 6 R5c): the variant designer. Look at the built-in variants, make your own from
@@ -224,13 +226,14 @@ interface PictureProps {
   /** Why pictures cannot be added yet (an unsaved variant), or null when they can. */
   blocked: string | null;
   urls: Record<string, string>;
-  onUpload: (side: 'w' | 'b', file: File) => void;
+  onUpload: (side: 'w' | 'b', file: File) => void | Promise<void>;
   onRemove: (side: 'w' | 'b') => void;
   error: string | null;
 }
 
 /** Upload, see and remove the piece's picture for white and for black. */
 function Pictures({ letter, pictures }: { letter: string; pictures: PictureProps }) {
+  const [drawing, setDrawing] = useState<'w' | 'b' | null>(null);
   return (
     <div className="pictures" data-testid="pictures">
       <span className="pictures-label">Picture</span>
@@ -253,6 +256,7 @@ function Pictures({ letter, pictures }: { letter: string; pictures: PictureProps
                     e.target.value = '';
                   }} />
               </label>
+              <button type="button" className="btn small-btn" disabled={!!pictures.blocked} onClick={() => setDrawing(side)}>Draw it</button>
               {url && <button type="button" className="btn ghost small-btn" onClick={() => pictures.onRemove(side)}>Remove</button>}
             </div>
           </div>
@@ -262,6 +266,18 @@ function Pictures({ letter, pictures }: { letter: string; pictures: PictureProps
         {pictures.blocked ?? 'PNG, JPEG, WebP, GIF or SVG, up to 1 MB; a transparent background looks best. With one side only, the other side uses it darkened or lightened.'}
       </p>
       {pictures.error && <p className="error small" role="alert">{pictures.error}</p>}
+      {drawing && (
+        <PieceDrawerDialog title={`Draw the ${letter}`} side={drawing}
+          initial={{ w: pictures.urls['w' + letter], b: pictures.urls['b' + letter] }}
+          onClose={() => setDrawing(null)}
+          onSave={async (drawn) => {
+            for (const side of ['w', 'b'] as const) {
+              const blob = drawn[side];
+              if (blob) await pictures.onUpload(side, new File([blob], `${letter}-${side}.png`, { type: 'image/png' }));
+            }
+            setDrawing(null);
+          }} />
+      )}
     </div>
   );
 }
@@ -496,7 +512,6 @@ function Editor({ start, taken, onSaved, onDeleted, onCopy, onPlay }: {
 }) {
   const [v, setV] = useState(start);
   const [picked, setPicked] = useState(0);
-  const [paint, setPaint] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   /** Changed since it was opened or saved. */
@@ -550,7 +565,7 @@ function Editor({ start, taken, onSaved, onDeleted, onCopy, onPlay }: {
   const artMap = useMemo(() => artUrls(v.id, art), [v.id, art]);
   const artCall = (side: 'w' | 'b', init: RequestInit) => {
     setArtError(null);
-    fetch(`/api/variants/${encodeURIComponent(v.id)}/art/${piece.letter}/${side}`, init)
+    return fetch(`/api/variants/${encodeURIComponent(v.id)}/art/${piece.letter}/${side}`, init)
       .then(async (r) => {
         const body = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(body.error ?? `${r.status} ${r.statusText}`);
@@ -611,29 +626,8 @@ function Editor({ start, taken, onSaved, onDeleted, onCopy, onPlay }: {
 
       <section className="panel">
         <h3>Start position</h3>
-        <div className="start-edit">
-          <MiniBoard board={board} label="Start position" testId="start-board" marks={startMarks} onHover={setHovered}
-            onSquare={readOnly ? undefined : (sq) => {
-              const b = { ...board };
-              if (paint) b[sq] = paint;
-              else delete b[sq];
-              edit({ ...v, start: withPlacement(v.start, b) });
-            }} />
-          {!readOnly && (
-            <div className="palette" role="group" aria-label="Piece to place">
-              <p className="muted small">Pick a piece, then click squares to place it.</p>
-              <div className="palette-row">
-                {v.pieces.map((p) => [p.letter, p.letter.toLowerCase()]).flat().map((c) => (
-                  <button type="button" key={c} className={'pal' + (paint === c ? ' on' : '')} aria-pressed={paint === c}
-                    aria-label={(c === c.toUpperCase() ? 'white ' : 'black ') + c.toUpperCase()} onClick={() => setPaint(c)}>
-                    <PieceSvg code={(c === c.toUpperCase() ? 'w' : 'b') + c.toUpperCase()} />
-                  </button>
-                ))}
-                <button type="button" className={'pal erase' + (paint === '' ? ' on' : '')} aria-pressed={paint === ''} onClick={() => setPaint('')}>Empty</button>
-              </div>
-            </div>
-          )}
-        </div>
+        <BoardEditor board={board} pieces={v.pieces} label="Start position" testId="start-board" marks={startMarks} onHover={setHovered}
+          onChange={readOnly ? undefined : (b) => edit({ ...v, start: withPlacement(v.start, b) })} />
         <label className="fen">FEN
           <input value={v.start} disabled={readOnly} spellCheck={false} aria-label="Start FEN" onChange={(e) => edit({ ...v, start: e.target.value })} />
         </label>
