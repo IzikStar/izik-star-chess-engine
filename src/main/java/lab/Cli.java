@@ -26,6 +26,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * java -cp target/izikstar-chess-3.1.0.jar lab.Cli selfplay positions.csv [--games N --nodes N --threads N --seed N]
  * java -cp target/izikstar-chess-3.1.0.jar lab.Cli selfplay anti.csv --variant antichess [--player fsf:5000 --depth N --opening-plies N]
  * java -cp target/izikstar-chess-3.1.0.jar lab.Cli tune positions.csv tuned.json [--from classic --iterations N]
+ * java -cp target/izikstar-chess-3.1.0.jar lab.Cli features positions.csv positions.bin [--variant ID | --variant-file FILE]
+ * java -cp target/izikstar-chess-3.1.0.jar lab.Cli net nets/first.json "FEN" [--variant ID | --variant-file FILE]
  * java -cp target/izikstar-chess-3.1.0.jar lab.Cli pgn runs/first.db games.pgn [--generation N --member M]
  * java -cp target/izikstar-chess-3.1.0.jar lab.Cli keep runs/first.db GENERATION MEMBER NAME [--note TEXT]
  * java -cp target/izikstar-chess-3.1.0.jar lab.Cli fame [runs/hall-of-fame]
@@ -58,7 +60,7 @@ public final class Cli {
         }
         Path file = Path.of(args[1]);
         Map<String, String> options = options(args, switch (args[0]) {
-            case "export", "tune", "pgn" -> 3;
+            case "export", "tune", "pgn", "features", "net" -> 3;
             case "champion" -> 4;
             case "keep" -> 5;
             default -> 2;
@@ -75,6 +77,8 @@ public final class Cli {
                 tune(file, Path.of(args[2]), options);
             }
             case "fame" -> fame(file);
+            case "features" -> features(file, Path.of(args[2]), options(args, 3));
+            case "net" -> net(file, args[2], options(args, 3));
             case "pgn" -> {
                 if (args.length < 3) {
                     usage();
@@ -248,6 +252,32 @@ public final class Cli {
         }
     }
 
+    /** The network's training file from {@code fen,result,score} lines ({@link NetData}). */
+    private static void features(Path positions, Path out, Map<String, String> o) throws IOException {
+        ai.variant.Variant variant = variantOf(o);
+        long start = System.nanoTime();
+        int rows = NetData.write(variant, positions, out);
+        System.out.printf("%d positions of %s (%d inputs, %d slots) written to %s in %.0f s%n", rows, variant.name(),
+                ai.eval.NetFeatures.inputs(variant), NetData.slots(variant), out, (System.nanoTime() - start) / 1e9);
+    }
+
+    /** What a network file says about one position: its inputs and score, to compare with the trainer's. */
+    private static void net(Path file, String fen, Map<String, String> o) throws IOException {
+        ai.variant.Variant variant = variantOf(o);
+        ai.eval.NetEvaluate net = ai.eval.NetEvaluate.read(variant, file);
+        ai.board.PieceBoard board = (ai.board.PieceBoard) ai.board.Boards.fromFen(variant, fen);
+        System.out.println("inputs on: " + java.util.Arrays.toString(ai.eval.NetFeatures.active(board)));
+        System.out.printf("score for the side to move: %.2f (as the search sees it: %d)%n", net.forward(board),
+                net.evaluate(board, board.sideToMove()));
+    }
+
+    /** {@code --variant}/{@code --variant-file}, chess when neither is given. */
+    private static ai.variant.Variant variantOf(Map<String, String> o) throws IOException {
+        return variantJson(o) != null ? ai.variant.VariantJson.read(variantJson(o))
+                : ai.variant.Variants.byId(o.getOrDefault("variant", "chess"))
+                .orElseThrow(() -> new IllegalArgumentException("no built-in variant " + o.get("variant")));
+    }
+
     /** Texel tuning: fits the weights to the positions' results. */
     private static void tune(Path positions, Path out, Map<String, String> o) throws IOException {
         List<Texel.Sample> samples = Texel.load(positions);
@@ -349,7 +379,7 @@ public final class Cli {
     private static void usage() {
         System.err.println("usage: lab.Cli run FILE --algorithm CLASS [options] | resume FILE | show FILE | export FILE OUT.csv"
                 + " | champion FILE GENERATION OUT.json | pgn FILE OUT.pgn | keep FILE GENERATION MEMBER NAME | fame DIR"
-                + " | selfplay OUT.csv | tune POSITIONS.csv OUT.json");
+                + " | selfplay OUT.csv | tune POSITIONS.csv OUT.json | features POSITIONS.csv OUT.bin | net NET.json FEN");
         System.exit(2);
     }
 }

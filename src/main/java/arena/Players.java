@@ -21,7 +21,9 @@ import java.nio.file.Path;
  *   <li>{@code fsf}: Fairy-Stockfish at full strength, {@link FairyStockfish#DEFAULT_NODES} nodes a
  *       move, in any built-in variant; {@code fsf:5000} with 5000 nodes a move;</li>
  *   <li>{@code random}: a player that knows only the rules and picks any legal move (it still
- *       takes a win it sees one move ahead), the floor every evaluation should beat.</li>
+ *       takes a win it sees one move ahead), the floor every evaluation should beat;</li>
+ *   <li>{@code net:FILE.json}: the built-in search with a trained network as its evaluation
+ *       ({@link ai.eval.NetEvaluate}, docs/net-training-guide.md).</li>
  * </ul>
  * Built-in players search at the depth and variety given.
  */
@@ -45,12 +47,27 @@ public final class Players {
     /** The random mover's name. */
     public static final String RANDOM = "random";
 
+    /** True if {@code spec} names a network file ({@code net:FILE.json}). */
+    public static boolean isNet(String spec) {
+        return spec.startsWith("net:");
+    }
+
     /**
      * True if {@code spec} names weights for the built-in engine (default, zero, a preset, a file,
-     * hof:NAME), false for Stockfish, Fairy-Stockfish and the random mover.
+     * hof:NAME), false for Stockfish, Fairy-Stockfish, the random mover and a network.
      */
     public static boolean hasWeights(String spec) {
-        return !isStockfish(spec) && !isFairyStockfish(spec) && !spec.equals(RANDOM);
+        return !isStockfish(spec) && !isFairyStockfish(spec) && !spec.equals(RANDOM) && !isNet(spec);
+    }
+
+    /** The player of {@code net:FILE.json} in {@code variant}: the usual search, the network as its evaluation. */
+    public static Player net(String spec, String name, int depth, int variety, ai.variant.Variant variant) {
+        Path file = Path.of(spec.substring(4));
+        try {
+            return Player.of(name, ai.eval.NetEvaluate.read(variant, file), depth, variety);
+        } catch (IOException e) {
+            throw new IllegalArgumentException("cannot read the network " + file, e);
+        }
     }
 
     /** Nodes a move of the Fairy-Stockfish {@code spec} names. */
@@ -97,6 +114,9 @@ public final class Players {
         if (spec.equals(RANDOM)) {
             return random(name, variant);
         }
+        if (isNet(spec)) {
+            return net(spec, name, depth, variety, variant);
+        }
         if (ai.eval.Evaluators.schema(variant) == ChessEvaluate.SCHEMA) {
             return parse(spec, name, depth, variety, hallOfFame);
         }
@@ -108,7 +128,7 @@ public final class Players {
     }
 
     public static Player parse(String spec, String name, int depth, int variety, Path hallOfFame) {
-        if (isFairyStockfish(spec) || spec.equals(RANDOM)) {
+        if (isFairyStockfish(spec) || spec.equals(RANDOM) || isNet(spec)) {
             return parse(spec, name, depth, variety, hallOfFame, ai.variant.Variants.CHESS);
         }
         if (isStockfish(spec)) {
@@ -180,6 +200,9 @@ public final class Players {
         }
         if (isFairyStockfish(spec)) {
             return "fsf" + fairyNodes(spec);
+        }
+        if (isNet(spec)) {
+            return Path.of(spec.substring(4)).getFileName().toString().replaceFirst("\\.json$", "");
         }
         Path file = Path.of(spec);
         return Files.isRegularFile(file) ? file.getFileName().toString().replaceFirst("\\.json$", "") : spec;

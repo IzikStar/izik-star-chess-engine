@@ -19,6 +19,13 @@ public final class UciSession implements AutoCloseable {
     private final Process process;
     private final BufferedReader in;
     private final PrintWriter out;
+    /** The score of the last {@code info} line before the last {@code bestmove}, or {@link #NO_SCORE}. */
+    private int lastScore = NO_SCORE;
+
+    /** {@link #lastScore()} when the engine reported none. */
+    public static final int NO_SCORE = Integer.MIN_VALUE;
+    /** A mate in N is reported as this many centipawns (minus N), so a nearer mate scores higher. */
+    public static final int MATE_SCORE = 10_000;
 
     public UciSession(ExternalEngine engine) {
         this.engine = engine;
@@ -48,11 +55,20 @@ public final class UciSession implements AutoCloseable {
         }
         out.println(position);
         out.println(engine.nodes() > 0 ? "go nodes " + engine.nodes() : "go movetime " + engine.moveMillis());
+        lastScore = NO_SCORE;
         String[] line = await("bestmove").split("\\s+");
         if (line.length < 2 || line[1].equals("(none)")) {
             throw new IllegalStateException(engine.command() + " gave no move after " + moves);
         }
         return ChessMove.fromUci(line[1]);
+    }
+
+    /**
+     * The engine's score for the position it last moved in, from the side it moved for, in
+     * centipawns (a mate in N as {@code ±(MATE_SCORE - N)}); {@link #NO_SCORE} when it gave none.
+     */
+    public int lastScore() {
+        return lastScore;
     }
 
     private String await(String prefix) {
@@ -61,11 +77,34 @@ public final class UciSession implements AutoCloseable {
                 if (line.startsWith(prefix)) {
                     return line;
                 }
+                if (line.startsWith("info ")) {
+                    readScore(line);
+                }
             }
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
         throw new IllegalStateException(engine.command() + " stopped before '" + prefix + "'");
+    }
+
+    /** {@code info depth 12 ... score cp 35 ...} or {@code score mate -3}; other info lines leave the score. */
+    private void readScore(String info) {
+        String[] words = info.split("\\s+");
+        for (int i = 0; i + 2 < words.length; i++) {
+            if (words[i].equals("score")) {
+                try {
+                    int n = Integer.parseInt(words[i + 2]);
+                    if (words[i + 1].equals("cp")) {
+                        lastScore = n;
+                    } else if (words[i + 1].equals("mate")) {
+                        lastScore = n > 0 ? MATE_SCORE - n : -MATE_SCORE - n;
+                    }
+                } catch (NumberFormatException ignored) {
+                    // not a score we know
+                }
+                return;
+            }
+        }
     }
 
     @Override

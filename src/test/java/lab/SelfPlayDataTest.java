@@ -23,32 +23,31 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 class SelfPlayDataTest {
 
     @Test
-    @DisplayName("An antichess game is exported by antichess rules: every line a position of it, its result from White's side")
+    @DisplayName("An antichess game is exported by antichess rules: every quiet position of it, its result from White's side")
     void exportsVariantGames() throws IOException {
         GameRecord game = Match.play(Variants.ANTICHESS, Players.random("a", Variants.ANTICHESS),
                 Players.random("b", Variants.ANTICHESS), new Opening("none", List.of()), 300, 5);
         StringWriter out = new StringWriter();
         int lines = TrainingExport.write(Variants.ANTICHESS, List.of(game), out);
         List<String> rows = out.toString().lines().toList();
-        assertEquals("fen,result", rows.getFirst());
+        assertEquals(TrainingExport.HEADER, rows.getFirst());
         assertEquals(lines, rows.size() - 1);
         assertTrue(lines > 0);
-        // the positions are the game's own, after the first plies, in order
+        // the positions are the game's own (before a move), after the first plies, in order
         Game replay = new Game(Variants.ANTICHESS);
         java.util.List<String> fens = new java.util.ArrayList<>();
-        game.moves().forEach(m -> {
-            replay.play(m);
-            fens.add(replay.fen());
-        });
+        game.moves().forEach(m -> fens.add(replay.play(m).fenBefore()));
         String result = switch (game.result()) {
             case WHITE_WINS -> "1";
             case BLACK_WINS -> "0";
             case DRAW -> "0.5";
         };
         for (String row : rows.subList(1, rows.size())) {
-            String[] parts = row.split(",");
+            String[] parts = row.split(",", -1);
+            assertEquals(3, parts.length, row);
             assertTrue(fens.contains(parts[0]), parts[0]);
             assertEquals(result, parts[1]);
+            assertEquals("", parts[2], "the built-in random mover reports no score");
         }
     }
 
