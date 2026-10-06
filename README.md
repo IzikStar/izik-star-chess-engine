@@ -259,7 +259,7 @@ On Windows use `.\mvnw.cmd` (PowerShell needs the `.\`); double-clicking the jar
 own Node.js into `target/` to build the browser UI (`-Dskip.web=true` skips that step). The
 server listens on this computer only; stop it with Ctrl+C or by closing its console. Options:
 `--port N`, `--no-browser`, `--games DIR` (where your games are saved, default `games`), `--variants DIR` (the variants you make, default `variants`), `--lan`
-(see below).
+(see below), `--host ADDR` (listen on that one address only).
 
 **Playing from a phone.** The engine, Stockfish and the lab keep running on the computer; the phone
 only shows the page. Start the jar with `--lan` and it prints the address to open, for example:
@@ -279,6 +279,10 @@ java -jar target/izikstar-chess-3.1.0.jar --lan
   devices on the tailnet can reach it.
 - There is no password, so anyone on the same network can open the game; use `--lan` on networks
   you trust. Phone and computer share one game, the same as two browser tabs.
+
+**On a cloud server, without the computer.** The same jar runs on a small cloud machine (Oracle
+Cloud's free tier is enough), reached through Tailscale only, with Lab runs that keep going while
+the phone is off. One script installs it: see [docs/cloud-server.md](docs/cloud-server.md).
 
 Run the jar from the repository root if you want it to find Stockfish at the default path.
 

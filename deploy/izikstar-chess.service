@@ -1,0 +1,15 @@
+[Unit]
+Description=IzikStar Chess game server (on the Tailscale address only)
+After=network-online.target tailscaled.service
+Wants=network-online.target tailscaled.service
+
+[Service]
+User=izikstar
+WorkingDirectory=/var/lib/izikstar
+EnvironmentFile=-/etc/izikstar/cloud.env
+ExecStart=/usr/local/bin/izikstar-start
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
