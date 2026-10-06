@@ -2,7 +2,7 @@
 
 A follow-up measurement of the run "Antichess from zero 1" (`FromZero`, population 20, 80
 generations, depth 4 with some games at 5, material and mobility evolved from all zeros;
-`runs/antichess-zero-1.db`, its main write-up in `antichess-zero-1.md`). During the run the
+`runs/antichess-zero-1.db`, its main write-up in [antichess-zero-1.md](antichess-zero-1.md)). During the run the
 champion was measured only against the all-zero engine, which it beat 95-100% from generation 0
 on, so that yardstick could not show progress. Here the champions of generations 0, 10, ..., 70
 and 79 play the two new yardsticks of PR #45: the random mover and Fairy-Stockfish 14.0.1 XQ at
