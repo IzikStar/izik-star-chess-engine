@@ -10,13 +10,15 @@ const GAME_KINDS: [Mode, string][] = [
 ];
 
 /** Hints and the evaluation bar: how much help the board gives. Changes apply at once. */
-export function SettingsDialog({ settings, weights, stockfish, onChange, onClose }: {
+export function SettingsDialog({ settings, weights, stockfish, onChange, onClose, onTour }: {
   settings: Settings;
   /** Whose Elo the hint levels show. */
   weights: Weights;
   stockfish: StockfishInfo | undefined;
   onChange: (settings: Settings) => void;
   onClose: () => void;
+  /** Walks the screens again (Tour.tsx). */
+  onTour: () => void;
 }) {
   const [s, setS] = useState(settings);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -74,6 +76,7 @@ export function SettingsDialog({ settings, weights, stockfish, onChange, onClose
         </fieldset>
 
         <div className="row end">
+          <button type="button" className="btn ghost" onClick={onTour}>Show the tour</button>
           <button type="button" className="btn" onClick={() => set(DEFAULT_SETTINGS)}>Defaults</button>
           <button type="submit" className="btn primary">Done</button>
         </div>
