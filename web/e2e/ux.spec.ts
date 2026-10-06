@@ -92,3 +92,22 @@ test('a win sets off confetti over the board; a new game clears it', async ({ pa
   await page.getByTestId('result').getByRole('button', { name: 'Rematch' }).click();
   await expect(page.getByTestId('result')).toBeHidden();
 });
+
+test('a first visit offers a short tour that walks the top bar and is not offered again', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('tour-offer').getByRole('button', { name: 'Show me around' }).click();
+  const tour = page.getByTestId('tour');
+  await expect(tour).toContainText('1 / 5');
+  await expect(page.locator('[data-tour="new-game"]')).toHaveClass(/tour-target/);
+  await tour.getByRole('button', { name: 'Next' }).click();
+  await expect(tour).toContainText('My games');
+  await page.keyboard.press('Escape');
+  await expect(tour).toBeHidden();
+  await page.reload();
+  await expect(page.getByTestId('board')).toBeVisible();
+  await expect(page.getByTestId('tour-offer')).toHaveCount(0);
+  // Settings brings it back
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Show the tour' }).click();
+  await expect(page.getByTestId('tour')).toContainText('1 / 5');
+});
