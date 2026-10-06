@@ -39,6 +39,9 @@ A kind may be listed once, except `REACH_SQUARES` and `CAPTURE_ALL_OF`.
     attacked and captured. Once it has one left, that piece is held to check as in chess. A side with none
     left has lost (`GameStatus.ROYALS_LOST`). In play that only happens from a set-up position, because the
     last royal piece is protected by the check rule. The game is lost by checkmate instead.
+  - The evaluation looks at every royal piece: king placement and king safety are counted for each king,
+    and under `LAST_STANDING` each royal piece beyond a side's last one is worth `Evaluators.SPARE_ROYAL`
+    (300). In the evaluation built from pieces that is the royal pieces' starting material value.
 - **`stalemate`**: `DRAW`, `WIN` or `LOSS` for the side that has no legal move and is not checkmated.
 - **`repetition`**: threefold repetition draws (`Game.status`), and the search treats a repeated position
   as a draw (`Board.repetitionDraws`). Off, repeating never ends the game.

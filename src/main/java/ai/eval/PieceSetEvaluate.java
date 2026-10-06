@@ -72,10 +72,16 @@ public final class PieceSetEvaluate implements Evaluator {
 
     private static ParamSchema buildSchema(Variant variant) {
         boolean fromZero = variant.has(ai.variant.WinCondition.Kind.LOSE_EVERYTHING);
+        boolean lastStanding = variant.royalMode() == Variant.RoyalMode.LAST_STANDING;
         List<ParamSpec> specs = new ArrayList<>();
         for (PieceType type : variant.pieces()) {
             String name = type.name().toLowerCase().replaceAll("[^a-z0-9]+", "-");
-            int value = fromZero || type.royal() ? 0 : Math.max(-2000, Math.min(2000, type.value()));
+            // a royal piece is priceless while it is the last one (losing it ends the game, which the
+            // search sees); when spares can be captured (LAST_STANDING) each counts as a spare, the
+            // last one's share cancelling out between the sides
+            int value = fromZero ? 0
+                    : type.royal() ? (lastStanding ? Evaluators.SPARE_ROYAL : 0)
+                    : Math.max(-2000, Math.min(2000, type.value()));
             specs.add(new ParamSpec("material." + name, "material", value, -2000, 2000,
                     "What one " + type.name() + " is worth"));
             specs.add(new ParamSpec("mobility." + name, "mobility", 0, -50, 50,

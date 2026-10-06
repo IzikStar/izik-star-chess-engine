@@ -369,7 +369,24 @@ public final class ChessEvaluate implements Evaluator {
             egSum += pst(board, pstEg);
         }
         value = (int) ((mgSum * phase + egSum * (MAX_PHASE - phase)) / MAX_PHASE);
+        if (Long.bitCount(board.whiteKings) > 1 || Long.bitCount(board.blackKings) > 1) {
+            value += spareKings(position, board);
+        }
         return switchSides ? value : -value;
+    }
+
+    /**
+     * Black's spare kings minus White's, each worth {@link Evaluators#SPARE_ROYAL}, when the variant
+     * lets a side with several kings lose all but one ({@code LAST_STANDING}); with every king held to
+     * check ({@code ALL_SAFE}) none can be captured, so there is nothing to count.
+     */
+    private static int spareKings(Board position, Bits b) {
+        if (!(position instanceof ai.board.PieceBoard p) || p.variant().royalMode() != ai.variant.Variant.RoyalMode.LAST_STANDING) {
+            return 0;
+        }
+        int spareWhite = Math.max(0, Long.bitCount(b.whiteKings) - 1);
+        int spareBlack = Math.max(0, Long.bitCount(b.blackKings) - 1);
+        return (spareBlack - spareWhite) * Evaluators.SPARE_ROYAL;
     }
 
     /**
@@ -475,8 +492,13 @@ public final class ChessEvaluate implements Evaluator {
         // king placement, early in the game
         if (b.numOfTurns < kingSafetyUntilTurn) {
             Feature[] places = {KING_CASTLED_SQUARE, KING_NEAR_CASTLED, KING_BACK_RANK, KING_SECOND_RANK, KING_EXPOSED};
-            f[places[kingPlace(b.whiteKings, WHITE_KING_SQUARES)].index()]--;
-            f[places[kingPlace(b.blackKings, BLACK_KING_SQUARES)].index()]++;
+            // each king counts where it stands (variants with several kings: every one is placed)
+            for (long k = b.whiteKings; k != 0; k &= k - 1) {
+                f[places[kingPlace(k & -k, WHITE_KING_SQUARES)].index()]--;
+            }
+            for (long k = b.blackKings; k != 0; k &= k - 1) {
+                f[places[kingPlace(k & -k, BLACK_KING_SQUARES)].index()]++;
+            }
         }
 
         // castling
@@ -585,49 +607,54 @@ public final class ChessEvaluate implements Evaluator {
         long occupied = b.whitePieces | b.blackPieces;
         for (int color = 0; color <= 1; color++) {
             boolean white = color == 1;
-            int sign = white ? -1 : 1;
-            long king = white ? b.whiteKings : b.blackKings;
-            if (king == 0) {
-                continue;
-            }
-            int sq = Long.numberOfTrailingZeros(king);
-            int row = sq >>> 3;
-            int col = sq & 7;
-            long own = white ? b.whitePawns : b.blackPawns;
-            long enemy = white ? b.blackPawns : b.whitePawns;
-            int dir = white ? -1 : 1;
-            for (int c = Math.max(0, col - 1); c <= Math.min(7, col + 1); c++) {
-                int near = row + dir;
-                int far = row + 2 * dir;
-                if (near >= 0 && near < 8 && (own & (1L << (near * 8 + c))) != 0) {
-                    f[SHIELD_NEAR.index()] += sign;
-                }
-                if (far >= 0 && far < 8 && (own & (1L << (far * 8 + c))) != 0) {
-                    f[SHIELD_FAR.index()] += sign;
-                }
-                if ((own & FILES[c]) == 0) {
-                    f[((enemy & FILES[c]) == 0 ? KING_OPEN_FILE : KING_HALF_OPEN_FILE).index()] += sign;
-                }
-            }
-            long zone = Attacks.KING[sq] | king;
-            for (long p = white ? b.blackKnights : b.whiteKnights; p != 0; p &= p - 1) {
-                if ((Attacks.KNIGHT[Long.numberOfTrailingZeros(p)] & zone) != 0) f[KNIGHT_ATTACKER.index()] += sign;
-            }
-            for (long p = white ? b.blackBishops : b.whiteBishops; p != 0; p &= p - 1) {
-                if ((Attacks.bishop(Long.numberOfTrailingZeros(p), occupied) & zone) != 0) f[BISHOP_ATTACKER.index()] += sign;
-            }
-            for (long p = white ? b.blackRooks : b.whiteRooks; p != 0; p &= p - 1) {
-                if ((Attacks.rook(Long.numberOfTrailingZeros(p), occupied) & zone) != 0) f[ROOK_ATTACKER.index()] += sign;
-            }
-            for (long p = white ? b.blackQueens : b.whiteQueens; p != 0; p &= p - 1) {
-                int q = Long.numberOfTrailingZeros(p);
-                if (((Attacks.rook(q, occupied) | Attacks.bishop(q, occupied)) & zone) != 0) f[QUEEN_ATTACKER.index()] += sign;
+            // every king is measured on its own (variants with several kings: each needs its shelter)
+            for (long kings = white ? b.whiteKings : b.blackKings; kings != 0; kings &= kings - 1) {
+                kingSafety(b, f, color, Long.numberOfTrailingZeros(kings), occupied);
             }
         }
         // an attacker near the enemy king is a bonus for the attacker: the counts above are per
         // defending side, so flip them (Black's attackers near White's king count for Black)
         for (Feature a : new Feature[]{KNIGHT_ATTACKER, BISHOP_ATTACKER, ROOK_ATTACKER, QUEEN_ATTACKER}) {
             f[a.index()] = -f[a.index()];
+        }
+    }
+
+    /** The shelter and attackers of {@code color}'s king on {@code sq}, added to {@code f} (before the attacker flip). */
+    private static void kingSafety(Bits b, int[] f, int color, int sq, long occupied) {
+        boolean white = color == 1;
+        int sign = white ? -1 : 1;
+        long king = 1L << sq;
+        int row = sq >>> 3;
+        int col = sq & 7;
+        long own = white ? b.whitePawns : b.blackPawns;
+        long enemy = white ? b.blackPawns : b.whitePawns;
+        int dir = white ? -1 : 1;
+        for (int c = Math.max(0, col - 1); c <= Math.min(7, col + 1); c++) {
+            int near = row + dir;
+            int far = row + 2 * dir;
+            if (near >= 0 && near < 8 && (own & (1L << (near * 8 + c))) != 0) {
+                f[SHIELD_NEAR.index()] += sign;
+            }
+            if (far >= 0 && far < 8 && (own & (1L << (far * 8 + c))) != 0) {
+                f[SHIELD_FAR.index()] += sign;
+            }
+            if ((own & FILES[c]) == 0) {
+                f[((enemy & FILES[c]) == 0 ? KING_OPEN_FILE : KING_HALF_OPEN_FILE).index()] += sign;
+            }
+        }
+        long zone = Attacks.KING[sq] | king;
+        for (long p = white ? b.blackKnights : b.whiteKnights; p != 0; p &= p - 1) {
+            if ((Attacks.KNIGHT[Long.numberOfTrailingZeros(p)] & zone) != 0) f[KNIGHT_ATTACKER.index()] += sign;
+        }
+        for (long p = white ? b.blackBishops : b.whiteBishops; p != 0; p &= p - 1) {
+            if ((Attacks.bishop(Long.numberOfTrailingZeros(p), occupied) & zone) != 0) f[BISHOP_ATTACKER.index()] += sign;
+        }
+        for (long p = white ? b.blackRooks : b.whiteRooks; p != 0; p &= p - 1) {
+            if ((Attacks.rook(Long.numberOfTrailingZeros(p), occupied) & zone) != 0) f[ROOK_ATTACKER.index()] += sign;
+        }
+        for (long p = white ? b.blackQueens : b.whiteQueens; p != 0; p &= p - 1) {
+            int q = Long.numberOfTrailingZeros(p);
+            if (((Attacks.rook(q, occupied) | Attacks.bishop(q, occupied)) & zone) != 0) f[QUEEN_ATTACKER.index()] += sign;
         }
     }
 
