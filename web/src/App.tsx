@@ -12,7 +12,7 @@ import { CHAMPION_LEVELS, maxLevelFor, NewGameDialog, type NewGameChoice } from 
 import { SettingsDialog } from './SettingsDialog';
 import { loadSettings, saveSettings, type Settings } from './settings';
 import { artUrls, codeOf, PieceArt, PieceSvg } from './pieces';
-import { captured, checksGiven, colorName, goalRule, pieceSetBase, engineText, LEVELS, MAX_LEVEL, isOver, checkedSquares, materialOf, movesByFrom, other, resultText, timeControlOf, timeKey, variantOf, VARIANTS, withPremoves } from './chess';
+import { captured, checksGiven, colorName, goalsRule, pieceSetBase, engineText, LEVELS, MAX_LEVEL, isOver, checkedSquares, materialOf, movesByFrom, other, resultText, timeControlOf, timeKey, variantOf, VARIANTS, withPremoves } from './chess';
 import { useGame, type Champion, type Color, type GameEvent, type GameState, type Weights } from './protocol';
 import { play } from './sounds';
 import { inventedReach } from './reach';
@@ -412,7 +412,7 @@ export function App() {
 
           {variant !== 'chess' && (
             <p className="variant-tag" data-testid="variant-tag">
-              <strong>{state.variant?.name ?? variant}</strong> · {VARIANTS.find((v) => v.id === variant)?.rule ?? goalRule(state.variant?.goal ?? 'CHECKMATE', state.variant?.checksToWin)}
+              <strong>{state.variant?.name ?? variant}</strong> · {VARIANTS.find((v) => v.id === variant)?.rule ?? goalsRule(state.variant?.goals, Object.fromEntries((state.variant?.pieces ?? []).map((p) => [p.letter, p.name])))}
             </p>
           )}
 
@@ -444,7 +444,7 @@ export function App() {
           {over && (
             <section className={'result' + (party > 0 ? ' won' : '')} aria-label="Result" data-testid="result">
               <div className="score">{state.result === '1/2-1/2' ? '½ – ½' : state.result!.replace('-', ' – ')}</div>
-              <div className="reason">{resultText(state.status, state.turn, state.end)}</div>
+              <div className="reason">{resultText(state.status, state.turn, state.end, state.variant)}</div>
               <div className="row">
                 <button type="button" className="btn primary" onClick={() => startNewGame({ mode: config.mode, color: config.humanColor, level: config.level, blackLevel: config.blackLevel, autoFlip, champion: state.opponent, weights, time: timeKey(state.clock), variant })}>Rematch</button>
                 {nextLevel !== null && (
@@ -567,7 +567,7 @@ function PlayerCard({ state, color, fen, live, receivedAt, place }: { state: Gam
   const base = pieceSetBase(state);
   const taken = captured(fen, base)[color];
   // in antichess (or any lose-everything game) being ahead in material is no lead at all
-  const lead = state.variant?.goal === 'LOSE_EVERYTHING' ? 0 : Math.round(materialOf(fen, base?.values) * (color === 'white' ? 1 : -1));
+  const lead = state.variant?.goals?.some((g) => g.kind === 'LOSE_EVERYTHING') ? 0 : Math.round(materialOf(fen, base?.values) * (color === 'white' ? 1 : -1));
   const toMove = live && !isOver(state) && state.turn === color;
   return (
     <div className={'player ' + place + (toMove ? ' to-move' : '')} data-testid={`player-${color}`}>

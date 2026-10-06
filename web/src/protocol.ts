@@ -1,4 +1,5 @@
 import type { Atom } from './reach';
+import type { GoalDef } from './chess';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 // The JSON the server sends (web.GameHub / web.GameStateJson). The server is the only rules
@@ -20,8 +21,16 @@ export type Status =
   | 'CHECKS_GIVEN'
   /** Antichess: the side to move has no pieces left, and wins. */
   | 'NO_PIECES_LEFT'
-  /** Antichess: the side to move has no move, and wins. */
-  | 'NO_MOVES_LEFT';
+  /** Antichess, or stalemate counted as a win: the side to move has no move, and wins. */
+  | 'NO_MOVES_LEFT'
+  /** A capture-all goal: the side to move has none of those pieces left (it lost). */
+  | 'ALL_CAPTURED'
+  /** The bare-royal goal: the side to move has only royal pieces left (it lost). */
+  | 'BARE_ROYAL'
+  /** Royal mode last standing: the side to move has no royal piece left (it lost). */
+  | 'ROYALS_LOST'
+  /** Stalemate counted as a loss: the side to move has no legal move (it lost). */
+  | 'STALEMATE_LOSS';
 
 /** The games the server plays (ai.variant.Variants). */
 /** A built-in variant ('chess', 'antichess', 'king-of-the-hill', 'three-check') or one the player made. */
@@ -31,9 +40,15 @@ export type VariantId = string;
 export interface VariantInfo {
   id: VariantId;
   name: string;
-  goal: 'CHECKMATE' | 'LOSE_EVERYTHING' | 'KING_OF_THE_HILL' | 'CHECKS';
-  /** Three-check: how many checks win. */
+  /** The ways to win, the first met decides (absent from an older server). */
+  goals?: GoalDef[];
+  /** With a checks goal: how many checks win. */
   checksToWin?: number;
+  royalMode?: 'ALL_SAFE' | 'LAST_STANDING';
+  stalemate?: 'DRAW' | 'WIN' | 'LOSS';
+  repetition?: boolean;
+  /** The N of the N-move rule; 0 for none. */
+  moveLimit?: number;
   /** A variant the player made (not built in). */
   custom?: boolean;
   /** Its pieces; value in centipawns (absent from an older server). */

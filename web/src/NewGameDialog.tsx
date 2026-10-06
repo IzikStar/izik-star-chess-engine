@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { eloText, engineText, LEVELS, MAX_LEVEL, MIN_LEVEL, STOCKFISH_FROM_LEVEL, TIME_CONTROLS, TOP_BUILT_IN_LEVEL, VARIANTS, goalRule } from './chess';
+import { eloText, engineText, LEVELS, MAX_LEVEL, MIN_LEVEL, STOCKFISH_FROM_LEVEL, TIME_CONTROLS, TOP_BUILT_IN_LEVEL, VARIANTS, goalsRule, type GoalDef } from './chess';
 import type { Champion, Color, Mode, StockfishInfo, VariantId, Weights } from './protocol';
 import { StockfishInstall } from './StockfishInstall';
 
@@ -25,8 +25,7 @@ interface VariantRow {
   id: string;
   name: string;
   builtIn: boolean;
-  goal: string;
-  checksToWin?: number;
+  goals?: GoalDef[];
 }
 
 /** Stockfish plays chess only: in a variant the ladder stops at the built-in engine's top level. */
@@ -165,7 +164,7 @@ export function NewGameDialog({ initial, stockfish, onStart, onCancel }: {
           </div>
         )}
         <p className="muted field-note" data-testid="variant-rule">
-          {builtIn ? builtIn.rule : madeVariant ? goalRule(madeVariant.goal, madeVariant.checksToWin) : ''}
+          {builtIn ? builtIn.rule : madeVariant ? goalsRule(madeVariant.goals) : ''}
           {choice.variant !== 'chess' && choice.mode !== 'friend' && ` Stockfish plays chess only, so the strongest opponent here is Level ${TOP_BUILT_IN_LEVEL}.`}
         </p>
         <Segmented<Mode>

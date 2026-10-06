@@ -1,11 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { artUrls, PieceArt, PieceSvg } from '../pieces';
-import { placementOf, reach } from '../reach';
+import { placementOf, reach, type Reach } from '../reach';
 import { BoardEditor } from './BoardEditor';
 import { HealthPage } from './Health';
 import { blankPiece, PieceEditor, type PictureProps } from './PieceEditor';
-import { GOALS, goalName, TABS, variantsHash, type Goal, type PieceDef, type Route, type Tab, type VariantDef } from './model';
-import { castlingText, DRAW_TEXT, forcedCaptureText, goalText, royalText } from './rules';
+import { CHESS_CASTLING, TABS, variantsHash, type GoalDef, type PieceDef, type Route, type RulesCheck, type Tab, type VariantDef } from './model';
+import {
+  CASTLING_SIDES, castlingMoves, castlingText, fairyText, forcedCaptureText, GOAL_KINDS, goalProblem, GOALS_TEXT, goalText,
+  moveLimitText, newGoal, repetitionText, ROYAL_MODES, royalText, STALEMATES, stalemateText,
+} from './rules';
 
 // One variant over several screens (#variants/<id>/...): Overview (name, family, notes, the rules
 // explained), Board (the start position), Pieces (the list, then one piece), Health (self-play).
@@ -43,6 +46,29 @@ export interface OpenVariant {
   dirty: boolean;
 }
 
+/**
+ * What the server makes of the variant as edited (POST /api/variant-rules): whether it can be played,
+ * Fairy-Stockfish, and its castlings. Asked again a moment after each change.
+ */
+function useRulesCheck(v: VariantDef): RulesCheck | null {
+  const [check, setCheck] = useState<RulesCheck | null>(null);
+  const body = useMemo(() => {
+    const { builtIn: _b, art: _a, family: _f, notes: _n, ...rest } = v;
+    return JSON.stringify(rest);
+  }, [v]);
+  useEffect(() => {
+    let live = true;
+    const t = setTimeout(() => {
+      fetch('/api/variant-rules', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
+        .then((r) => (r.ok ? r.json() : r.json().then((e) => ({ error: e.error ?? 'not a variant', fairy: false, fairyReason: null, castlings: [] }))))
+        .then((c: RulesCheck) => { if (live) setCheck(c); })
+        .catch(() => {});
+    }, 250);
+    return () => { live = false; clearTimeout(t); };
+  }, [body]);
+  return check;
+}
+
 export function VariantPage({ open, route, families, error, saved, onEdit, onPatch, onSave, onCopy, onDelete, onPlay, onRoute }: {
   open: OpenVariant;
   route: Route;
@@ -69,6 +95,7 @@ export function VariantPage({ open, route, families, error, saved, onEdit, onPat
 
   const [artError, setArtError] = useState<string | null>(null);
   const artMap = useMemo(() => artUrls(v.id, v.art ?? {}), [v.id, v.art]);
+  const check = useRulesCheck(v);
 
   return (
     <PieceArt.Provider value={artMap}>
@@ -109,13 +136,13 @@ export function VariantPage({ open, route, families, error, saved, onEdit, onPat
           </nav>
         </section>
 
-        {route.tab === 'overview' && <Overview v={v} readOnly={readOnly} families={families} onEdit={onEdit} />}
-        {route.tab === 'board' && <BoardTab v={v} readOnly={readOnly} onEdit={onEdit} />}
+        {route.tab === 'overview' && <Overview v={v} readOnly={readOnly} families={families} check={check} onEdit={onEdit} />}
+        {route.tab === 'board' && <BoardTab v={v} readOnly={readOnly} check={check} onEdit={onEdit} />}
         {route.tab === 'pieces' && (
           <PiecesTab open={open} route={route} readOnly={readOnly} artMap={artMap} artError={artError} setArtError={setArtError}
             onEdit={onEdit} onPatch={onPatch} onRoute={onRoute} />
         )}
-        {route.tab === 'health' && <HealthPage variant={v} />}
+        {route.tab === 'health' && <HealthPage variant={v} fairy={check ? check.fairy : null} fairyReason={check?.fairyReason ?? null} />}
       </div>
     </PieceArt.Provider>
   );
@@ -130,7 +157,23 @@ function Rule({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
-function Overview({ v, readOnly, families, onEdit }: { v: VariantDef; readOnly: boolean; families: string[]; onEdit: (d: VariantDef) => void }) {
+function Overview({ v, readOnly, families, check, onEdit }: {
+  v: VariantDef; readOnly: boolean; families: string[]; check: RulesCheck | null; onEdit: (d: VariantDef) => void;
+}) {
+  const [adding, setAdding] = useState<GoalDef['kind']>('REACH_SQUARES');
+  const setGoal = (i: number, g: GoalDef) => onEdit({ ...v, goals: v.goals.map((q, j) => (j === i ? g : q)) });
+  const moveGoal = (i: number, by: number) => {
+    const goals = [...v.goals];
+    [goals[i], goals[i + by]] = [goals[i + by], goals[i]];
+    onEdit({ ...v, goals });
+  };
+  const rule = v.castlingRule ?? CHESS_CASTLING;
+  const setRule = (r: Partial<VariantDef['castlingRule']>) => onEdit({ ...v, castlingRule: { ...rule, ...r } });
+  const setRole = (letter: string, role: PieceDef['castlingRole'], on: boolean) => onEdit({
+    ...v,
+    pieces: v.pieces.map((p) => (p.letter !== letter ? p : { ...p, castlingRole: on ? role : p.castlingRole === role ? 'NONE' : p.castlingRole })),
+  });
+  const moves = castlingMoves(check);
   return (
     <>
       {!readOnly && <section className="panel">
@@ -152,34 +195,109 @@ function Overview({ v, readOnly, families, onEdit }: { v: VariantDef; readOnly: 
         </fieldset>
       </section>}
       <section className="panel" data-testid="rules">
+        <h3>How to win</h3>
+        <p className="muted small">{GOALS_TEXT}</p>
+        <fieldset disabled={readOnly} className="plain">
+          <ol className="goal-list" data-testid="goal-text" aria-label="Ways to win">
+            {v.goals.map((g, i) => (
+              <GoalRow key={i + g.kind} g={g} v={v} index={i} count={v.goals.length} readOnly={readOnly}
+                onChange={(n) => setGoal(i, n)} onMove={(by) => moveGoal(i, by)}
+                onRemove={() => onEdit({ ...v, goals: v.goals.filter((_, j) => j !== i) })} />
+            ))}
+          </ol>
+          {!v.goals.length && <p className="error">Add at least one way to win.</p>}
+          {!readOnly && (
+            <div className="goal-add">
+              <select value={adding} aria-label="Way to win to add" onChange={(e) => setAdding(e.target.value as GoalDef['kind'])}>
+                {GOAL_KINDS.map((k) => <option key={k.kind} value={k.kind}>{k.name}</option>)}
+              </select>
+              <button type="button" className="btn" onClick={() => onEdit({ ...v, goals: [...v.goals, newGoal(adding, v)] })}>Add a way to win</button>
+            </div>
+          )}
+        </fieldset>
+      </section>
+      <section className="panel" data-testid="rule-settings">
         <h3>Rules</h3>
         <fieldset disabled={readOnly} className="plain">
           <div className="form-grid">
-            <label>Goal
-              <select value={v.goal} aria-label="Goal" onChange={(e) => {
-                const goal = e.target.value as Goal;
-                onEdit({ ...v, goal, checksToWin: goal === 'CHECKS' ? v.checksToWin || 3 : 0 });
-              }}>
-                {GOALS.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+            <label>Royal pieces
+              <select value={v.royalMode} aria-label="Royal mode" onChange={(e) => onEdit({ ...v, royalMode: e.target.value as VariantDef['royalMode'] })}>
+                {ROYAL_MODES.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
             </label>
-            {v.goal === 'CHECKS' && (
-              <label>Checks to win<input type="number" min={1} max={20} value={v.checksToWin}
-                onChange={(e) => onEdit({ ...v, checksToWin: Math.max(1, Number(e.target.value)) })} /></label>
-            )}
+            <label>No legal move (stalemate) is
+              <select value={v.stalemate} aria-label="Stalemate" onChange={(e) => onEdit({ ...v, stalemate: e.target.value as VariantDef['stalemate'] })}>
+                {STALEMATES.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            </label>
+            <label>Move limit (0 = none)
+              <input type="number" min={0} max={1000} value={v.moveLimit} aria-label="Move limit"
+                onChange={(e) => onEdit({ ...v, moveLimit: Math.max(0, Math.min(1000, Math.round(Number(e.target.value) || 0))) })} />
+            </label>
+            <label className="inline"><input type="checkbox" checked={v.repetition} onChange={(e) => onEdit({ ...v, repetition: e.target.checked })} /> Threefold repetition draws</label>
             <label className="inline"><input type="checkbox" checked={v.forcedCapture} onChange={(e) => onEdit({ ...v, forcedCapture: e.target.checked })} /> Captures are forced</label>
             <label className="inline"><input type="checkbox" checked={v.castling} onChange={(e) => onEdit({ ...v, castling: e.target.checked })} /> Castling</label>
           </div>
+          {v.castling && (
+            <div className="castling-settings" data-testid="castling-settings">
+              <div className="form-grid">
+                <label>The castling piece moves
+                  <select value={rule.steps} aria-label="Castling steps" onChange={(e) => setRule({ steps: Number(e.target.value) })}>
+                    <option value={0}>The chess way (to the g- or c-file)</option>
+                    {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} square{n === 1 ? '' : 's'}</option>)}
+                  </select>
+                </label>
+                <label>Its partner lands
+                  <select value={rule.partner} aria-label="Partner lands" onChange={(e) => setRule({ partner: e.target.value as 'INSIDE' | 'OUTSIDE' })}>
+                    <option value="INSIDE">Next to it, on the inside</option>
+                    <option value="OUTSIDE">Next to it, on the outside</option>
+                  </select>
+                </label>
+                <label>Sides
+                  <select value={rule.sides} aria-label="Castling sides" onChange={(e) => setRule({ sides: e.target.value as VariantDef['castlingRule']['sides'] })}>
+                    {CASTLING_SIDES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </label>
+                <label className="inline"><input type="checkbox" checked={rule.safePassage} aria-label="No castling through check"
+                  onChange={(e) => setRule({ safePassage: e.target.checked })} /> Not out of, through or into check</label>
+              </div>
+              <div className="role-pick">
+                <span className="muted small">Castles (King role):</span>
+                {v.pieces.map((p) => (
+                  <label key={p.letter} className="chip-check"><input type="checkbox" checked={p.castlingRole === 'KING'}
+                    aria-label={`${p.name} castles`} onChange={(e) => setRole(p.letter, 'KING', e.target.checked)} /> {p.name}</label>
+                ))}
+              </div>
+              <div className="role-pick">
+                <span className="muted small">With a partner (Rook role):</span>
+                {v.pieces.map((p) => (
+                  <label key={p.letter} className="chip-check"><input type="checkbox" checked={p.castlingRole === 'ROOK'}
+                    aria-label={`${p.name} is a castling partner`} onChange={(e) => setRole(p.letter, 'ROOK', e.target.checked)} /> {p.name}</label>
+                ))}
+              </div>
+            </div>
+          )}
         </fieldset>
+        {check?.error && <p className="error" data-testid="rules-error">This variant cannot be played yet: {check.error}</p>}
         <div className="rules-explained" data-testid="rules-explained">
-          <Rule title={`Goal: ${goalName(v.goal, v.checksToWin)}`}>
-            <p data-testid="goal-text">{goalText(v)}</p>
-            <p className="muted">{DRAW_TEXT}</p>
+          <Rule title={`Royal pieces: ${ROYAL_MODES.find((m) => m.id === v.royalMode)?.name}`}>
+            <p data-testid="royal-mode-text">{ROYAL_MODES.find((m) => m.id === v.royalMode)?.text}</p>
+            <p data-testid="royal-text">{royalText(v)}</p>
           </Rule>
-          <Rule title="Royal pieces and check"><p data-testid="royal-text">{royalText(v)}</p></Rule>
+          <Rule title={`Stalemate: ${STALEMATES.find((m) => m.id === v.stalemate)?.name.toLowerCase()}`}>
+            <p data-testid="stalemate-text">{stalemateText(v)}</p>
+          </Rule>
+          <Rule title={`Repetition: ${v.repetition ? 'draws' : 'off'}`}><p data-testid="repetition-text">{repetitionText(v.repetition)}</p></Rule>
+          <Rule title={`Move limit: ${v.moveLimit > 0 ? v.moveLimit + ' moves' : 'none'}`}><p data-testid="move-limit-text">{moveLimitText(v.moveLimit)}</p></Rule>
           <Rule title={`Forced capture: ${v.forcedCapture ? 'on' : 'off'}`}><p data-testid="capture-text">{forcedCaptureText(v.forcedCapture)}</p></Rule>
           <Rule title={`Castling: ${v.castling ? 'on' : 'off'}`}>
             <div data-testid="castling-text">{castlingText(v).map((t) => <p key={t}>{t}</p>)}</div>
+            {v.castling && moves.length > 0 && (
+              <ul className="castling-moves" data-testid="castling-moves">{moves.map((m) => <li key={m}>{m}</li>)}</ul>
+            )}
+          </Rule>
+          <Rule title={check ? (check.fairy ? 'Fairy-Stockfish: plays it' : 'Our engine only') : 'Fairy-Stockfish'}>
+            <p data-testid="fairy-text">{fairyText(check)}</p>
           </Rule>
         </div>
       </section>
@@ -187,21 +305,89 @@ function Overview({ v, readOnly, families, onEdit }: { v: VariantDef; readOnly: 
   );
 }
 
-function BoardTab({ v, readOnly, onEdit }: { v: VariantDef; readOnly: boolean; onEdit: (d: VariantDef) => void }) {
+function GoalRow({ g, v, index, count, readOnly, onChange, onMove, onRemove }: {
+  g: GoalDef; v: VariantDef; index: number; count: number; readOnly: boolean;
+  onChange: (g: GoalDef) => void; onMove: (by: number) => void; onRemove: () => void;
+}) {
+  // the squares as typed, so a space can be typed before the next square
+  const [squares, setSquares] = useState((g.squares ?? []).join(' '));
+  const problem = goalProblem(g, v);
+  const pick = (letter: string, on: boolean) => {
+    const set = new Set(g.pieces ?? '');
+    if (on) set.add(letter);
+    else set.delete(letter);
+    onChange({ ...g, pieces: v.pieces.map((p) => p.letter).filter((l) => set.has(l)).join('') });
+  };
+  const name = GOAL_KINDS.find((k) => k.kind === g.kind)?.name ?? g.kind;
+  return (
+    <li className="goal" data-testid="goal" data-kind={g.kind}>
+      <div className="goal-head">
+        <strong>{name}</strong>
+        {g.kind === 'CHECKS' && (
+          <label className="goal-param">Checks to win
+            <input type="number" min={1} max={99} value={g.count ?? 3} aria-label="Checks to win"
+              onChange={(e) => onChange({ ...g, count: Math.max(1, Math.min(99, Math.round(Number(e.target.value) || 1))) })} />
+          </label>
+        )}
+        {g.kind === 'REACH_SQUARES' && (
+          <label className="goal-param">Squares
+            <input value={squares} aria-label="Goal squares" spellCheck={false} placeholder="d4 e4 d5 e5"
+              onChange={(e) => {
+                setSquares(e.target.value);
+                onChange({ ...g, squares: e.target.value.toLowerCase().split(/[\s,]+/).filter(Boolean) });
+              }} />
+          </label>
+        )}
+        {!readOnly && (
+          <span className="goal-tools">
+            <button type="button" className="btn ghost small" aria-label="Move up" disabled={index === 0} onClick={() => onMove(-1)}>↑</button>
+            <button type="button" className="btn ghost small" aria-label="Move down" disabled={index === count - 1} onClick={() => onMove(1)}>↓</button>
+            <button type="button" className="btn ghost small" aria-label={`Remove ${name}`} onClick={onRemove}>✕</button>
+          </span>
+        )}
+      </div>
+      {(g.kind === 'REACH_SQUARES' || g.kind === 'CAPTURE_ALL_OF') && (
+        <div className="role-pick">
+          <span className="muted small">{g.kind === 'REACH_SQUARES' ? (g.pieces ? 'Pieces that count:' : 'Pieces that count: the royal pieces, or pick') : 'Capture all of:'}</span>
+          {v.pieces.map((p) => (
+            <label key={p.letter} className="chip-check"><input type="checkbox" checked={(g.pieces ?? '').includes(p.letter)}
+              aria-label={`${name}: ${p.name}`} onChange={(e) => pick(p.letter, e.target.checked)} /> {p.name}</label>
+          ))}
+        </div>
+      )}
+      <p className="goal-sentence" data-testid="goal-sentence">{goalText(g, v)}</p>
+      {problem && <p className="error small">{problem}</p>}
+    </li>
+  );
+}
+
+function BoardTab({ v, readOnly, check, onEdit }: { v: VariantDef; readOnly: boolean; check: RulesCheck | null; onEdit: (d: VariantDef) => void }) {
   const board = useMemo(() => placementOf(v.start), [v.start]);
-  /** The start-position square under the mouse: its piece's moves are shown. */
+  /** The start-position square under the mouse: its piece's moves are shown, and its castlings. */
   const [hovered, setHovered] = useState<string | null>(null);
+  const castlings = useMemo(() => (v.castling ? check?.castlings ?? [] : []), [v.castling, check]);
   const marks = useMemo(() => {
     const c = hovered ? board[hovered] : undefined;
     const p = c && v.pieces.find((q) => q.letter === c.toUpperCase());
-    return p && hovered ? reach(p.atoms, hovered, c === c.toUpperCase(), false, board) : undefined;
-  }, [hovered, board, v.pieces]);
+    const out: Map<string, Reach | 'castle' | 'partner'> | undefined =
+      p && hovered ? new Map(reach(p.atoms, hovered, c === c.toUpperCase(), false, board)) : undefined;
+    for (const k of castlings) {
+      if (out && k.king === hovered) {
+        out.set(k.kingTo, 'castle');
+        if (k.rookTo !== k.kingTo) out.set(k.rookTo, 'partner');
+      }
+    }
+    return out;
+  }, [hovered, board, v.pieces, castlings]);
   return (
     <section className="panel">
       <h3>Start position</h3>
       <p className="muted small">{readOnly ? 'Point at a piece to see where it goes.' : 'Click a square to put a piece there, drag pieces about, right-click to take one away. Point at a piece to see where it goes.'}</p>
       <BoardEditor board={board} pieces={v.pieces} label="Start position" testId="start-board" marks={marks} onHover={setHovered}
         onChange={readOnly ? undefined : (b) => onEdit({ ...v, start: withPlacement(v.start, b) })} />
+      {castlings.length > 0 && (
+        <p className="muted small" data-testid="board-castlings">Castling (point at the castling piece; a ring marks where it lands, a dashed ring its partner): {castlingMoves(check).join('; ')}.</p>
+      )}
       <label className="fen">FEN
         <input value={v.start} disabled={readOnly} spellCheck={false} aria-label="Start FEN" onChange={(e) => onEdit({ ...v, start: e.target.value })} />
       </label>

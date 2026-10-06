@@ -83,3 +83,18 @@
   .variant-cards { grid-template-columns: minmax(0, 1fr); }
   .variant-page .filters { width: 100%; }
 }
+
+/* the ways to win, in order, and the castling settings */
+.goal-list { list-style: decimal; margin: 8px 0 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; }
+.goal { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--surface-2); }
+.goal-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.goal-param { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.goal-param input[type='number'] { width: 70px; }
+.goal-param input:not([type]) { width: 150px; }
+.goal-tools { margin-left: auto; display: flex; gap: 4px; }
+.goal-sentence { margin: 6px 0 0; }
+.goal-add { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.role-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 8px; }
+.chip-check { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
+.castling-settings { margin-top: 10px; padding-top: 6px; border-top: 1px dashed var(--line); }
+.castling-moves { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }
