@@ -57,3 +57,10 @@ test('on a phone the opponent sits above the board and you below it, the top bar
   expect(bar!.width).toBeLessThanOrEqual(390);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
+
+test('the variant designer puts the list beside the open variant on a wide screen', async ({ page }) => {
+  await page.goto('/#variants');
+  const list = await page.getByTestId('variant-list').boundingBox();
+  const editor = await page.getByRole('button', { name: 'Make a copy' }).boundingBox();
+  expect(editor!.x).toBeGreaterThan(list!.x + list!.width);
+});

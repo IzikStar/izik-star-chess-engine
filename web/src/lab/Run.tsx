@@ -26,7 +26,7 @@ export function Run({ file, generation, tab, job, onPlay }: {
   useEffect(() => { if (!isRunning) refresh(); }, [isRunning, justEnded]);
   const [message, setMessage] = useState<string | null>(null);
   if (error) return <section className="panel"><p className="muted">Could not load the run: {error}</p></section>;
-  if (!run) return <section className="panel"><p className="muted">Loading the run…</p></section>;
+  if (!run) return <section className="panel"><p className="muted loading-line"><span className="spinner" aria-hidden="true" />Loading the run…</p></section>;
 
   const last = run.generations.at(-1) ?? null;
   const finished = run.generations.length >= run.settings.generations;

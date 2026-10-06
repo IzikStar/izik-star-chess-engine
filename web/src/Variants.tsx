@@ -575,7 +575,7 @@ function Editor({ start, taken, onSaved, onDeleted, onCopy, onPlay }: {
           <h2>{v.name}</h2>
           <div className="filters">
             {!fresh && (
-              <button type="button" className="btn" disabled={dirty} title={dirty ? 'Save it first' : undefined}
+              <button type="button" className="btn primary" disabled={dirty} title={dirty ? 'Save it first' : undefined}
                 onClick={() => onPlay(v.id)}>Play it</button>
             )}
             <button type="button" className="btn" onClick={() => onCopy(v)}>Make a copy</button>

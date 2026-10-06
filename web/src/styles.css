@@ -347,7 +347,9 @@ textarea.pgn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1
 .dialog .field-note { margin: 8px 0 0; }
 
 /* the variant designer (Variants.tsx) */
-.variants { grid-template-columns: 240px minmax(0, 1fr); }
+/* the list on the left, the open variant on the right, as wide as the Lab */
+.variants { flex: 1; display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 16px; align-items: start; padding: 16px 20px 32px; max-width: 1400px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+.variants > aside.panel { position: sticky; top: 12px; }
 .variant-list { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .variant-list .btn { width: 100%; text-align: left; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
 .variant-list .btn.on { background: var(--accent-soft); color: var(--fg); }
@@ -403,7 +405,8 @@ fieldset.plain { border: 0; padding: 0; margin: 0; min-width: 0; }
 .grid-sq.first { background-image: repeating-linear-gradient(45deg, transparent 0 5px, rgba(255, 255, 255, 0.3) 5px 8px); }
 .preview { display: flex; flex-direction: column; gap: 6px; width: min(320px, 100%); }
 @media (max-width: 760px) {
-  .variants { grid-template-columns: minmax(0, 1fr); }
+  .variants { grid-template-columns: minmax(0, 1fr); padding: 12px; }
+  .variants > aside.panel { position: static; }
 }
 .designer > fieldset.plain { width: min(360px, 100%); }
 .move-grid-wrap { width: 100%; }
@@ -510,3 +513,8 @@ label.btn.disabled { opacity: 0.5; cursor: default; pointer-events: none; }
   .run-cards { grid-template-columns: 1fr; }
   .lab-nav .job-pill { margin-left: 0; width: 100%; }
 }
+
+/* loading lines show they are busy */
+.loading-line { display: flex; align-items: center; gap: 10px; }
+.empty-cta { margin-top: 10px; }
+.variant-editor .filters { display: flex; gap: 8px; flex-wrap: wrap; }
