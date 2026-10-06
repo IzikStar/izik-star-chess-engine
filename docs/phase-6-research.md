@@ -449,4 +449,6 @@ control", and start the first experiment, evolution from zero on antichess (deci
 "Antichess from zero 1": `FromZero`, population 20, survivors 4, immigrants 2, material and
 mobility from zero, steps 150→10 cp, depth 4 with 10→40% at depth 5, 2 random openings (4 plies)
 per pairing, 80 generations, champion against the all-zero engine every 5 generations over 25
-openings. Write-up in `docs/experiments/antichess-zero-1.md` when it is done.
+openings. Results: [experiments/antichess-zero-1.md](experiments/antichess-zero-1.md) (every piece
+became a burden; +131 Elo from generation 0 to 79, all of it by generation 30-40) and the
+Fairy-Stockfish measurement [experiments/antichess-zero-1-yardsticks.md](experiments/antichess-zero-1-yardsticks.md).

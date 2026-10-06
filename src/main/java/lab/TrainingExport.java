@@ -10,7 +10,8 @@ import java.util.List;
 
 /**
  * Writes a run's games as training data for fitting the weights directly (docs/phase-5-research.md
- * §8.3): one line per position, {@code fen,result}, the result from White's side (1, 0.5 or 0).
+ * §8.3) or training a network (docs/phase-7-research.md): one line per position,
+ * {@code fen,result}, the result from White's side (1, 0.5 or 0), in any variant.
  * The opening's moves and positions in check are left out, since neither says much about how
  * good a quiet position is.
  */
@@ -21,8 +22,16 @@ public final class TrainingExport {
 
     private TrainingExport() {}
 
-    /** Writes every position of {@code games}; returns how many lines it wrote. */
+    /** Writes every position of {@code games} of chess; returns how many lines it wrote. */
     public static int write(List<GameRecord> games, Writer out) throws IOException {
+        return write(ai.variant.Variants.CHESS, games, out);
+    }
+
+    /**
+     * Writes every position of {@code games}, replayed by the rules of {@code variant} (the FEN is
+     * that game's: an antichess position is written as antichess sees it); returns the lines written.
+     */
+    public static int write(ai.variant.Variant variant, List<GameRecord> games, Writer out) throws IOException {
         int lines = 0;
         out.write("fen,result\n");
         for (GameRecord record : games) {
@@ -31,7 +40,7 @@ public final class TrainingExport {
                 case BLACK_WINS -> "0";
                 case DRAW -> "0.5";
             };
-            Game game = new Game();
+            Game game = new Game(variant);
             for (int ply = 0; ply < record.moves().size(); ply++) {
                 game.play(record.moves().get(ply));
                 GameStatus status = game.status();
