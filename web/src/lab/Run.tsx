@@ -165,7 +165,12 @@ function EloChart({ points, last }: { points: { number: number; score: Score }[]
   const bottom = Math.min(-100, ...points.map((p) => p.score.eloLow));
   const x = (n: number) => L + ((W - L - R) * n) / Math.max(1, last);
   const y = (e: number) => T + ((H - T - B) * (top - e)) / (top - bottom);
-  const ticks = [bottom, bottom / 2, 0, top / 2, top].map(Math.round);
+  // round steps (50, 100, 200, 250, 500 ...) from the bottom to the top, so labels never crowd
+  const raw = (top - bottom) / 5;
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].map((f) => f * mag).find((s) => s >= raw)!;
+  const ticks: number[] = [];
+  for (let t = Math.ceil(bottom / step) * step; t <= top; t += step) ticks.push(t);
   const every = Math.ceil((last + 1) / 12);
   return (
     <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Champion Elo against the yardstick by generation">
