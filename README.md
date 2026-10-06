@@ -342,7 +342,8 @@ The same runs from the command line (the Lab's *Settings* screen prints the comm
 java -cp target/izikstar-chess-3.1.0.jar lab.Cli run runs/anti.db --algorithm evolution.FromZero --variant antichess \
      --generations 30 --depth 3 --options population=16,start=zero,evolve=material+mobility --yardsticks zero
 java -cp target/izikstar-chess-3.1.0.jar lab.Cli resume runs/anti.db   # after Ctrl+C or a stop from the Lab
-java -cp target/izikstar-chess-3.1.0.jar lab.Cli export runs/anti.db positions.csv
+java -cp target/izikstar-chess-3.1.0.jar lab.Cli export runs/anti.db positions.csv   # fen,result of every game, by its own rules
+java -cp target/izikstar-chess-3.1.0.jar lab.Cli selfplay anti.csv --variant antichess --player fsf:5000 --games 1000
 java -cp target/izikstar-chess-3.1.0.jar lab.Cli champion runs/anti.db 29 champion.json
 java -cp target/izikstar-chess-3.1.0.jar arena.Cli match champion.json fsf:20000 --variant antichess --depth 4
 ```
@@ -441,7 +442,9 @@ here. Without it, those yardsticks are refused with a message and everything els
   Lab that runs experiments on any game and plays their champions; pieces as data with a
   designer for new pieces and variants.
 - **Next:** a small neural network that reads the board (Python training on CPU, Java inference),
-  trained on one game's self-play; then wider variants (fairy pieces, other boards).
+  trained on one game's self-play; then wider variants (fairy pieces, other boards). The options
+  and the owner's open decisions are in [docs/phase-7-research.md](docs/phase-7-research.md); the
+  training data (`lab.Cli export`, `lab.Cli selfplay --variant`) and the yardsticks are ready.
 - **Later:** the online opening book.
 - **Longer term:** split the headless `rules`/engine core into a backend service behind the
   web front end that Phase 4c started.

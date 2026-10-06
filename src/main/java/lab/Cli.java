@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * java -cp target/izikstar-chess-3.1.0.jar lab.Cli export runs/first.db positions.csv
  * java -cp target/izikstar-chess-3.1.0.jar lab.Cli champion runs/first.db 19 champion.json
  * java -cp target/izikstar-chess-3.1.0.jar lab.Cli selfplay positions.csv [--games N --nodes N --threads N --seed N]
+ * java -cp target/izikstar-chess-3.1.0.jar lab.Cli selfplay anti.csv --variant antichess [--player fsf:5000 --depth N --opening-plies N]
  * java -cp target/izikstar-chess-3.1.0.jar lab.Cli tune positions.csv tuned.json [--from classic --iterations N]
  * java -cp target/izikstar-chess-3.1.0.jar lab.Cli pgn runs/first.db games.pgn [--generation N --member M]
  * java -cp target/izikstar-chess-3.1.0.jar lab.Cli keep runs/first.db GENERATION MEMBER NAME [--note TEXT]
@@ -210,15 +211,34 @@ public final class Cli {
 
     private static void export(Path file, Path out) throws IOException {
         try (RunStore store = RunStore.open(file); Writer w = Files.newBufferedWriter(out)) {
-            int lines = TrainingExport.write(store.allGames(), w);
+            ai.variant.Variant variant = store.run().map(r -> r.settings().variant()).orElse(ai.variant.Variants.CHESS);
+            int lines = TrainingExport.write(variant, store.allGames(), w);
             System.out.println(lines + " positions written to " + out);
         }
     }
 
-    /** Stockfish against itself: quiet positions with results, for {@code tune}. */
+    /**
+     * Stockfish against itself: quiet positions with results, for {@code tune}. With
+     * {@code --variant}/{@code --variant-file} or {@code --player}: that player against itself in
+     * that game, from random openings ({@link SelfPlayData}).
+     */
     private static void selfPlay(Path out, Map<String, String> o) throws IOException {
         int games = integer(o, "games", 4000);
         long start = System.nanoTime();
+        if (o.containsKey("variant") || o.containsKey("variant-file") || o.containsKey("player")) {
+            ai.variant.Variant variant = variantJson(o) != null ? ai.variant.VariantJson.read(variantJson(o))
+                    : ai.variant.Variants.byId(o.getOrDefault("variant", "chess"))
+                    .orElseThrow(() -> new IllegalArgumentException("no built-in variant " + o.get("variant")));
+            String player = o.getOrDefault("player", "fsf:" + integer(o, "nodes", 5000));
+            try (Writer w = Files.newBufferedWriter(out)) {
+                int lines = SelfPlayData.play(variant, player, integer(o, "depth", 3), games,
+                        integer(o, "opening-plies", 4), integer(o, "threads", RunSettings.defaults().threads()),
+                        Long.parseLong(o.getOrDefault("seed", "1")), w, System.out::println);
+                System.out.printf("%d positions of %s from %d games of %s written to %s in %.0f s%n", lines,
+                        variant.name(), games, player, out, (System.nanoTime() - start) / 1e9);
+            }
+            return;
+        }
         try (Writer w = Files.newBufferedWriter(out)) {
             int lines = Texel.selfPlay(games, integer(o, "nodes", 5000), integer(o, "threads",
                             RunSettings.defaults().threads()), Long.parseLong(o.getOrDefault("seed", "1")), w,

@@ -20,7 +20,7 @@ Dependencies point down only. `architecture.LayeringTest` fails the build if `ru
 | `ai`, `ai.eval` | `Minimax` search with `TranspositionTable`, `ChessEvaluate` (the chess evaluation, with its own attack tables) behind the `Evaluator` interface, `ParamSchema`/`ParamVector` for its weights; `PieceSetEvaluate` (an evaluation built from any variant's pieces) and `Evaluators.forVariant`. |
 | `rules` | The single rules authority: FEN in, legal moves, status (mate, stalemate, draws) and SAN out. Backed by `ai.board`. |
 | `analysis` | Game analysis with Stockfish (`GameAnalyzer`, `UciEvaluator`). |
-| `arena`, `evolution`, `lab` | Engine-vs-engine matches (any variant; outside players: Stockfish for chess, `FairyStockfish` for the built-in variants and, via `FairyConfig`, made ones, plus the `random` mover), the `Evolution` interface the owner implements, and the runner that stores runs in SQLite (`runs/*.db`: tables `run`, `member`, `game`, `generation`, `yardstick`) plus the hall of fame and Texel tuning. |
+| `arena`, `evolution`, `lab` | Engine-vs-engine matches (any variant; outside players: Stockfish for chess, `FairyStockfish` for the built-in variants and, via `FairyConfig`, made ones, plus the `random` mover), the `Evolution` interface the owner implements, and the runner that stores runs in SQLite (`runs/*.db`: tables `run`, `member`, `game`, `generation`, `yardstick`) plus the hall of fame, Texel tuning and training data for any game (`TrainingExport`, `SelfPlayData`). |
 
 The browser (`web/`, React 19 + TypeScript + Vite, react-chessboard) never computes legal moves.
 
