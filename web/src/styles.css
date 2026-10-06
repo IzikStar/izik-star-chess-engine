@@ -518,3 +518,20 @@ label.btn.disabled { opacity: 0.5; cursor: default; pointer-events: none; }
 .loading-line { display: flex; align-items: center; gap: 10px; }
 .empty-cta { margin-top: 10px; }
 .variant-editor .filters { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* a win: confetti over the board (Confetti.tsx) and the result card popping in */
+.board-wrap { position: relative; }
+.confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 5; }
+.confetti i { position: absolute; top: -16px; border-radius: 2px; opacity: 0; animation: confetti-fall 2.4s cubic-bezier(0.25, 0.6, 0.45, 1) forwards; }
+@keyframes confetti-fall {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0); }
+  85% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--drift), 105vh) rotate(var(--spin)); }
+}
+.result { animation: result-pop 0.35s ease-out; }
+.result.won { border-width: 2px; background: var(--accent-soft); }
+@keyframes result-pop { from { transform: scale(0.94); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .confetti { display: none; }
+  .result { animation: none; }
+}

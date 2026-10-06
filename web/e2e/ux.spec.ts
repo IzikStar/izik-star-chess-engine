@@ -64,3 +64,31 @@ test('the variant designer puts the list beside the open variant on a wide scree
   const editor = await page.getByRole('button', { name: 'Make a copy' }).boundingBox();
   expect(editor!.x).toBeGreaterThan(list!.x + list!.width);
 });
+
+test('a win sets off confetti over the board; a new game clears it', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'New game' }).click();
+  const dialog = page.getByRole('dialog', { name: 'New game' });
+  await dialog.getByRole('button', { name: 'Chess', exact: true }).click(); // earlier specs leave other variants picked
+  await dialog.getByRole('button', { name: 'A friend', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Untimed' }).click();
+  await dialog.getByRole('button', { name: 'Start game' }).click();
+  await expect(page.getByTestId('status')).toHaveText('White to move');
+  const play = async (from: string, to: string, san: string) => {
+    await page.locator(`[data-square="${from}"]`).first().click();
+    await page.locator(`[data-square="${to}"]`).first().click();
+    await expect(page.getByTestId('move-list')).toContainText(san);
+  };
+  await expect(page.getByTestId('confetti')).toHaveCount(0);
+  await play('f2', 'f3', 'f3');
+  await play('e7', 'e5', 'e5');
+  await play('g2', 'g4', 'g4');
+  await play('d8', 'h4', 'Qh4#');
+  await expect(page.getByTestId('result')).toContainText('Checkmate');
+  await expect(page.getByTestId('confetti')).toBeVisible();
+  await expect(page.getByTestId('result')).toHaveClass(/won/);
+  // it is a burst, not a screensaver
+  await expect(page.getByTestId('confetti')).toHaveCount(0, { timeout: 5000 });
+  await page.getByTestId('result').getByRole('button', { name: 'Rematch' }).click();
+  await expect(page.getByTestId('result')).toBeHidden();
+});
