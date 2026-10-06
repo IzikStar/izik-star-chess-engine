@@ -99,3 +99,25 @@ test('after a game against the computer, one click plays the next level', async 
   await expect(page.getByTestId('player-black')).toContainText('Level 4');
   await expect(page.getByTestId('player-white')).toContainText('You');
 });
+
+test('the shared database line shows only when this copy syncs, with what still waits and why', async ({ page }) => {
+  let dialog = await openSettings(page);
+  await expect(dialog.getByText('Evaluation bar')).toBeVisible();
+  await expect(dialog.getByText('Shared database')).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Done' }).click();
+
+  await page.route('**/api/sync', (route) => route.fulfill({
+    json: {
+      enabled: true, copy: 'server', lastSync: '2026-10-06T10:00:00Z', error: 'D1 refused (HTTP 429): daily limit',
+      retryAt: '2026-10-06T10:30:00Z', waitingFiles: 1, waitingGenerations: 12,
+      warnings: ['Kept this copy\'s variants/v.json: it was changed here and on another copy'],
+    },
+  }));
+  dialog = await openSettings(page);
+  await expect(dialog.getByText('Shared database')).toBeVisible();
+  const line = dialog.getByTestId('sync-status');
+  await expect(line).toContainText('This copy: server.');
+  await expect(line).toContainText('Waiting to be sent: 1 file and 12 generations.');
+  await expect(line).toContainText('daily limit; trying again at');
+  await expect(dialog.getByText('it was changed here and on another copy')).toBeVisible();
+});

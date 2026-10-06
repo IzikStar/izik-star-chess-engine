@@ -35,6 +35,17 @@ class LabJobsTest {
     }
 
     @Test
+    @DisplayName("Another copy's run, synced here, is not resumed or deleted here: the message says where it plays")
+    void replicas(@TempDir Path dir) {
+        LabJobs jobs = new LabJobs(new LabApi(dir.resolve("runs")), new VariantStore(dir.resolve("variants")));
+        jobs.useReplicas(file -> file.equals("from-server.db") ? "server" : null);
+        BadRequestResponse resume = assertThrows(BadRequestResponse.class, () -> jobs.resume("from-server.db"));
+        assertEquals("this run is played on server; resume it there", resume.getMessage());
+        BadRequestResponse delete = assertThrows(BadRequestResponse.class, () -> jobs.delete("from-server.db"));
+        assertEquals("this run is played on server; delete it there", delete.getMessage());
+    }
+
+    @Test
     @DisplayName("An antichess run from the page: it plays, stops at once, resumes, finishes, and can then be deleted")
     void startStopResumeDelete(@TempDir Path dir) throws Exception {
         LabApi lab = new LabApi(dir.resolve("runs"));

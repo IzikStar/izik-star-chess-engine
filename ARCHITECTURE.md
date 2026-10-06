@@ -18,6 +18,8 @@
 > web     WebServer: Javalin on 127.0.0.1, serves the React app (web/ -> /webapp in
 >         the jar) and one WebSocket; GameHub runs the session on a "game" thread and sends a
 >         full JSON snapshot after every change. The browser never computes legal moves.
+> cloud   CloudSync: shares runs, saved games and variants between copies through Cloudflare
+>         D1 (local files first, a background pass sends and fetches; docs/cloud-server.md)
 > ```
 >
 > Each arrow points down only; `architecture.LayeringTest` fails the build if `rules`, `ai`,

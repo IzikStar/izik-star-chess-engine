@@ -33,6 +33,11 @@ export function SettingsDialog({ settings, weights, stockfish, onChange, onClose
     if (d && !d.open) d.showModal();
   }, []);
 
+  const [sync, setSync] = useState<SyncStatus | null>(null);
+  useEffect(() => {
+    fetch('/api/sync').then((r) => r.ok ? r.json() : null).then(setSync).catch(() => setSync(null));
+  }, []);
+
   // a level the ladder no longer has falls back to the strongest
   const hintLevel = s.hintLevel !== null && s.hintLevel <= MAX_LEVEL ? s.hintLevel : null;
 
@@ -75,6 +80,14 @@ export function SettingsDialog({ settings, weights, stockfish, onChange, onClose
           <p className="muted field-note">Stockfish scores the position after every move.{stockfish?.available === false ? ' It is not installed yet, so the bar stays hidden.' : ''}</p>
         </fieldset>
 
+        {sync?.enabled && (
+          <fieldset className="field">
+            <legend>Shared database</legend>
+            <p className="field-note" data-testid="sync-status">{syncText(sync)}</p>
+            {sync.warnings.map((w) => <p key={w} className="muted field-note">{w}</p>)}
+          </fieldset>
+        )}
+
         <div className="row end">
           <button type="button" className="btn ghost" onClick={onTour}>Show the tour</button>
           <button type="button" className="btn" onClick={() => set(DEFAULT_SETTINGS)}>Defaults</button>
@@ -83,4 +96,31 @@ export function SettingsDialog({ settings, weights, stockfish, onChange, onClose
       </form>
     </dialog>
   );
+}
+
+/** What /api/sync answers (cloud.CloudSync.status). */
+export type SyncStatus = {
+  enabled: boolean;
+  copy: string;
+  lastSync: string | null;
+  error: string | null;
+  retryAt: string | null;
+  waitingFiles: number;
+  waitingGenerations: number;
+  warnings: string[];
+};
+
+const clock = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+/** One line: this copy's name, when it last synced, what still waits and why. */
+export function syncText(s: SyncStatus): string {
+  const parts = [`This copy: ${s.copy}.`];
+  parts.push(s.lastSync ? `Last synced at ${clock(s.lastSync)}.` : 'Not synced yet.');
+  const waiting = [
+    s.waitingFiles ? `${s.waitingFiles} file${s.waitingFiles === 1 ? '' : 's'}` : '',
+    s.waitingGenerations ? `${s.waitingGenerations} generation${s.waitingGenerations === 1 ? '' : 's'}` : '',
+  ].filter(Boolean).join(' and ');
+  if (waiting) parts.push(`Waiting to be sent: ${waiting}.`);
+  if (s.error) parts.push(`${s.error}${s.retryAt ? `; trying again at ${clock(s.retryAt)}` : ''}.`);
+  return parts.join(' ');
 }

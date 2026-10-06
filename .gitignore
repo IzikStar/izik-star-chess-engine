@@ -46,3 +46,7 @@ runs/
 ### Saved games (one JSON file each, see web.GamesApi) ###
 games/
 /variants/
+
+### Shared database settings and this copy's sync state (see docs/cloud-server.md) ###
+cloud.properties
+cloud-sync.db

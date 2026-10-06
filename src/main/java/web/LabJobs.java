@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * Starting, stopping and resuming evolution runs from the Lab page (roadmap stage 2). One run plays
@@ -96,10 +97,24 @@ final class LabJobs {
     private final LabApi lab;
     private final VariantStore variants;
     private volatile Job job;
+    /** The copy that plays a run file when it is another copy's run synced here, else null. */
+    private volatile Function<String, String> replicaOf = file -> null;
 
     LabJobs(LabApi lab, VariantStore variants) {
         this.lab = lab;
         this.variants = variants;
+    }
+
+    /** Tells which run files are other copies' runs (cloud.CloudSync), so they are not resumed or deleted here. */
+    void useReplicas(Function<String, String> replicaOf) {
+        this.replicaOf = replicaOf;
+    }
+
+    private void refuseReplica(String file, String what) {
+        String origin = replicaOf.apply(file);
+        if (origin != null) {
+            throw new BadRequestResponse("this run is played on " + origin + "; " + what + " it there");
+        }
     }
 
     void routes(Javalin app) {
@@ -292,6 +307,7 @@ final class LabJobs {
         if (running()) {
             throw new BadRequestResponse("a run is already playing: stop it first");
         }
+        refuseReplica(file, "resume");
         String algorithm;
         String name;
         try (RunStore store = lab.open(file)) {
@@ -338,6 +354,7 @@ final class LabJobs {
     }
 
     synchronized JsonObject delete(String file) {
+        refuseReplica(file, "delete");
         if (!LabApi.isRunFile(file)) {
             throw new NotFoundResponse("no run file " + file);
         }
