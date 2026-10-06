@@ -1,9 +1,10 @@
 import type { Atom } from '../reach';
+import { goalName, type GoalDef } from '../chess';
+
+export { goalName, type GoalDef, type GoalKind } from '../chess';
 
 // The variant designer's data: a variant as the server sends it (web.VariantsApi), the list rows,
 // the hash routes below "#variants", and a guard that asks before unsaved changes are dropped.
-
-export type Goal = 'CHECKMATE' | 'LOSE_EVERYTHING' | 'KING_OF_THE_HILL' | 'CHECKS';
 
 export interface PieceDef {
   name: string;
@@ -23,10 +24,17 @@ export interface VariantDef {
   width: number;
   height: number;
   start: string;
-  goal: Goal;
-  checksToWin: number;
+  /** The ways to win, checked in this order after every move; the first met decides (ai.variant.WinCondition). */
+  goals: GoalDef[];
+  royalMode: RoyalMode;
+  stalemate: Stalemate;
+  /** The same position three times is a draw. */
+  repetition: boolean;
+  /** Moves by each side without a capture or a move of a promoting piece that draw; 0 for none. */
+  moveLimit: number;
   forcedCapture: boolean;
   castling: boolean;
+  castlingRule: CastlingRuleDef;
   pieces: PieceDef[];
   builtIn?: boolean;
   /** The family it belongs to (variants that are small changes of one idea share one); '' for none. */
@@ -37,13 +45,31 @@ export interface VariantDef {
   art?: Record<string, Record<string, number>>;
 }
 
+export type RoyalMode = 'ALL_SAFE' | 'LAST_STANDING';
+export type Stalemate = 'DRAW' | 'WIN' | 'LOSS';
+
+/** How castling works (ai.variant.CastlingRule); which pieces castle is their castling role. */
+export interface CastlingRuleDef {
+  /** Squares the castling piece moves toward its partner; 0 for the chess way (onto the g- or c-file). */
+  steps: number;
+  partner: 'INSIDE' | 'OUTSIDE';
+  sides: 'BOTH' | 'KING_SIDE' | 'QUEEN_SIDE';
+  /** It may not castle out of, through or into an attacked square. */
+  safePassage: boolean;
+}
+
+export const CHESS_CASTLING: CastlingRuleDef = { steps: 0, partner: 'INSIDE', sides: 'BOTH', safePassage: true };
+
 /** One variant in the list (GET /api/variants). */
 export interface VariantRow {
   id: string;
   name: string;
   builtIn: boolean;
-  goal: Goal;
+  goals: GoalDef[];
   checksToWin: number;
+  /** Fairy-Stockfish can play it; when not, fairyReason says why. */
+  fairy?: boolean;
+  fairyReason?: string | null;
   family: string;
   notes: string;
   /** How many piece types. */
@@ -55,15 +81,18 @@ export interface VariantRow {
   modified: number;
 }
 
-export const GOALS: { id: Goal; name: string }[] = [
-  { id: 'CHECKMATE', name: 'Checkmate' },
-  { id: 'LOSE_EVERYTHING', name: 'Lose everything' },
-  { id: 'KING_OF_THE_HILL', name: 'King to the centre' },
-  { id: 'CHECKS', name: 'Give N checks' },
-];
+/** The variant's goals in short, for the list: "Checkmate · Give 3 checks". */
+export function goalsName(goals: GoalDef[] | undefined): string {
+  return (goals ?? []).map((g) => goalName(g)).join(' · ');
+}
 
-export function goalName(goal: Goal, checksToWin = 0): string {
-  return goal === 'CHECKS' ? `Give ${checksToWin || 'N'} checks` : GOALS.find((g) => g.id === goal)?.name ?? goal;
+/** What the server says about an edited variant's rules (POST /api/variant-rules). */
+export interface RulesCheck {
+  /** Why it cannot be played, or null. */
+  error: string | null;
+  fairy: boolean;
+  fairyReason: string | null;
+  castlings: { side: 'white' | 'black'; kingSide: boolean; king: string; kingTo: string; rook: string; rookTo: string }[];
 }
 
 /** "My Amazon chess" -> "my-amazon-chess". */

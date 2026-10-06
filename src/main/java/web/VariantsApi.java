@@ -17,9 +17,14 @@ import java.util.Optional;
 /**
  * The variants, built in and made by the player (Phase 6 R5a), for the variant designer:
  * <ul>
- *   <li>{@code GET /api/variants}: {folder, variants: [{id, name, builtIn, goal, checksToWin, family,
- *       notes, pieces, width, height, start, modified}...]}, built-ins first; {@code pieces} is how many
- *       piece types, {@code modified} when a made variant last changed (epoch millis, 0 for a built-in)</li>
+ *   <li>{@code GET /api/variants}: {folder, variants: [{id, name, builtIn, fairy, fairyReason, goals,
+ *       checksToWin, family, notes, pieces, width, height, start, modified}...]}, built-ins first;
+ *       {@code goals} as in {@code ai.variant.VariantJson}, {@code fairy} whether Fairy-Stockfish plays it
+ *       ({@code fairyReason} why not, else null), {@code pieces} is how many piece types, {@code modified}
+ *       when a made variant last changed (epoch millis, 0 for a built-in)</li>
+ *   <li>{@code POST /api/variant-rules} {the whole variant}: what its rules come to without saving it,
+ *       for the designer: {error} when it cannot be played (else null), {fairy, fairyReason}, and
+ *       {castlings: [{side, kingSide, king, kingTo, rook, rookTo}...]} as the engine reads them</li>
  *   <li>{@code GET /api/variants/{id}}: the whole variant ({@code ai.variant.VariantJson}) plus builtIn,
  *       family and notes</li>
  *   <li>{@code PUT /api/variants/{id}}: saves a made variant (the body is the whole variant, its id
@@ -53,7 +58,8 @@ final class VariantsApi {
                 o.addProperty("name", v.name());
                 o.addProperty("builtIn", VariantStore.isBuiltIn(v.id()));
                 o.addProperty("fairy", arena.FairyStockfish.plays(v)); // Fairy-Stockfish can be its yardstick
-                o.addProperty("goal", v.goal().name());
+                o.addProperty("fairyReason", arena.FairyConfig.refusal(v).orElse(null));
+                o.add("goals", VariantJson.goals(v.goals()));
                 o.addProperty("checksToWin", v.checksToWin());
                 VariantStore.About about = store.about(v.id());
                 o.addProperty("family", about.family());
@@ -131,6 +137,53 @@ final class VariantsApi {
             ctx.status(204);
         });
         app.post("/api/betza", this::betza);
+        app.post("/api/variant-rules", this::rules);
+    }
+
+    /** What an edited variant's rules come to: playable or why not, Fairy-Stockfish, the castlings. */
+    private void rules(Context ctx) {
+        JsonObject out = new JsonObject();
+        Variant v;
+        try {
+            JsonObject body = JsonParser.parseString(ctx.body()).getAsJsonObject();
+            body.remove("builtIn");
+            body.remove("art");
+            body.remove("family");
+            body.remove("notes");
+            v = VariantJson.fromTree(body);
+        } catch (RuntimeException e) {
+            error(ctx, 400, String.valueOf(e.getMessage()));
+            return;
+        }
+        try {
+            VariantStore.check(v);
+            out.add("error", null);
+        } catch (RuntimeException e) {
+            out.addProperty("error", e.getMessage());
+        }
+        out.addProperty("fairy", arena.FairyStockfish.plays(v));
+        out.addProperty("fairyReason", arena.FairyConfig.refusal(v).orElse(null));
+        JsonArray castlings = new JsonArray();
+        try {
+            for (ai.board.BoardRules.Castling c : ai.board.BoardRules.of(v).castlings()) {
+                JsonObject o = new JsonObject();
+                o.addProperty("side", c.player() == 0 ? "white" : "black");
+                o.addProperty("kingSide", c.kingSide());
+                o.addProperty("king", square(v, c.kingFrom()));
+                o.addProperty("kingTo", square(v, c.kingTo()));
+                o.addProperty("rook", square(v, c.rookFrom()));
+                o.addProperty("rookTo", square(v, c.rookTo()));
+                castlings.add(o);
+            }
+        } catch (RuntimeException e) {
+            // a start position that does not read: no castlings (the error says why)
+        }
+        out.add("castlings", castlings);
+        json(ctx, out);
+    }
+
+    private static String square(Variant v, int sq) {
+        return "" + (char) ('a' + v.grid().col(sq)) + (v.grid().height() - v.grid().row(sq));
     }
 
     private interface ArtAction {

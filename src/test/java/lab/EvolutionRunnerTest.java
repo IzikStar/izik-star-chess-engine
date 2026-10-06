@@ -325,7 +325,9 @@ class EvolutionRunnerTest {
     @DisplayName("Outside chess the champion can be measured against the random mover and Fairy-Stockfish")
     void fairyAndRandomYardsticks(@TempDir Path dir) {
         ai.variant.Variant twoCheck = new ai.variant.Variant("two-check", "Two-check", ai.piece.StandardPieces.ALL,
-                ai.piece.Grid.CHESS, ai.variant.Variants.CHESS.startFen(), ai.variant.Variant.Goal.CHECKS, 2, false, true);
+                ai.piece.Grid.CHESS, ai.variant.Variants.CHESS.startFen(), List.of(ai.variant.WinCondition.checkmate(),
+                ai.variant.WinCondition.checks(2), ai.variant.WinCondition.bareRoyal()), ai.variant.Variant.RoyalMode.ALL_SAFE,
+                ai.variant.Variant.Stalemate.DRAW, true, 50, false, ai.variant.CastlingRule.CHESS); // bare royal: no Fairy config
         RunSettings made = new RunSettings(1, 1, 1, 20, 60, 1, 1, 1, 1, List.of("fsf"), 0, 0, 0, 0, 0,
                 "two-check", ai.variant.VariantJson.write(twoCheck), 4, 50, java.util.Map.of());
         assertThrows(IllegalArgumentException.class, () -> EvolutionRunner.check(made), "Fairy-Stockfish does not know it");

@@ -26,8 +26,9 @@ public final class San {
         char kind = Character.toUpperCase(piece);
         StringBuilder san = new StringBuilder();
 
-        if (kind == 'K' && Math.abs(Square.file(move.from()) - Square.file(move.to())) == 2) {
-            san.append(Square.file(move.to()) > Square.file(move.from()) ? "O-O" : "O-O-O");
+        ai.board.BoardRules.Castling castle = Rules.castling(variant, fen, move);
+        if (castle != null) {
+            san.append(castle.kingSide() ? "O-O" : "O-O-O");
         } else {
             boolean capture = isCapture(pos, move);
             if (kind == 'P') {

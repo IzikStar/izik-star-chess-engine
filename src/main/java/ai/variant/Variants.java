@@ -14,28 +14,38 @@ public final class Variants {
 
     private static final String START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
-    public static final Variant CHESS = new Variant("chess", "Chess", StandardPieces.ALL, Grid.CHESS, START,
-            Variant.Goal.CHECKMATE, 0, false, true);
+    /** Checkmate wins; stalemate, threefold repetition and the 50-move rule draw; castling as in chess. */
+    public static final Variant CHESS = preset("chess", "Chess", StandardPieces.ALL, START,
+            List.of(WinCondition.checkmate()), Variant.Stalemate.DRAW, false, CastlingRule.CHESS);
 
     /**
      * Lose all your pieces (or be stalemated) to win; capturing is compulsory, the king is an
      * ordinary piece a pawn may also promote to, and there is no castling.
      */
-    public static final Variant ANTICHESS = new Variant("antichess", "Antichess", antichessPieces(), Grid.CHESS,
-            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1", Variant.Goal.LOSE_EVERYTHING, 0, true, false);
+    public static final Variant ANTICHESS = preset("antichess", "Antichess", antichessPieces(),
+            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1", List.of(WinCondition.loseEverything()),
+            Variant.Stalemate.WIN, true, CastlingRule.NONE);
 
     /** Chess, and bringing your king to d4, e4, d5 or e5 also wins. */
-    public static final Variant KING_OF_THE_HILL = new Variant("king-of-the-hill", "King of the Hill",
-            StandardPieces.ALL, Grid.CHESS, START, Variant.Goal.KING_OF_THE_HILL, 0, false, true);
+    public static final Variant KING_OF_THE_HILL = preset("king-of-the-hill", "King of the Hill",
+            StandardPieces.ALL, START, List.of(WinCondition.checkmate(),
+                    WinCondition.reach(List.of("d5", "e5", "d4", "e4"), "")), Variant.Stalemate.DRAW, false, CastlingRule.CHESS);
 
     /** Chess, and the third check wins. */
-    public static final Variant THREE_CHECK = new Variant("three-check", "Three-check", StandardPieces.ALL,
-            Grid.CHESS, START, Variant.Goal.CHECKS, 3, false, true);
+    public static final Variant THREE_CHECK = preset("three-check", "Three-check", StandardPieces.ALL, START,
+            List.of(WinCondition.checkmate(), WinCondition.checks(3)), Variant.Stalemate.DRAW, false, CastlingRule.CHESS);
 
     public static final List<Variant> ALL = List.of(CHESS, ANTICHESS, KING_OF_THE_HILL, THREE_CHECK);
 
     public static Optional<Variant> byId(String id) {
         return ALL.stream().filter(v -> v.id().equals(id)).findFirst();
+    }
+
+    /** A built-in game on the 8x8 board: every royal piece must stay safe, repetition and 50 moves draw. */
+    private static Variant preset(String id, String name, List<PieceType> pieces, String start, List<WinCondition> goals,
+                                  Variant.Stalemate stalemate, boolean forcedCapture, CastlingRule castling) {
+        return new Variant(id, name, pieces, Grid.CHESS, start, goals, Variant.RoyalMode.ALL_SAFE, stalemate, true, 50,
+                forcedCapture, castling);
     }
 
     private static List<PieceType> antichessPieces() {

@@ -71,13 +71,17 @@ function useWidth<T extends HTMLElement>(): [RefObject<T | null>, number] {
 const ENDINGS: Record<string, string> = {
   CHECKMATE: 'Checkmate',
   STALEMATE: 'Stalemate',
-  DRAW_FIFTY_MOVE: '50-move rule',
+  DRAW_FIFTY_MOVE: 'Move limit',
   DRAW_THREEFOLD: 'Repetition',
   DRAW_INSUFFICIENT_MATERIAL: 'Not enough material',
-  HILL_REACHED: 'King reached the centre',
+  HILL_REACHED: 'Goal square reached',
   CHECKS_GIVEN: 'Checks given',
   NO_PIECES_LEFT: 'Lost every piece',
   NO_MOVES_LEFT: 'No move left',
+  ALL_CAPTURED: 'All of a type captured',
+  BARE_ROYAL: 'Only royal pieces left',
+  ROYALS_LOST: 'Last royal piece lost',
+  STALEMATE_LOSS: 'No move left, and lost',
   PLY_CAP: 'Still going at the move limit',
 };
 
@@ -121,7 +125,13 @@ function readings(r: Report, d: Details): string[] {
 // ---- the page -----------------------------------------------------------------------------------
 
 /** Self-play of the engine: is the variant balanced, decisive, long enough, rich in choices? */
-export function HealthPage({ variant }: { variant: VariantDef }) {
+export function HealthPage({ variant, fairy = null, fairyReason = null }: {
+  variant: VariantDef;
+  /** Whether Fairy-Stockfish can play this variant (null: not known yet). */
+  fairy?: boolean | null;
+  /** Why it cannot, when it cannot. */
+  fairyReason?: string | null;
+}) {
   const [games, setGames] = useState(100);
   const [depth, setDepth] = useState(2);
   const [whiteDepth, setWhiteDepth] = useState(0); // 0: the depth above
@@ -216,7 +226,7 @@ export function HealthPage({ variant }: { variant: VariantDef }) {
           <label>Engine
             <select value={engine} onChange={(e) => setEngine(e.target.value as typeof engine)}>
               <option value="built-in">Built-in</option>
-              <option value="fairy-stockfish" disabled={!state?.fairyInstalled}>Fairy-Stockfish{state?.fairyInstalled ? '' : ' (not installed)'}</option>
+              <option value="fairy-stockfish" disabled={!state?.fairyInstalled || fairy === false}>Fairy-Stockfish{fairy === false ? ' (our engine only)' : state?.fairyInstalled ? '' : ' (not installed)'}</option>
             </select>
           </label>
           {!builtIn && (
@@ -225,6 +235,7 @@ export function HealthPage({ variant }: { variant: VariantDef }) {
             </label>
           )}
         </div>
+        {fairy === false && <p className="muted small" data-testid="health-fairy">Our engine only: Fairy-Stockfish cannot play this variant ({fairyReason ?? 'not supported'}), so the check runs with the built-in engine.</p>}
         <p className="muted small">The first plies of each game are random so the games differ. A game still going at the move limit counts as a draw. Variety lets the engine pick at random among moves this close to its best (100 = a pawn); 0 always plays the best. The same seed and settings give the same games.</p>
       </details>
       {error && <p className="error" role="alert">{error}</p>}

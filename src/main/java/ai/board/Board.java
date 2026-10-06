@@ -68,6 +68,25 @@ public interface Board {
         return false;
     }
 
+    /** {@link #goalMet()}: no goal is met. */
+    int NO_GOAL = -1;
+    /** {@link #goalMet()}: the player to move has lost its last royal piece (royal mode {@code LAST_STANDING}). */
+    int ROYALS_GONE = -2;
+
+    /**
+     * Which of the variant's goals ended the game here (its index in {@code Variant.goals()}),
+     * {@link #ROYALS_GONE}, or {@link #NO_GOAL}. Checkmate and a position without moves are not
+     * goals met here: {@link #outcome()} judges them.
+     */
+    default int goalMet() {
+        return NO_GOAL;
+    }
+
+    /** Whether the same position three times is a draw in this game; the search scores a repetition so. */
+    default boolean repetitionDraws() {
+        return true;
+    }
+
     /** True when the game ends in this position. */
     default boolean isOver() {
         return outcome() != Outcome.ONGOING;

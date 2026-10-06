@@ -233,8 +233,9 @@ public class Minimax {
         boolean lastDepth = depth == searchDepth; // the root: its children are the candidate moves
         // A position already on the path (in the game or on this line) is a draw: the side that
         // wants it can repeat again. Checked before the table, whose entries don't know the path.
+        // (Only where repetition draws: a variant may turn it off.)
         long repetitionHash = board.repetitionKey();
-        if (!lastDepth && boardStateTracker.contains(repetitionHash)) {
+        if (!lastDepth && boardStateTracker.contains(repetitionHash) && board.repetitionDraws()) {
             return new MinimaxResult(board.lastMove(), DRAW);
         }
         TranspositionTable table = state == null ? null : state.table;

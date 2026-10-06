@@ -29,6 +29,10 @@
 .be-coord.file { bottom: 2px; right: 3px; }
 .be-sq:hover .be-coord.file { visibility: hidden; }
 .be-sq.r-move::after, .be-sq.r-both::after, .be-sq.r-capture::after { content: ''; position: absolute; width: 30%; height: 30%; border-radius: 50%; pointer-events: none; }
+/* castling: a ring where the castling piece lands, a dashed one where its partner does */
+.be-sq.r-castle::after, .be-sq.r-partner::after { content: ''; position: absolute; inset: 14%; border-radius: 50%; pointer-events: none; box-sizing: border-box; }
+.be-sq.r-castle::after { border: 4px solid rgba(150, 90, 200, 0.9); }
+.be-sq.r-partner::after { border: 3px dashed rgba(150, 90, 200, 0.9); }
 .be-status { margin: 0; min-height: 1.4em; }
 
 /* the little palette at a square */

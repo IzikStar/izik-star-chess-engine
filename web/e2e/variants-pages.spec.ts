@@ -8,7 +8,7 @@ const SHOTS = '../target/e2e-screens';
 
 const MADE = [
   { id: 'pages-alpha-one', name: 'Pages alpha one', family: 'Pages alpha' },
-  { id: 'pages-alpha-two', name: 'Pages alpha two', family: 'Pages alpha', goal: 'CHECKS', checksToWin: 3 },
+  { id: 'pages-alpha-two', name: 'Pages alpha two', family: 'Pages alpha', goals: [{ kind: 'CHECKMATE' }, { kind: 'CHECKS', count: 3 }] },
   { id: 'pages-solo', name: 'Pages solo', family: '' },
 ];
 
@@ -153,7 +153,8 @@ test('an unsaved change survives switching tabs, and leaving asks first', async 
   const editor = page.getByTestId('variant-editor');
   await expect(editor.getByRole('heading', { name: 'Pages solo' })).toBeVisible();
   await editor.getByLabel('Name', { exact: true }).fill('Pages solo edited');
-  await editor.getByLabel('Goal').selectOption('KING_OF_THE_HILL');
+  await editor.getByLabel('Way to win to add').selectOption('REACH_SQUARES');
+  await editor.getByRole('button', { name: 'Add a way to win' }).click();
   await expect(page.getByTestId('goal-text')).toContainText('d4, d5, e4 or e5');
   await expect(editor.getByText('Unsaved changes')).toBeVisible();
 
@@ -166,7 +167,7 @@ test('an unsaved change survives switching tabs, and leaving asks first', async 
   await expect(page.getByTestId('piece-list')).toBeVisible();
   await tabs(page).getByRole('link', { name: 'Overview' }).click();
   await expect(editor.getByLabel('Name', { exact: true })).toHaveValue('Pages solo edited');
-  await expect(editor.getByLabel('Goal')).toHaveValue('KING_OF_THE_HILL');
+  await expect(page.getByTestId('goal').nth(1)).toHaveAttribute('data-kind', 'REACH_SQUARES');
   await tabs(page).getByRole('link', { name: 'Board' }).click();
   await expect(editor.getByLabel('Start FEN')).toHaveValue(/\/1NBQKBNR /);
 

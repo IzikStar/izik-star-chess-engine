@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { PieceSvg } from '../pieces';
-import { goalName, type VariantRow } from './model';
+import { goalsName, type VariantRow } from './model';
 
 // The home screen of the variant designer (#variants): the player's variants first, grouped by
 // family, with a search box and a "New variant" button; the built-in ones small, below.
@@ -49,7 +49,7 @@ function Thumb({ row }: { row: VariantRow }) {
 
 function matches(r: VariantRow, q: string): boolean {
   if (!q) return true;
-  const hay = [r.name, r.id, r.family, r.notes, goalName(r.goal, r.checksToWin)].join(' ').toLowerCase();
+  const hay = [r.name, r.id, r.family, r.notes, goalsName(r.goals)].join(' ').toLowerCase();
   return q.toLowerCase().split(/\s+/).every((w) => hay.includes(w));
 }
 
@@ -105,7 +105,7 @@ export function VariantList({ rows, folder, error, onOpen, onNew }: {
                     <Thumb row={r} />
                     <span className="card-text">
                       <span className="card-name">{r.name}</span>
-                      <span className="card-meta">{goalName(r.goal, r.checksToWin)}</span>
+                      <span className="card-meta">{goalsName(r.goals)}</span>
                       <span className="card-meta">{r.pieces} piece{r.pieces === 1 ? '' : 's'} · {r.width}×{r.height}</span>
                       {r.modified > 0 && <span className="card-meta muted">Changed {ago(r.modified, now)}</span>}
                     </span>
@@ -120,7 +120,7 @@ export function VariantList({ rows, folder, error, onOpen, onNew }: {
             <div className="builtin-chips">
               {builtIns.map((r) => (
                 <button type="button" key={r.id} className="btn ghost builtin-chip" onClick={() => onOpen(r.id)}>
-                  {r.name}<span className="muted small"> · {goalName(r.goal, r.checksToWin)}</span>
+                  {r.name}<span className="muted small"> · {goalsName(r.goals)}</span>
                 </button>
               ))}
             </div>

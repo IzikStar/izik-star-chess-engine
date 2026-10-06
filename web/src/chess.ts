@@ -10,14 +10,67 @@ export const VARIANTS: { id: VariantId; name: string; rule: string }[] = [
   { id: 'three-check', name: 'Three-check', rule: 'Checkmate, or give check three times.' },
 ];
 
-/** How a variant is won, in words, for one the player made (the built-ins have their own rule above). */
-export function goalRule(goal: string, checksToWin = 3): string {
-  switch (goal) {
-    case 'LOSE_EVERYTHING': return 'Lose every piece, or have no move left, to win.';
-    case 'KING_OF_THE_HILL': return 'Checkmate, or bring your king to one of the four centre squares.';
-    case 'CHECKS': return `Checkmate, or give check ${checksToWin} times.`;
-    default: return 'Checkmate the king.';
+/** One way to win a variant (ai.variant.WinCondition); a variant lists several, the first met decides. */
+export type GoalKind = 'CHECKMATE' | 'REACH_SQUARES' | 'CHECKS' | 'CAPTURE_ALL_OF' | 'BARE_ROYAL' | 'LOSE_EVERYTHING';
+
+export interface GoalDef {
+  kind: GoalKind;
+  /** CHECKS: how many checks win. */
+  count?: number;
+  /** REACH_SQUARES: the squares ("d4"). */
+  squares?: string[];
+  /** REACH_SQUARES: the letters of the piece types that count, '' for the royal pieces; CAPTURE_ALL_OF: the types to capture. */
+  pieces?: string;
+}
+
+const CENTRE = ['d4', 'd5', 'e4', 'e5'];
+
+/** Whether these are the four centre squares of the 8x8 board, in any order. */
+export function isCentre(squares: string[] | undefined): boolean {
+  return !!squares && squares.length === 4 && [...squares].sort().every((s, i) => s === CENTRE[i]);
+}
+
+/** "a, b or c". */
+export function orList(words: string[]): string {
+  return words.length <= 1 ? words.join('') : words.slice(0, -1).join(', ') + ' or ' + words.at(-1);
+}
+
+/** A goal in a few words, for lists: "Give 3 checks", "King to the centre". */
+export function goalName(g: GoalDef): string {
+  switch (g.kind) {
+    case 'CHECKMATE': return 'Checkmate';
+    case 'LOSE_EVERYTHING': return 'Lose everything';
+    case 'REACH_SQUARES': return isCentre(g.squares) && !g.pieces ? 'King to the centre' : `Reach ${(g.squares ?? []).join(' ')}`;
+    case 'CHECKS': return `Give ${g.count || 'N'} checks`;
+    case 'CAPTURE_ALL_OF': return `Capture all ${g.pieces ?? ''}`;
+    case 'BARE_ROYAL': return 'Bare the royal';
   }
+}
+
+/**
+ * How a variant is won, in one sentence, for one the player made (the built-ins have their own rule
+ * above). {@code names} gives the piece names by letter.
+ */
+export function goalsRule(goals: GoalDef[] | undefined, names: Record<string, string> = {}): string {
+  const list = goals ?? [{ kind: 'CHECKMATE' }];
+  const typeNames = (letters: string | undefined, fallback: string) =>
+    letters ? orList([...letters].map((l) => names[l] ?? l)) : fallback;
+  if (list.length === 1 && list[0].kind === 'CHECKMATE') return 'Checkmate the king.';
+  if (list.length === 1 && list[0].kind === 'LOSE_EVERYTHING') return 'Lose every piece, or have no move left, to win.';
+  const parts = list.map((g) => {
+    switch (g.kind) {
+      case 'CHECKMATE': return 'checkmate';
+      case 'LOSE_EVERYTHING': return 'lose every piece or have no move left';
+      case 'REACH_SQUARES':
+        return isCentre(g.squares) && !g.pieces ? 'bring your king to one of the four centre squares'
+          : `bring ${g.pieces ? 'a ' + typeNames(g.pieces, '') : 'a royal piece'} to ${orList(g.squares ?? [])}`;
+      case 'CHECKS': return `give check ${g.count} times`;
+      case 'CAPTURE_ALL_OF': return `capture every ${typeNames(g.pieces, 'piece')}`;
+      case 'BARE_ROYAL': return 'leave the opponent nothing but royal pieces';
+    }
+  });
+  const text = parts.join(', or ');
+  return text.charAt(0).toUpperCase() + text.slice(1) + '.';
 }
 
 /** The game's variant id; a state without one is chess. */
@@ -197,7 +250,7 @@ export function colorName(color: Color): string {
 }
 
 /** "Checkmate · Black wins", "White resigns · Black wins", "Draw by agreement", ... for a finished game. */
-export function resultText(status: Status, turn: Color, end: GameEnd | null = null): string {
+export function resultText(status: Status, turn: Color, end: GameEnd | null = null, variant?: GameState['variant']): string {
   if (end) {
     const side = colorName(end.side);
     const winner = colorName(other(end.side));
@@ -218,15 +271,28 @@ export function resultText(status: Status, turn: Color, end: GameEnd | null = nu
     case 'STALEMATE':
       return `Stalemate · ${colorName(turn)} has no legal move`;
     case 'DRAW_FIFTY_MOVE':
-      return 'Draw by the 50-move rule';
+      return `Draw by the ${variant?.moveLimit ?? 50}-move rule`;
     case 'DRAW_THREEFOLD':
       return 'Draw by threefold repetition';
     case 'DRAW_INSUFFICIENT_MATERIAL':
       return 'Draw · not enough material to mate';
-    case 'HILL_REACHED':
-      return `King on the hill · ${colorName(other(turn))} wins`;
-    case 'CHECKS_GIVEN':
-      return `Third check · ${colorName(other(turn))} wins`;
+    case 'HILL_REACHED': {
+      const goal = variant?.goals?.find((g) => g.kind === 'REACH_SQUARES');
+      return goal && !(isCentre(goal.squares) && !goal.pieces)
+        ? `Goal square reached · ${colorName(other(turn))} wins` : `King on the hill · ${colorName(other(turn))} wins`;
+    }
+    case 'CHECKS_GIVEN': {
+      const n = variant?.checksToWin ?? 3;
+      return `${n === 3 ? 'Third check' : `Check number ${n}`} · ${colorName(other(turn))} wins`;
+    }
+    case 'ALL_CAPTURED':
+      return `All captured · ${colorName(other(turn))} wins`;
+    case 'BARE_ROYAL':
+      return `Only royal pieces left · ${colorName(other(turn))} wins`;
+    case 'ROYALS_LOST':
+      return `No royal piece left · ${colorName(other(turn))} wins`;
+    case 'STALEMATE_LOSS':
+      return `${colorName(turn)} has no legal move · ${colorName(other(turn))} wins`;
     case 'NO_PIECES_LEFT':
       return `${colorName(turn)} has lost every piece · ${colorName(turn)} wins`;
     case 'NO_MOVES_LEFT':

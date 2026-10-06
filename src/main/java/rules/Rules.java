@@ -4,6 +4,7 @@ import ai.board.Board;
 import ai.piece.StandardPieces;
 import ai.variant.Variant;
 import ai.variant.Variants;
+import ai.variant.WinCondition;
 import ai.board.Boards;
 import ai.board.Move;
 
@@ -102,6 +103,32 @@ public final class Rules {
         return squares;
     }
 
+    /**
+     * The castling {@code move} makes in {@code fen}, if it is one: the piece on its from-square has
+     * the castling role, the move is one of the variant's castlings ({@link ai.board.BoardRules#castlings()})
+     * and the position still has that right. Null for any other move.
+     */
+    public static ai.board.BoardRules.Castling castling(Variant variant, String fen, ChessMove move) {
+        ai.board.BoardRules rules = ai.board.BoardRules.of(variant);
+        String[] f = fen.trim().split("\\s+");
+        String rights = f.length > 2 ? f[2] : "-";
+        char piece = Position.fromFen(fen).pieceAt(move.from());
+        for (ai.board.BoardRules.Castling c : rules.castlings()) {
+            if (c.kingFrom() == move.from() && c.kingTo() == move.to() && rights.indexOf(c.letter()) >= 0
+                    && piece != 0 && Character.isUpperCase(piece) == (c.player() == 0)
+                    && Character.toUpperCase(piece) == variant.pieces().get(c.kingType()).letter()) {
+                return c;
+            }
+        }
+        return null;
+    }
+
+    /** The variant's goal that ended the game in {@code fen}, if one did (not checkmate: that is no position goal). */
+    public static java.util.Optional<WinCondition> goalMet(Variant variant, String fen) {
+        int goal = Boards.fromFen(variant, fen).goalMet();
+        return goal >= 0 ? java.util.Optional.of(variant.goals().get(goal)) : java.util.Optional.empty();
+    }
+
     public static boolean hasLegalMove(String fen) {
         return !Boards.fromFen(fen).children().isEmpty();
     }
@@ -133,15 +160,23 @@ public final class Rules {
      */
     private static GameStatus status(Variant variant, Board b, String fen) {
         boolean check = b.inCheck();
+        int goal = b.goalMet();
         switch (b.outcome()) {
             case WIN:
-                return Position.fromFen(fen).pieces().stream().anyMatch(p -> isOwn(p, b.sideToMove()))
-                        ? GameStatus.NO_MOVES_LEFT : GameStatus.NO_PIECES_LEFT;
+                return goal >= 0 ? GameStatus.NO_PIECES_LEFT : GameStatus.NO_MOVES_LEFT;
             case LOSS:
-                if (b.goalReached()) {
-                    return variant.goal() == Variant.Goal.CHECKS ? GameStatus.CHECKS_GIVEN : GameStatus.HILL_REACHED;
+                if (goal == Board.ROYALS_GONE) {
+                    return GameStatus.ROYALS_LOST;
                 }
-                return GameStatus.CHECKMATE;
+                if (goal >= 0) {
+                    return switch (variant.goals().get(goal).kind()) {
+                        case CHECKS -> GameStatus.CHECKS_GIVEN;
+                        case CAPTURE_ALL_OF -> GameStatus.ALL_CAPTURED;
+                        case BARE_ROYAL -> GameStatus.BARE_ROYAL;
+                        default -> GameStatus.HILL_REACHED;
+                    };
+                }
+                return check && variant.has(WinCondition.Kind.CHECKMATE) ? GameStatus.CHECKMATE : GameStatus.STALEMATE_LOSS;
             case DRAW:
                 if (b.children().isEmpty()) {
                     return GameStatus.STALEMATE;
@@ -156,16 +191,14 @@ public final class Rules {
         }
     }
 
-    private static boolean isOwn(char piece, int player) {
-        return Character.isUpperCase(piece) == (player == 0);
-    }
-
     /**
      * Dead positions by material are a chess rule: in King of the Hill a lone king can still win,
-     * in antichess losing material is the point, and an invented piece set has no known table.
+     * in antichess losing material is the point, and an invented piece set has no known table. So
+     * only where checkmate is the one way to win, with chess's pieces and a drawn stalemate.
      */
     private static boolean insufficientMaterialCounts(Variant variant) {
-        return variant.goal() == Variant.Goal.CHECKMATE && variant.pieces().equals(StandardPieces.ALL);
+        return variant.goals().equals(List.of(WinCondition.checkmate())) && variant.pieces().equals(StandardPieces.ALL)
+                && variant.stalemate() == Variant.Stalemate.DRAW && variant.royalMode() == Variant.RoyalMode.ALL_SAFE;
     }
 
     /** Apply a legal move, returning the resulting FEN. Throws if the move is not legal. */

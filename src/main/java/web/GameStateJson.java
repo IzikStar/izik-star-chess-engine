@@ -1,6 +1,7 @@
 package web;
 
 import ai.variant.Variant;
+import ai.variant.WinCondition;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import game.Clock;
@@ -143,29 +144,50 @@ final class GameStateJson {
         }
         String mover = session.whiteToMove() ? "White" : "Black";
         String other = session.whiteToMove() ? "Black" : "White";
+        Variant variant = session.variant();
+        WinCondition goal = rules.Rules.goalMet(variant, session.fen()).orElse(null);
         return switch (session.status()) {
             case CHECKMATE -> other + " won by checkmate";
-            case HILL_REACHED -> other + " won by reaching the centre";
-            case CHECKS_GIVEN -> other + " won by giving " + session.variant().checksToWin() + " checks";
+            case HILL_REACHED -> other + " won by reaching " + (goal != null && goal.squares().equals(
+                    WinCondition.centre(variant.grid().width(), variant.grid().height())) ? "the centre"
+                    : goal != null ? String.join(", ", goal.squares()) : "a goal square");
+            case CHECKS_GIVEN -> other + " won by giving " + variant.checksToWin() + " checks";
+            case ALL_CAPTURED -> other + " won by capturing every " + (goal != null ? names(variant, goal.pieces()) : "piece of a kind");
+            case BARE_ROYAL -> other + " won by leaving " + mover + " only royal pieces";
+            case ROYALS_LOST -> other + " won by capturing every royal piece";
+            case STALEMATE_LOSS -> other + " won: " + mover + " has no legal move";
             case NO_PIECES_LEFT -> mover + " won by losing every piece";
             case NO_MOVES_LEFT -> mover + " won with no move left";
             case STALEMATE -> "Game drawn by stalemate";
-            case DRAW_FIFTY_MOVE -> "Game drawn by the 50-move rule";
+            case DRAW_FIFTY_MOVE -> "Game drawn by the " + variant.moveLimit() + "-move rule";
             case DRAW_THREEFOLD -> "Game drawn by repetition";
             case DRAW_INSUFFICIENT_MATERIAL -> "Game drawn by insufficient material";
             default -> "";
         };
     }
 
-    /** The variant the game is played by: its id, its name and its goal. */
+    /** The names of the piece types with these letters: "Queen", "Queen or Rook". */
+    static String names(Variant variant, String letters) {
+        List<String> names = new java.util.ArrayList<>();
+        for (char c : letters.toCharArray()) {
+            variant.pieces().stream().filter(p -> p.letter() == c).findFirst().ifPresent(p -> names.add(p.name()));
+        }
+        return String.join(" or ", names);
+    }
+
+    /** The variant the game is played by: its id, its name, its goals and the settings the page shows. */
     static JsonObject variant(Variant variant) {
         JsonObject o = new JsonObject();
         o.addProperty("id", variant.id());
         o.addProperty("name", variant.name());
-        o.addProperty("goal", variant.goal().name());
-        if (variant.goal() == Variant.Goal.CHECKS) {
+        o.add("goals", ai.variant.VariantJson.goals(variant.goals()));
+        if (variant.checksToWin() > 0) {
             o.addProperty("checksToWin", variant.checksToWin());
         }
+        o.addProperty("royalMode", variant.royalMode().name());
+        o.addProperty("stalemate", variant.stalemate().name());
+        o.addProperty("repetition", variant.repetition());
+        o.addProperty("moveLimit", variant.moveLimit());
         o.addProperty("custom", !game.VariantStore.isBuiltIn(variant.id()));
         JsonArray pieces = new JsonArray();
         for (ai.piece.PieceType t : variant.pieces()) {

@@ -201,6 +201,11 @@ public final class GenericBoard implements ChessPosition, PieceBoard {
         return inCheck(side);
     }
 
+    /**
+     * The variant's goals first, in their order; then a position without moves: a win with
+     * {@code LOSE_EVERYTHING}, checkmate when in check and checkmate wins, else the stalemate rule;
+     * then the move limit.
+     */
     @Override
     public Outcome outcome() {
         Outcome goal = goalOutcome();
@@ -208,31 +213,75 @@ public final class GenericBoard implements ChessPosition, PieceBoard {
             return goal;
         }
         if (!hasLegalMove()) {
-            if (rules.goal == Variant.Goal.LOSE_EVERYTHING) {
+            if (rules.loseEverything) {
                 return Outcome.WIN;
             }
-            return inCheck(side) ? Outcome.LOSS : Outcome.DRAW;
+            if (rules.checkmateWins && inCheck(side)) {
+                return Outcome.LOSS;
+            }
+            return switch (rules.stalemate) {
+                case DRAW -> Outcome.DRAW;
+                case WIN -> Outcome.WIN;
+                case LOSS -> Outcome.LOSS;
+            };
         }
-        return halfmove >= 100 ? Outcome.DRAW : Outcome.ONGOING;
+        return halfmove >= rules.moveLimitPlies ? Outcome.DRAW : Outcome.ONGOING;
     }
 
     @Override
     public boolean goalReached() {
-        return goalOutcome() != Outcome.ONGOING;
+        return goalMet() != NO_GOAL;
+    }
+
+    @Override
+    public int goalMet() {
+        if (!rules.positionalGoals) {
+            return NO_GOAL;
+        }
+        if (rules.lastStanding && rules.anyRoyal && royals(side) == 0) {
+            return ROYALS_GONE;
+        }
+        for (int i = 0; i < rules.goalKinds.length; i++) {
+            boolean met = switch (rules.goalKinds[i]) {
+                case CHECKMATE -> false; // needs the moves: outcome() judges it
+                case LOSE_EVERYTHING -> occupied[side] == 0;
+                case REACH_SQUARES -> (ofTypes(1 - side, rules.goalTypes[i]) & rules.goalSquares[i]) != 0;
+                case CHECKS -> checksGiven(1 - side) >= rules.checksToWin;
+                case CAPTURE_ALL_OF -> ofTypes(side, rules.goalTypes[i]) == 0;
+                case BARE_ROYAL -> (occupied[side] & ~royals(side)) == 0;
+            };
+            if (met) {
+                return i;
+            }
+        }
+        return NO_GOAL;
     }
 
     /** The game is over by the variant's goal, before anyone looks at the moves; else ONGOING. */
     private Outcome goalOutcome() {
-        switch (rules.goal) {
-            case LOSE_EVERYTHING:
-                return occupied[side] == 0 ? Outcome.WIN : Outcome.ONGOING;
-            case KING_OF_THE_HILL:
-                return (royals(1 - side) & rules.hill) != 0 ? Outcome.LOSS : Outcome.ONGOING;
-            case CHECKS:
-                return checksGiven(1 - side) >= rules.checksToWin ? Outcome.LOSS : Outcome.ONGOING;
-            default:
-                return Outcome.ONGOING;
+        int goal = goalMet();
+        if (goal == NO_GOAL) {
+            return Outcome.ONGOING;
         }
+        return goal != ROYALS_GONE && rules.goalKinds[goal] == ai.variant.WinCondition.Kind.LOSE_EVERYTHING
+                ? Outcome.WIN : Outcome.LOSS;
+    }
+
+    /** {@code player}'s pieces of the types in {@code types} (bit per type). */
+    private long ofTypes(int player, int types) {
+        int n = rules.types.size();
+        long squares = 0;
+        for (int t = 0; t < n; t++) {
+            if ((types & 1 << t) != 0) {
+                squares |= pieces[player * n + t];
+            }
+        }
+        return squares;
+    }
+
+    @Override
+    public boolean repetitionDraws() {
+        return rules.repetition;
     }
 
     /** How many checks {@code player} has given (the {@code CHECKS} goal). */
@@ -325,7 +374,7 @@ public final class GenericBoard implements ChessPosition, PieceBoard {
         }
         sb.append(castling.isEmpty() ? "-" : castling);
         sb.append(' ').append(ep < 0 ? "-" : squareName(ep));
-        if (rules.goal == Variant.Goal.CHECKS) {
+        if (rules.checksToWin > 0) {
             sb.append(' ').append(rules.checksToWin - checksGiven(0)).append('+').append(rules.checksToWin - checksGiven(1));
         }
         sb.append(' ').append(halfmove).append(' ').append(fullmove);
@@ -367,6 +416,9 @@ public final class GenericBoard implements ChessPosition, PieceBoard {
     public long checkedRoyals() {
         int n = rules.types.size();
         long checked = 0;
+        if (!checkApplies(side)) {
+            return 0;
+        }
         for (int t = 0; t < n; t++) {
             if (rules.royal[t]) {
                 for (long b = pieces[side * n + t]; b != 0; b &= b - 1) {
@@ -382,6 +434,9 @@ public final class GenericBoard implements ChessPosition, PieceBoard {
 
     @Override
     public boolean inCheck(int player) {
+        if (rules.lastStanding && !checkApplies(player)) {
+            return false; // two or more royal pieces: they may be left attacked
+        }
         int n = rules.types.size();
         for (int t = 0; t < n; t++) {
             if (rules.royal[t]) {
@@ -426,6 +481,14 @@ public final class GenericBoard implements ChessPosition, PieceBoard {
     @Override
     public boolean hasCastled(int player) {
         return (castled & 1 << player) != 0;
+    }
+
+    /**
+     * Whether {@code player}'s royal pieces are held to check: always, unless the royal mode is
+     * {@code LAST_STANDING} and the player has two or more of them.
+     */
+    private boolean checkApplies(int player) {
+        return !rules.lastStanding || Long.bitCount(royals(player)) < 2;
     }
 
     // ---- attacks ----------------------------------------------------------------------------
@@ -499,12 +562,14 @@ public final class GenericBoard implements ChessPosition, PieceBoard {
                     }
                 }
             }
-            if (rules.types.get(t).castling() == ai.piece.PieceType.Castling.KING) {
+            if (rules.castles[t]) {
                 for (BoardRules.Castling c : rules.castlings) {
-                    if (c.player() == side && (rights & 1 << c.right()) != 0
+                    if (c.player() == side && c.kingType() == t && (rights & 1 << c.right()) != 0
                             && (pieces[side * n + t] & 1L << c.kingFrom()) != 0
-                            && (pieces[side * n + rules.rookType] & 1L << c.rookFrom()) != 0
-                            && (all & c.empty()) == 0 && !anyAttacked(c.safe(), 1 - side)) {
+                            && (pieces[side * n + c.rookType()] & 1L << c.rookFrom()) != 0
+                            && (all & c.empty()) == 0 && !(c.safe() != 0 && checkApplies(side) && anyAttacked(c.safe(), 1 - side))
+                            && (piece.targets(c.kingFrom(), all, enemy, (unmoved & 1L << c.kingFrom()) != 0) & 1L << c.kingTo()) == 0) {
+                        // (a castling landing where the piece goes anyway would be the same move: the ordinary one is played)
                         if (addIfLegal(out, ownExposure, enemyExposure, play(t, c.kingFrom(), c.kingTo(), -1, false, c)) && firstOnly) {
                             return out;
                         }
@@ -636,8 +701,9 @@ public final class GenericBoard implements ChessPosition, PieceBoard {
         if (castle != null) {
             long rookFrom = 1L << castle.rookFrom();
             long rookTo = 1L << castle.rookTo();
-            next[side * n + rules.rookType] = next[side * n + rules.rookType] & ~rookFrom | rookTo;
-            nextOccupied[side] = nextOccupied[side] & ~rookFrom | rookTo;
+            next[side * n + castle.rookType()] = next[side * n + castle.rookType()] & ~rookFrom | rookTo;
+            // the king may land where the rook stood, so both leave before both land
+            nextOccupied[side] = occupied[side] & ~fromBit & ~rookFrom | toBit | rookTo;
             newCastled |= 1 << side;
         }
         int newRights = rights;
@@ -654,7 +720,7 @@ public final class GenericBoard implements ChessPosition, PieceBoard {
                 }
             }
         }
-        if (rules.types.get(type).castling() == ai.piece.PieceType.Castling.KING) {
+        if (rules.castles[type]) {
             value -= 12;
         }
         int newEp = -1;
@@ -667,7 +733,7 @@ public final class GenericBoard implements ChessPosition, PieceBoard {
         GenericBoard child = new GenericBoard(rules, next, nextOccupied, other, newRights, newCastled, newEp,
                 unmoved & ~fromBit & ~toBit & ~victimBit, resets ? 0 : halfmove + 1,
                 side == 1 ? fullmove + 1 : fullmove, checks);
-        if (rules.goal == Variant.Goal.CHECKS && child.inCheck(other)) {
+        if (rules.checksToWin > 0 && child.inCheck(other)) {
             child.checks += 1 << 8 * side;
         }
         child.lastMove = Move.of(from, to, promotion >= 0 ? Character.toLowerCase(rules.types.get(promotion).letter()) : 0);

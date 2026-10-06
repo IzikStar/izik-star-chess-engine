@@ -23,8 +23,8 @@ export interface BoardEditorProps {
   pieces: EditorPiece[];
   /** A new placement; without it the board is only shown (a built-in variant). */
   onChange?: (board: Placement) => void;
-  /** Squares to mark (where the piece under the mouse goes). */
-  marks?: Map<string, Reach>;
+  /** Squares to mark (where the piece under the mouse goes; 'castle': where it lands castling, and its partner). */
+  marks?: Map<string, Reach | 'castle' | 'partner'>;
   /** The square under the mouse, or null when it leaves the board. */
   onHover?: (square: string | null) => void;
   label?: string;

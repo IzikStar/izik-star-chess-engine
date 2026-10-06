@@ -39,7 +39,9 @@ def perft(variant, fen, depth):
 
 def made_config(variant):
     """A Fairy-Stockfish config section for one of our made variants (chess or antichess base)."""
-    base = "antichess" if variant["goal"] == "LOSE_EVERYTHING" else "chess"
+    # old files say "goal"; newer ones list "goals" (docs/variant-rules.md)
+    kinds = [g["kind"] for g in variant["goals"]] if "goals" in variant else [variant["goal"]]
+    base = "antichess" if "LOSE_EVERYTHING" in kinds else "chess"
     lines = [f"[{variant['id']}:{base}]"]
     letters = {p["letter"]: p for p in variant["pieces"]}
     for letter, (name, betza) in BUILT_IN.items():

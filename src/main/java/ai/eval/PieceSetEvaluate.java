@@ -71,7 +71,7 @@ public final class PieceSetEvaluate implements Evaluator {
     }
 
     private static ParamSchema buildSchema(Variant variant) {
-        boolean fromZero = variant.goal() == Variant.Goal.LOSE_EVERYTHING;
+        boolean fromZero = variant.has(ai.variant.WinCondition.Kind.LOSE_EVERYTHING);
         List<ParamSpec> specs = new ArrayList<>();
         for (PieceType type : variant.pieces()) {
             String name = type.name().toLowerCase().replaceAll("[^a-z0-9]+", "-");

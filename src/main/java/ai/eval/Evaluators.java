@@ -33,6 +33,6 @@ public final class Evaluators {
 
     public static boolean usesChessEvaluation(Variant variant) {
         return variant.pieces().equals(StandardPieces.ALL) && variant.grid().equals(Grid.CHESS)
-                && variant.goal() != Variant.Goal.LOSE_EVERYTHING;
+                && !variant.has(ai.variant.WinCondition.Kind.LOSE_EVERYTHING);
     }
 }

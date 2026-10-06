@@ -359,7 +359,7 @@ public final class GameSession {
             return true;
         }
         boolean human = config.humanPlaysWhite();
-        if (currentPositionRepeated() || DrawOffers.engineAccepts(variant(), game.fen(), !human)) {
+        if (variant().repetition() && currentPositionRepeated() || DrawOffers.engineAccepts(variant(), game.fen(), !human)) {
             finish(GameEnd.agreed());
         } else {
             drawDeclinedAtPly = game.plyCount();
