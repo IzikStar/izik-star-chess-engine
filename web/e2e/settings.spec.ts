@@ -13,6 +13,8 @@ async function clickMove(page: Page, from: string, to: string) {
 async function newGame(page: Page, opponent: 'Computer' | 'A friend', level?: number) {
   await page.getByRole('button', { name: 'New game' }).click();
   const dialog = page.getByRole('dialog', { name: 'New game' });
+  // the dialog keeps the last game's variant, and designer.spec plays a made one; the bar is chess only
+  await dialog.getByRole('button', { name: 'Chess', exact: true }).click();
   await dialog.getByRole('button', { name: opponent, exact: true }).click();
   if (opponent === 'Computer') await dialog.getByRole('button', { name: 'White', exact: true }).click();
   if (level !== undefined) await dialog.getByLabel('Strength', { exact: true }).fill(String(level));

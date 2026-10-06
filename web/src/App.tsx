@@ -16,6 +16,7 @@ import { useGame, type Champion, type Color, type GameEvent, type GameState, typ
 import { play } from './sounds';
 import { inventedReach } from './reach';
 import { Icon } from './icons';
+import { Confetti } from './Confetti';
 
 const EMPTY = new Map<string, string[]>();
 
@@ -80,6 +81,8 @@ export function App() {
   const [confirmResign, setConfirmResign] = useState(false);
   /** A short message under the status line (a declined draw), cleared by the next move. */
   const [notice, setNotice] = useState<string | null>(null);
+  /** Counts the wins worth celebrating; each new one replays the confetti. */
+  const [party, setParty] = useState(0);
 
   const onEvents = useCallback((events: GameEvent[], state: GameState) => {
     const sound = soundRef.current;
@@ -95,11 +98,14 @@ export function App() {
           const winner = state.result === '1-0' ? 'white' : state.result === '0-1' ? 'black' : null;
           const humanLost = state.config.mode === 'engine' && winner !== null && winner !== state.config.humanColor;
           play(winner ? (humanLost ? 'lose' : 'win') : 'draw', sound);
+          // you beat the engine, or one of two friends won; engine against engine is no one's win
+          if (winner && !humanLost && state.config.mode !== 'computer') setParty((n) => n + 1);
           break;
         }
         case 'ended': {
           const humanLost = state.config.mode === 'engine' && e.result !== '1/2-1/2' && e.side === state.config.humanColor;
           play(e.result === '1/2-1/2' ? 'draw' : humanLost ? 'lose' : 'win', sound);
+          if (e.result !== '1/2-1/2' && !humanLost && state.config.mode !== 'computer') setParty((n) => n + 1);
           setConfirmResign(false);
           setNotice(null);
           break;
@@ -111,6 +117,7 @@ export function App() {
           play('hint', sound);
           break;
         case 'reset':
+          setParty(0);
           if (pgnLoadingRef.current) {
             setPgnLoading(false);
             setPgnOpen(false);
@@ -348,6 +355,7 @@ export function App() {
         <section className="board-area" aria-label="Board">
           <div className="board-wrap">
           {showBar && <EvalBar score={shownEval} orientation={orientation} />}
+          {party > 0 && <Confetti key={party} />}
           <Board
             fen={shownPremoves.length ? withPremoves(fen, shownPremoves) : fen}
             orientation={orientation}
@@ -407,7 +415,7 @@ export function App() {
           )}
 
           {over && (
-            <section className="result" aria-label="Result" data-testid="result">
+            <section className={'result' + (party > 0 ? ' won' : '')} aria-label="Result" data-testid="result">
               <div className="score">{state.result === '1/2-1/2' ? '½ – ½' : state.result!.replace('-', ' – ')}</div>
               <div className="reason">{resultText(state.status, state.turn, state.end)}</div>
               <div className="row">
