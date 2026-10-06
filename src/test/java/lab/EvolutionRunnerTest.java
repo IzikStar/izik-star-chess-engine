@@ -324,8 +324,10 @@ class EvolutionRunnerTest {
     @Test
     @DisplayName("Outside chess the champion can be measured against the random mover and Fairy-Stockfish")
     void fairyAndRandomYardsticks(@TempDir Path dir) {
+        ai.variant.Variant twoCheck = new ai.variant.Variant("two-check", "Two-check", ai.piece.StandardPieces.ALL,
+                ai.piece.Grid.CHESS, ai.variant.Variants.CHESS.startFen(), ai.variant.Variant.Goal.CHECKS, 2, false, true);
         RunSettings made = new RunSettings(1, 1, 1, 20, 60, 1, 1, 1, 1, List.of("fsf"), 0, 0, 0, 0, 0,
-                "amazon-chess", ai.variant.VariantJson.write(ai.variant.TestVariants.AMAZON_CHESS), 4, 50, java.util.Map.of());
+                "two-check", ai.variant.VariantJson.write(twoCheck), 4, 50, java.util.Map.of());
         assertThrows(IllegalArgumentException.class, () -> EvolutionRunner.check(made), "Fairy-Stockfish does not know it");
         org.junit.jupiter.api.Assumptions.assumeTrue(arena.FairyStockfish.installed(), "Fairy-Stockfish is not installed");
         RunSettings settings = new RunSettings(1, 1, 1, 20, 120, 2, 5, 1, 1, List.of("random", "fsf:500"), 0, 0, 0, 0, 0,
