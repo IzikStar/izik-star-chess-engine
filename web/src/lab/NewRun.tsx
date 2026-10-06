@@ -70,8 +70,8 @@ export function NewRun({ job }: { job: Job | null }) {
 
   const algorithm = algorithms.find((a) => a.className === form.algorithm) ?? algorithms[0];
   const chess = form.variant === 'chess';
-  // Fairy-Stockfish knows the built-in variants (made ones once they are written out for it)
-  const fairy = variants.length === 0 || variants.some((v) => v.id === form.variant && v.builtIn);
+  // Fairy-Stockfish knows the built-in variants and the made ones the server can write a config for
+  const fairy = variants.length === 0 || variants.some((v) => v.id === form.variant && (v.fairy ?? v.builtIn));
   // outside chess there is no opening book and no Stockfish
   useEffect(() => {
     if (!chess) {
@@ -230,7 +230,7 @@ export function NewRun({ job }: { job: Job | null }) {
                 ['zero', 'All-zero weights', 'An engine that knows only the rules (and mate). Beating it is the first sign of life for a run from zero.'],
                 ['random', 'Random mover', 'Plays any legal move (it only takes a win it sees one move ahead). The floor: unlike all-zero weights it does not search, so a young run still has something to beat.'],
                 ['sf:auto', 'Stockfish (auto level)', 'Stockfish held to a UCI_Elo level that moves with the champion: up after a score above 70%, down below 30%. Chess only.'],
-                ['fsf', 'Fairy-Stockfish (20,000 nodes)', 'The strongest open engine for variants, at full strength with 20,000 positions a move. The ceiling to measure against in antichess, king of the hill and three-check. Needs Fairy-Stockfish in engine/.'],
+                ['fsf', 'Fairy-Stockfish (20,000 nodes)', 'The strongest open engine for variants, at full strength with 20,000 positions a move. The ceiling to measure against in antichess, king of the hill, three-check and most made variants (an invented piece goes to it as Betza text). Needs Fairy-Stockfish in engine/.'],
               ] as [string, string, string][]).map(([key, label, help]) => (
                 <label key={key} className="check" title={help}>
                   <input type="checkbox" aria-label={label} checked={form.yardsticks.includes(key)} disabled={((key === 'sf:auto' || key === 'classic') && !chess) || (key === 'fsf' && !fairy)} onChange={() => toggleYardstick(key)} />

@@ -113,8 +113,9 @@ test('an antichess run from zero is started on the page, finishes, and its champ
   await expect(page).toHaveURL(/#lab\/run\/e2e-anti\.db$/);
   const run = page.getByTestId('run');
   await expect(run.getByRole('heading', { name: /E2E anti/ })).toBeVisible();
-  await expect(run).toContainText('finished', { timeout: 60_000 });
-  await expect(run).toContainText('2 of 2 generations');
+  // ("finished" alone would also match "No generation finished yet")
+  await expect(run).toContainText('2 of 2 generations', { timeout: 60_000 });
+  await expect(run).toContainText('finished');
   await expect(run).toContainText('Antichess · FromZero');
   await run.getByRole('button', { name: 'Generations', exact: true }).click();
   await expect(page.getByTestId('generations')).toContainText('vs All-zero weights');

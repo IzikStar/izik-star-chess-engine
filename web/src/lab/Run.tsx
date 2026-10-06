@@ -19,6 +19,10 @@ export function Run({ file, generation, tab, job, onPlay }: {
 }) {
   const isRunning = job?.running && job.file === file;
   const [run, error, refresh] = usePolled<RunDetail>(runUrl(file), isRunning ? 3000 : 15_000);
+  // a run that just stopped or finished: show its last generations now, not at the next slow poll
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const justEnded = !!job && job.file === file && !job.running && !!job.finished;
+  useEffect(() => { if (!isRunning) refresh(); }, [isRunning, justEnded]);
   const [message, setMessage] = useState<string | null>(null);
   if (error) return <section className="panel"><p className="muted">Could not load the run: {error}</p></section>;
   if (!run) return <section className="panel"><p className="muted">Loading the run…</p></section>;

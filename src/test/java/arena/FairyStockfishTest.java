@@ -27,7 +27,55 @@ class FairyStockfishTest {
         assertEquals(Optional.of("antichess"), FairyStockfish.variantName(Variants.ANTICHESS));
         assertEquals(Optional.of("kingofthehill"), FairyStockfish.variantName(Variants.KING_OF_THE_HILL));
         assertEquals(Optional.of("3check"), FairyStockfish.variantName(Variants.THREE_CHECK));
-        assertFalse(FairyStockfish.plays(TestVariants.AMAZON_CHESS));
+        assertEquals(Optional.of("amazon-chess"), FairyStockfish.variantName(TestVariants.AMAZON_CHESS));
+        assertFalse(FairyStockfish.plays(TWO_CHECK));
+    }
+
+    /** A game Fairy-Stockfish has no config for: three-check is the only check count it is given. */
+    static final ai.variant.Variant TWO_CHECK = new ai.variant.Variant("two-check", "Two-check",
+            ai.piece.StandardPieces.ALL, ai.piece.Grid.CHESS, Variants.CHESS.startFen(),
+            ai.variant.Variant.Goal.CHECKS, 2, false, true);
+
+    @Test
+    @DisplayName("A made variant is written as a config section: base game by goal, missing chess pieces off, invented ones as Betza")
+    void config() {
+        String amazon = FairyConfig.of(TestVariants.made("amazon-antichess")).orElseThrow();
+        assertTrue(amazon.startsWith("[amazon-antichess:antichess]\n"), amazon);
+        assertTrue(amazon.contains("queen = -\n"), amazon);
+        assertTrue(amazon.contains("customPiece1 = a:"), amazon);
+        assertTrue(amazon.contains("mustCapture = true\n"), amazon);
+        assertTrue(amazon.contains("startFen = rnbakbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBAKBNR w - - 0 1\n"), amazon);
+        assertFalse(amazon.contains("rook = -"), amazon);
+        assertEquals(Optional.empty(), FairyConfig.of(TWO_CHECK));
+        // a king that is not the base game's: Fairy-Stockfish would keep its own, so no config
+        ai.piece.PieceType k = ai.piece.StandardPieces.KING;
+        ai.piece.PieceType knightKing = new ai.piece.PieceType("King", 'K', ai.piece.StandardPieces.KNIGHT.atoms(),
+                true, List.of(), false, ai.piece.PieceType.Castling.NONE, k.value());
+        List<ai.piece.PieceType> pieces = new java.util.ArrayList<>(ai.piece.StandardPieces.ALL);
+        pieces.replaceAll(p -> p.letter() == 'K' ? knightKing : p);
+        ai.variant.Variant odd = new ai.variant.Variant("knight-king", "Knight king", pieces, ai.piece.Grid.CHESS,
+                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1", ai.variant.Variant.Goal.CHECKMATE, 0, false, false);
+        assertEquals(Optional.empty(), FairyConfig.of(odd));
+    }
+
+    @Test
+    @DisplayName("Fairy-Stockfish plays every made test variant by our rules and beats the random mover (when it is installed)")
+    void fairyPlaysMadeVariants() {
+        assumeTrue(FairyStockfishLocator.find().isPresent(), "Fairy-Stockfish is not installed");
+        for (String id : List.of("amazon-antichess", "amazon-chess", "archbishop-chess", "forward-chess", "knightrider-chess")) {
+            ai.variant.Variant variant = TestVariants.made(id);
+            if (!FairyStockfish.plays(variant)) {
+                continue; // a piece the config cannot carry (Betza i): nothing to check
+            }
+            Player fsf = Players.parse("fsf:2000", "fsf", 3, 0, Players.HALL_OF_FAME, variant);
+            Player random = Players.random("random", variant);
+            for (long seed = 1; seed <= 2; seed++) {
+                GameRecord game = Match.play(variant, random, fsf, new Opening("none", List.of()), 300, seed);
+                Game replay = new Game(variant);
+                game.moves().forEach(replay::play); // every Fairy-Stockfish move is legal by our rules
+                assertEquals(GameRecord.Result.BLACK_WINS, game.result(), id + ": " + game.reason());
+            }
+        }
     }
 
     @Test

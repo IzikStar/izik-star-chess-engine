@@ -67,6 +67,9 @@ final class LabJobs {
         volatile boolean finished;
         volatile String error;
 
+        /** Opened when the first generation starts (the run is in its file) or the job ends. */
+        final java.util.concurrent.CountDownLatch started = new java.util.concurrent.CountDownLatch(1);
+
         Job(String file, String name) {
             this.file = file;
             this.name = name;
@@ -79,6 +82,7 @@ final class LabJobs {
                     generation = number;
                     gamesPlanned = games;
                     gamesDone = 0;
+                    started.countDown();
                 }
 
                 @Override
@@ -207,13 +211,28 @@ final class LabJobs {
                 j.error = String.valueOf(e.getMessage());
             } finally {
                 j.finished = true;
+                j.started.countDown();
             }
         }, "lab-run");
         thread.setDaemon(true);
         thread.start();
+        awaitRunRow(j);
         JsonObject out = new JsonObject();
         out.addProperty("file", file);
         return out;
+    }
+
+    /**
+     * Waits (up to 10 s) until the run's first generation starts, by when its file holds the run,
+     * so the page that opens it next finds it: the runner writes it on its own thread, and a cold
+     * start used to answer "no run in ..." first.
+     */
+    private static void awaitRunRow(Job j) {
+        try {
+            j.started.await(10, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /** The run's settings: the defaults, then whatever {@code body.settings} says, plus the game and the algorithm's options. */
@@ -298,6 +317,7 @@ final class LabJobs {
                 j.error = String.valueOf(e.getMessage());
             } finally {
                 j.finished = true;
+                j.started.countDown();
             }
         }, "lab-run");
         thread.setDaemon(true);

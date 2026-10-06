@@ -47,6 +47,7 @@ final class VariantsApi {
                 o.addProperty("id", v.id());
                 o.addProperty("name", v.name());
                 o.addProperty("builtIn", VariantStore.isBuiltIn(v.id()));
+                o.addProperty("fairy", arena.FairyStockfish.plays(v)); // Fairy-Stockfish can be its yardstick
                 o.addProperty("goal", v.goal().name());
                 o.addProperty("checksToWin", v.checksToWin());
                 list.add(o);

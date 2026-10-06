@@ -316,8 +316,9 @@ A run plays chess or any variant (built-in or made in the *Variants* tab). Chess
 tuned chess evaluation; any other game evolves an evaluation built from its pieces (material,
 mobility, a value per square), which in antichess starts from all zeros, so the engine learns the
 game from nothing. Variants start from random openings. Stockfish plays chess only; in the
-built-in variants the yardstick from above is **Fairy-Stockfish** (`fsf`, full strength at a
-fixed number of nodes a move), and from below the **random mover** (`random`, any legal move),
+built-in variants, and in made variants that can be written as a Fairy-Stockfish config
+(`arena.FairyConfig`: an 8x8 board, the base game's king and pawn, three checks if any), the
+yardstick from above is **Fairy-Stockfish** (`fsf`, full strength at a fixed number of nodes a move), and from below the **random mover** (`random`, any legal move),
 which every evaluation should beat.
 
 The **Lab** tab of the web app runs the experiments:
@@ -424,7 +425,7 @@ GitHub releases into `engine/stockfish/` and uses it at once, no restart. Or do 
 ### Fairy-Stockfish (variants)
 
 Fairy-Stockfish, the Stockfish fork that plays antichess, King of the Hill, three-check and
-dozens of other variants, is the yardstick for the Lab's variant runs and for
+dozens of other variants (and, through a generated config file, most of the variants you make), is the yardstick for the Lab's variant runs and for
 `arena.Cli match ... --variant antichess` (players `fsf` and `fsf:NODES`). The game never
 downloads it: take the build for your OS from
 <https://github.com/fairy-stockfish/Fairy-Stockfish/releases> (e.g.
