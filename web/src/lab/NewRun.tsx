@@ -110,6 +110,11 @@ export function NewRun({ job }: { job: Job | null }) {
     return (totalGames * base * (chess ? 1.6 : 1)) / threads * 3 / 3;
   }, [form, totalGames, chess]);
 
+  // the population is an essential; the algorithm's other settings wait under Advanced settings
+  const essentialOptions = algorithm?.options.filter((o) => o.key === 'population') ?? [];
+  const otherOptions = algorithm?.options.filter((o) => o.key !== 'population') ?? [];
+  const option = (o: AlgorithmOption) => <OptionField key={o.key} option={o} value={form.options[o.key] ?? ''} onChange={(v) => set({ options: { ...form.options, [o.key]: v } })} />;
+
   const toggleYardstick = (y: string) => set({ yardsticks: form.yardsticks.includes(y) ? form.yardsticks.filter((x) => x !== y) : [...form.yardsticks, y] });
 
   const start = async () => {
@@ -184,12 +189,13 @@ export function NewRun({ job }: { job: Job | null }) {
             <span className="help">{algorithm?.about}</span>
           </label>
         </div>
-        {algorithm && algorithm.options.length > 0 && (
+        {essentialOptions.length > 0 && (
           <div className="setting-grid">
-            {algorithm.options.map((o) => <OptionField key={o.key} option={o} value={form.options[o.key] ?? ''} onChange={(v) => set({ options: { ...form.options, [o.key]: v } })} />)}
+            {essentialOptions.map(option)}
           </div>
         )}
         {algorithm && algorithm.options.length === 0 && <p className="muted">This algorithm has no settings of its own.</p>}
+        {essentialOptions.length === 0 && otherOptions.length > 0 && <p className="muted">Its settings are under Advanced settings below.</p>}
       </section>
 
       <section className="panel">
@@ -197,24 +203,7 @@ export function NewRun({ job }: { job: Job | null }) {
         <div className="setting-grid">
           {num('generations', 'Generations', 'How many generations to play. A stopped run can be resumed up to this number.', 1, 10000)}
           {num('depth', 'Search depth', 'How many plies each side thinks ahead in every game. Deeper is stronger and slower: each ply costs about three times the time.', 1, 8)}
-          {num('deepDepth', 'Deep depth', 'Some games are played deeper, so weights that only pay off with more lookahead get a chance. 0 plays none.', 0, 8)}
-          {num('deepShareFirst', 'Deep share, first generation (%)', 'What share of the games the first generation plays at the deep depth.', 0, 100)}
-          {num('deepShareLast', 'Deep share, last generation (%)', '... and the last generation; it grows evenly in between, so later generations are judged more carefully.', 0, 100)}
-          {num('openingsPerPairing', 'Openings per pairing', 'Each pair of members plays this many openings, each once with each colour. More openings, less luck.', 1, 50)}
-          <label className="setting">
-            <span className="setting-label">Openings from</span>
-            <select aria-label="Openings from" value={form.openingSource} disabled={!chess} onChange={(e) => set({ openingSource: e.target.value as Form['openingSource'] })}>
-              <option value="random">Random moves</option>
-              <option value="book" disabled={!chess}>The chess opening book</option>
-            </select>
-            <span className="help">Chess can start from a suite of 50 balanced book openings. Every other game starts from a few random moves, so the games differ.</span>
-          </label>
-          {form.openingSource === 'random' && num('openingPlies', 'Random opening moves', 'How many random half-moves each opening has. Four keeps the games sane but different.', 1, 20)}
-          {form.openingSource === 'random' && num('randomOpenings', 'Number of openings', 'How many random openings the run draws (with the seed below) and rotates through.', 1, 500)}
-          {num('maxPlies', 'Move limit (plies)', 'A game still going after this many half-moves is stopped and counted as a draw.', 10, 1000)}
-          {num('variety', 'Variety (centipawns)', 'Among moves scoring within this much of the best, the engine picks one at random, so the same two members do not replay the same game. 0 always plays the best move.', 0, 200)}
           {num('threads', 'Threads', 'Games played at the same time. One below your core count leaves the game page usable.', 1, 64)}
-          {num('seed', 'Seed', 'The run\'s randomness. The same seed, settings and algorithm replay the same run.', 0, 1000000000)}
         </div>
       </section>
 
@@ -246,12 +235,47 @@ export function NewRun({ job }: { job: Job | null }) {
             </div>
             <span className="help">The first checked one is the one the progress chart follows. A hall of fame entry only works for a run of the same game.</span>
           </div>
+        </div>
+      </section>
+
+      <details className="panel advanced" data-testid="advanced-settings">
+        <summary><h3>Advanced settings</h3><span className="muted">deep games, openings, move limit, variety, seed, how the champion is measured{otherOptions.length > 0 ? ', and the algorithm\'s other settings' : ''}</span></summary>
+        {otherOptions.length > 0 && (
+          <>
+            <h4>Algorithm</h4>
+            <div className="setting-grid">
+              {otherOptions.map(option)}
+            </div>
+          </>
+        )}
+        <h4>Games</h4>
+        <div className="setting-grid">
+          {num('deepDepth', 'Deep depth', 'Some games are played deeper, so weights that only pay off with more lookahead get a chance. 0 plays none.', 0, 8)}
+          {num('deepShareFirst', 'Deep share, first generation (%)', 'What share of the games the first generation plays at the deep depth.', 0, 100)}
+          {num('deepShareLast', 'Deep share, last generation (%)', '... and the last generation; it grows evenly in between, so later generations are judged more carefully.', 0, 100)}
+          {num('openingsPerPairing', 'Openings per pairing', 'Each pair of members plays this many openings, each once with each colour. More openings, less luck.', 1, 50)}
+          <label className="setting">
+            <span className="setting-label">Openings from</span>
+            <select aria-label="Openings from" value={form.openingSource} disabled={!chess} onChange={(e) => set({ openingSource: e.target.value as Form['openingSource'] })}>
+              <option value="random">Random moves</option>
+              <option value="book" disabled={!chess}>The chess opening book</option>
+            </select>
+            <span className="help">Chess can start from a suite of 50 balanced book openings. Every other game starts from a few random moves, so the games differ.</span>
+          </label>
+          {form.openingSource === 'random' && num('openingPlies', 'Random opening moves', 'How many random half-moves each opening has. Four keeps the games sane but different.', 1, 20)}
+          {form.openingSource === 'random' && num('randomOpenings', 'Number of openings', 'How many random openings the run draws (with the seed below) and rotates through.', 1, 500)}
+          {num('maxPlies', 'Move limit (plies)', 'A game still going after this many half-moves is stopped and counted as a draw.', 10, 1000)}
+          {num('variety', 'Variety (centipawns)', 'Among moves scoring within this much of the best, the engine picks one at random, so the same two members do not replay the same game. 0 always plays the best move.', 0, 200)}
+          {num('seed', 'Seed', 'The run\'s randomness. The same seed, settings and algorithm replay the same run.', 0, 1000000000)}
+        </div>
+        <h4>Measuring the champion</h4>
+        <div className="setting-grid">
           {num('yardstickEvery', 'Measure every N generations', 'How often the champion plays the yardsticks (and always after the last generation). 0 never.', 0, 1000)}
           {num('yardstickOpenings', 'Yardstick openings', 'Openings of each yardstick match, each with both colours. 20 openings = 40 games, an Elo interval of about ±120.', 0, 200)}
           {chess && num('stockfishFrom', 'Stockfish from generation', 'Stockfish yardsticks only start at this generation, so early generations do not waste time losing to it.', 0, 10000)}
           {chess && num('memberStockfishOpenings', 'Every member against Stockfish (openings)', 'Every member of every generation plays Stockfish over this many openings, both colours; the algorithm can use the scores. 0 skips it. Chess only.', 0, 50)}
         </div>
-      </section>
+      </details>
 
       <section className="panel summary">
         <h3>What it adds up to</h3>

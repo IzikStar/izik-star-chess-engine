@@ -535,3 +535,57 @@ label.btn.disabled { opacity: 0.5; cursor: default; pointer-events: none; }
   .confetti { display: none; }
   .result { animation: none; }
 }
+
+/* every chart opens large (ChartFrame.tsx): an expand button on hover, focus and touch, and a dialog */
+.chart-frame { position: relative; }
+.chart-frame.opens { cursor: zoom-in; }
+.chart-frame.inline { display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; }
+.chart-expand { position: absolute; top: 4px; right: 4px; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border-radius: 7px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; opacity: 0; transition: opacity 0.15s; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12); }
+.chart-frame.inline .chart-expand { position: static; width: 24px; height: 24px; }
+.chart-frame:hover .chart-expand, .chart-frame:focus-within .chart-expand, .chart-expand:focus-visible { opacity: 1; }
+.chart-expand:hover { background: var(--accent-soft); }
+@media (hover: none) { .chart-expand { opacity: 0.85; } }
+.dialog.chart-dialog { width: min(1200px, calc(100vw - 32px)); max-width: none; height: min(820px, calc(100dvh - 32px)); max-height: none; }
+.chart-dialog-body { display: flex; flex-direction: column; gap: 10px; padding: 18px 20px; height: 100%; }
+.chart-dialog-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.chart-dialog-head h2 { margin: 0 0 2px; font-size: 18px; }
+.chart-dialog-head .btn { flex: none; font-size: 16px; line-height: 1; padding: 6px 10px; }
+.line-chart { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+.line-chart .chart.large { display: block; max-height: none; font-size: 13px; touch-action: pan-y; }
+.chart.large.pick { cursor: pointer; }
+.chart.large .axis { stroke: var(--muted); }
+.chart.large .axis-label { fill: var(--fg); font-size: 13px; font-weight: 600; }
+.chart.large .ref-label { fill: var(--muted); font-size: 12px; }
+.chart.large .line { stroke-width: 2.5; }
+.chart.large .err { stroke-width: 4; }
+.chart.large .area { fill: var(--accent); fill-opacity: 0.14; }
+.chart.large .marker { stroke: var(--warn); stroke-width: 2; }
+.chart.large .hover line { stroke: var(--fg); stroke-opacity: 0.35; stroke-dasharray: 3 3; }
+.chart.large .hover circle { fill: var(--surface); stroke: var(--accent); stroke-width: 2.5; }
+.chart-tip { position: absolute; transform: translate(-50%, -100%); pointer-events: none; white-space: nowrap; max-width: 90%; overflow: hidden; text-overflow: ellipsis;
+  padding: 5px 9px; border-radius: 7px; background: var(--fg); color: var(--surface); font-size: 13px; font-variant-numeric: tabular-nums; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
+@media (max-width: 520px) {
+  .dialog.chart-dialog { width: calc(100vw - 16px); height: calc(100dvh - 24px); }
+  .chart-dialog-body { padding: 12px; }
+}
+
+/* the new-run form keeps the essentials in sight and folds the rest */
+.new-run .advanced > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; cursor: pointer; list-style: none; }
+.new-run .advanced > summary::-webkit-details-marker { display: none; }
+.new-run .advanced > summary::before { content: '▸'; color: var(--muted); transition: transform 0.15s; }
+.new-run .advanced[open] > summary::before { transform: rotate(90deg); }
+.new-run .advanced > summary h3 { margin: 0; display: inline; }
+.new-run .advanced > summary .muted { font-size: 13px; }
+.new-run .advanced > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+.new-run .advanced h4 { margin: 18px 0 0; font-size: 14px; }
+/* the first visit's tour (Tour.tsx) */
+.tour-offer { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 20px; background: var(--accent-soft); border-bottom: 1px solid var(--line); font-size: 14px; }
+.tour-offer span { flex: 1 1 220px; }
+.tour-card { position: fixed; z-index: 50; background: var(--surface); border: 1px solid var(--accent); border-radius: 12px; padding: 14px 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25); display: flex; flex-direction: column; gap: 6px; animation: result-pop 0.2s ease-out; }
+.tour-card h3 { margin: 0; font-size: 17px; }
+.tour-card p { margin: 0; font-size: 14px; line-height: 1.5; }
+.tour-card .row { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+.tour-step { font-size: 12px; font-weight: 700; color: var(--accent); }
+.tour-target { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 8px; position: relative; z-index: 51; }
+@media (prefers-reduced-motion: reduce) { .tour-card { animation: none; } }
