@@ -17,8 +17,11 @@ test("analysing Scholar's mate: eval bar, Elo per side, and ...Nf6 marked a blun
   await dialog.getByRole('button', { name: 'Start game' }).click();
   await expect(dialog).toBeHidden();
 
-  for (const [from, to] of [['e2', 'e4'], ['e7', 'e5'], ['f1', 'c4'], ['b8', 'c6'], ['d1', 'h5'], ['g8', 'f6'], ['h5', 'f7']]) {
+  // each move waits for the list to grow, so a busy machine cannot drop a click
+  const moves = [['e2', 'e4'], ['e7', 'e5'], ['f1', 'c4'], ['b8', 'c6'], ['d1', 'h5'], ['g8', 'f6'], ['h5', 'f7']];
+  for (const [i, [from, to]] of moves.entries()) {
     await clickMove(page, from, to);
+    await expect(page.getByTestId('move-list').getByRole('button')).toHaveCount(i + 1);
   }
   const result = page.getByTestId('result');
   await expect(result).toContainText('1 – 0');

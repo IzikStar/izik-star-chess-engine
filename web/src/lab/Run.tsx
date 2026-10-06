@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Board } from '../Board';
 import type { Champion } from '../protocol';
 import { Icon } from '../icons';
+import { ChartFrame, LineChart } from '../ChartFrame';
 import {
   algorithmName, duration, elo, goLab, pct, player, post, reasonText, resultText, runUrl, signed, usePolled,
   type GenerationDetail, type GenerationRow, type Job, type Replay, type RunDetail, type Score, type Spec, type Weight,
@@ -111,11 +112,12 @@ function Overview({ run }: { run: RunDetail }) {
   const shown = yardstick && yardsticks.includes(yardstick) ? yardstick : yardsticks[0] ?? null;
   const points = shown ? run.generations.map((g) => ({ number: g.number, score: combined(g, shown) })).filter((p) => p.score) as { number: number; score: Score }[] : [];
   if (run.generations.length === 0) return <section className="panel"><p className="muted">No generation finished yet.</p></section>;
+  const title = `Champion against ${shown ? player(shown).toLowerCase().replace(/^d/, 'd') : 'the yardsticks'}`;
   return (
     <>
       <section className="panel">
         <div className="run-head">
-          <h3>Champion against {shown ? player(shown).toLowerCase().replace(/^d/, 'd') : 'the yardsticks'}</h3>
+          <h3>{title}</h3>
           {yardsticks.length > 1 && (
             <label className="pick"><span className="muted">Yardstick</span>
               <select value={shown ?? ''} onChange={(e) => setYardstick(e.target.value)}>{yardsticks.map((y) => <option key={y} value={y}>{player(y)}</option>)}</select>
@@ -123,7 +125,7 @@ function Overview({ run }: { run: RunDetail }) {
           )}
         </div>
         <p className="muted">Elo of each measured champion against a fixed opponent, with its 95% interval. The run is getting somewhere when the whole bar climbs above zero.</p>
-        <EloChart points={points} last={run.generations.at(-1)!.number} />
+        <EloChart title={title} points={points} last={run.generations.at(-1)!.number} />
       </section>
       <section className="panel">
         <h3>What the games looked like</h3>
@@ -159,7 +161,7 @@ function combined(g: GenerationRow, opponent: string): Score | null {
 }
 
 /** Elo of each measured champion against a yardstick, with its 95% interval. */
-function EloChart({ points, last }: { points: { number: number; score: Score }[]; last: number }) {
+function EloChart({ title, points, last }: { title: string; points: { number: number; score: Score }[]; last: number }) {
   if (points.length === 0) return <p className="muted">No yardstick match played yet.</p>;
   const W = 720, H = 260, L = 48, R = 12, T = 12, B = 36;
   const top = Math.max(100, ...points.map((p) => p.score.eloHigh));
@@ -173,7 +175,18 @@ function EloChart({ points, last }: { points: { number: number; score: Score }[]
   const ticks: number[] = [];
   for (let t = Math.ceil(bottom / step) * step; t <= top; t += step) ticks.push(t);
   const every = Math.ceil((last + 1) / 12);
+  const byNumber = new Map(points.map((p) => [p.number, p.score]));
+  const large = (
+    <LineChart label="Champion Elo against the yardstick by generation, large" xLabel="Generation" yLabel="Elo against the yardstick" xMax={last}
+      points={points.map((p) => ({ x: p.number, y: p.score.elo, low: p.score.eloLow, high: p.score.eloHigh }))}
+      reference={{ y: 0, label: 'as strong as the yardstick' }}
+      describe={(p) => {
+        const s = byNumber.get(p.x)!;
+        return `Generation ${p.x}: ${elo(s)} Elo (${Math.round(s.eloLow)} to ${Math.round(s.eloHigh)}), +${s.wins} =${s.draws} -${s.losses}`;
+      }} />
+  );
   return (
+    <ChartFrame title={title} large={large} note="Elo of each measured champion against a fixed opponent, with its 95% interval.">
     <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Champion Elo against the yardstick by generation">
       {ticks.map((t) => (
         <g key={t}>
@@ -195,6 +208,7 @@ function EloChart({ points, last }: { points: { number: number; score: Score }[]
         </g>
       ))}
     </svg>
+    </ChartFrame>
   );
 }
 
@@ -206,9 +220,14 @@ function SeriesChart({ title, unit, values, min, max }: { title: string; unit: s
   const x = (i: number) => L + ((W - L - R) * i) / Math.max(1, values.length - 1);
   const y = (v: number) => T + ((H - T - B) * (hi - v)) / (hi - lo || 1);
   const latest = values.at(-1);
+  const large = (
+    <LineChart label={`${title} by generation, large`} xLabel="Generation" yLabel={title + (unit.trim() ? ` (${unit.trim()})` : '')} yMin={min} yMax={max}
+      points={values.map((v, i) => ({ x: i, y: v }))} describe={(p) => `Generation ${p.x}: ${p.y}${unit}`} />
+  );
   return (
     <figure className="series">
       <figcaption>{title}{latest !== undefined && <strong> {latest}{unit}</strong>}</figcaption>
+      <ChartFrame title={`${title} by generation`} large={large}>
       <svg className="chart small" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${title} by generation`}>
         {[lo, (lo + hi) / 2, hi].map((t) => (
           <g key={t}><line x1={L} x2={W - R} y1={y(t)} y2={y(t)} className="grid" /><text x={L - 4} y={y(t) + 3} textAnchor="end">{Math.round(t)}</text></g>
@@ -217,6 +236,7 @@ function SeriesChart({ title, unit, values, min, max }: { title: string; unit: s
         <text x={W - R} y={H - 4} textAnchor="end">{values.length - 1}</text>
         <polyline className="line" points={values.map((v, i) => `${x(i)},${y(v)}`).join(' ')} />
       </svg>
+      </ChartFrame>
     </figure>
   );
 }
@@ -275,6 +295,20 @@ function Spark({ values, min, max }: { values: number[]; min: number; max: numbe
   return <svg className="spark" viewBox={`0 0 ${W} ${H}`} aria-hidden="true"><polyline points={pts.join(' ')} /></svg>;
 }
 
+/** A weight's sparkline; it opens as a chart of the weight over the generations. */
+function WeightSpark({ weight: w }: { weight: Weight }) {
+  const large = (
+    <LineChart label={`${w.name} over the generations, large`} xLabel="Generation" yLabel={w.name}
+      points={w.values.map((v, i) => ({ x: i, y: v }))} reference={{ y: w.default, label: `default ${w.default}` }}
+      describe={(p) => `Generation ${p.x}: ${p.y} (${signed(p.y - w.default)} from the default)`} />
+  );
+  return (
+    <ChartFrame title={`${w.name} over the generations`} note={w.description} large={large} inline>
+      <Spark values={w.values} min={Math.min(w.default, ...w.values)} max={Math.max(w.default, ...w.values)} />
+    </ChartFrame>
+  );
+}
+
 function WeightsTable({ weights, limit, group }: { weights: Weight[]; limit?: number; group?: string }) {
   const sorted = useMemo(() => [...weights]
     .filter((w) => !group || w.group === group)
@@ -296,7 +330,7 @@ function WeightsTable({ weights, limit, group }: { weights: Weight[]; limit?: nu
                 <td>{w.default}</td>
                 <td>{latest}</td>
                 <td className={change > 0 ? 'up' : change < 0 ? 'down' : ''}>{signed(change)}</td>
-                <td><Spark values={w.values} min={Math.min(w.default, ...w.values)} max={Math.max(w.default, ...w.values)} /></td>
+                <td><WeightSpark weight={w} /></td>
               </tr>
             );
           })}
