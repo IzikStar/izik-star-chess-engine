@@ -618,7 +618,13 @@ class WebServerTest {
         String amazon = ai.variant.VariantJson.write(ai.variant.TestVariants.AMAZON_CHESS);
         assertEquals(400, send("POST", "/api/health", "{\"games\":4,\"depth\":1}").statusCode());
         assertEquals(400, send("POST", "/api/health", "{\"games\":0,\"depth\":1,\"variant\":" + amazon + "}").statusCode());
-        HttpResponse<String> started = send("POST", "/api/health", "{\"games\":4,\"depth\":1,\"variant\":" + amazon + "}");
+        assertEquals(400, send("POST", "/api/health", "{\"games\":4,\"depth\":6,\"variant\":" + amazon + "}").statusCode());
+        if (!arena.FairyStockfish.installed()) {
+            assertEquals(400, send("POST", "/api/health", "{\"games\":4,\"engine\":\"fairy-stockfish\",\"variant\":"
+                    + amazon + "}").statusCode());
+        }
+        HttpResponse<String> started = send("POST", "/api/health", "{\"games\":4,\"depth\":1,\"blackDepth\":2,"
+                + "\"maxPlies\":80,\"randomPlies\":2,\"variety\":0,\"threads\":2,\"seed\":5,\"variant\":" + amazon + "}");
         assertEquals(200, started.statusCode(), started.body());
         JsonObject state = get("/api/health");
         for (int i = 0; i < 600 && state.get("running").getAsBoolean(); i++) {
@@ -630,6 +636,21 @@ class WebServerTest {
         JsonObject report = state.getAsJsonObject("report");
         assertEquals(4, report.get("whiteWins").getAsInt() + report.get("blackWins").getAsInt() + report.get("draws").getAsInt());
         assertTrue(report.get("movesPerTurn").getAsDouble() > 10, report.toString());
+        JsonObject settings = state.getAsJsonObject("settings");
+        assertEquals(1, settings.get("whiteDepth").getAsInt());
+        assertEquals(2, settings.get("blackDepth").getAsInt());
+        assertEquals(80, settings.get("maxPlies").getAsInt());
+        assertEquals("built-in", settings.get("engine").getAsString());
+        JsonObject details = report.getAsJsonObject("details");
+        assertEquals(4, details.getAsJsonObject("lengths").getAsJsonObject("all").get("count").getAsInt());
+        assertTrue(details.getAsJsonObject("results").getAsJsonObject("whiteWins").has("low"), details.toString());
+        boolean amazonCounted = false;
+        for (JsonElement piece : details.getAsJsonArray("pieces")) {
+            amazonCounted |= piece.getAsJsonObject().get("letter").getAsString().equals("A");
+        }
+        assertTrue(amazonCounted, details.toString());
+        assertTrue(details.getAsJsonArray("samples").size() > 0);
+        assertTrue(state.has("fairyInstalled"));
     }
 
     private HttpResponse<String> send(String method, String path, String body) throws Exception {
