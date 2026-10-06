@@ -579,3 +579,13 @@ label.btn.disabled { opacity: 0.5; cursor: default; pointer-events: none; }
 .new-run .advanced > summary .muted { font-size: 13px; }
 .new-run .advanced > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
 .new-run .advanced h4 { margin: 18px 0 0; font-size: 14px; }
+/* the first visit's tour (Tour.tsx) */
+.tour-offer { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 20px; background: var(--accent-soft); border-bottom: 1px solid var(--line); font-size: 14px; }
+.tour-offer span { flex: 1 1 220px; }
+.tour-card { position: fixed; z-index: 50; background: var(--surface); border: 1px solid var(--accent); border-radius: 12px; padding: 14px 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25); display: flex; flex-direction: column; gap: 6px; animation: result-pop 0.2s ease-out; }
+.tour-card h3 { margin: 0; font-size: 17px; }
+.tour-card p { margin: 0; font-size: 14px; line-height: 1.5; }
+.tour-card .row { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+.tour-step { font-size: 12px; font-weight: 700; color: var(--accent); }
+.tour-target { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 8px; position: relative; z-index: 51; }
+@media (prefers-reduced-motion: reduce) { .tour-card { animation: none; } }
