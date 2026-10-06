@@ -320,4 +320,27 @@ class EvolutionRunnerTest {
         assertThrows(IllegalArgumentException.class, () -> new RunSettings(1, 1, 1, 20, 60, 1, 1, 0, 0, List.of("zero"),
                 0, 0, 0, 0, 0, "no-such-game", null, 4, 50, java.util.Map.of()).variant());
     }
+
+    @Test
+    @DisplayName("Outside chess the champion can be measured against the random mover and Fairy-Stockfish")
+    void fairyAndRandomYardsticks(@TempDir Path dir) {
+        RunSettings made = new RunSettings(1, 1, 1, 20, 60, 1, 1, 1, 1, List.of("fsf"), 0, 0, 0, 0, 0,
+                "amazon-chess", ai.variant.VariantJson.write(ai.variant.TestVariants.AMAZON_CHESS), 4, 50, java.util.Map.of());
+        assertThrows(IllegalArgumentException.class, () -> EvolutionRunner.check(made), "Fairy-Stockfish does not know it");
+        org.junit.jupiter.api.Assumptions.assumeTrue(arena.FairyStockfish.installed(), "Fairy-Stockfish is not installed");
+        RunSettings settings = new RunSettings(1, 1, 1, 20, 120, 2, 5, 1, 1, List.of("random", "fsf:500"), 0, 0, 0, 0, 0,
+                "antichess", null, 4, 6, java.util.Map.of("population", "4", "evolve", "material"));
+        try (RunStore store = RunStore.open(dir.resolve("anti.db"))) {
+            EvolutionRunner.start(store, "anti", new evolution.FromZero(), settings, EvolutionRunner.Listener.SILENT,
+                    () -> false, () -> false);
+            List<RunStore.YardstickResult> results = store.generations().getFirst().yardsticks();
+            assertEquals(List.of("random", "fsf:500"), results.stream().map(RunStore.YardstickResult::opponent).toList());
+            List<arena.GameRecord> games = store.games(0, "yardstick");
+            assertEquals(4, games.size());
+            for (arena.GameRecord g : games) { // Fairy-Stockfish's moves are legal antichess moves
+                rules.Game replay = new rules.Game(ai.variant.Variants.ANTICHESS);
+                g.moves().forEach(replay::play);
+            }
+        }
+    }
 }

@@ -43,9 +43,18 @@ public final class StockfishLocator {
 
     /** Where Stockfish is on this computer, if anywhere. */
     public static Optional<Path> find() {
-        String explicit = System.getProperty("stockfish.path");
+        return find("stockfish", "stockfish.path", "STOCKFISH_PATH");
+    }
+
+    /**
+     * Where the executable called {@code name} is, by the same search: the system property
+     * {@code property}, the environment variable {@code env}, a {@code name*} file in an
+     * {@code engine/} folder, {@code name} on the PATH. Fairy-Stockfish uses it too.
+     */
+    static Optional<Path> find(String name, String property, String env) {
+        String explicit = System.getProperty(property);
         if (explicit == null || explicit.isBlank()) {
-            explicit = System.getenv("STOCKFISH_PATH");
+            explicit = System.getenv(env);
         }
         if (explicit != null && !explicit.isBlank()) {
             return Optional.of(Path.of(explicit));
@@ -64,7 +73,7 @@ public final class StockfishLocator {
         if (!windows) {
             SYSTEM_DIRS.forEach(d -> searchDirs.add(Path.of(d)));
         }
-        return find(engineDirs, searchDirs, windows);
+        return find(name, engineDirs, searchDirs, windows);
     }
 
     /**
@@ -72,18 +81,23 @@ public final class StockfishLocator {
      * the {@code engine/} folders first, then {@code stockfish} in each of {@code searchDirs}.
      */
     static Optional<Path> find(List<Path> engineDirs, List<Path> searchDirs, boolean windows) {
+        return find("stockfish", engineDirs, searchDirs, windows);
+    }
+
+    /** As {@link #find(List, List, boolean)} for the executable called {@code name}. */
+    static Optional<Path> find(String name, List<Path> engineDirs, List<Path> searchDirs, boolean windows) {
         Set<Path> seen = new LinkedHashSet<>();
         for (Path dir : engineDirs) {
             Path abs = dir.toAbsolutePath().normalize();
             if (seen.add(abs)) {
-                Optional<Path> hit = inEngineDir(abs, windows);
+                Optional<Path> hit = inEngineDir(name, abs, windows);
                 if (hit.isPresent()) {
                     return hit;
                 }
             }
         }
         for (Path dir : searchDirs) {
-            Path candidate = dir.resolve(windows ? "stockfish.exe" : "stockfish");
+            Path candidate = dir.resolve(windows ? name + ".exe" : name);
             if (isRunnable(candidate, windows)) {
                 return Optional.of(candidate.toAbsolutePath());
             }
@@ -91,14 +105,14 @@ public final class StockfishLocator {
         return Optional.empty();
     }
 
-    /** A {@code stockfish*} executable in {@code dir} or one folder below it, shallowest and then alphabetically first. */
-    private static Optional<Path> inEngineDir(Path dir, boolean windows) {
+    /** A {@code name*} executable in {@code dir} or one folder below it, shallowest and then alphabetically first. */
+    private static Optional<Path> inEngineDir(String name, Path dir, boolean windows) {
         if (!Files.isDirectory(dir)) {
             return Optional.empty();
         }
         try (Stream<Path> files = Files.walk(dir, 2)) {
             return files
-                    .filter(p -> p.getFileName().toString().toLowerCase(Locale.ROOT).startsWith("stockfish"))
+                    .filter(p -> p.getFileName().toString().toLowerCase(Locale.ROOT).startsWith(name))
                     .filter(p -> isRunnable(p, windows))
                     .min(Comparator.comparingInt(Path::getNameCount).thenComparing(Path::toString));
         } catch (IOException e) {

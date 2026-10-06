@@ -80,6 +80,9 @@ export const player = (name: string): string =>
     : name === 'classic' ? 'Classic weights'
       : name === 'zero' ? 'All-zero weights'
         : name === 'champion' ? 'Champion'
+          : name === 'random' ? 'Random mover'
+          : name === 'fsf' ? 'Fairy-Stockfish'
+          : /^fsf:?\d/.test(name) ? `Fairy-Stockfish ${Number(name.replace(/^fsf:?/, '')).toLocaleString('en')} nodes`
           : /^sf\d/.test(name) ? `Stockfish ${name.slice(2)}`
             : /^\d+$/.test(name) ? `#${name}` : name.replace(/^hof:/, 'Hall of fame: ');
 export const resultText = (r: string) => (r === 'WHITE_WINS' ? '1–0' : r === 'BLACK_WINS' ? '0–1' : '½–½');
