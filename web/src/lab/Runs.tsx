@@ -26,7 +26,7 @@ export function Runs({ job, onPlay }: { job: Job | null; onPlay: (champion: Cham
   };
 
   if (error) return <section className="panel"><p className="muted">Could not load the runs: {error}</p></section>;
-  if (!runs) return <section className="panel"><p className="muted">Loading the runs…</p></section>;
+  if (!runs) return <section className="panel"><p className="muted loading-line"><span className="spinner" aria-hidden="true" />Loading the runs…</p></section>;
   const running = job?.running ? job.file : null;
   const sorted = [...runs.runs].sort((a, b) => (a.file === running ? -1 : b.file === running ? 1 : 0));
   return (

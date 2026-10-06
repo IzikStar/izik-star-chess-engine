@@ -121,12 +121,13 @@ export function Games({ liveId, onResume, onShowLive }: { liveId: string | null;
   return (
     <main className="my-games">
       {error && <p className="muted">Could not load your games: {error}</p>}
-      {!data && !error && <p className="muted">Loading your games…</p>}
+      {!data && !error && <p className="muted loading-line"><span className="spinner" aria-hidden="true" />Loading your games…</p>}
       {data && games.length === 0 && (
         <section className="panel" data-testid="games-empty">
           <h2>No games yet</h2>
           <p>Every game you play is saved here on its own, after each move, finished or not.</p>
           <p className="muted small">They are kept in <code>{data.folder}</code>.</p>
+          <button type="button" className="btn primary empty-cta" onClick={onShowLive}>Go to the board and play</button>
         </section>
       )}
       {games.length > 0 && (
