@@ -15,6 +15,7 @@ import { captured, checksGiven, colorName, goalRule, pieceSetBase, engineText, L
 import { useGame, type Champion, type Color, type GameEvent, type GameState, type Weights } from './protocol';
 import { play } from './sounds';
 import { inventedReach } from './reach';
+import { Icon } from './icons';
 
 const EMPTY = new Map<string, string[]>();
 
@@ -245,6 +246,7 @@ export function App() {
   }
 
   const { config } = state;
+  const isDark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
   const fen = live ? state.fen : ply === 0 ? state.startFen : moves[ply - 1].fenAfter;
   const shownStatus = live ? state.status : ply === 0 ? 'IN_PROGRESS' : moves[ply - 1].status;
   const lastMove = ply === 0 ? null : moves[ply - 1].uci;
@@ -312,17 +314,18 @@ export function App() {
           <button type="button" className={'btn ghost' + (page === 'lab' ? ' on' : '')} aria-pressed={page === 'lab'} onClick={() => showPage('lab')}>Lab</button>
         </div>
         <div className="spacer" />
-        <button type="button" className="btn ghost" aria-pressed={!soundOn} onClick={() => {
+        <button type="button" className="btn ghost icon-btn" aria-label="Sound" aria-pressed={soundOn}
+          title={soundOn ? 'Sound is on (click to mute)' : 'Sound is off (click to turn on)'} onClick={() => {
           setSoundOn(!soundOn);
           store('sound', soundOn ? 'off' : 'on');
-        }}>{soundOn ? 'Sound on' : 'Sound off'}</button>
-        <button type="button" className="btn ghost" onClick={() => {
-          const dark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
-          const next = dark ? 'light' : 'dark';
+        }}><Icon name={soundOn ? 'sound' : 'mute'} /></button>
+        <button type="button" className="btn ghost icon-btn" aria-label="Dark mode" aria-pressed={isDark}
+          title={isDark ? 'Switch to light' : 'Switch to dark'} onClick={() => {
+          const next = isDark ? 'light' : 'dark';
           setTheme(next);
           store('theme', next);
-        }}>Dark / light</button>
-        <button type="button" className="btn ghost" onClick={() => setSettingsOpen(true)}>Settings</button>
+        }}><Icon name={isDark ? 'sun' : 'moon'} /></button>
+        <button type="button" className="btn ghost icon-btn" aria-label="Settings" title="Settings" onClick={() => setSettingsOpen(true)}><Icon name="gear" /><span className="wide-only">Settings</span></button>
         <button type="button" className="btn primary" onClick={() => openDialog(state.opponent)}>New game</button>
       </header>
 
@@ -368,7 +371,7 @@ export function App() {
         </section>
 
         <aside className="side">
-          <PlayerCard state={state} color={other(orientation)} fen={fen} live={live} receivedAt={receivedAt} />
+          <PlayerCard state={state} color={other(orientation)} fen={fen} live={live} receivedAt={receivedAt} place="top" />
 
           <StatusLine state={state} connection={connection} live={live} ply={ply} premoves={premoveColor ? premoves : []} onReturn={() => goTo(moves.length)} />
 
@@ -432,13 +435,13 @@ export function App() {
             empty={`No moves yet. ${state.humanTurn ? 'Click or drag a piece to start.' : ''}`} />
 
           <div className="nav" role="group" aria-label="Review moves">
-            <button type="button" className="icon" aria-label="First position" disabled={ply === 0} onClick={() => goTo(0)}>⏮</button>
-            <RepeatButton label="Previous move" disabled={ply === 0} onStep={() => stepRef.current(-1)}>◀</RepeatButton>
-            <RepeatButton label="Next move" disabled={live} onStep={() => stepRef.current(1)}>▶</RepeatButton>
-            <button type="button" className="icon" aria-label="Latest move" disabled={live} onClick={() => goTo(moves.length)}>⏭</button>
+            <button type="button" className="icon" aria-label="First position" disabled={ply === 0} onClick={() => goTo(0)}><Icon name="first" /></button>
+            <RepeatButton label="Previous move" disabled={ply === 0} onStep={() => stepRef.current(-1)}><Icon name="prev" /></RepeatButton>
+            <RepeatButton label="Next move" disabled={live} onStep={() => stepRef.current(1)}><Icon name="next" /></RepeatButton>
+            <button type="button" className="icon" aria-label="Latest move" disabled={live} onClick={() => goTo(moves.length)}><Icon name="last" /></button>
           </div>
 
-          <PlayerCard state={state} color={orientation} fen={fen} live={live} receivedAt={receivedAt} />
+          <PlayerCard state={state} color={orientation} fen={fen} live={live} receivedAt={receivedAt} place="bottom" />
 
           <div className="controls" role="group" aria-label="Game controls">
             <button type="button" className="icon labelled" disabled={!canUndo} onClick={() => {
@@ -512,7 +515,7 @@ export function App() {
   );
 }
 
-function PlayerCard({ state, color, fen, live, receivedAt }: { state: GameState; color: Color; fen: string; live: boolean; receivedAt: number }) {
+function PlayerCard({ state, color, fen, live, receivedAt, place }: { state: GameState; color: Color; fen: string; live: boolean; receivedAt: number; place: 'top' | 'bottom' }) {
   const { config } = state;
   const isEngine = config.mode === 'computer' || (config.mode === 'engine' && color !== config.humanColor);
   const level = config.mode === 'computer' && color === 'black' ? config.blackLevel : config.level;
@@ -528,7 +531,7 @@ function PlayerCard({ state, color, fen, live, receivedAt }: { state: GameState;
   const lead = state.variant?.goal === 'LOSE_EVERYTHING' ? 0 : Math.round(materialOf(fen, base?.values) * (color === 'white' ? 1 : -1));
   const toMove = live && !isOver(state) && state.turn === color;
   return (
-    <div className={'player' + (toMove ? ' to-move' : '')} data-testid={`player-${color}`}>
+    <div className={'player ' + place + (toMove ? ' to-move' : '')} data-testid={`player-${color}`}>
       <div className="avatar" aria-hidden="true">{isEngine ? '⚙' : <PieceSvg code={color === 'white' ? 'wK' : 'bK'} />}</div>
       <div className="who">
         <div className="name">{name}</div>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Board } from '../Board';
 import type { Champion } from '../protocol';
+import { Icon } from '../icons';
 import {
   algorithmName, duration, elo, goLab, pct, player, post, reasonText, resultText, runUrl, signed, usePolled,
   type GenerationDetail, type GenerationRow, type Job, type Replay, type RunDetail, type Score, type Spec, type Weight,
@@ -520,10 +521,10 @@ function GameReplay({ url }: { url: string }) {
           premoveColor={null} premoves={[]} onPremove={() => {}} />
       </div>
       <div className="nav" role="group" aria-label="Replay moves">
-        <button type="button" className="icon" aria-label="First position" disabled={ply === 0} onClick={() => setPly(0)}>⏮</button>
-        <button type="button" className="icon" aria-label="Previous move" disabled={ply === 0} onClick={() => setPly(ply - 1)}>◀</button>
-        <button type="button" className="icon" aria-label="Next move" disabled={ply === replay.moves.length} onClick={() => setPly(ply + 1)}>▶</button>
-        <button type="button" className="icon" aria-label="Last move" disabled={ply === replay.moves.length} onClick={() => setPly(replay.moves.length)}>⏭</button>
+        <button type="button" className="icon" aria-label="First position" disabled={ply === 0} onClick={() => setPly(0)}><Icon name="first" /></button>
+        <button type="button" className="icon" aria-label="Previous move" disabled={ply === 0} onClick={() => setPly(ply - 1)}><Icon name="prev" /></button>
+        <button type="button" className="icon" aria-label="Next move" disabled={ply === replay.moves.length} onClick={() => setPly(ply + 1)}><Icon name="next" /></button>
+        <button type="button" className="icon" aria-label="Last move" disabled={ply === replay.moves.length} onClick={() => setPly(replay.moves.length)}><Icon name="last" /></button>
       </div>
       <p className="sans mono">
         {replay.moves.map((m, i) => (

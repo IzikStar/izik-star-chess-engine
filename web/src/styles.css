@@ -116,6 +116,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 .move-list .final { display: block; text-align: center; padding: 6px; font-weight: 600; border-top: 1px solid var(--line); }
 
 .nav { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.nav .icon { display: flex; justify-content: center; padding: 6px 4px; }
+.nav .ico path { fill: currentColor; }
 .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .icon { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 8px 4px; cursor: pointer; font-size: 15px; }
 .icon:hover:not(:disabled) { border-color: var(--muted); }
@@ -283,9 +285,29 @@ textarea.pgn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1
 .q-bg-blunder { background: #d03b3b; }
 
 /* phones: the top bar wraps instead of pushing the page sideways */
+.icon-btn { display: inline-flex; align-items: center; gap: 6px; }
+.icon-btn .ico { display: block; }
+/* phones: brand and the buttons on the first row, the four screens spread over the second */
 @media (max-width: 600px) {
-  .topbar { flex-wrap: wrap; padding: 8px 12px; row-gap: 4px; }
-  .topbar .spacer { display: none; }
+  .topbar { flex-wrap: wrap; padding: 8px 12px; row-gap: 6px; }
+  .topbar .tabs { order: 10; width: 100%; margin-left: 0; }
+  .topbar .tabs .btn { flex: 1; }
+  .wide-only { display: none; }
+}
+
+/* phones and narrow windows: the opponent above the board and you below it, like over a real
+   table; then what to do (status, buttons), then the moves */
+@media (max-width: 900px) {
+  .game { gap: 10px; }
+  .side { display: contents; }
+  .side > * { order: 7; }
+  .side > .player.top { order: 1; }
+  .board-area { order: 2; }
+  .side > .player.bottom { order: 3; }
+  .side > .status { order: 4; }
+  .side > .ask, .side > .notice, .side > .result, .side > .variant-tag { order: 5; }
+  .side > .controls { order: 6; }
+  .side > .nav { order: 9; }
 }
 
 /* My games (Games.tsx) */
