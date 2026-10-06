@@ -87,8 +87,7 @@ public final class Game {
         char captured = enPassant
                 ? pos.pieceAt(Square.of(Square.file(move.to()), Square.rank8Row(move.from())))
                 : pos.pieceAt(move.to());
-        boolean castling = Character.toUpperCase(piece) == 'K'
-                && Math.abs(Square.file(move.from()) - Square.file(move.to())) == 2;
+        boolean castling = Rules.castling(variant, before, move) != null;
         fenHistory.add(after);
         MoveResult result = new MoveResult(move, san, piece, captured, castling, enPassant,
                 pos.fullmoveNumber(), before, after, status(), Rules.checkedSquares(variant, after));
@@ -157,7 +156,7 @@ public final class Game {
 
     public GameStatus status() {
         GameStatus base = Rules.status(variant, fen());
-        if (!base.isGameOver() && isThreefoldRepetition()) {
+        if (!base.isGameOver() && variant.repetition() && isThreefoldRepetition()) {
             return GameStatus.DRAW_THREEFOLD;
         }
         return base;

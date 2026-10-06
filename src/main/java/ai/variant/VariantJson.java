@@ -18,11 +18,19 @@ import java.util.List;
  * field is written out, so a file says the whole game:
  *
  * <pre>{"id": "antichess", "name": "Antichess", "width": 8, "height": 8, "start": "rnbqkbnr/... w - - 0 1",
- *  "goal": "LOSE_EVERYTHING", "checksToWin": 0, "forcedCapture": true, "castling": false,
+ *  "goals": [{"kind": "LOSE_EVERYTHING"}], "royalMode": "ALL_SAFE", "stalemate": "WIN", "repetition": true,
+ *  "moveLimit": 50, "forcedCapture": true, "castling": false,
+ *  "castlingRule": {"steps": 0, "partner": "INSIDE", "sides": "BOTH", "safePassage": true},
  *  "pieces": [{"name": "King", "letter": "K", "value": 0, "royal": false, "promotesTo": "",
  *              "enPassant": false, "castlingRole": "NONE",
  *              "atoms": [{"kind": "LEAP", "forward": 1, "right": 0, "symmetry": "ALL", "mode": "BOTH",
  *                         "range": 0, "firstMoveOnly": false}, ...], "betza": "WF"}, ...]}</pre>
+ *
+ * <p>A goal carries {@code count} (CHECKS), {@code squares} (REACH_SQUARES) and {@code pieces} (letters;
+ * REACH_SQUARES and CAPTURE_ALL_OF) only where it has them. The first variant files had one
+ * {@code "goal"} with {@code "checksToWin"} and none of the settings after it; such a file reads as
+ * the preset that goal stood for ({@link Variant.Goal}), and so plays as it always did. A newer file
+ * missing a setting gets its chess value.
  *
  * <p>Each piece also carries its moves in Betza text ({@link Betza}), written for people to read;
  * the atoms decide. A piece read without atoms is read from its Betza text, so a hand-written file
@@ -45,10 +53,19 @@ public final class VariantJson {
         o.addProperty("width", v.grid().width());
         o.addProperty("height", v.grid().height());
         o.addProperty("start", v.startFen());
-        o.addProperty("goal", v.goal().name());
-        o.addProperty("checksToWin", v.checksToWin());
+        o.add("goals", goals(v.goals()));
+        o.addProperty("royalMode", v.royalMode().name());
+        o.addProperty("stalemate", v.stalemate().name());
+        o.addProperty("repetition", v.repetition());
+        o.addProperty("moveLimit", v.moveLimit());
         o.addProperty("forcedCapture", v.forcedCapture());
-        o.addProperty("castling", v.castling());
+        o.addProperty("castling", v.castling().enabled());
+        JsonObject castling = new JsonObject();
+        castling.addProperty("steps", v.castling().steps());
+        castling.addProperty("partner", v.castling().partner().name());
+        castling.addProperty("sides", v.castling().sides().name());
+        castling.addProperty("safePassage", v.castling().safePassage());
+        o.add("castlingRule", castling);
         JsonArray pieces = new JsonArray();
         for (PieceType t : v.pieces()) {
             JsonObject p = new JsonObject();
@@ -105,9 +122,71 @@ public final class VariantJson {
             pieces.add(new PieceType(string(p, "name"), letter.charAt(0), atoms, bool(p, "royal"), promotes,
                     bool(p, "enPassant"), PieceType.Castling.valueOf(string(p, "castlingRole")), integer(p, "value")));
         }
-        return new Variant(string(o, "id"), string(o, "name"), pieces, new Grid(integer(o, "width"), integer(o, "height")),
-                string(o, "start"), Variant.Goal.valueOf(string(o, "goal")), integer(o, "checksToWin"),
-                bool(o, "forcedCapture"), bool(o, "castling"));
+        Grid grid = new Grid(integer(o, "width"), integer(o, "height"));
+        String id = string(o, "id");
+        String name = string(o, "name");
+        String start = string(o, "start");
+        if (!o.has("goals")) { // a file from before the building blocks: its one goal is a preset
+            return new Variant(id, name, pieces, grid, start, Variant.Goal.valueOf(string(o, "goal")),
+                    integer(o, "checksToWin"), bool(o, "forcedCapture"), bool(o, "castling"));
+        }
+        CastlingRule castling = CastlingRule.CHESS;
+        if (o.has("castlingRule")) {
+            JsonObject c = o.getAsJsonObject("castlingRule");
+            castling = new CastlingRule(true, c.has("steps") ? integer(c, "steps") : 0,
+                    c.has("partner") ? CastlingRule.Partner.valueOf(string(c, "partner")) : CastlingRule.Partner.INSIDE,
+                    c.has("sides") ? CastlingRule.Sides.valueOf(string(c, "sides")) : CastlingRule.Sides.BOTH,
+                    !c.has("safePassage") || bool(c, "safePassage"));
+        }
+        castling = new CastlingRule(bool(o, "castling"), castling.steps(), castling.partner(), castling.sides(),
+                castling.safePassage());
+        return new Variant(id, name, pieces, grid, start, goals(array(o, "goals")),
+                o.has("royalMode") ? Variant.RoyalMode.valueOf(string(o, "royalMode")) : Variant.RoyalMode.ALL_SAFE,
+                o.has("stalemate") ? Variant.Stalemate.valueOf(string(o, "stalemate")) : Variant.Stalemate.DRAW,
+                !o.has("repetition") || bool(o, "repetition"),
+                o.has("moveLimit") ? integer(o, "moveLimit") : 50,
+                bool(o, "forcedCapture"), castling);
+    }
+
+    /** Goals as the JSON array a variant carries. */
+    public static JsonArray goals(List<WinCondition> goals) {
+        JsonArray out = new JsonArray();
+        for (WinCondition g : goals) {
+            JsonObject j = new JsonObject();
+            j.addProperty("kind", g.kind().name());
+            if (g.kind() == WinCondition.Kind.CHECKS) {
+                j.addProperty("count", g.count());
+            }
+            if (g.kind() == WinCondition.Kind.REACH_SQUARES) {
+                JsonArray squares = new JsonArray();
+                g.squares().forEach(squares::add);
+                j.add("squares", squares);
+            }
+            if (g.kind() == WinCondition.Kind.REACH_SQUARES || g.kind() == WinCondition.Kind.CAPTURE_ALL_OF) {
+                j.addProperty("pieces", g.pieces());
+            }
+            out.add(j);
+        }
+        return out;
+    }
+
+    /** Goals from a variant's JSON array; a field a goal needs and lacks is an {@link IllegalArgumentException}. */
+    public static List<WinCondition> goals(JsonArray array) {
+        List<WinCondition> out = new ArrayList<>();
+        for (var element : array) {
+            JsonObject j = element.getAsJsonObject();
+            WinCondition.Kind kind = WinCondition.Kind.valueOf(string(j, "kind"));
+            List<String> squares = new ArrayList<>();
+            if (kind == WinCondition.Kind.REACH_SQUARES) {
+                for (var s : array(j, "squares")) {
+                    squares.add(s.getAsString());
+                }
+            }
+            boolean typed = kind == WinCondition.Kind.REACH_SQUARES || kind == WinCondition.Kind.CAPTURE_ALL_OF;
+            out.add(new WinCondition(kind, kind == WinCondition.Kind.CHECKS ? integer(j, "count") : 0, squares,
+                    typed && j.has("pieces") ? j.get("pieces").getAsString() : ""));
+        }
+        return out;
     }
 
     /** Atoms as the JSON array a piece carries. */

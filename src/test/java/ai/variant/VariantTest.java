@@ -26,7 +26,7 @@ class VariantTest {
     @Test
     @DisplayName("A missing field is named in the error")
     void missingField() {
-        String json = VariantJson.write(Variants.CHESS).replace("\"goal\"", "\"aim\"");
+        String json = VariantJson.write(Variants.CHESS).replace("\"goals\"", "\"aims\""); // then it reads as an old file
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> VariantJson.read(json));
         assertTrue(e.getMessage().contains("goal"), e.getMessage());
     }

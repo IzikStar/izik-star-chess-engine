@@ -28,13 +28,18 @@ class FairyStockfishTest {
         assertEquals(Optional.of("kingofthehill"), FairyStockfish.variantName(Variants.KING_OF_THE_HILL));
         assertEquals(Optional.of("3check"), FairyStockfish.variantName(Variants.THREE_CHECK));
         assertEquals(Optional.of("amazon-chess"), FairyStockfish.variantName(TestVariants.AMAZON_CHESS));
-        assertFalse(FairyStockfish.plays(TWO_CHECK));
+        assertFalse(FairyStockfish.plays(BARE_KING));
+        assertEquals(Optional.of("two-check"), FairyStockfish.variantName(TWO_CHECK));
     }
 
-    /** A game Fairy-Stockfish has no config for: three-check is the only check count it is given. */
+    /** Two checks win: chess with check counting, the count in the start position. */
     static final ai.variant.Variant TWO_CHECK = new ai.variant.Variant("two-check", "Two-check",
             ai.piece.StandardPieces.ALL, ai.piece.Grid.CHESS, Variants.CHESS.startFen(),
             ai.variant.Variant.Goal.CHECKS, 2, false, true);
+
+    /** A game Fairy-Stockfish has no config for: the bare-royal goal. */
+    static final ai.variant.Variant BARE_KING = Variants.CHESS.withGoals(List.of(ai.variant.WinCondition.checkmate(),
+            ai.variant.WinCondition.bareRoyal()));
 
     @Test
     @DisplayName("A made variant is written as a config section: base game by goal, missing chess pieces off, invented ones as Betza")
@@ -46,7 +51,32 @@ class FairyStockfishTest {
         assertTrue(amazon.contains("mustCapture = true\n"), amazon);
         assertTrue(amazon.contains("startFen = rnbakbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBAKBNR w - - 0 1\n"), amazon);
         assertFalse(amazon.contains("rook = -"), amazon);
-        assertEquals(Optional.empty(), FairyConfig.of(TWO_CHECK));
+        assertEquals(Optional.empty(), FairyConfig.of(BARE_KING));
+        assertEquals(Optional.of("the bare-royal goal"), FairyConfig.refusal(BARE_KING));
+        assertEquals(Optional.empty(), FairyConfig.refusal(Variants.CHESS));
+        String two = FairyConfig.of(TWO_CHECK).orElseThrow();
+        assertTrue(two.startsWith("[two-check:chess]\n"), two);
+        assertTrue(two.contains("checkCounting = true\n"), two);
+        assertTrue(two.contains("startFen = rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 2+2 0 1\n"), two);
+        // the building blocks it can say: a squares goal, one type to capture, stalemate, the move limit, castling
+        ai.variant.Variant mix = new ai.variant.Variant("mix", "Mix", ai.piece.StandardPieces.ALL, ai.piece.Grid.CHESS,
+                Variants.CHESS.startFen(), List.of(ai.variant.WinCondition.checkmate(),
+                ai.variant.WinCondition.reach(List.of("a8", "h8"), "N"), ai.variant.WinCondition.captureAllOf("Q")),
+                ai.variant.Variant.RoyalMode.ALL_SAFE, ai.variant.Variant.Stalemate.LOSS, true, 30, false,
+                new ai.variant.CastlingRule(true, 0, ai.variant.CastlingRule.Partner.INSIDE,
+                        ai.variant.CastlingRule.Sides.KING_SIDE, true));
+        String config = FairyConfig.of(mix).orElseThrow();
+        for (String line : List.of("[mix:chess]", "flagPiece = n", "flagRegionWhite = a8 h8", "flagRegionBlack = a8 h8",
+                "extinctionValue = loss", "extinctionPieceTypes = q", "stalemateValue = loss", "nMoveRule = 30",
+                "startFen = rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w Kk - 0 1")) {
+            assertTrue(config.contains(line + "\n"), line + " in " + config);
+        }
+        // and what it cannot: two kings a side, castling through check, repetition off
+        ai.variant.Variant through = mix.withRules(mix.royalMode(), mix.stalemate(), true, 30,
+                new ai.variant.CastlingRule(true, 0, ai.variant.CastlingRule.Partner.INSIDE, ai.variant.CastlingRule.Sides.BOTH, false));
+        assertEquals(Optional.of("castling through attacked squares"), FairyConfig.refusal(through));
+        assertEquals(Optional.of("repetition is turned off"),
+                FairyConfig.refusal(mix.withRules(mix.royalMode(), mix.stalemate(), false, 30, mix.castling())));
         // a king that is not the base game's: Fairy-Stockfish would keep its own, so no config
         ai.piece.PieceType k = ai.piece.StandardPieces.KING;
         ai.piece.PieceType knightKing = new ai.piece.PieceType("King", 'K', ai.piece.StandardPieces.KNIGHT.atoms(),

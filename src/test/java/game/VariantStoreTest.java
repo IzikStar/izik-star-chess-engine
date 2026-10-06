@@ -78,13 +78,13 @@ class VariantStoreTest {
         VariantStore store = new VariantStore(dir);
         Variant v = TestVariants.AMAZON_CHESS;
         assertThrows(IllegalArgumentException.class, () -> store.save(new Variant("chess", "Mine", v.pieces(), v.grid(),
-                v.startFen(), v.goal(), 0, false, true)));
+                v.startFen(), Variant.Goal.CHECKMATE, 0, false, true)));
         IllegalArgumentException promotes = assertThrows(IllegalArgumentException.class, () -> store.save(new Variant("bad",
                 "Bad", List.of(StandardPieces.KING, StandardPieces.ROOK, TestVariants.pawnPromotingTo('Q')), v.grid(),
                 "4k3/pppppppp/8/8/8/8/PPPPPPPP/R3K3 w - - 0 1", Variant.Goal.CHECKMATE, 0, false, false)));
         assertTrue(promotes.getMessage().contains("promotes to Q"), promotes.getMessage());
         IllegalArgumentException fen = assertThrows(IllegalArgumentException.class, () -> store.save(new Variant("bad",
-                "Bad", v.pieces(), v.grid(), "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1", v.goal(), 0, false, false)));
+                "Bad", v.pieces(), v.grid(), "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1", Variant.Goal.CHECKMATE, 0, false, false)));
         assertTrue(fen.getMessage().contains("start position"), fen.getMessage());
         assertEquals(List.of(), store.custom());
     }

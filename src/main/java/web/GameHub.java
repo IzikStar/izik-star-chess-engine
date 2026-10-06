@@ -58,7 +58,7 @@ import java.util.function.Consumer;
  * needs the chess pieces)}, {@code resign}, {@code offerDraw}, {@code answerDraw} {accept}, {@code loadPgn}
  * {pgn} (the game becomes a two-player game from its last position), {@code resumeGame} {id} (carries on an
  * unfinished saved game, see {@link GamesApi}). Server to client: {@code {"type":"state","events":[...],"state":{...}}};
- * the state's {@code variant} is {id, name, goal, checksToWin?}; {@code opponent} is the champion being played ({run, generation, label}), or null;
+ * the state's {@code variant} is {id, name, goals, checksToWin?, royalMode, stalemate, repetition, moveLimit, custom, pieces}; {@code opponent} is the champion being played ({run, generation, label}), or null;
  * {@code weights} the built-in engine's weights when it is not a champion ("tuned" or "classic");
  * {@code stockfish} is {available, path} (whether Stockfish's levels really get Stockfish). An event is
  * {@code {kind: move|reset|config|hint|gameOver|ended|drawOffer|drawDeclined|rejected, ...}}.

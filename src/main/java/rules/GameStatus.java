@@ -21,14 +21,22 @@ public enum GameStatus {
     DRAW_THREEFOLD,
     /** Neither side has enough material to force mate. */
     DRAW_INSUFFICIENT_MATERIAL,
-    /** King of the Hill: the opponent's king reached the centre; the side to move lost. */
+    /** A squares goal (King of the Hill): the opponent's piece reached a goal square; the side to move lost. */
     HILL_REACHED,
     /** Three-check (or N-check): the opponent gave the last check; the side to move lost. */
     CHECKS_GIVEN,
     /** Antichess: the side to move has no pieces left, and wins. */
     NO_PIECES_LEFT,
-    /** Antichess: the side to move has no legal move, and wins. */
-    NO_MOVES_LEFT;
+    /** Antichess, or stalemate counted as a win: the side to move has no legal move, and wins. */
+    NO_MOVES_LEFT,
+    /** A capture-all goal: the side to move has no piece of the named types left, and lost. */
+    ALL_CAPTURED,
+    /** The bare-royal goal: the side to move has nothing but royal pieces left, and lost. */
+    BARE_ROYAL,
+    /** Royal mode LAST_STANDING: the side to move has no royal piece left, and lost. */
+    ROYALS_LOST,
+    /** Stalemate counted as a loss: the side to move has no legal move (and is not checkmated), and lost. */
+    STALEMATE_LOSS;
 
     public boolean isGameOver() {
         return this != IN_PROGRESS && this != CHECK;
@@ -36,10 +44,11 @@ public enum GameStatus {
 
     /** The player to move has lost: mated, or the opponent reached the variant's goal. */
     public boolean sideToMoveLost() {
-        return this == CHECKMATE || this == HILL_REACHED || this == CHECKS_GIVEN;
+        return this == CHECKMATE || this == HILL_REACHED || this == CHECKS_GIVEN || this == ALL_CAPTURED
+                || this == BARE_ROYAL || this == ROYALS_LOST || this == STALEMATE_LOSS;
     }
 
-    /** The player to move has won (antichess). */
+    /** The player to move has won (antichess, or stalemate counted as a win). */
     public boolean sideToMoveWon() {
         return this == NO_PIECES_LEFT || this == NO_MOVES_LEFT;
     }

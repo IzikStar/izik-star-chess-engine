@@ -4,7 +4,9 @@ import ai.piece.Atom;
 import ai.piece.CompiledPiece;
 import ai.piece.Grid;
 import ai.piece.PieceType;
+import ai.variant.CastlingRule;
 import ai.variant.Variant;
+import ai.variant.WinCondition;
 import ai.variant.Variants;
 
 import java.util.ArrayList;
@@ -18,10 +20,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * compiled once for both players, the castling moves the start position allows, the variant's rule
  * switches, and the hashing keys. Immutable and shared by every position of every game played with it.
  *
- * <p>Castling is read from the start position: for each player, the piece with the {@code KING} role
+ * <p>Castling is read from the start position: for each player, each piece with the {@code KING} role
  * and the outermost piece with the {@code ROOK} role on each side of it on its row give one castling
- * each. As in chess, the king ends on the second file from that edge (g or c) and the rook next to it
- * on the inside (f or d).
+ * each, on the sides the variant's {@link CastlingRule} allows. The king moves that many squares
+ * toward the rook (the chess way: onto the second file from that edge, g or c), and the rook lands
+ * next to it, on the inside (f or d) unless the rule says outside.
  */
 public final class BoardRules {
 
@@ -41,10 +44,13 @@ public final class BoardRules {
      * @param right     bit of this castling in a position's castling rights
      * @param letter    its FEN letter (K, Q for player 0; k, q for player 1)
      * @param empty     squares that must be empty (besides the king's and the rook's own)
-     * @param safe      squares the opponent must not attack: where the king starts, crosses and ends
+     * @param safe      squares the opponent must not attack: where the king starts, crosses and ends (none
+     *                  when the variant lets the king castle through attacked squares)
+     * @param kingType  the type of the piece that castles (the {@code KING} role)
+     * @param rookType  the type of its partner (a {@code ROOK} role)
      */
     public record Castling(int player, int right, char letter, boolean kingSide, int kingFrom, int kingTo,
-                           int rookFrom, int rookTo, long empty, long safe) {}
+                           int rookFrom, int rookTo, long empty, long safe, int kingType, int rookType) {}
 
     final Variant variant;
     final List<PieceType> types;
@@ -72,13 +78,27 @@ public final class BoardRules {
     /** Rough values for MVV-LVA and for skipping losing captures (value / 100; a royal piece 1000). */
     final int[] roughValue;
     final String startPlacement;
-    /** The type with the {@code ROOK} castling role, or -1. */
-    final int rookType;
-    final Variant.Goal goal;
+    /** [type]: it has the {@code KING} castling role. */
+    final boolean[] castles;
+    /** The variant's goals in order: their kinds, and per goal the squares and the types (bits) they name. */
+    final WinCondition.Kind[] goalKinds;
+    final long[] goalSquares;
+    final int[] goalTypes;
+    /** Some goal is decided by the position alone (all but checkmate), or a side can run out of royal pieces. */
+    final boolean positionalGoals;
+    final boolean checkmateWins;
+    final boolean loseEverything;
+    /** With the {@code CHECKS} goal: how many win; otherwise 0. */
     final int checksToWin;
     final boolean forcedCapture;
-    /** With {@link Variant.Goal#KING_OF_THE_HILL}: the centre squares; otherwise 0. */
-    final long hill;
+    /** {@link Variant.RoyalMode#LAST_STANDING}: check applies only to a side's last royal piece. */
+    final boolean lastStanding;
+    /** Some type is royal. */
+    final boolean anyRoyal;
+    final Variant.Stalemate stalemate;
+    /** Plies without a capture or a move of a promoting piece that draw; {@link Integer#MAX_VALUE} for no limit. */
+    final int moveLimitPlies;
+    final boolean repetition;
     final long checksKey;
 
     private BoardRules(Variant variant) {
@@ -87,9 +107,12 @@ public final class BoardRules {
         this.types = types;
         this.grid = variant.grid();
         this.startPlacement = variant.startPlacement();
-        this.goal = variant.goal();
         this.checksToWin = variant.checksToWin();
         this.forcedCapture = variant.forcedCapture();
+        this.lastStanding = variant.royalMode() == Variant.RoyalMode.LAST_STANDING;
+        this.stalemate = variant.stalemate();
+        this.moveLimitPlies = variant.moveLimit() == 0 ? Integer.MAX_VALUE : 2 * variant.moveLimit();
+        this.repetition = variant.repetition();
         int n = types.size();
         compiled = new CompiledPiece[2][n];
         royal = new boolean[n];
@@ -130,23 +153,38 @@ public final class BoardRules {
                 startSquares[placement[sq] / n][placement[sq] % n] |= 1L << sq;
             }
         }
-        castlings = variant.castling() ? findCastlings(placement) : List.of();
-        long centre = 0;
-        if (goal == Variant.Goal.KING_OF_THE_HILL) {
-            for (int row = (grid.height() - 1) / 2; row <= grid.height() / 2; row++) {
-                for (int col = (grid.width() - 1) / 2; col <= grid.width() / 2; col++) {
-                    centre |= 1L << grid.square(row, col);
+        castles = new boolean[n];
+        boolean royals = false;
+        for (int t = 0; t < n; t++) {
+            castles[t] = types.get(t).castling() == PieceType.Castling.KING;
+            royals |= royal[t];
+        }
+        anyRoyal = royals;
+        castlings = variant.castling().enabled() ? findCastlings(placement, variant.castling()) : List.of();
+        List<WinCondition> goals = variant.goals();
+        goalKinds = new WinCondition.Kind[goals.size()];
+        goalSquares = new long[goals.size()];
+        goalTypes = new int[goals.size()];
+        boolean positional = lastStanding && royals;
+        for (int i = 0; i < goals.size(); i++) {
+            WinCondition g = goals.get(i);
+            goalKinds[i] = g.kind();
+            positional |= g.kind() != WinCondition.Kind.CHECKMATE;
+            for (String s : g.squares()) {
+                goalSquares[i] |= 1L << grid.square(grid.height() - Integer.parseInt(s.substring(1)), s.charAt(0) - 'a');
+            }
+            if (g.kind() == WinCondition.Kind.REACH_SQUARES && g.pieces().isEmpty()) {
+                for (int t = 0; t < n; t++) {
+                    goalTypes[i] |= royal[t] ? 1 << t : 0;
                 }
             }
-        }
-        hill = centre;
-        int rook = -1;
-        for (int t = 0; t < n; t++) {
-            if (types.get(t).castling() == PieceType.Castling.ROOK) {
-                rook = t;
+            for (char c : g.pieces().toCharArray()) {
+                goalTypes[i] |= 1 << typeOf(c);
             }
         }
-        rookType = rook;
+        positionalGoals = positional;
+        checkmateWins = variant.has(WinCondition.Kind.CHECKMATE);
+        loseEverything = variant.has(WinCondition.Kind.LOSE_EVERYTHING);
 
         Random random = new Random(0);
         zobrist = new long[2][n][grid.squares()];
@@ -233,11 +271,14 @@ public final class BoardRules {
         return squares;
     }
 
-    private List<Castling> findCastlings(int[] placement) {
+    private List<Castling> findCastlings(int[] placement, CastlingRule rule) {
         List<Castling> found = new ArrayList<>();
         int n = types.size();
         for (int player = 0; player < 2; player++) {
             for (int kingSide = 1; kingSide >= 0; kingSide--) {
+                if (!rule.sides().allows(kingSide == 1)) {
+                    continue;
+                }
                 for (int sq = 0; sq < placement.length; sq++) {
                     if (placement[sq] < 0 || placement[sq] / n != player
                             || types.get(placement[sq] % n).castling() != PieceType.Castling.KING) {
@@ -258,8 +299,12 @@ public final class BoardRules {
                     if (rookCol < 0) {
                         continue;
                     }
-                    int kingToCol = kingSide == 1 ? grid.width() - 2 : 2;
-                    int rookToCol = kingSide == 1 ? kingToCol - 1 : kingToCol + 1;
+                    int toward = kingSide == 1 ? 1 : -1;
+                    int kingToCol = rule.steps() == 0 ? (kingSide == 1 ? grid.width() - 2 : 2) : kingCol + toward * rule.steps();
+                    int rookToCol = rule.partner() == CastlingRule.Partner.INSIDE ? kingToCol - toward : kingToCol + toward;
+                    if (kingToCol < 0 || kingToCol >= grid.width() || rookToCol < 0 || rookToCol >= grid.width()) {
+                        continue; // the rule would take a piece off the board
+                    }
                     long empty = 0;
                     long safe = 0;
                     for (int col = Math.min(kingCol, Math.min(rookCol, Math.min(kingToCol, rookToCol)));
@@ -268,14 +313,15 @@ public final class BoardRules {
                                 || between(col, kingCol, kingToCol) || between(col, rookCol, rookToCol))) {
                             empty |= 1L << grid.square(row, col);
                         }
-                        if (between(col, kingCol, kingToCol)) {
+                        if (rule.safePassage() && between(col, kingCol, kingToCol)) {
                             safe |= 1L << grid.square(row, col);
                         }
                     }
                     char letter = kingSide == 1 ? 'K' : 'Q';
                     found.add(new Castling(player, found.size(), player == 0 ? letter : Character.toLowerCase(letter),
                             kingSide == 1, sq, grid.square(row, kingToCol), grid.square(row, rookCol),
-                            grid.square(row, rookToCol), empty, safe));
+                            grid.square(row, rookToCol), empty, safe, placement[sq] % n,
+                            placement[grid.square(row, rookCol)] % n));
                 }
             }
         }
