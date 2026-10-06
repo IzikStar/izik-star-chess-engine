@@ -10,6 +10,14 @@ public final class Evaluators {
     private Evaluators() {}
 
     /**
+     * What a royal piece beyond a side's last one is worth when the variant lets royal pieces be
+     * captured until one is left ({@link ai.variant.Variant.RoyalMode#LAST_STANDING}): about a minor
+     * piece, as losing it costs the freedom to leave royal pieces attacked, not the game. A
+     * starting value, not measured.
+     */
+    public static final int SPARE_ROYAL = 300;
+
+    /**
      * Games with the chess pieces on a chess board where losing the king loses (chess, King of the
      * Hill, Three-check) keep the tuned chess evaluation, so the difficulty ladder stays as
      * calibrated; every other variant gets an evaluation built from its pieces.
