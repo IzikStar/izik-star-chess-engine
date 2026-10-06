@@ -62,7 +62,8 @@ public final class Texel {
 
     /**
      * Plays {@code games} games of Stockfish against itself, {@code nodes} a move, and writes their
-     * quiet positions as {@code fen,result} (White's result: 1, 0.5, 0). Returns the lines written.
+     * quiet positions as {@link TrainingExport} writes them ({@code fen,result,score}, from White's
+     * side). Returns the lines written.
      */
     public static int selfPlay(int games, long nodes, int threads, long seed, Writer out,
                                Consumer<String> progress) throws IOException {
@@ -84,15 +85,7 @@ public final class Texel {
                         progress.accept(n + "/" + games + " games");
                     }
                 });
-        out.write("fen,result\n");
-        int lines = 0;
-        for (GameRecord record : records) {
-            for (String fen : quietPositions(record)) {
-                out.write(fen + "," + result(record) + "\n");
-                lines++;
-            }
-        }
-        return lines;
+        return TrainingExport.write(ai.variant.Variants.CHESS, records, SKIP_PLIES, out);
     }
 
     /** {@code opening} followed by {@code extra} random legal moves (fewer if the game ends). */
@@ -122,14 +115,6 @@ public final class Texel {
         return quiet;
     }
 
-    private static String result(GameRecord record) {
-        return switch (record.result()) {
-            case WHITE_WINS -> "1";
-            case BLACK_WINS -> "0";
-            case DRAW -> "0.5";
-        };
-    }
-
     // ---- positions as features ---------------------------------------------------------------
 
     /**
@@ -138,16 +123,16 @@ public final class Texel {
      */
     record Sample(int[] index, int[] value, int phase, double result) {}
 
-    /** Reads {@code fen,result} lines (a header line is skipped) as features. */
+    /** Reads {@code fen,result[,score]} lines (a header line is skipped) as features; the score is not used. */
     static List<Sample> load(Path file) throws IOException {
         List<Sample> samples = new ArrayList<>();
         try (BufferedReader in = Files.newBufferedReader(file)) {
             for (String line; (line = in.readLine()) != null; ) {
-                int comma = line.lastIndexOf(',');
-                if (comma < 0 || line.startsWith("fen,")) {
+                String[] parts = line.split(",");
+                if (parts.length < 2 || line.startsWith("fen,")) {
                     continue;
                 }
-                samples.add(sample(line.substring(0, comma), Double.parseDouble(line.substring(comma + 1))));
+                samples.add(sample(parts[0], Double.parseDouble(parts[1])));
             }
         }
         return samples;

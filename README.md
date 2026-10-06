@@ -204,7 +204,7 @@ src/main/java/
 │                   saved games, the player's variants
 ├── arena/          engine against engine: matches, tournaments, openings, Elo, Stockfish as a player
 ├── evolution/      the Evolution API and the algorithms (FromZero, MaterialExperiment, the example)
-├── lab/            runs: the runner, the SQLite record, the hall of fame, Texel tuning, the CLI,
+├── lab/            runs: the runner, the SQLite record, the hall of fame, Texel tuning, training data, the CLI,
 │                   the variant health check
 └── web/            local web server: the browser UI's files, the game over one WebSocket, and the
                     HTTP APIs (games, variants, analysis, the Lab's runs and jobs)
@@ -348,14 +348,25 @@ The same runs from the command line (the Lab's *Settings* screen prints the comm
 java -cp target/izikstar-chess-3.1.0.jar lab.Cli run runs/anti.db --algorithm evolution.FromZero --variant antichess \
      --generations 30 --depth 3 --options population=16,start=zero,evolve=material+mobility --yardsticks zero
 java -cp target/izikstar-chess-3.1.0.jar lab.Cli resume runs/anti.db   # after Ctrl+C or a stop from the Lab
-java -cp target/izikstar-chess-3.1.0.jar lab.Cli export runs/anti.db positions.csv   # fen,result of every game, by its own rules
+java -cp target/izikstar-chess-3.1.0.jar lab.Cli export runs/anti.db positions.csv   # fen,result,score of every quiet position, by its own rules
 java -cp target/izikstar-chess-3.1.0.jar lab.Cli selfplay anti.csv --variant antichess --player fsf:5000 --games 1000
+java -cp target/izikstar-chess-3.1.0.jar lab.Cli features anti.csv anti.bin --variant antichess   # the network's training file
 java -cp target/izikstar-chess-3.1.0.jar lab.Cli champion runs/anti.db 29 champion.json
 java -cp target/izikstar-chess-3.1.0.jar arena.Cli match champion.json fsf:20000 --variant antichess --depth 4
 ```
 
 [docs/evolution-guide.md](docs/evolution-guide.md) explains the API, the numbers and the traps;
 [docs/experiments/](docs/experiments/) holds the write-ups of the experiments run so far.
+
+### A network as the evaluation
+
+The engine can also play with a small neural network instead of the hand-written evaluation:
+768 inputs (one per side, piece and square, seen from the player to move), one hidden layer, one
+score ([`ai.eval.NetEvaluate`](src/main/java/ai/eval/NetEvaluate.java)). The data comes from the
+repository (`lab.Cli selfplay` writes `fen,result,score`, `lab.Cli features` encodes it), the
+training happens in Python ([`tools/net/`](tools/net/) reads the files and checks a trained
+network against Java), and a trained network plays as `net:nets/first.json` wherever a player is
+named. [docs/net-training-guide.md](docs/net-training-guide.md) has the formats and the recipe.
 
 ![A generation in the Lab](docs/images/lab.png)
 
@@ -447,10 +458,11 @@ here. Without it, those yardsticks are refused with a message and everything els
 - **Done:** every evaluation weight a parameter, a self-play arena, a record of every run, and a
   Lab that runs experiments on any game and plays their champions; pieces as data with a
   designer for new pieces and variants.
-- **Next:** a small neural network that reads the board (Python training on CPU, Java inference),
-  trained on one game's self-play; then wider variants (fairy pieces, other boards). The options
-  and the owner's open decisions are in [docs/phase-7-research.md](docs/phase-7-research.md); the
-  training data (`lab.Cli export`, `lab.Cli selfplay --variant`) and the yardsticks are ready.
+- **Now:** a small neural network that reads the board. The data pipeline, the inputs, the
+  network file and the Java side are in ([docs/net-training-guide.md](docs/net-training-guide.md));
+  the trainer is being written; then the network in the Lab and the web game, and the data loop
+  over the engine's own games. Decisions in [docs/phase-7-research.md](docs/phase-7-research.md).
+- **Next:** wider variants (fairy pieces, other boards).
 - **Later:** the online opening book.
 - **Longer term:** split the headless `rules`/engine core into a backend service behind the
   web front end that Phase 4c started.

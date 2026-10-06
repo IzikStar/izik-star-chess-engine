@@ -1,4 +1,4 @@
-# Phase 7 — A small neural network that reads the board (research, decisions open)
+# Phase 7 — A small neural network that reads the board (research; decided 2026-10-06)
 
 Roadmap stage 3 (docs/phase-6-research.md, owner's roadmap of 2026-10-05): "a small NNUE-style
 value net, Python training on CPU, Java inference, on one variant's self-play". Written on the
@@ -69,6 +69,13 @@ net file format, the Java `NetEvaluate`.
 
 ## 5. Decisions for the owner
 
+**Decided 2026-10-06:** the owner took every recommendation below, with one change to N7 made for
+his goal of learning from the process: **the owner writes the trainer** (with guidance), Claude
+writes the data, the encoding and the Java inference. Done so far (PR "Phase 7 step 1"): the
+engine's score per position in `fen,result,score`, `NetFeatures`, `NetData` and `lab.Cli
+features`, `NetEvaluate` and the `net:FILE.json` player, `tools/net/` (reader, encoder, forward
+pass), and [net-training-guide.md](net-training-guide.md) with the formats and the recipe.
+
 | # | Question | Options | Recommendation |
 |---|---|---|---|
 | N1 | Which game first | **Chess**: Stockfish data, and tuned-v1 is a strong, known baseline to beat / **Antichess**: continues tonight's experiment, but search dominates there (§3) / a made variant: no baseline at all | **Chess** first, antichess second (same code, other data) |
@@ -79,12 +86,15 @@ net file format, the Java `NetEvaluate`.
 | N6 | Gradient vs evolution | gradient only / evolution only / **gradient trains, evolution picks the hyper-parameters and keeps a population of nets** | **Both**, as in phase-5 §8.4 |
 | N7 | Who writes what | Claude writes data, encoding, Java inference and the trainer; the owner writes the evolution over nets (as with the Lab) / the owner writes the trainer too / Claude writes all of it | **Claude: data, inference, trainer; owner: the evolution** (keeps "the cool part" his) |
 
-## 6. After the decisions (sketch, for N1 = chess and the recommended rest)
+## 6. After the decisions
 
-1. Self-play data with scores: 1M positions of chess, Stockfish 5k nodes, `fen,result,score`.
-2. `tools/train_net.py`: PyTorch, 768 -> 32 -> 1, loss on mixed labels, writes `nets/NAME.json`.
-3. `ai.eval.NetEvaluate implements Evaluator`, reading that file; `Players` spec `net:NAME`; a
-   test that Java and Python give the same score on 1,000 positions.
+1. ~~Self-play data with scores: 1M positions of chess, Stockfish 5k nodes, `fen,result,score`.~~ Done (2026-10-06).
+2. The trainer: PyTorch, 768 -> 32 -> 1, loss on mixed labels, writes `nets/NAME.json`. **The owner's**, per
+   [net-training-guide.md](net-training-guide.md).
+3. ~~`ai.eval.NetEvaluate implements Evaluator`, reading that file; `Players` spec `net:NAME`; Java and Python
+   agree on the inputs and the score.~~ Done.
 4. Arena: net vs tuned-v1 at equal depth and at equal nodes, and vs Stockfish levels; a report in
    `docs/experiments/`.
-5. The Lab offers "net" as a player and as a yardstick; the owner's evolution over nets follows.
+5. The Lab offers "net" as a player and as a yardstick, the web game plays it; the data loop over
+   the engine's own games (positions from our games, labels from Stockfish); the owner's evolution
+   over the recipes follows.

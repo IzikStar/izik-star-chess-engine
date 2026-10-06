@@ -9,6 +9,7 @@ import rules.Game;
 import rules.GameStatus;
 import rules.MoveResult;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
@@ -47,16 +48,26 @@ public final class Match {
         }
         Minimax.Options whiteOptions = options(white, new Random(seed));
         Minimax.Options blackOptions = options(black, new Random(~seed));
+        List<Integer> scores = new ArrayList<>(); // before each move after the opening, from White's side
+        boolean anyScore = false;
         try (UciSession whiteUci = white.isExternal() ? new UciSession(white.external()) : null;
              UciSession blackUci = black.isExternal() ? new UciSession(black.external()) : null) {
+            for (int i = 0; i < opening.moves().size(); i++) {
+                scores.add(GameRecord.NO_SCORE);
+            }
             while (!game.status().isGameOver() && game.plyCount() < maxPlies) {
                 boolean whiteToMove = game.fen().split(" ")[1].equals("w");
                 Player side = whiteToMove ? white : black;
                 UciSession uci = whiteToMove ? whiteUci : blackUci;
                 Minimax.Options options = whiteToMove ? whiteOptions : blackOptions;
                 ChessMove move;
+                int score = GameRecord.NO_SCORE;
                 if (uci != null) {
                     move = uci.move(game.moves().stream().map(MoveResult::move).map(ChessMove::toUci).toList());
+                    if (uci.lastScore() != UciSession.NO_SCORE) {
+                        score = whiteToMove ? uci.lastScore() : -uci.lastScore();
+                        anyScore = true;
+                    }
                 } else if (!chess) {
                     move = MinimaxEngine.searchAtDepth(variant, game.history(), side.depth(), side.evaluator(), options);
                 } else if (side.moveMillis() > 0) {
@@ -66,6 +77,7 @@ public final class Match {
                     move = MinimaxEngine.searchAtDepth(game.fen(), game.history(), side.depth(), side.evaluator(), options);
                 }
                 game.play(move);
+                scores.add(score);
             }
         }
         List<String> moves = game.moves().stream().map(MoveResult::move).map(ChessMove::toUci).toList();
@@ -83,7 +95,8 @@ public final class Match {
             result = GameRecord.Result.DRAW;
             reason = "PLY_CAP";
         }
-        return new GameRecord(white.name(), black.name(), opening.name(), moves, result, reason, seed);
+        return new GameRecord(white.name(), black.name(), opening.name(), moves, result, reason, seed,
+                anyScore ? scores : List.of());
     }
 
     private static Minimax.Options options(Player player, Random random) {

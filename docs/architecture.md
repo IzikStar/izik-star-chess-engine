@@ -37,7 +37,9 @@ The browser (`web/`, React 19 + TypeScript + Vite, react-chessboard) never compu
 
 ## Evaluation
 
-56 named features times a middlegame and an endgame weight, blended by remaining material (phase 0-24), plus piece-square tables; about 500 parameters, in centipawns. Presets: `classic.json` (frozen, pinned by `engine.SameMoveTest`) and `tuned-v1.json` (Texel-fitted, the app default).
+56 named features times a middlegame and an endgame weight, blended by remaining material (phase 0-24), plus piece-square tables; about 500 parameters, in centipawns. Presets: `classic.json` (frozen, pinned by `engine.SameMoveTest`) and `tuned-v1.json` (Texel-fitted, the app default). Other variants get `PieceSetEvaluate`, built from their pieces.
+
+`Evaluator` is an interface, so the search can play with any scorer. `NetEvaluate` is a small neural network: `NetFeatures` turns a `PieceBoard` into 768 on/off inputs (side, piece type, square, seen from the player to move), one hidden ReLU layer, one score in centipawns; weights come from a `net-v1` JSON file a Python trainer writes (`lab.NetData` writes the training file, `tools/net/` reads it; docs/net-training-guide.md).
 
 ## Running and testing
 

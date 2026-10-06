@@ -108,7 +108,7 @@ class EvolutionRunnerTest {
             StringWriter out = new StringWriter();
             int lines = TrainingExport.write(store.allGames(), out);
             String[] rows = out.toString().split("\n");
-            assertEquals("fen,result", rows[0]);
+            assertEquals(TrainingExport.HEADER, rows[0]);
             assertEquals(lines, rows.length - 1);
             assertTrue(lines > 100, lines + " positions");
             for (int i = 1; i < rows.length; i++) {
