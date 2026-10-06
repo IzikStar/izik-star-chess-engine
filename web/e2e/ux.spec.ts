@@ -30,3 +30,30 @@ test('the hall of fame keeps its Play and PGN links inside the table row', async
   await expect(actions).toBeVisible();
   expect(await actions.evaluate((el) => getComputedStyle(el.parentElement!).display)).toBe('table-cell');
 });
+
+test('sound and dark mode are icon switches that say what they are', async ({ page }) => {
+  await page.goto('/');
+  const sound = page.getByRole('button', { name: 'Sound' });
+  const before = await sound.getAttribute('aria-pressed');
+  await sound.click();
+  await expect(sound).not.toHaveAttribute('aria-pressed', before!);
+  const dark = page.getByRole('button', { name: 'Dark mode' });
+  await dark.click();
+  const theme = await page.evaluate(() => document.documentElement.dataset.theme);
+  await expect(dark).toHaveAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
+  await sound.click(); // as it was
+});
+
+test('on a phone the opponent sits above the board and you below it, the top bar on two rows', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  const board = await page.getByTestId('board').boundingBox();
+  const top = await page.locator('.player.top').boundingBox();
+  const bottom = await page.locator('.player.bottom').boundingBox();
+  expect(top!.y + top!.height).toBeLessThanOrEqual(board!.y);
+  expect(bottom!.y).toBeGreaterThanOrEqual(board!.y + board!.height);
+  // nothing in the top bar sticks out of the screen
+  const bar = await page.locator('.topbar').boundingBox();
+  expect(bar!.width).toBeLessThanOrEqual(390);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});

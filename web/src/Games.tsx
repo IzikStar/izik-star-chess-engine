@@ -3,6 +3,7 @@ import { AnalysisPanel, EvalBar, useAnalysis } from './Analysis';
 import { Board } from './Board';
 import { colorName, formatClock, checkedSquares, LEVELS, levelElo, other, STOCKFISH_FROM_LEVEL, VARIANTS } from './chess';
 import { MoveList, RepeatButton } from './MoveList';
+import { Icon } from './icons';
 import type { Color, MoveInfo, VariantId, Weights } from './protocol';
 
 // "My games": every game played in the app, saved by the server after each move (web.GamesApi,
@@ -358,10 +359,10 @@ function GameReview({ id, live, onBack, onResume, onShowLive }: {
         <MoveList moves={moves} result={game.result} ply={ply} onPick={goTo} qualities={report?.moves.map((m) => m.quality)} empty="No moves." />
 
         <div className="nav" role="group" aria-label="Review moves">
-          <button type="button" className="icon" aria-label="First position" disabled={ply === 0} onClick={() => goTo(0)}>⏮</button>
-          <RepeatButton label="Previous move" disabled={ply === 0} onStep={() => step(-1)}>◀</RepeatButton>
-          <RepeatButton label="Next move" disabled={ply === count} onStep={() => step(1)}>▶</RepeatButton>
-          <button type="button" className="icon" aria-label="Last move" disabled={ply === count} onClick={() => goTo(count)}>⏭</button>
+          <button type="button" className="icon" aria-label="First position" disabled={ply === 0} onClick={() => goTo(0)}><Icon name="first" /></button>
+          <RepeatButton label="Previous move" disabled={ply === 0} onStep={() => step(-1)}><Icon name="prev" /></RepeatButton>
+          <RepeatButton label="Next move" disabled={ply === count} onStep={() => step(1)}><Icon name="next" /></RepeatButton>
+          <button type="button" className="icon" aria-label="Last move" disabled={ply === count} onClick={() => goTo(count)}><Icon name="last" /></button>
         </div>
 
         <div className="controls" role="group" aria-label="Saved game">
