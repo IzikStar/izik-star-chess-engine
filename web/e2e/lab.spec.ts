@@ -104,6 +104,9 @@ test('an antichess run from zero is started on the page, finishes, and its champ
   // outside chess the book and Stockfish are off
   await expect(form.getByLabel('Openings from', { exact: true })).toBeDisabled();
   await expect(form.getByLabel('Stockfish (auto level)', { exact: true })).toBeDisabled();
+  // ...but Fairy-Stockfish knows antichess, and the random mover plays any game
+  await expect(form.getByLabel('Fairy-Stockfish (20,000 nodes)', { exact: true })).toBeEnabled();
+  await form.getByLabel('Random mover', { exact: true }).check();
   await expect(form).toContainText('4 members → 6 pairings → 12 games a generation');
   await form.getByRole('button', { name: 'Start the run' }).click();
 
@@ -115,6 +118,7 @@ test('an antichess run from zero is started on the page, finishes, and its champ
   await expect(run).toContainText('Antichess · FromZero');
   await run.getByRole('button', { name: 'Generations', exact: true }).click();
   await expect(page.getByTestId('generations')).toContainText('vs All-zero weights');
+  await expect(page.getByTestId('generations')).toContainText('vs Random mover');
   await page.getByLabel('Generation', { exact: true }).selectOption('0');
   // the standings show what each member thinks the pieces are worth; member 0 started from nothing
   const standings = page.getByTestId('standings');

@@ -17,7 +17,11 @@ import java.nio.file.Path;
  *   <li>{@code sf:1500}: Stockfish held to UCI_Elo 1500, {@link ExternalEngine#STOCKFISH_NODES}
  *       nodes a move; {@code sf:1500@50000} with 50000 nodes a move;</li>
  *   <li>{@code hof:NAME}: an entry of the hall of fame ({@code runs/hall-of-fame/NAME.json}, see
- *       {@code lab.HallOfFame}).</li>
+ *       {@code lab.HallOfFame});</li>
+ *   <li>{@code fsf}: Fairy-Stockfish at full strength, {@link FairyStockfish#DEFAULT_NODES} nodes a
+ *       move, in any built-in variant; {@code fsf:5000} with 5000 nodes a move;</li>
+ *   <li>{@code random}: a player that knows only the rules and picks any legal move (it still
+ *       takes a win it sees one move ahead), the floor every evaluation should beat.</li>
  * </ul>
  * Built-in players search at the depth and variety given.
  */
@@ -32,6 +36,44 @@ public final class Players {
     public static boolean isStockfish(String spec) {
         return spec.startsWith("sf:");
     }
+
+    /** True if {@code spec} names Fairy-Stockfish ({@code fsf} or {@code fsf:NODES}). */
+    public static boolean isFairyStockfish(String spec) {
+        return spec.equals("fsf") || spec.startsWith("fsf:");
+    }
+
+    /** The random mover's name. */
+    public static final String RANDOM = "random";
+
+    /**
+     * True if {@code spec} names weights for the built-in engine (default, zero, a preset, a file,
+     * hof:NAME), false for Stockfish, Fairy-Stockfish and the random mover.
+     */
+    public static boolean hasWeights(String spec) {
+        return !isStockfish(spec) && !isFairyStockfish(spec) && !spec.equals(RANDOM);
+    }
+
+    /** Nodes a move of the Fairy-Stockfish {@code spec} names. */
+    static long fairyNodes(String spec) {
+        if (spec.equals("fsf")) {
+            return FairyStockfish.DEFAULT_NODES;
+        }
+        long nodes = Long.parseLong(spec.substring(4));
+        if (nodes < 1) {
+            throw new IllegalArgumentException("Fairy-Stockfish needs at least one node a move: " + spec);
+        }
+        return nodes;
+    }
+
+    /** The random mover in a game of {@code variant}: depth 1, no evaluation, any legal move. */
+    public static Player random(String name, ai.variant.Variant variant) {
+        ai.eval.ParamSchema schema = ai.eval.Evaluators.schema(variant);
+        return new Player(name, ai.eval.Evaluators.evaluator(variant, params("zero", HALL_OF_FAME, schema)), 1,
+                RANDOM_VARIETY, false);
+    }
+
+    /** A margin wider than any score short of a won or lost game: every move is as good as the best. */
+    static final int RANDOM_VARIETY = 3 * ai.eval.Evaluator.MATE;
 
     /** The player {@code spec} names, called by its spec (a file by its name without ".json"). */
     public static Player parse(String spec, int depth, int variety) {
@@ -49,6 +91,12 @@ public final class Players {
      */
     public static Player parse(String spec, String name, int depth, int variety, Path hallOfFame,
                                ai.variant.Variant variant) {
+        if (isFairyStockfish(spec)) {
+            return Player.external(name, FairyStockfish.engine(variant, fairyNodes(spec)));
+        }
+        if (spec.equals(RANDOM)) {
+            return random(name, variant);
+        }
         if (ai.eval.Evaluators.schema(variant) == ChessEvaluate.SCHEMA) {
             return parse(spec, name, depth, variety, hallOfFame);
         }
@@ -60,6 +108,9 @@ public final class Players {
     }
 
     public static Player parse(String spec, String name, int depth, int variety, Path hallOfFame) {
+        if (isFairyStockfish(spec) || spec.equals(RANDOM)) {
+            return parse(spec, name, depth, variety, hallOfFame, ai.variant.Variants.CHESS);
+        }
         if (isStockfish(spec)) {
             String[] parts = spec.substring(3).split("@");
             int elo = Integer.parseInt(parts[0]);
@@ -126,6 +177,9 @@ public final class Players {
         }
         if (isStockfish(spec)) {
             return "sf" + spec.substring(3);
+        }
+        if (isFairyStockfish(spec)) {
+            return "fsf" + fairyNodes(spec);
         }
         Path file = Path.of(spec);
         return Files.isRegularFile(file) ? file.getFileName().toString().replaceFirst("\\.json$", "") : spec;

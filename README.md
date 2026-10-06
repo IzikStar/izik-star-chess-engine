@@ -315,7 +315,10 @@ game and result goes into one SQLite file per run.
 A run plays chess or any variant (built-in or made in the *Variants* tab). Chess runs evolve the
 tuned chess evaluation; any other game evolves an evaluation built from its pieces (material,
 mobility, a value per square), which in antichess starts from all zeros, so the engine learns the
-game from nothing. Variants start from random openings and have no Stockfish yardstick.
+game from nothing. Variants start from random openings. Stockfish plays chess only; in the
+built-in variants the yardstick from above is **Fairy-Stockfish** (`fsf`, full strength at a
+fixed number of nodes a move), and from below the **random mover** (`random`, any legal move),
+which every evaluation should beat.
 
 The **Lab** tab of the web app runs the experiments:
 
@@ -340,6 +343,7 @@ java -cp target/izikstar-chess-3.1.0.jar lab.Cli run runs/anti.db --algorithm ev
 java -cp target/izikstar-chess-3.1.0.jar lab.Cli resume runs/anti.db   # after Ctrl+C or a stop from the Lab
 java -cp target/izikstar-chess-3.1.0.jar lab.Cli export runs/anti.db positions.csv
 java -cp target/izikstar-chess-3.1.0.jar lab.Cli champion runs/anti.db 29 champion.json
+java -cp target/izikstar-chess-3.1.0.jar arena.Cli match champion.json fsf:20000 --variant antichess --depth 4
 ```
 
 [docs/evolution-guide.md](docs/evolution-guide.md) explains the API, the numbers and the traps;
@@ -417,6 +421,18 @@ GitHub releases into `engine/stockfish/` and uses it at once, no restart. Or do 
 4. Or name the file yourself: `java -Dstockfish.path=/path/to/stockfish -jar target/izikstar-chess-3.1.0.jar`,
    or the `STOCKFISH_PATH` environment variable.
 
+### Fairy-Stockfish (variants)
+
+Fairy-Stockfish, the Stockfish fork that plays antichess, King of the Hill, three-check and
+dozens of other variants, is the yardstick for the Lab's variant runs and for
+`arena.Cli match ... --variant antichess` (players `fsf` and `fsf:NODES`). The game never
+downloads it: take the build for your OS from
+<https://github.com/fairy-stockfish/Fairy-Stockfish/releases> (e.g.
+`fairy-stockfish-largeboard_x86-64.exe` on Windows) and drop it into `engine/`. Any file whose
+name starts with `fairy-stockfish` is found there, or name it with `-Dfairy.path=...` or
+`FAIRY_STOCKFISH_PATH`, or put `fairy-stockfish` on your `PATH`. It is GPLv3 and not distributed
+here. Without it, those yardsticks are refused with a message and everything else works.
+
 
 ## Roadmap
 
@@ -439,4 +455,4 @@ license: the board's glossy black-and-ivory set is drawn in code by
 [`docs/art/pieces.svg`](docs/art/pieces.svg). The sound effects are synthesised in the browser by
 [`web/src/sounds.ts`](web/src/sounds.ts), so the repository ships no third-party sound files.
 
-Stockfish is a separate project licensed under the GPLv3 and is not distributed here.
+Stockfish and Fairy-Stockfish are separate projects licensed under the GPLv3 and are not distributed here.

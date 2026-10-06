@@ -20,8 +20,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  * java -cp target/izikstar-chess-3.1.0.jar arena.Cli match A B [options]
  *
  *   A, B             "default" (the schema defaults), a preset ("classic": the hand-written weights),
- *                    a parameter file (JSON, see ParamVector), or "sf:1500": Stockfish at UCI_Elo
- *                    1500 (see Players)
+ *                    a parameter file (JSON, see ParamVector), "sf:1500": Stockfish at UCI_Elo
+ *                    1500, "fsf" or "fsf:5000": Fairy-Stockfish at full strength, 5000 nodes a move,
+ *                    "random": any legal move, or "hof:NAME" (see Players)
  *   --depth N        search depth of both players (default 3)
  *   --openings N     use the first N openings of the suite (default all, about 50); 2 games each
  *   --threads N      games at once (default: cores - 1)
@@ -34,6 +35,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  *                    and move ordering
  *   --move-ms N      give each move N ms, deepening up to --depth (an equal-time match; games then
  *                    depend on the machine and are not repeatable)
+ *   --variant ID     play a variant (antichess, king-of-the-hill, three-check) or
+ *   --variant-file F a made variant's JSON; weights are then that game's (see Evaluators.schema),
+ *                    and the games start from random openings
+ *   --opening-plies N  random moves each opening is made of (default 4 in a variant)
  * </pre>
  *
  * It prints each game as it ends, then A's score against B with the Elo difference and its 95%
@@ -47,7 +52,7 @@ public final class Cli {
         if (args.length < 3 || !args[0].equals("match")) {
             System.err.println("usage: arena.Cli match A B [--depth N] [--openings N] [--threads N]"
                     + " [--max-plies N] [--variety N] [--seed N] [--old-search A|B] [--no-speedups A|B]"
-                    + " [--move-ms N]");
+                    + " [--move-ms N] [--variant ID | --variant-file FILE] [--opening-plies N]");
             System.exit(2);
         }
         Map<String, String> options = new TreeMap<>();
@@ -67,7 +72,12 @@ public final class Cli {
                 Integer.parseInt(options.getOrDefault("max-plies", String.valueOf(defaults.maxPlies()))),
                 Integer.parseInt(options.getOrDefault("threads", String.valueOf(defaults.threads()))),
                 Long.parseLong(options.getOrDefault("seed", String.valueOf(defaults.seed()))));
-        List<Opening> openings = Opening.suite();
+        ai.variant.Variant variant = variant(options);
+        boolean chess = variant.equals(ai.variant.Variants.CHESS);
+        settings = new Tournament.Settings(settings.maxPlies(), settings.threads(), settings.seed(), variant);
+        List<Opening> openings = chess && !options.containsKey("opening-plies") ? Opening.suite()
+                : Opening.random(variant, Integer.parseInt(options.getOrDefault("openings", "50")),
+                Integer.parseInt(options.getOrDefault("opening-plies", "4")), settings.seed());
         if (options.containsKey("openings")) {
             openings = openings.subList(0, Math.min(openings.size(), Integer.parseInt(options.get("openings"))));
         }
@@ -88,13 +98,16 @@ public final class Cli {
         } else if (noSpeedups.equalsIgnoreCase("B")) {
             nameB += " no TT";
         }
-        Player a = player(args[1], nameA, depth, variety, !oldSearch.equalsIgnoreCase("A"),
-                !noSpeedups.equalsIgnoreCase("A"), moveMillis);
-        Player b = player(args[2], nameB, depth, variety, !oldSearch.equalsIgnoreCase("B"),
-                !noSpeedups.equalsIgnoreCase("B"), moveMillis);
+        Player a = chess ? player(args[1], nameA, depth, variety, !oldSearch.equalsIgnoreCase("A"),
+                !noSpeedups.equalsIgnoreCase("A"), moveMillis)
+                : Players.parse(args[1], nameA, depth, variety, Players.HALL_OF_FAME, variant);
+        Player b = chess ? player(args[2], nameB, depth, variety, !oldSearch.equalsIgnoreCase("B"),
+                !noSpeedups.equalsIgnoreCase("B"), moveMillis)
+                : Players.parse(args[2], nameB, depth, variety, Players.HALL_OF_FAME, variant);
 
         int total = 2 * openings.size();
-        System.out.printf("%s vs %s: %d games at depth %d%s, %d at a time%n", a.name(), b.name(), total, depth,
+        System.out.printf("%s%s vs %s: %d games at depth %d%s, %d at a time%n", chess ? "" : variant.name() + ": ",
+                a.name(), b.name(), total, depth,
                 moveMillis > 0 ? " within " + moveMillis + " ms a move" : "", settings.threads());
         AtomicInteger done = new AtomicInteger();
         long start = System.nanoTime();
@@ -108,10 +121,20 @@ public final class Cli {
         Files.createDirectories(pgn.toAbsolutePath().getParent());
         StringBuilder text = new StringBuilder();
         for (GameRecord g : games) {
-            text.append(GamePgn.write(g, a.name() + " vs " + b.name(), 1, a.isExternal() ? b.depth() : a.depth())).append('\n');
+            text.append(GamePgn.write(variant, g, a.name() + " vs " + b.name(), 1, a.isExternal() ? b.depth() : a.depth())).append('\n');
         }
         Files.writeString(pgn, text);
         System.out.println("games written to " + pgn);
+    }
+
+    /** {@code --variant ID} or {@code --variant-file FILE}; chess without either. */
+    static ai.variant.Variant variant(Map<String, String> options) throws IOException {
+        if (options.containsKey("variant-file")) {
+            return ai.variant.VariantJson.read(Files.readString(Path.of(options.get("variant-file"))));
+        }
+        String id = options.getOrDefault("variant", "chess");
+        return ai.variant.Variants.ALL.stream().filter(v -> v.id().equals(id)).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("no built-in variant " + id + "; try --variant-file"));
     }
 
     private static String name(String spec) {
@@ -120,7 +143,7 @@ public final class Cli {
 
     private static Player player(String spec, String name, int depth, int variety, boolean quiescence,
                                  boolean speedups, long moveMillis) {
-        if (Players.isStockfish(spec)) {
+        if (!Players.hasWeights(spec)) {
             return Players.parse(spec, name, depth, variety);
         }
         return new Player(name, new ChessEvaluate(Players.params(spec)), depth, variety, quiescence, speedups,

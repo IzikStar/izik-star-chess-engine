@@ -5,6 +5,7 @@ import ai.variant.Variant;
 import ai.variant.Variants;
 import ai.eval.ParamSchema;
 import ai.eval.ParamVector;
+import arena.FairyStockfish;
 import arena.GameRecord;
 import arena.Opening;
 import arena.Player;
@@ -102,8 +103,16 @@ public final class EvolutionRunner {
                 throw new IllegalArgumentException(variant.name() + " has no opening book: give random opening moves");
             }
             if (settings.memberStockfishOpenings() > 0 || settings.yardsticks().stream().anyMatch(Players::isStockfish)) {
-                throw new IllegalArgumentException("Stockfish plays chess only, not " + variant.name());
+                throw new IllegalArgumentException("Stockfish plays chess only, not " + variant.name()
+                        + " (Fairy-Stockfish, \"fsf\", plays the built-in variants)");
             }
+        }
+        if (settings.yardsticks().stream().anyMatch(Players::isFairyStockfish)) {
+            if (!FairyStockfish.plays(variant)) {
+                throw new IllegalArgumentException("Fairy-Stockfish does not know " + variant.name());
+            }
+            settings.yardsticks().stream().filter(Players::isFairyStockfish)
+                    .forEach(y -> Players.label(y)); // a bad node count fails here, not mid-run
         }
         return settings;
     }
@@ -142,6 +151,10 @@ public final class EvolutionRunner {
                 && StockfishLocator.find().isEmpty()) {
             throw new IllegalStateException("the yardsticks include Stockfish, but it is not installed;"
                     + " install it, download it from the game, or leave Stockfish out of the settings");
+        }
+        if (settings.yardsticks().stream().anyMatch(Players::isFairyStockfish) && !FairyStockfish.installed()) {
+            throw new IllegalStateException("the yardsticks include Fairy-Stockfish, but it is not installed;"
+                    + " put it in engine/ (see engine/README.md) or leave it out of the settings");
         }
         List<RunStore.GenerationRow> done = store.generations();
         int number = done.isEmpty() ? 0 : done.getLast().number() + 1;
@@ -384,7 +397,7 @@ public final class EvolutionRunner {
             String spec = due.get(y);
             int level = spec.equals(RunSettings.STOCKFISH_AUTO) ? stockfishLevel(store.generations(), number) : 0;
             String playing = level > 0 ? "sf:" + level : spec;
-            if (!Players.isStockfish(playing)) {
+            if (Players.hasWeights(playing)) {
                 ParamVector weights = Players.params(playing, HallOfFame.besides(store.file()).dir(), schema);
                 String same = played.putIfAbsent(weights, spec);
                 if (same != null) { // the same weights as an earlier yardstick: the same result

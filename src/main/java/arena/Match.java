@@ -30,13 +30,16 @@ public final class Match {
     }
 
     /**
-     * A game of {@code variant}, as {@link #play(Player, Player, Opening, int, long)}. Engines outside
-     * this program (Stockfish) play chess only.
+     * A game of {@code variant}, as {@link #play(Player, Player, Opening, int, long)}. Outside chess
+     * the only engine from outside this program is Fairy-Stockfish set to that variant.
      */
     public static GameRecord play(Variant variant, Player white, Player black, Opening opening, int maxPlies, long seed) {
         boolean chess = variant.equals(Variants.CHESS);
-        if (!chess && (white.isExternal() || black.isExternal())) {
-            throw new IllegalArgumentException("an outside engine plays chess only, not " + variant.name());
+        for (Player p : List.of(white, black)) {
+            if (!chess && p.isExternal() && !FairyStockfish.playsAs(p.external(), variant)) {
+                throw new IllegalArgumentException(p.name() + " does not play " + variant.name()
+                        + ": outside chess only Fairy-Stockfish set to it does");
+            }
         }
         Game game = new Game(variant);
         for (String uci : opening.moves()) {

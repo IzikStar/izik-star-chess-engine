@@ -70,6 +70,8 @@ export function NewRun({ job }: { job: Job | null }) {
 
   const algorithm = algorithms.find((a) => a.className === form.algorithm) ?? algorithms[0];
   const chess = form.variant === 'chess';
+  // Fairy-Stockfish knows the built-in variants (made ones once they are written out for it)
+  const fairy = variants.length === 0 || variants.some((v) => v.id === form.variant && v.builtIn);
   // outside chess there is no opening book and no Stockfish
   useEffect(() => {
     if (!chess) {
@@ -82,6 +84,12 @@ export function NewRun({ job }: { job: Job | null }) {
       }));
     }
   }, [chess, algorithms]);
+
+  useEffect(() => {
+    if (!fairy) {
+      setForm((f) => (f.yardsticks.includes('fsf') ? { ...f, yardsticks: f.yardsticks.filter((y) => y !== 'fsf') } : f));
+    }
+  }, [fairy]);
 
   const n = (s: string, fallback = 0) => (s.trim() === '' || Number.isNaN(Number(s)) ? fallback : Number(s));
   const population = n(form.options.population ?? algorithm?.options.find((o) => o.key === 'population')?.default ?? '0')
@@ -220,10 +228,12 @@ export function NewRun({ job }: { job: Job | null }) {
               {([['default', chess ? 'Default weights (tuned-v1)' : 'Default weights of this game', 'Where tuning starts: the chess weights the app plays with, or a variant\'s piece values.'],
                 ['classic', 'Classic weights', 'The hand-written chess weights.'],
                 ['zero', 'All-zero weights', 'An engine that knows only the rules (and mate). Beating it is the first sign of life for a run from zero.'],
+                ['random', 'Random mover', 'Plays any legal move (it only takes a win it sees one move ahead). The floor: unlike all-zero weights it does not search, so a young run still has something to beat.'],
                 ['sf:auto', 'Stockfish (auto level)', 'Stockfish held to a UCI_Elo level that moves with the champion: up after a score above 70%, down below 30%. Chess only.'],
+                ['fsf', 'Fairy-Stockfish (20,000 nodes)', 'The strongest open engine for variants, at full strength with 20,000 positions a move. The ceiling to measure against in antichess, king of the hill and three-check. Needs Fairy-Stockfish in engine/.'],
               ] as [string, string, string][]).map(([key, label, help]) => (
                 <label key={key} className="check" title={help}>
-                  <input type="checkbox" aria-label={label} checked={form.yardsticks.includes(key)} disabled={(key === 'sf:auto' || key === 'classic') && !chess} onChange={() => toggleYardstick(key)} />
+                  <input type="checkbox" aria-label={label} checked={form.yardsticks.includes(key)} disabled={((key === 'sf:auto' || key === 'classic') && !chess) || (key === 'fsf' && !fairy)} onChange={() => toggleYardstick(key)} />
                   {label}
                 </label>
               ))}

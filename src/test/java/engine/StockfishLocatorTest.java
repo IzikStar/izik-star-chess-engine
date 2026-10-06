@@ -62,4 +62,16 @@ class StockfishLocatorTest {
         assertFalse(none.isAvailable());
         assertEquals(null, none.path());
     }
+
+    @Test
+    @DisplayName("Fairy-Stockfish is found by its own name, and never taken for Stockfish")
+    void fairyStockfish() throws IOException {
+        assumeFalse(System.getProperty("os.name", "").toLowerCase().startsWith("windows"), "needs a Unix file system");
+        Path engine = Files.createDirectories(dir.resolve("engine"));
+        Path fairy = Files.writeString(engine.resolve("fairy-stockfish-largeboard_x86-64"), "");
+        assertTrue(fairy.toFile().setExecutable(true));
+        assertEquals(Optional.empty(), StockfishLocator.find(List.of(engine), List.of(), false));
+        assertEquals(Optional.of(fairy.toAbsolutePath()),
+                StockfishLocator.find(FairyStockfishLocator.NAME, List.of(engine), List.of(), false));
+    }
 }
