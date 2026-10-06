@@ -17,6 +17,7 @@ import { play } from './sounds';
 import { inventedReach } from './reach';
 import { Icon } from './icons';
 import { Confetti } from './Confetti';
+import { Tour } from './Tour';
 
 const EMPTY = new Map<string, string[]>();
 
@@ -83,6 +84,7 @@ export function App() {
   const [notice, setNotice] = useState<string | null>(null);
   /** Counts the wins worth celebrating; each new one replays the confetti. */
   const [party, setParty] = useState(0);
+  const [touring, setTouring] = useState(false);
 
   const onEvents = useCallback((events: GameEvent[], state: GameState) => {
     const sound = soundRef.current;
@@ -316,9 +318,9 @@ export function App() {
         <div className="brand"><span aria-hidden="true">♞</span> IzikStar Chess</div>
         <div className="tabs" role="group" aria-label="Screen">
           <button type="button" className={'btn ghost' + (page === 'game' ? ' on' : '')} aria-pressed={page === 'game'} onClick={() => showPage('game')}>Game</button>
-          <button type="button" className={'btn ghost' + (page === 'games' ? ' on' : '')} aria-pressed={page === 'games'} onClick={() => showPage('games')}>My games</button>
-          <button type="button" className={'btn ghost' + (page === 'variants' ? ' on' : '')} aria-pressed={page === 'variants'} onClick={() => showPage('variants')}>Variants</button>
-          <button type="button" className={'btn ghost' + (page === 'lab' ? ' on' : '')} aria-pressed={page === 'lab'} onClick={() => showPage('lab')}>Lab</button>
+          <button type="button" className={'btn ghost' + (page === 'games' ? ' on' : '')} aria-pressed={page === 'games'} data-tour="games" onClick={() => showPage('games')}>My games</button>
+          <button type="button" className={'btn ghost' + (page === 'variants' ? ' on' : '')} aria-pressed={page === 'variants'} data-tour="variants" onClick={() => showPage('variants')}>Variants</button>
+          <button type="button" className={'btn ghost' + (page === 'lab' ? ' on' : '')} aria-pressed={page === 'lab'} data-tour="lab" onClick={() => showPage('lab')}>Lab</button>
         </div>
         <div className="spacer" />
         <button type="button" className="btn ghost icon-btn" aria-label="Sound" aria-pressed={soundOn}
@@ -332,9 +334,11 @@ export function App() {
           setTheme(next);
           store('theme', next);
         }}><Icon name={isDark ? 'sun' : 'moon'} /></button>
-        <button type="button" className="btn ghost icon-btn" aria-label="Settings" title="Settings" onClick={() => setSettingsOpen(true)}><Icon name="gear" /><span className="wide-only">Settings</span></button>
-        <button type="button" className="btn primary" onClick={() => openDialog(state.opponent)}>New game</button>
+        <button type="button" className="btn ghost icon-btn" aria-label="Settings" title="Settings" data-tour="settings" onClick={() => setSettingsOpen(true)}><Icon name="gear" /><span className="wide-only">Settings</span></button>
+        <button type="button" className="btn primary" data-tour="new-game" onClick={() => openDialog(state.opponent)}>New game</button>
       </header>
+
+      <Tour open={touring} onOpen={() => setTouring(true)} onClose={() => setTouring(false)} />
 
       {page === 'variants' && <Variants onPlay={(id) => openDialog(null, id)} />}
 
@@ -501,6 +505,10 @@ export function App() {
             saveSettings(next);
           }}
           onClose={() => setSettingsOpen(false)}
+          onTour={() => {
+            setSettingsOpen(false);
+            setTouring(true);
+          }}
         />
       )}
 
