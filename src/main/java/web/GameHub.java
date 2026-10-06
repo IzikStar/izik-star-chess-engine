@@ -63,10 +63,11 @@ import java.util.function.Consumer;
  * {@code stockfish} is {available, path} (whether Stockfish's levels really get Stockfish). An event is
  * {@code {kind: move|reset|config|hint|gameOver|ended|drawOffer|drawDeclined|rejected, ...}}.
  *
- * <p>Saved games: every game a person plays (not engine against engine, not a loaded PGN) is saved
- * to the {@link GameArchive} after each task that changed its moves or result, and once more when
- * it is left (a new game, a resumed one, the server stopping), so an unfinished game keeps its
- * clocks and can be carried on. The state's {@code savedId} names the current game's file.
+ * <p>Saved games: every game played on the board (against the engine, between two players, or the
+ * engine against itself; not a loaded PGN) is saved to the {@link GameArchive} after each task
+ * that changed its moves or result, and once more when it is left (a new game, a resumed one, the
+ * server stopping), so an unfinished game keeps its clocks and can be carried on. The state's
+ * {@code savedId} names the current game's file.
  */
 final class GameHub implements GameListener {
 
@@ -100,7 +101,7 @@ final class GameHub implements GameListener {
     private String recordId;
     /** When the current game began. */
     private Instant recordStarted = Instant.now();
-    /** False for games that are not saved (engine against engine, a loaded PGN). */
+    /** False for games that are not saved (a loaded PGN). */
     private boolean recording = true;
     /** Moves and result at the last save, so a task that changed neither saves nothing. */
     private String savedSignature;
@@ -293,7 +294,7 @@ final class GameHub implements GameListener {
                 .orElseThrow(() -> new IllegalArgumentException("unknown variant: " + variantId));
         JsonElement champion = msg.get("champion");
         boolean playsChampion = champion != null && !champion.isJsonNull();
-        leaveGame(mode != GameConfig.Mode.ENGINE_VS_ENGINE);
+        leaveGame(true);
         if (msg.has("weights") && !msg.get("weights").isJsonNull()) {
             weights = Weights.of(msg.get("weights").getAsString());
         }
@@ -340,7 +341,10 @@ final class GameHub implements GameListener {
         opponent.addProperty("label", "Champion of " + lab.name(run) + ", generation " + generation);
     }
 
-    /** Carries on an unfinished saved game where it was left, clocks included. */
+    /**
+     * Carries on an unfinished saved game where it was left, clocks included; an engine-against-engine
+     * game goes on playing itself, each side at its saved level.
+     */
     private void resume(String id) {
         if (archive == null) {
             throw new IllegalStateException("games are not being saved");
@@ -390,7 +394,7 @@ final class GameHub implements GameListener {
      * reported and the game goes on.
      */
     private void record(boolean force) {
-        if (archive == null || !recording || session.config().mode() == GameConfig.Mode.ENGINE_VS_ENGINE) {
+        if (archive == null || !recording) {
             return;
         }
         String signature = signature();

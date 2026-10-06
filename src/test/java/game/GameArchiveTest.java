@@ -54,6 +54,35 @@ class GameArchiveTest {
     }
 
     @Test
+    @DisplayName("A game the engine played against itself keeps both levels; a file from before such games were saved still reads")
+    void engineVsEngineAndOlderFiles() throws Exception {
+        GameArchive archive = new GameArchive(dir);
+        SavedGame watched = new SavedGame("w", Instant.parse("2026-10-05T09:00:00Z"), Instant.parse("2026-10-05T09:02:00Z"),
+                new GameConfig(GameConfig.Mode.ENGINE_VS_ENGINE, true, 5, 8), null, null, null, TimeControl.NONE, null, null,
+                Position.START_FEN, List.of("e2e4", "c7c5", "g1f3"), null, null, "1. e4 c5 2. Nf3 *", "tuned", "chess", null);
+        archive.save(watched);
+        SavedGame back = archive.get("w").orElseThrow();
+        assertEquals(watched, back);
+        assertEquals(5, back.config().skillLevelFor(true));
+        assertEquals(8, back.config().skillLevelFor(false));
+
+        // written by the app before engine-against-engine games were saved (and before weights and variants)
+        Files.writeString(dir.resolve("old.json"), """
+                {"version":1,"id":"old","started":"2026-09-30T18:00:00Z","updated":"2026-09-30T18:05:00Z",
+                 "mode":"HUMAN_VS_ENGINE","humanPlaysWhite":true,"level":4,"blackLevel":4,"championRun":null,
+                 "championGeneration":null,"opponentLabel":null,"initialMs":0,"incrementMs":0,"whiteMs":null,
+                 "blackMs":null,"startFen":"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+                 "moves":["d2d4"],"result":null,"termination":null,"pgn":"1. d4 *"}
+                """);
+        SavedGame old = archive.get("old").orElseThrow();
+        assertEquals(GameConfig.Mode.HUMAN_VS_ENGINE, old.config().mode());
+        assertEquals(List.of("d2d4"), old.moves());
+        assertEquals("classic", old.weights());
+        assertEquals("chess", old.variant());
+        assertEquals(List.of("w", "old"), archive.list().stream().map(SavedGame::id).toList());
+    }
+
+    @Test
     @DisplayName("The list is newest first, skips unreadable files, and a save replaces the game")
     void listAndReplace() throws Exception {
         GameArchive archive = new GameArchive(dir);

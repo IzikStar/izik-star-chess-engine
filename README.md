@@ -58,9 +58,11 @@ Phase 4c (#2 to #6) refer to that repository.
   declines (a move declines it).
 - **PGN.** Copy or download the game as PGN, or paste a PGN to load it (it becomes a game between
   two players, to review or play on from its last position).
-- **My games.** Every game you play is saved on your computer (in `games/`, one JSON file per
-  game) after each move, so a game you leave unfinished is kept too. The *My games* tab lists them
-  with a filter by level and result and your score against each level. Open one to step through
+- **My games.** Every game you play, and every game you watch the engine play itself, is saved
+  on your computer (in `games/`, one JSON file per game) after each move, so a game you leave
+  unfinished is kept too (a loaded PGN is not saved). The *My games* tab lists them with a filter
+  by opponent (a level, two players, or engine vs engine, shown with both sides' levels) and
+  result, and your score against each level. Open one to step through
   it and analyse it with Stockfish, copy or download its PGN, or carry an unfinished game on with
   its clocks where they were.
 - **Variants tab: invent your own.** Copy a variant and change its goal, forced captures,

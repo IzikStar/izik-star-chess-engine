@@ -484,6 +484,53 @@ class WebServerTest {
     }
 
     @Test
+    @DisplayName("Saved games: the engine playing itself is saved with both levels and can be carried on; a loaded PGN is not")
+    void savedEngineVsEngineGames() throws Exception {
+        java.nio.file.Path games = java.nio.file.Files.createTempDirectory("games-test");
+        server = WebServer.start(0, hub -> new GameSession(GameConfig.defaults(),
+                new EngineSelector(new MinimaxEngine(), NO_STOCKFISH), hub::execute), java.nio.file.Path.of("runs"), games);
+        Client c = new Client();
+        c.await(s -> true);
+        c.send("{\"type\":\"newGame\",\"mode\":\"computer\",\"level\":1,\"blackLevel\":2}");
+        JsonObject state = c.await(s -> s.getAsJsonArray("moves").size() >= 4 && !s.get("savedId").isJsonNull())
+                .getAsJsonObject("state");
+        String id = state.get("savedId").getAsString();
+        newGame(c, "friend", "white", 4); // stop it: it is left unfinished
+        c.awaitEvent("reset");
+
+        JsonArray list = get("/api/games").getAsJsonArray("games");
+        assertEquals(1, list.size());
+        JsonObject summary = list.get(0).getAsJsonObject();
+        assertEquals(id, summary.get("id").getAsString());
+        assertEquals("computer", summary.get("mode").getAsString());
+        assertEquals(1, summary.get("level").getAsInt());
+        assertEquals(2, summary.get("blackLevel").getAsInt());
+        int plies = summary.get("plies").getAsInt();
+        assertTrue(plies >= 4, "plies " + plies);
+        JsonObject detail = get("/api/games/" + id);
+        assertTrue(detail.get("pgn").getAsString().contains("[Black \"Engine, level 2\"]"), detail.get("pgn").getAsString());
+        assertEquals(plies, detail.getAsJsonArray("moves").size());
+
+        if (summary.get("result").isJsonNull()) {
+            // carried on, it plays itself again, still under the same id
+            c.send("{\"type\":\"resumeGame\",\"id\":\"" + id + "\"}");
+            state = c.await(s -> s.getAsJsonArray("moves").size() > plies && id.equals(s.get("savedId").getAsString()))
+                    .getAsJsonObject("state");
+            assertEquals("computer", state.getAsJsonObject("config").get("mode").getAsString());
+            assertEquals(2, state.getAsJsonObject("config").get("blackLevel").getAsInt());
+        }
+
+        // a loaded PGN is there to look through: it is not saved
+        c.send("{\"type\":\"loadPgn\",\"pgn\":\"1. e4 e5 2. Nf3\"}");
+        state = c.await(s -> s.getAsJsonObject("config").get("mode").getAsString().equals("friend")
+                && s.getAsJsonArray("moves").size() == 3).getAsJsonObject("state");
+        assertTrue(state.get("savedId").isJsonNull());
+        c.move("b8c6");
+        c.awaitPly(4);
+        assertEquals(1, get("/api/games").getAsJsonArray("games").size());
+    }
+
+    @Test
     @DisplayName("Variants: a new game names one, its rules hold on the socket, and the PGN says which")
     void variantGame() throws Exception {
         startServer();

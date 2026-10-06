@@ -6,8 +6,8 @@ import { MoveList, RepeatButton } from './MoveList';
 import { Icon } from './icons';
 import type { Color, MoveInfo, VariantId, Weights } from './protocol';
 
-// "My games": every game played in the app, saved by the server after each move (web.GamesApi,
-// game.GameArchive). Look one through with Stockfish's analysis, carry an unfinished one on, or
+// "My games": every game played in the app, the engine's games against itself included, saved by
+// the server after each move (web.GamesApi, game.GameArchive). Look one through with Stockfish's analysis, carry an unfinished one on, or
 // take it away as PGN.
 
 type Result = '1-0' | '0-1' | '1/2-1/2';
@@ -16,9 +16,13 @@ export interface GameSummary {
   id: string;
   started: string;
   updated: string;
-  mode: 'engine' | 'friend';
+  /** computer: the engine played itself ("Watch the engine"). */
+  mode: 'engine' | 'friend' | 'computer';
   humanColor: Color;
+  /** The engine's level; White's when it played itself. */
   level: number;
+  /** Black's level when the engine played itself, else the same as level (absent from an older server). */
+  blackLevel?: number;
   /** An evolved champion's name, when the engine played as one. */
   opponent: string | null;
   /** The built-in engine's weights ("classic" for games from before the choice). */
@@ -43,7 +47,7 @@ type Outcome = 'won' | 'lost' | 'drawn' | 'unfinished' | 'played';
 
 const EMPTY = new Map<string, string[]>();
 
-/** The game from the player's side: won or lost against the engine; between two players only drawn, finished or not. */
+/** The game from the player's side: won or lost against the engine; between two players or engine against engine only drawn, finished or not. */
 export function outcomeOf(g: GameSummary): Outcome {
   if (g.result === null) return 'unfinished';
   if (g.result === '1/2-1/2') return 'drawn';
@@ -56,7 +60,16 @@ const OUTCOME_TEXT: Record<Outcome, string> = { won: 'Won', lost: 'Lost', drawn:
 function opponentText(g: GameSummary): string {
   const variant = g.variant && g.variant !== 'chess' ? `${VARIANTS.find((v) => v.id === g.variant)?.name ?? g.variant} · ` : '';
   if (g.mode === 'friend') return variant + 'Two players';
+  if (g.mode === 'computer') return variant + (g.opponent ? `${g.opponent}, both sides` : enginesText(g));
   return variant + (g.opponent ?? `Level ${g.level} · ${LEVELS[g.level]?.name ?? ''}${weightsSuffix(g.level, g.weights)}`);
+}
+
+/** The engine against itself: "Level 1 Beginner vs Level 3 Casual", White's level first. */
+function enginesText(g: GameSummary): string {
+  const black = g.blackLevel ?? g.level;
+  const side = (l: number) => `Level ${l} ${LEVELS[l]?.name ?? ''}`.trim();
+  const classic = weightsSuffix(g.level, g.weights) || weightsSuffix(black, g.weights);
+  return `${side(g.level)} vs ${side(black)}${classic}`;
 }
 
 /** " (classic weights)" for a built-in level played with the classic weights; the tuned ones are the default. */
@@ -108,7 +121,7 @@ export function Games({ liveId, onResume, onShowLive }: { liveId: string | null;
   const games = data?.games ?? [];
   const levels = useMemo(() => [...new Set(games.filter((g) => g.mode === 'engine').map((g) => g.level))].sort((a, b) => a - b), [games]);
   const shown = games.filter((g) =>
-    (level === 'all' || (level === 'friend' ? g.mode === 'friend' : g.mode === 'engine' && g.level === Number(level)))
+    (level === 'all' || (level === 'friend' || level === 'computer' ? g.mode === level : g.mode === 'engine' && g.level === Number(level)))
     && (outcome === 'all' || outcomeOf(g) === outcome));
 
   if (open) {
@@ -125,7 +138,7 @@ export function Games({ liveId, onResume, onShowLive }: { liveId: string | null;
       {data && games.length === 0 && (
         <section className="panel" data-testid="games-empty">
           <h2>No games yet</h2>
-          <p>Every game you play is saved here on its own, after each move, finished or not.</p>
+          <p>Every game you play, or watch the engine play, is saved here on its own, after each move, finished or not.</p>
           <p className="muted small">They are kept in <code>{data.folder}</code>.</p>
           <button type="button" className="btn primary empty-cta" onClick={onShowLive}>Go to the board and play</button>
         </section>
@@ -142,6 +155,7 @@ export function Games({ liveId, onResume, onShowLive }: { liveId: string | null;
                     <option value="all">All</option>
                     {levels.map((l) => <option key={l} value={l}>Level {l}</option>)}
                     {games.some((g) => g.mode === 'friend') && <option value="friend">Two players</option>}
+                    {games.some((g) => g.mode === 'computer') && <option value="computer">Engine vs engine</option>}
                   </select>
                 </label>
                 <label className="pick">

@@ -31,7 +31,15 @@ interface Props {
   badge?: { square: string; quality: Quality } | null;
   /** Where the piece on a square could go, shown while the mouse is over it (invented pieces); null for none. */
   reachOf?: (square: string) => Map<string, Reach> | null;
+  /**
+   * False while the board is hidden (another tab is open): react-chessboard measures a square to
+   * slide a piece, and a hidden board's squares have no size, which it throws on.
+   */
+  animate?: boolean;
 }
+
+/** Each board's own id: react-chessboard finds its squares by id, so two boards must not share one. */
+let boards = 0;
 
 const LAST = 'rgba(235, 220, 90, 0.5)';
 // warm, so it shows on the green squares as well as the light ones
@@ -52,7 +60,8 @@ const CHECK = 'radial-gradient(circle, rgba(255, 0, 0, 0.85) 0%, rgba(231, 0, 0,
  * moves it is given. For planning: right-click a square to mark it, right-drag to draw an arrow;
  * a left click or the next move clears them.
  */
-export function Board({ fen, orientation, legal, lastMove, checkSquares, hint, onMove, onSelect, onIllegal, premoveColor, premoves, onPremove, badge, reachOf }: Props) {
+export function Board({ fen, orientation, legal, lastMove, checkSquares, hint, onMove, onSelect, onIllegal, premoveColor, premoves, onPremove, badge, reachOf, animate = true }: Props) {
+  const [id] = useState(() => `board${++boards}`);
   const [hovered, setHovered] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   /** choices: the pieces the pawn may become, as the legal moves name them (a premove offers the usual four). */
@@ -140,7 +149,7 @@ export function Board({ fen, orientation, legal, lastMove, checkSquares, hint, o
       data-reach={hoverReach ? [...hoverReach.keys()].sort().join(' ') : ''}>
       <Chessboard
         options={{
-          id: 'main',
+          id,
           position: fen,
           pieces: pieceSet,
           boardOrientation: orientation,
@@ -148,6 +157,7 @@ export function Board({ fen, orientation, legal, lastMove, checkSquares, hint, o
           arrows,
           allowDrawingArrows: true,
           animationDurationInMs: 200,
+          showAnimations: animate,
           lightSquareStyle: { backgroundColor: 'var(--sq-light)' },
           darkSquareStyle: { backgroundColor: 'var(--sq-dark)' },
           lightSquareNotationStyle: { color: 'var(--sq-dark)' },

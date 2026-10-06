@@ -377,6 +377,7 @@ export function App() {
             }}
             onSelect={() => play('select', soundOn)}
             onIllegal={() => play('invalid', soundOn)}
+            animate={page === 'game'}
             badge={shownMove ? { square: shownMove.uci.slice(2, 4), quality: shownMove.quality } : null}
           />
           </div>
