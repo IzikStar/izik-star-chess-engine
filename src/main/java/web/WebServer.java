@@ -44,7 +44,9 @@ import java.util.stream.Collectors;
  * {@code --no-browser}, {@code --runs DIR} (the evolution runs, default {@code runs}), {@code --games DIR}
  * (where the player's games are saved, default {@code games}), {@code --variants DIR} (the variants
  * the player made, default {@code variants}), {@code --lan} (listen on every network
- * interface, so a phone on the same Wi-Fi or tailnet can open the game; there is no password).
+ * interface, so a phone on the same Wi-Fi or tailnet can open the game; there is no password),
+ * {@code --host ADDR} (listen on that one address only: a cloud server passes its Tailscale address,
+ * so only the owner's own devices reach it; see docs/cloud-server.md).
  */
 public final class WebServer {
 
@@ -84,15 +86,17 @@ public final class WebServer {
                 case "--games" -> games = Path.of(args[++i]);
                 case "--variants" -> variants = Path.of(args[++i]);
                 case "--lan" -> host = ALL_INTERFACES;
+                case "--host" -> host = args[++i];
                 default -> {
                     System.err.println("unknown argument: " + args[i]
-                            + " (use --port N, --no-browser, --runs DIR, --games DIR, --variants DIR, --lan)");
+                            + " (use --port N, --no-browser, --runs DIR, --games DIR, --variants DIR, --lan, --host ADDR)");
                     System.exit(2);
                 }
             }
         }
         WebServer server = startOnFreePort(port, port == DEFAULT_PORT ? 10 : 1, runs, games, variants, host);
-        String url = "http://localhost:" + server.port() + "/";
+        String url = "http://" + (host.equals(LOCAL_ONLY) || host.equals(ALL_INTERFACES) ? "localhost" : host)
+                + ":" + server.port() + "/";
         System.out.println("IzikStar Chess is running at " + url + " (Ctrl+C to stop)");
         if (host.equals(ALL_INTERFACES)) {
             List<String> addresses = networkAddresses();

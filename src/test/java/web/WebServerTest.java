@@ -412,6 +412,26 @@ class WebServerTest {
     }
 
     @Test
+    @DisplayName("--host listens on that one address: a cloud server answers on its Tailscale address, not on others")
+    void hostAccess() throws Exception {
+        List<String> addresses = WebServer.networkAddresses();
+        Assumptions.assumeFalse(addresses.isEmpty(), "this machine has no network address");
+        HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+        java.nio.file.Path runs = java.nio.file.Files.createTempDirectory("runs-test");
+        java.nio.file.Path games = java.nio.file.Files.createTempDirectory("games-test");
+
+        server = WebServer.start(0, hub -> new GameSession(GameConfig.defaults(),
+                new EngineSelector(new MinimaxEngine(), NO_STOCKFISH), hub::execute), runs, games,
+                addresses.get(0));
+        URI there = URI.create("http://" + addresses.get(0) + ":" + server.port() + "/");
+        assertEquals(200, http.send(HttpRequest.newBuilder(there).build(),
+                HttpResponse.BodyHandlers.discarding()).statusCode());
+        URI loopback = URI.create("http://127.0.0.1:" + server.port() + "/");
+        assertThrows(java.io.IOException.class, () -> http.send(HttpRequest.newBuilder(loopback).build(),
+                HttpResponse.BodyHandlers.discarding()));
+    }
+
+    @Test
     @DisplayName("Levels outside 0-13 are clamped to the ladder")
     void levels() {
         assertEquals(0, engine.Levels.clamp(-3));
