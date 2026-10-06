@@ -34,7 +34,8 @@ interface Props {
 }
 
 const LAST = 'rgba(235, 220, 90, 0.5)';
-const SELECTED = 'rgba(20, 85, 60, 0.5)';
+// warm, so it shows on the green squares as well as the light ones
+const SELECTED = 'rgba(240, 165, 40, 0.7)';
 const PREMOVE = 'rgba(40, 70, 140, 0.5)';
 const DOT = 'radial-gradient(circle, rgba(20, 30, 20, 0.28) 22%, transparent 23%)';
 const RING = 'radial-gradient(circle, transparent 79%, rgba(20, 30, 20, 0.3) 80%)';

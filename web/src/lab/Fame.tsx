@@ -25,10 +25,10 @@ export function Fame({ onPlay }: { onPlay: (champion: Champion) => void }) {
                     <td>{e.runName ? <button type="button" className="link" onClick={() => e.run && goLab('run', e.run, 'gen', String(e.generation))}>{e.runName}, generation {e.generation}, #{e.member}</button> : ''}</td>
                     <td>{e.yardsticks.length === 0 ? <span className="muted">not measured</span> : <ul className="plain">{e.yardsticks.map((y) => <li key={y}>{y}</li>)}</ul>}</td>
                     <td>{new Date(e.savedAt).toLocaleString()}</td>
-                    <td className="fame-actions">
+                    <td><div className="fame-actions">
                       <button type="button" className="link" onClick={() => onPlay({ run: `hof:${e.name}`, generation: 0, label: `Hall of fame: ${e.name}` })}>Play</button>
                       {e.games > 0 && <a className="link" href={`/api/lab/fame/${encodeURIComponent(e.name)}/pgn`} download>PGN ({e.games})</a>}
-                    </td>
+                    </div></td>
                   </tr>
                 ))}
               </tbody>

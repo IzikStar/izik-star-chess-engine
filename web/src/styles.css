@@ -439,7 +439,8 @@ label.btn.disabled { opacity: 0.5; cursor: default; pointer-events: none; }
 .lab-screen p { margin: 6px 0; }
 .lab-screen .error { color: var(--warn); font-weight: 600; }
 .lab-screen .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.lab-page .btn.danger { color: var(--warn); }
+.lab-page .btn.ghost.danger { background: transparent; border-color: transparent; color: var(--warn); }
+.lab-page .btn.ghost.danger:hover { background: var(--warn-soft); }
 .state { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
 .state.playing { background: var(--accent-soft); color: var(--accent); }
 .state.stopping { background: var(--warn-soft); color: var(--warn); }
@@ -461,7 +462,7 @@ label.btn.disabled { opacity: 0.5; cursor: default; pointer-events: none; }
 .series { margin: 0; }
 .series figcaption { font-size: 13px; color: var(--muted); margin-bottom: 2px; }
 .series figcaption strong { color: var(--fg); font-size: 15px; }
-.chart.small { width: 100%; height: auto; }
+.chart.small { width: 100%; height: auto; font-size: 8px; }
 .lab-page table tr.on td { background: var(--accent-soft); }
 .lab-page table tr.champion td { font-weight: 600; }
 .lab-page .standings tbody tr, .lab-page .games tbody tr { cursor: pointer; }
