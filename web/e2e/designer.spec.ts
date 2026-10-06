@@ -123,9 +123,11 @@ test('the whole path: invent a piece, save the variant, play it from New game', 
   await expect(page.getByTestId('board')).toHaveAttribute('data-reach', 'c3 e3');
   await square('a2').hover();
   await expect(page.getByTestId('board')).toHaveAttribute('data-reach', '');
-  for (const [from, to] of [['e2', 'e4'], ['e7', 'e5'], ['d1', 'f3']]) {
+  // each move waits for the last one to be played: a click before the new position is dropped
+  for (const [from, to, san] of [['e2', 'e4', 'e4'], ['e7', 'e5', 'e5'], ['d1', 'f3', 'Af3']]) {
     await square(from).click();
     await square(to).click();
+    await expect(page.getByTestId('move-list')).toContainText(san);
   }
   await expect(page.getByTestId('move-list')).toContainText('Af3');
   await expect(square('f3').locator('[data-piece="wA"]').first()).toBeVisible();
