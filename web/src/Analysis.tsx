@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Color } from './protocol';
 import { StockfishInstall } from './StockfishInstall';
+import { ChartFrame, LineChart } from './ChartFrame';
 
 // Game analysis with Stockfish (web.AnalysisApi, analysis.GameAnalyzer): the server judges every
 // position; this file only shows what it said. Formulas: docs/game-analysis.md.
@@ -185,14 +186,23 @@ export function EvalBar({ score, orientation }: { score: Score | null; orientati
 }
 
 /** White's winning chances over the game; click to go to a position. */
-export function EvalGraph({ evals, ply, onPick }: { evals: Score[]; ply: number; onPick: (ply: number) => void }) {
+export function EvalGraph({ evals, moves, ply, onPick }: { evals: Score[]; moves: MoveReport[]; ply: number; onPick: (ply: number) => void }) {
   const W = 300;
   const H = 70;
   const n = Math.max(1, evals.length - 1);
   const x = (i: number) => (i / n) * W;
   const y = (s: Score) => H - (whiteWinChance(s) / 100) * H;
   const line = evals.map((s, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(s).toFixed(1)}`).join(' ');
+  const moveName = (p: number) => (p === 0 ? 'Start position' : `${Math.ceil(p / 2)}${p % 2 ? '.' : '…'} ${moves[p - 1]?.san ?? ''}`);
+  const large = (
+    <LineChart label="White's winning chances, move by move, large" xLabel="Ply (half-move)" yLabel="White's winning chances (%)" yMin={0} yMax={100}
+      points={evals.map((s, i) => ({ x: i, y: Math.round(whiteWinChance(s)) }))} area marker={ply} onPick={onPick}
+      reference={{ y: 50, label: 'equal' }}
+      describe={(p) => `${moveName(p.x)} · ${scoreText(evals[p.x])} · White ${p.y}%`} />
+  );
   return (
+    <ChartFrame title="White's winning chances" large={large} clickOpens={false}
+      note="Move by move, from Stockfish's evaluation. Click the chart to go to that position.">
     <svg className="eval-graph" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" data-testid="eval-graph" role="img"
       aria-label="White's winning chances, move by move"
       onClick={(e) => {
@@ -204,6 +214,7 @@ export function EvalGraph({ evals, ply, onPick }: { evals: Score[]; ply: number;
       <line className="graph-mid" x1={0} x2={W} y1={H / 2} y2={H / 2} />
       <line className="graph-ply" x1={x(ply)} x2={x(ply)} y1={0} y2={H} />
     </svg>
+    </ChartFrame>
   );
 }
 
@@ -257,7 +268,7 @@ export function AnalysisPanel({ analysis, ply, onPick, onRetry }: {
           ))}
         </tbody>
       </table>
-      <EvalGraph evals={report.evals} ply={ply} onPick={onPick} />
+      <EvalGraph evals={report.evals} moves={report.moves} ply={ply} onPick={onPick} />
       <p className="analysis-move" data-testid="analysis-move">
         {move ? (
           <>

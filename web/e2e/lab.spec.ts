@@ -96,6 +96,8 @@ test('an antichess run from zero is started on the page, finishes, and its champ
   await form.getByLabel('Population', { exact: true }).fill('4');
   await form.getByLabel('Generations', { exact: true }).fill('2');
   await form.getByLabel('Search depth', { exact: true }).fill('1');
+  // the rest of the settings wait under Advanced settings
+  await form.getByText('Advanced settings').click();
   await form.getByLabel('Deep depth', { exact: true }).fill('0');
   await form.getByLabel('Openings per pairing', { exact: true }).fill('1');
   await form.getByLabel('Measure every N generations', { exact: true }).fill('1');
