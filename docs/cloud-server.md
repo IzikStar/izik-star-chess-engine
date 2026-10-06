@@ -53,7 +53,7 @@ and restarts after a crash. At the end it prints the address to open, for exampl
 |---|---|
 | Checkout and jar | `/opt/izikstar/app` |
 | Runs, saved games, variants | `/var/lib/izikstar` (kept across updates) |
-| Settings (the cloud database key, later) | `/etc/izikstar/cloud.env` |
+| Shared database settings (section 5) | `/etc/izikstar/cloud.env` |
 | Logs | `journalctl -u izikstar-chess -f` |
 
 ## 3. Use it
@@ -69,3 +69,65 @@ bash /opt/izikstar/app/deploy/update-server.sh
 
 pulls `main`, rebuilds and restarts. Data in `/var/lib/izikstar` is kept. A Lab run in progress
 stops with the restart; resume it from the Lab page.
+
+## 5. The shared database (Cloudflare D1)
+
+With a shared database, every copy (the server, the home computer) sees the others' runs, saved
+games, variants and hall of fame. Each copy keeps writing its own files exactly as before, so
+nothing waits on the network; a background pass every 30 seconds sends what changed and brings in
+what the other copies sent (`cloud.CloudSync`). If the database cannot be reached, or a daily
+quota runs out, the copy keeps working and sends everything that waited once it gets through. The
+Settings dialog shows the copy's name, the last sync and anything still waiting.
+
+- **Saved games, variants (with their piece pictures), hall of fame:** one row per file. The last
+  copy to send a file wins; a file changed on two copies before they synced keeps each copy's own
+  version until one of them sends again (Settings shows a note when that happens).
+- **Runs:** a run belongs to the copy that plays it. Each finished generation is one row (its
+  summary, yardsticks and members) plus its games packed and gzipped, so a generation of hundreds
+  of games costs a few row writes, not hundreds. The other copies build a read-only copy of the run
+  file that the Lab lists like any run; resume or delete it on the copy that plays it.
+
+D1's free plan allows 5 GB and 100,000 row writes a day (check the current limits on Cloudflare's
+pricing page); a generation costs about ten.
+
+### Set it up
+
+The database `izikstar-chess` already exists in the Cloudflare account. Each copy needs three
+values and its own name:
+
+1. **Account ID:** in the Cloudflare dashboard, *Workers & Pages* (or *Account home*) shows it on the right.
+2. **Database ID:** `c0ce3d98-8203-48b4-a8bc-d0dd0de5aaaf` (*Storage & Databases → D1 → izikstar-chess*).
+3. **API token:** *My Profile → API Tokens → Create Token → Create Custom Token*; permission
+   **Account · D1 · Edit**, account resources: your account. Copy the token once; it is shown only then.
+
+On the server, put them in `/etc/izikstar/cloud.env` and restart:
+
+```bash
+sudo tee /etc/izikstar/cloud.env >/dev/null <<'ENV'
+IZIKSTAR_D1_ACCOUNT=<account id>
+IZIKSTAR_D1_DATABASE=c0ce3d98-8203-48b4-a8bc-d0dd0de5aaaf
+IZIKSTAR_D1_TOKEN=<token>
+IZIKSTAR_COPY=server
+ENV
+sudo systemctl restart izikstar-chess
+```
+
+On the home computer, put a `cloud.properties` file in the folder you start the jar from (it is
+git-ignored; keep the token out of commits):
+
+```properties
+account=<account id>
+database=c0ce3d98-8203-48b4-a8bc-d0dd0de5aaaf
+token=<token>
+copy=home
+```
+
+Without these values a copy simply keeps everything to itself, as before.
+
+### Looking at it directly
+
+The database is SQLite, so it can be queried in the Cloudflare dashboard's D1 console, with
+`wrangler d1 execute izikstar-chess --remote --command "..."`, or by Claude through the Cloudflare
+connector. `runs` and `run_generations` hold everything but the games themselves (e.g.
+`SELECT number, champion_score, yardstick_elo FROM run_generations WHERE file = 'antichess-zero-1.db'`);
+the games of a generation are gzipped JSON in `blobs` under the key `games:<file>:<generation>`.

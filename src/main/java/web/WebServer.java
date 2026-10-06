@@ -1,5 +1,8 @@
 package web;
 
+import cloud.CloudConfig;
+import cloud.CloudSync;
+import cloud.D1;
 import engine.EngineSelector;
 import engine.MinimaxEngine;
 import engine.StockfishEngine;
@@ -8,6 +11,7 @@ import game.GameConfig;
 import game.GameSession;
 import game.VariantStore;
 import io.javalin.Javalin;
+import lab.HallOfFame;
 import io.javalin.http.staticfiles.Location;
 import io.javalin.websocket.WsContext;
 
@@ -51,6 +55,8 @@ import java.util.stream.Collectors;
 public final class WebServer {
 
     public static final int DEFAULT_PORT = 7070;
+    /** Where this copy remembers what it last shared, in the working directory. */
+    static final String SYNC_STATE = "cloud-sync.db";
 
     /** Listen on this computer only (the default). */
     static final String LOCAL_ONLY = "127.0.0.1";
@@ -94,7 +100,18 @@ public final class WebServer {
                 }
             }
         }
-        WebServer server = startOnFreePort(port, port == DEFAULT_PORT ? 10 : 1, runs, games, variants, host);
+        Path runsDir = runs;
+        Path gamesDir = games;
+        Path variantsDir = variants;
+        CloudSync sync = CloudConfig.load().map(c -> {
+            System.out.println("Shared database: Cloudflare D1, this copy is \"" + c.copy() + "\"");
+            return new CloudSync(new D1(c), c.copy(), Map.of("games", gamesDir, "variants", variantsDir,
+                    "hall-of-fame", runsDir.resolve(HallOfFame.FOLDER)), runsDir, Path.of(SYNC_STATE));
+        }).orElse(null);
+        WebServer server = startOnFreePort(port, port == DEFAULT_PORT ? 10 : 1, runs, games, variants, host, sync);
+        if (sync != null) {
+            sync.start();
+        }
         String url = "http://" + (host.equals(LOCAL_ONLY) || host.equals(ALL_INTERFACES) ? "localhost" : host)
                 + ":" + server.port() + "/";
         System.out.println("IzikStar Chess is running at " + url + " (Ctrl+C to stop)");
@@ -113,11 +130,12 @@ public final class WebServer {
         }
     }
 
-    private static WebServer startOnFreePort(int first, int attempts, Path runs, Path games, Path variants, String host) {
+    private static WebServer startOnFreePort(int first, int attempts, Path runs, Path games, Path variants, String host,
+                                             CloudSync sync) {
         RuntimeException last = null;
         for (int port = first; port < first + attempts; port++) {
             try {
-                return start(port, defaultSession(), runs, games, variants, host);
+                return start(port, defaultSession(), runs, games, variants, host, sync);
             } catch (RuntimeException e) {
                 last = e; // port taken: try the next one
             }
@@ -175,6 +193,15 @@ public final class WebServer {
 
     /** As {@link #start(int, SessionFactory, Path, Path, String)}, with the player's variants in {@code variants}. */
     static WebServer start(int port, SessionFactory sessions, Path runs, Path games, Path variants, String host) {
+        return start(port, sessions, runs, games, variants, host, null);
+    }
+
+    /**
+     * As {@link #start(int, SessionFactory, Path, Path, Path, String)}, sharing the runs, games and
+     * variants through {@code sync} (null: this computer only).
+     */
+    static WebServer start(int port, SessionFactory sessions, Path runs, Path games, Path variants, String host,
+                           CloudSync sync) {
         GameHub hub = new GameHub();
         VariantStore variantStore = new VariantStore(variants);
         hub.useVariants(variantStore);
@@ -205,7 +232,13 @@ public final class WebServer {
                     + "or <code>npm run dev</code> in <code>web/</code> during development.</p>"));
         }
         lab.routes(app);
-        new LabJobs(lab, variantStore).routes(app);
+        LabJobs jobs = new LabJobs(lab, variantStore);
+        if (sync != null) {
+            jobs.useReplicas(file -> sync.isReplica(file) ? sync.origin(file) : null);
+        }
+        jobs.routes(app);
+        app.get("/api/sync", ctx -> ctx.contentType("application/json").result(sync == null
+                ? "{\"enabled\":false}" : sync.status().toString()));
         AnalysisApi analysis = new AnalysisApi();
         analysis.routes(app);
         EvalApi eval = new EvalApi();
