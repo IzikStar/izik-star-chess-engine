@@ -22,6 +22,9 @@ async function friendGame(page: Page, time = 'Untimed') {
   await dialog.getByRole('button', { name: time, exact: true }).click();
   await dialog.getByRole('button', { name: 'Start game' }).click();
   await expect(dialog).toBeHidden();
+  // the last game's moves stay on screen until the new game arrives: wait for it, or the next
+  // clickMove counts the old moves
+  await expect(page.getByText('No moves yet.')).toBeVisible();
 }
 
 test('games are saved as they are played, reviewed, and carried on', async ({ page }) => {
