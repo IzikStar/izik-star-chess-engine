@@ -12,7 +12,6 @@ import evolution.Option;
 import game.VariantStore;
 import io.javalin.Javalin;
 import io.javalin.http.BadRequestResponse;
-import io.javalin.http.Context;
 import io.javalin.http.NotFoundResponse;
 import lab.EvolutionRunner;
 import lab.RunSettings;
@@ -118,15 +117,15 @@ final class LabJobs {
     }
 
     void routes(Javalin app) {
-        app.get("/api/lab/algorithms", ctx -> json(ctx, algorithms()));
-        app.get("/api/lab/job", ctx -> json(ctx, status()));
-        app.post("/api/lab/runs", ctx -> json(ctx, start(JsonParser.parseString(ctx.body()).getAsJsonObject())));
-        app.post("/api/lab/runs/{file}/resume", ctx -> json(ctx, resume(ctx.pathParam("file"))));
+        app.get("/api/lab/algorithms", ctx -> Json.send(ctx, algorithms()));
+        app.get("/api/lab/job", ctx -> Json.send(ctx, status()));
+        app.post("/api/lab/runs", ctx -> Json.send(ctx, start(JsonParser.parseString(ctx.body()).getAsJsonObject())));
+        app.post("/api/lab/runs/{file}/resume", ctx -> Json.send(ctx, resume(ctx.pathParam("file"))));
         app.post("/api/lab/runs/{file}/stop", ctx -> {
             JsonObject body = ctx.body().isBlank() ? new JsonObject() : JsonParser.parseString(ctx.body()).getAsJsonObject();
-            json(ctx, stop(ctx.pathParam("file"), body.has("now") && body.get("now").getAsBoolean()));
+            Json.send(ctx, stop(ctx.pathParam("file"), body.has("now") && body.get("now").getAsBoolean()));
         });
-        app.delete("/api/lab/runs/{file}", ctx -> json(ctx, delete(ctx.pathParam("file"))));
+        app.delete("/api/lab/runs/{file}", ctx -> Json.send(ctx, delete(ctx.pathParam("file"))));
     }
 
     static JsonObject algorithms() {
@@ -377,7 +376,4 @@ final class LabJobs {
         return out;
     }
 
-    private static void json(Context ctx, JsonObject body) {
-        ctx.contentType("application/json").result(body.toString());
-    }
 }

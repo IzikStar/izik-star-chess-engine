@@ -72,7 +72,7 @@ final class VariantsApi {
                 list.add(o);
             }
             out.add("variants", list);
-            json(ctx, out);
+            Json.send(ctx, out);
         });
         app.get("/api/variants/{id}", ctx -> {
             Variant v = store.byId(ctx.pathParam("id"))
@@ -81,7 +81,7 @@ final class VariantsApi {
             o.addProperty("builtIn", VariantStore.isBuiltIn(v.id()));
             addAbout(o, store.about(v.id()));
             o.add("art", artIndex(v.id()));
-            json(ctx, o);
+            Json.send(ctx, o);
         });
         app.get("/api/variants/{id}/art/{letter}/{side}", ctx -> {
             VariantStore.Art art;
@@ -110,7 +110,7 @@ final class VariantsApi {
                 error(ctx, 400, e.getMessage());
                 return;
             }
-            json(ctx, artIndex(ctx.pathParam("id")));
+            Json.send(ctx, artIndex(ctx.pathParam("id")));
         });
         app.delete("/api/variants/{id}/art/{letter}/{side}", ctx -> {
             try {
@@ -122,7 +122,7 @@ final class VariantsApi {
                 error(ctx, 400, e.getMessage());
                 return;
             }
-            json(ctx, artIndex(ctx.pathParam("id")));
+            Json.send(ctx, artIndex(ctx.pathParam("id")));
         });
         app.put("/api/variants/{id}", this::save);
         app.delete("/api/variants/{id}", ctx -> {
@@ -179,11 +179,11 @@ final class VariantsApi {
             // a start position that does not read: no castlings (the error says why)
         }
         out.add("castlings", castlings);
-        json(ctx, out);
+        Json.send(ctx, out);
     }
 
     private static String square(Variant v, int sq) {
-        return "" + (char) ('a' + v.grid().col(sq)) + (v.grid().height() - v.grid().row(sq));
+        return v.grid().name(sq);
     }
 
     private interface ArtAction {
@@ -235,7 +235,7 @@ final class VariantsApi {
         o.addProperty("builtIn", false);
         addAbout(o, about);
         o.add("art", artIndex(v.id()));
-        json(ctx, o);
+        Json.send(ctx, o);
     }
 
     private static String text(JsonElement e) {
@@ -257,7 +257,7 @@ final class VariantsApi {
             } else {
                 out.addProperty("text", Betza.write(VariantJson.atoms(body.getAsJsonArray("atoms"))));
             }
-            json(ctx, out);
+            Json.send(ctx, out);
         } catch (RuntimeException e) {
             error(ctx, 400, String.valueOf(e.getMessage()));
         }
@@ -267,10 +267,7 @@ final class VariantsApi {
         JsonObject o = new JsonObject();
         o.addProperty("error", message);
         ctx.status(status);
-        json(ctx, o);
+        Json.send(ctx, o);
     }
 
-    private static void json(Context ctx, JsonObject body) {
-        ctx.contentType("application/json").result(body.toString());
-    }
 }

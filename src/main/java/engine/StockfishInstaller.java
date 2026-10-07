@@ -172,7 +172,7 @@ public final class StockfishInstaller {
             boolean file = type == '0' || type == 0;
             Optional<Path> target = file ? target(name, false) : Optional.empty();
             if (target.isPresent()) {
-                return write(new BoundedInput(in, size), target.get());
+                return write(new java.io.ByteArrayInputStream(in.readNBytes((int) size)), target.get());
             }
             long skip = (size + 511) / 512 * 512;
             in.skipNBytes(skip);
@@ -239,41 +239,6 @@ public final class StockfishInstaller {
                     p.destroyForcibly();
                 }
             }
-        }
-    }
-
-    /** Reads at most {@code left} bytes of a tar entry, then stops. */
-    private static final class BoundedInput extends InputStream {
-        private final InputStream in;
-        private long left;
-
-        BoundedInput(InputStream in, long left) {
-            this.in = in;
-            this.left = left;
-        }
-
-        @Override
-        public int read() throws IOException {
-            if (left <= 0) {
-                return -1;
-            }
-            int b = in.read();
-            if (b >= 0) {
-                left--;
-            }
-            return b;
-        }
-
-        @Override
-        public int read(byte[] b, int off, int len) throws IOException {
-            if (left <= 0) {
-                return -1;
-            }
-            int n = in.read(b, off, (int) Math.min(len, left));
-            if (n > 0) {
-                left -= n;
-            }
-            return n;
         }
     }
 }

@@ -40,9 +40,9 @@ final class GamesApi {
             JsonArray games = new JsonArray();
             archive.list().forEach(g -> games.add(summary(g)));
             out.add("games", games);
-            json(ctx, out);
+            Json.send(ctx, out);
         });
-        app.get("/api/games/{id}", ctx -> json(ctx, detail(find(ctx))));
+        app.get("/api/games/{id}", ctx -> Json.send(ctx, detail(find(ctx))));
         app.delete("/api/games/{id}", ctx -> {
             if (!archive.delete(ctx.pathParam("id"))) {
                 throw new NotFoundResponse("no saved game " + ctx.pathParam("id"));
@@ -116,7 +116,4 @@ final class GamesApi {
         return o;
     }
 
-    private static void json(Context ctx, JsonObject body) {
-        ctx.contentType("application/json").result(body.toString());
-    }
 }

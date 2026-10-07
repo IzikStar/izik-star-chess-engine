@@ -54,7 +54,7 @@ final class StockfishApi {
     }
 
     void routes(Javalin app) {
-        app.get("/api/stockfish", ctx -> json(ctx, status()));
+        app.get("/api/stockfish", ctx -> Json.send(ctx, status()));
         app.post("/api/stockfish/install", this::install);
     }
 
@@ -67,7 +67,7 @@ final class StockfishApi {
             t.setDaemon(true);
             t.start();
         }
-        json(ctx, status());
+        Json.send(ctx, status());
     }
 
     private void download() {
@@ -101,7 +101,4 @@ final class StockfishApi {
         return o;
     }
 
-    private static void json(Context ctx, JsonObject body) {
-        ctx.contentType("application/json").result(body.toString());
-    }
 }

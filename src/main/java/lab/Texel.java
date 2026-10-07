@@ -13,8 +13,6 @@ import arena.Tournament;
 import rules.ChessMove;
 import rules.Game;
 import rules.GameStatus;
-import rules.MoveResult;
-import rules.Rules;
 
 import java.io.BufferedReader;
 import java.io.IOException;

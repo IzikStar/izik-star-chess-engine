@@ -4,13 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * An immutable chess position — the headless value type behind the Phase 2 rules API.
- * Parsed from / rendered to FEN, with no Swing/AWT and no dependency on {@code main.*}
- * (unlike {@code ai.BoardState}, which decodes sprite sheets and reads UI globals just to exist).
+ * An immutable chess position, the value type behind the rules API, parsed from and rendered to FEN.
  *
  * <p>Squares use {@link Square}'s index order (a8 == 0, h1 == 63). The FEN half-move clock is
- * read <em>in full</em> here — {@code ai.BoardState.loadPiecesFromFen} truncates it to its first
- * digit, one of the {@code -Pknown-bugs} reds Phase 2 fixes.
+ * read in full (multi-digit).
  */
 public final class Position {
 

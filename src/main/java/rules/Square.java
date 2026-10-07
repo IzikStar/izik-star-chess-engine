@@ -5,8 +5,6 @@ package rules;
  * {@code index = rank8Row * 8 + file}, where {@code rank8Row} is 0 for the 8th rank and 7 for
  * the 1st, and {@code file} is 0 (a) .. 7 (h). So a8 == 0 and h1 == 63 — the same order as
  * {@code 1L << index} inside the search's board ({@code ai.board}).
- *
- * <p>Part of the Phase 2 headless rules API: no Swing, no AWT, no {@code main.*}.
  */
 public final class Square {
     private Square() {}

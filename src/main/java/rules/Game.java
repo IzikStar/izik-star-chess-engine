@@ -10,11 +10,7 @@ import java.util.Map;
 
 /**
  * A game in progress: the current position plus enough history to answer threefold repetition.
- * A thin, still-headless wrapper over {@link Rules} — FEN in the history list, UCI at the edge.
- *
- * <p>This replaces the two disagreeing repetition trackers in the legacy code
- * ({@code main.savedGames.SavedStatesForDraws}, keyed on a draw-FEN string in the old Swing UI, and
- * {@code ai.BoardStateTracker}, keyed on a Zobrist hash inside the search).
+ * A thin, headless wrapper over {@link Rules}: FEN in the history list, UCI at the edge.
  */
 public final class Game {
 

@@ -1,8 +1,8 @@
 package ai.variant;
 
 import ai.Minimax;
-import ai.board.Board;
 import ai.board.Boards;
+import ai.board.SearchBoards;
 import engine.MinimaxEngine;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -74,18 +74,6 @@ class PresetPinTest {
         return out;
     }
 
-    static long perft(Board board, int depth) {
-        if (depth == 1) {
-            return board.children().size();
-        }
-        long n = 0;
-        for (Board child : board.children()) {
-            n += perft(child, depth - 1);
-        }
-        board.releaseChildren();
-        return n;
-    }
-
     static String move(Variant variant, String fen, int depth) {
         ChessMove m = MinimaxEngine.searchAtDepth(variant, List.of(fen), depth, Minimax.Options.DEFAULT, () -> false);
         return m == null ? "-" : m.toUci();
@@ -97,7 +85,7 @@ class PresetPinTest {
     void perftIsPinned(Pin pin) {
         List<Long> got = new ArrayList<>();
         for (int d = 1; d <= pin.perft().size(); d++) {
-            got.add(perft(Boards.fromFen(pin.variant(), pin.fen()), d));
+            got.add(SearchBoards.perft(Boards.fromFen(pin.variant(), pin.fen()), d));
         }
         assertEquals(pin.perft(), got);
     }
@@ -121,7 +109,7 @@ class PresetPinTest {
             StringBuilder perft = new StringBuilder();
             StringBuilder moves = new StringBuilder();
             for (int d = 1; d <= depth; d++) {
-                perft.append(d > 1 ? " " : "").append(perft(Boards.fromFen(v, p[1]), d));
+                perft.append(d > 1 ? " " : "").append(SearchBoards.perft(Boards.fromFen(v, p[1]), d));
             }
             for (int d = 1; d <= 4; d++) {
                 moves.append(d > 1 ? " " : "").append(move(v, p[1], d));

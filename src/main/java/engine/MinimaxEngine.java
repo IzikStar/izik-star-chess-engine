@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * The built-in engine: a random legal move at level 0, otherwise the bitboard minimax search at a
+ * The built-in engine: a random legal move at level 0, otherwise the alpha-beta search ({@link Minimax}) at a
  * depth derived from the level and the game stage ({@link Levels}). Levels above the built-in
  * ladder play its top level.
  *
@@ -63,11 +63,6 @@ public final class MinimaxEngine implements Engine {
     /** For tests: a different time cap. */
     public MinimaxEngine(Random random, long timeCapMs) {
         this(random, timeCapMs, Weights.DEFAULT.evaluator());
-    }
-
-    /** The engine playing with {@code evaluator}'s weights. */
-    public MinimaxEngine(Evaluator evaluator) {
-        this(new Random(), TIME_CAP_MS, evaluator);
     }
 
     public MinimaxEngine(Random random, long timeCapMs, Evaluator evaluator) {
@@ -115,33 +110,23 @@ public final class MinimaxEngine implements Engine {
         return request.cancel().isCancelled() ? null : toLegalMove(move, legal);
     }
 
-    /** The minimax search's move at exactly {@code depth} (no time cap), or {@code null} if there is no legal move. */
+    /**
+     * The minimax search's move at exactly {@code depth} (no time cap) with the classic weights, or
+     * {@code null} if there is no legal move. The characterization tests pin this.
+     */
     public static ChessMove searchAtDepth(String fen, int depth) {
-        return searchAtDepth(fen, depth, ChessEvaluate.CLASSIC);
-    }
-
-    /** The minimax search's move at exactly {@code depth} with {@code evaluator}, or {@code null} if there is no legal move. */
-    public static ChessMove searchAtDepth(String fen, int depth, Evaluator evaluator) {
         List<ChessMove> legal = Rules.legalMoves(fen);
         if (legal.isEmpty()) {
             return null;
         }
-        int move = Minimax.getBestMove(Boards.fromFen(fen), depth, evaluator, () -> false);
+        int move = Minimax.getBestMove(Boards.fromFen(fen), depth, ChessEvaluate.CLASSIC, () -> false);
         return toLegalMove(move, legal);
     }
 
     /**
-     * The minimax search's move at exactly {@code depth} with {@code evaluator} and {@code options}
-     * (variety, quiescence), or {@code null} if there is no legal move. The arena plays with this.
-     */
-    public static ChessMove searchAtDepth(String fen, int depth, Evaluator evaluator, Minimax.Options options) {
-        return searchAtDepth(fen, List.of(), depth, evaluator, options);
-    }
-
-    /**
-     * Like {@link #searchAtDepth(String, int, Evaluator, Minimax.Options)} in a game whose positions so
-     * far are {@code gameFens} (oldest first; the current one may be last): moving back into one of
-     * them is scored as a draw.
+     * The minimax search's move at exactly {@code depth} with {@code evaluator} and {@code options},
+     * in a game whose positions so far are {@code gameFens} (oldest first; the current one may be
+     * last): moving back into one of them is scored as a draw. The arena plays with this.
      */
     public static ChessMove searchAtDepth(String fen, List<String> gameFens, int depth, Evaluator evaluator,
                                           Minimax.Options options) {
@@ -191,15 +176,9 @@ public final class MinimaxEngine implements Engine {
     }
 
     /**
-     * Like {@link #searchAtDepth(String, int, Evaluator, Minimax.Options)}, but deepening only while
-     * {@code millis} have not passed: the move of the deepest depth finished in time.
+     * Like {@link #searchAtDepth(String, List, int, Evaluator, Minimax.Options)}, but deepening only
+     * while {@code millis} have not passed: the move of the deepest depth finished in time.
      */
-    public static ChessMove searchWithin(String fen, int maxDepth, Evaluator evaluator, Minimax.Options options,
-                                         long millis) {
-        return searchWithin(fen, List.of(), maxDepth, evaluator, options, millis);
-    }
-
-    /** {@link #searchWithin(String, int, Evaluator, Minimax.Options, long)} knowing the game's positions so far. */
     public static ChessMove searchWithin(String fen, List<String> gameFens, int maxDepth, Evaluator evaluator,
                                          Minimax.Options options, long millis) {
         List<ChessMove> legal = Rules.legalMoves(fen);

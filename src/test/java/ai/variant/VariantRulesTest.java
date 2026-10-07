@@ -1,6 +1,5 @@
 package ai.variant;
 
-import ai.board.Board;
 import ai.board.Boards;
 import ai.board.Outcome;
 import ai.piece.Betza;

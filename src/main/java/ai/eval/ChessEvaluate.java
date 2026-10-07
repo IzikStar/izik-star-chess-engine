@@ -40,13 +40,6 @@ import java.util.Set;
  */
 public final class ChessEvaluate implements Evaluator {
 
-    /**
-     * Score of a mated side, from the winner's point of view. Kept well inside {@code int} range
-     * so it can be negated: the old code returned {@code -Integer.MIN_VALUE}, which overflows back
-     * to {@code MIN_VALUE}, so an engine playing White scored "I deliver mate" as its worst outcome.
-     */
-    public static final int MATE = Evaluator.MATE;
-
     /** Phase of a full board: knights and bishops count 1, rooks 2, queens 4. */
     public static final int MAX_PHASE = 24;
 
@@ -342,11 +335,11 @@ public final class ChessEvaluate implements Evaluator {
         Bits board = new Bits(chess);
         boolean switchSides = rootPlayer == 1;
         int value;
-        if (board.whiteKings == 0) return switchSides ? MATE : -MATE;
-        if (board.blackKings == 0) return switchSides ? -MATE : MATE;
+        if (board.whiteKings == 0) return switchSides ? Evaluator.MATE : -Evaluator.MATE;
+        if (board.blackKings == 0) return switchSides ? -Evaluator.MATE : Evaluator.MATE;
         Outcome outcome = position.outcome(); // mate, stalemate, 50 moves, or the variant's goal
         if (outcome != Outcome.ONGOING) {
-            int forMover = outcome == Outcome.WIN ? MATE : outcome == Outcome.LOSS ? -MATE : 0;
+            int forMover = outcome == Outcome.WIN ? Evaluator.MATE : outcome == Outcome.LOSS ? -Evaluator.MATE : 0;
             return position.sideToMove() == rootPlayer ? forMover : -forMover;
         }
         int[] f = new int[NAMED];

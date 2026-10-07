@@ -95,8 +95,7 @@ public final class PieceSetEvaluate implements Evaluator {
     }
 
     private static String squareName(Variant variant, int sq) {
-        int width = variant.grid().width();
-        return "" + (char) ('a' + sq % width) + (variant.grid().height() - sq / width);
+        return variant.grid().name(sq);
     }
 
     @Override

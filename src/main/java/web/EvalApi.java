@@ -81,12 +81,12 @@ final class EvalApi {
             }
         } catch (RuntimeException e) {
             ctx.status(400);
-            json(ctx, error("expected {startFen?, moves: [uci...]} of legal moves"));
+            Json.send(ctx, error("expected {startFen?, moves: [uci...]} of legal moves"));
             return;
         }
         Score over = GameAnalyzer.gameOverScore(fen);
         if (over != null) {
-            json(ctx, result(over));
+            Json.send(ctx, result(over));
             return;
         }
         List<String> engine = command.get();
@@ -94,14 +94,14 @@ final class EvalApi {
             ctx.status(503);
             JsonObject o = error("The evaluation bar needs Stockfish, and it is not installed yet.");
             o.addProperty("noStockfish", true);
-            json(ctx, o);
+            Json.send(ctx, o);
             return;
         }
         try {
-            json(ctx, result(evaluate(engine, startFen, moves, fen.split(" ")[1].equals("w"))));
+            Json.send(ctx, result(evaluate(engine, startFen, moves, fen.split(" ")[1].equals("w"))));
         } catch (IOException | RuntimeException e) {
             ctx.status(500);
-            json(ctx, error(String.valueOf(e.getMessage())));
+            Json.send(ctx, error(String.valueOf(e.getMessage())));
         }
     }
 
@@ -161,7 +161,4 @@ final class EvalApi {
         return o;
     }
 
-    private static void json(Context ctx, JsonObject body) {
-        ctx.contentType("application/json").result(body.toString());
-    }
 }

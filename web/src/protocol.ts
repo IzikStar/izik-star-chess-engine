@@ -125,7 +125,6 @@ export interface GameState {
   engineThinking: boolean;
   hintPending: boolean;
   hint: string | null;
-  material: number;
   legalMoves: string[];
   moves: MoveInfo[];
   config: GameConfig;

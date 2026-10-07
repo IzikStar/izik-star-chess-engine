@@ -20,8 +20,7 @@ import java.util.List;
  * insufficient material, and (via {@link Game}, which carries history) threefold repetition —
  * are implemented here so exactly one place answers each question.
  *
- * <p>No imports from {@code main.*}, {@code GUI}, {@code javax.swing} or {@code java.awt}: this
- * module is meant to run unchanged inside the Swing app today and inside a headless service later.
+ * <p>Headless: {@code architecture.LayeringTest} keeps UI and server imports out of this package.
  */
 public final class Rules {
 
@@ -72,12 +71,10 @@ public final class Rules {
      */
     public static java.util.List<String> checkedSquares(Variant variant, String fen) {
         long checked = Boards.fromFen(variant, fen).checkedRoyals();
-        int width = variant.grid().width();
-        int height = variant.grid().height();
         java.util.List<String> squares = new java.util.ArrayList<>();
         for (long b = checked; b != 0; b &= b - 1) {
             int sq = Long.numberOfTrailingZeros(b);
-            squares.add("" + (char) ('a' + sq % width) + (height - sq / width));
+            squares.add(variant.grid().name(sq));
         }
         return squares;
     }

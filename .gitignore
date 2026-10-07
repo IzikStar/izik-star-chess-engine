@@ -58,3 +58,6 @@ playtest/*/ranking.csv
 
 # Python bytecode
 __pycache__/
+
+# Claude Code local worktrees
+.claude/worktrees/

@@ -34,6 +34,11 @@ public record Grid(int width, int height) {
         return row >= 0 && row < height && col >= 0 && col < width;
     }
 
+    /** The square's name: file letter from {@code a}, rank from 1 at the bottom (row 0 is the top). */
+    public String name(int square) {
+        return "" + (char) ('a' + col(square)) + (height - row(square));
+    }
+
     public int square(int row, int col) {
         return row * width + col;
     }

@@ -6,7 +6,7 @@ import java.util.List;
 
 /**
  * Standard Algebraic Notation for a legal move ({@code "Nbd7"}, {@code "exd6"}, {@code "O-O"},
- * {@code "e8=Q+"}, {@code "Qxf7#"}). Headless replacement for {@code main.Move}'s string builder.
+ * {@code "e8=Q+"}, {@code "Qxf7#"}).
  */
 public final class San {
 
