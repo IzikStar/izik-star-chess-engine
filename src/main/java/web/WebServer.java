@@ -248,6 +248,7 @@ public final class WebServer {
         new VariantsApi(variantStore).routes(app);
         HealthApi health = new HealthApi();
         health.routes(app);
+        new FunTestApi(games.resolveSibling("fun-test-ratings.jsonl")).routes(app);
         app.ws("/ws", ws -> {
             ws.onConnect(ctx -> {
                 GameHub.Client client = ctx::send;

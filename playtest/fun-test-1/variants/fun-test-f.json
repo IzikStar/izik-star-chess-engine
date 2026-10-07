@@ -1,0 +1,146 @@
+{
+  "id": "fun-test-f",
+  "name": "Fun test F",
+  "width": 8,
+  "height": 8,
+  "start": "zzrzkrzz/pppppppp/8/8/8/8/PPPPPPPP/ZZRZKRZZ w - - 0 1",
+  "goals": [
+    {
+      "kind": "LOSE_EVERYTHING"
+    }
+  ],
+  "royalMode": "ALL_SAFE",
+  "stalemate": "WIN",
+  "repetition": true,
+  "moveLimit": 50,
+  "forcedCapture": true,
+  "castling": false,
+  "castlingRule": {
+    "steps": 0,
+    "partner": "INSIDE",
+    "sides": "BOTH",
+    "safePassage": true
+  },
+  "pieces": [
+    {
+      "name": "King",
+      "letter": "K",
+      "value": 300,
+      "royal": false,
+      "promotesTo": "",
+      "enPassant": false,
+      "castlingRole": "NONE",
+      "atoms": [
+        {
+          "kind": "LEAP",
+          "forward": 1,
+          "right": 0,
+          "symmetry": "ALL",
+          "mode": "BOTH",
+          "range": 0,
+          "firstMoveOnly": false
+        },
+        {
+          "kind": "LEAP",
+          "forward": 1,
+          "right": 1,
+          "symmetry": "ALL",
+          "mode": "BOTH",
+          "range": 0,
+          "firstMoveOnly": false
+        }
+      ],
+      "betza": "WF"
+    },
+    {
+      "name": "Rook",
+      "letter": "R",
+      "value": 500,
+      "royal": false,
+      "promotesTo": "",
+      "enPassant": false,
+      "castlingRole": "NONE",
+      "atoms": [
+        {
+          "kind": "SLIDE",
+          "forward": 1,
+          "right": 0,
+          "symmetry": "ALL",
+          "mode": "BOTH",
+          "range": 0,
+          "firstMoveOnly": false
+        }
+      ],
+      "betza": "R"
+    },
+    {
+      "name": "Wizard",
+      "letter": "Z",
+      "value": 400,
+      "royal": false,
+      "promotesTo": "",
+      "enPassant": false,
+      "castlingRole": "NONE",
+      "atoms": [
+        {
+          "kind": "LEAP",
+          "forward": 1,
+          "right": 1,
+          "symmetry": "ALL",
+          "mode": "BOTH",
+          "range": 0,
+          "firstMoveOnly": false
+        },
+        {
+          "kind": "LEAP",
+          "forward": 3,
+          "right": 1,
+          "symmetry": "ALL",
+          "mode": "BOTH",
+          "range": 0,
+          "firstMoveOnly": false
+        }
+      ],
+      "betza": "FC"
+    },
+    {
+      "name": "Pawn",
+      "letter": "P",
+      "value": 100,
+      "royal": false,
+      "promotesTo": "RZ",
+      "enPassant": true,
+      "castlingRole": "NONE",
+      "atoms": [
+        {
+          "kind": "SLIDE",
+          "forward": 1,
+          "right": 0,
+          "symmetry": "ONE",
+          "mode": "MOVE",
+          "range": 1,
+          "firstMoveOnly": false
+        },
+        {
+          "kind": "SLIDE",
+          "forward": 1,
+          "right": 0,
+          "symmetry": "ONE",
+          "mode": "MOVE",
+          "range": 2,
+          "firstMoveOnly": true
+        },
+        {
+          "kind": "LEAP",
+          "forward": 1,
+          "right": 1,
+          "symmetry": "SIDEWAYS",
+          "mode": "CAPTURE",
+          "range": 0,
+          "firstMoveOnly": false
+        }
+      ],
+      "betza": "mfWimfW2cfF"
+    }
+  ]
+}

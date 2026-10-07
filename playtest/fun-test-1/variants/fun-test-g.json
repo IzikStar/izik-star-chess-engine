@@ -1,0 +1,125 @@
+{
+  "id": "fun-test-g",
+  "name": "Fun test G",
+  "width": 8,
+  "height": 8,
+  "start": "uuuukuuu/8/pppppppp/8/8/PPPPPPPP/8/UUUUKUUU w - - 0 1",
+  "goals": [
+    {
+      "kind": "CHECKMATE"
+    }
+  ],
+  "royalMode": "ALL_SAFE",
+  "stalemate": "WIN",
+  "repetition": true,
+  "moveLimit": 50,
+  "forcedCapture": false,
+  "castling": false,
+  "castlingRule": {
+    "steps": 0,
+    "partner": "INSIDE",
+    "sides": "BOTH",
+    "safePassage": true
+  },
+  "pieces": [
+    {
+      "name": "King",
+      "letter": "K",
+      "value": 0,
+      "royal": true,
+      "promotesTo": "",
+      "enPassant": false,
+      "castlingRole": "NONE",
+      "atoms": [
+        {
+          "kind": "LEAP",
+          "forward": 1,
+          "right": 0,
+          "symmetry": "ALL",
+          "mode": "BOTH",
+          "range": 0,
+          "firstMoveOnly": false
+        },
+        {
+          "kind": "LEAP",
+          "forward": 1,
+          "right": 1,
+          "symmetry": "ALL",
+          "mode": "BOTH",
+          "range": 0,
+          "firstMoveOnly": false
+        }
+      ],
+      "betza": "WF"
+    },
+    {
+      "name": "Elephant",
+      "letter": "U",
+      "value": 250,
+      "royal": false,
+      "promotesTo": "",
+      "enPassant": false,
+      "castlingRole": "NONE",
+      "atoms": [
+        {
+          "kind": "LEAP",
+          "forward": 1,
+          "right": 1,
+          "symmetry": "ALL",
+          "mode": "BOTH",
+          "range": 0,
+          "firstMoveOnly": false
+        },
+        {
+          "kind": "LEAP",
+          "forward": 2,
+          "right": 2,
+          "symmetry": "ALL",
+          "mode": "BOTH",
+          "range": 0,
+          "firstMoveOnly": false
+        }
+      ],
+      "betza": "FA"
+    },
+    {
+      "name": "Pawn",
+      "letter": "P",
+      "value": 100,
+      "royal": false,
+      "promotesTo": "U",
+      "enPassant": true,
+      "castlingRole": "NONE",
+      "atoms": [
+        {
+          "kind": "SLIDE",
+          "forward": 1,
+          "right": 0,
+          "symmetry": "ONE",
+          "mode": "MOVE",
+          "range": 1,
+          "firstMoveOnly": false
+        },
+        {
+          "kind": "SLIDE",
+          "forward": 1,
+          "right": 0,
+          "symmetry": "ONE",
+          "mode": "MOVE",
+          "range": 2,
+          "firstMoveOnly": true
+        },
+        {
+          "kind": "LEAP",
+          "forward": 1,
+          "right": 1,
+          "symmetry": "SIDEWAYS",
+          "mode": "CAPTURE",
+          "range": 0,
+          "firstMoveOnly": false
+        }
+      ],
+      "betza": "mfWimfW2cfF"
+    }
+  ]
+}
