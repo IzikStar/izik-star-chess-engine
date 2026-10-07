@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && command -v uvx >/dev/null 2>&1 && { [ -f .code-review-graph/graph.db ] && uvx code-review-graph update --skip-flows >/dev/null 2>&1 || uvx code-review-graph build >/dev/null 2>&1; } || true",
+            "timeout": 180
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cat >/dev/null; cd \"$CLAUDE_PROJECT_DIR\" && command -v uvx >/dev/null 2>&1 && uvx code-review-graph update --skip-flows >/dev/null 2>&1 || true",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
