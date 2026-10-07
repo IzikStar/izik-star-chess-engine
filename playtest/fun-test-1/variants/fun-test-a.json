@@ -1,0 +1,146 @@
+{
+  "id": "fun-test-a",
+  "name": "Fun test A",
+  "width": 8,
+  "height": 8,
+  "start": "leelkeel/8/pppppppp/8/8/PPPPPPPP/8/LEELKEEL w - - 0 1",
+  "goals": [
+    {
+      "kind": "CHECKMATE"
+    }
+  ],
+  "royalMode": "ALL_SAFE",
+  "stalemate": "LOSS",
+  "repetition": true,
+  "moveLimit": 50,
+  "forcedCapture": false,
+  "castling": false,
+  "castlingRule": {
+    "steps": 0,
+    "partner": "INSIDE",
+    "sides": "BOTH",
+    "safePassage": true
+  },
+  "pieces": [
+    {
+      "name": "King",
+      "letter": "K",
+      "value": 0,
+      "royal": true,
+      "promotesTo": "",
+      "enPassant": false,
+      "castlingRole": "NONE",
+      "atoms": [
+        {
+          "kind": "LEAP",
+          "forward": 1,
+          "right": 0,
+          "symmetry": "ALL",
+          "mode": "BOTH",
+          "range": 0,
+          "firstMoveOnly": false
+        },
+        {
+          "kind": "LEAP",
+          "forward": 1,
+          "right": 1,
+          "symmetry": "ALL",
+          "mode": "BOTH",
+          "range": 0,
+          "firstMoveOnly": false
+        }
+      ],
+      "betza": "WF"
+    },
+    {
+      "name": "Chancellor",
+      "letter": "E",
+      "value": 850,
+      "royal": false,
+      "promotesTo": "",
+      "enPassant": false,
+      "castlingRole": "NONE",
+      "atoms": [
+        {
+          "kind": "SLIDE",
+          "forward": 1,
+          "right": 0,
+          "symmetry": "ALL",
+          "mode": "BOTH",
+          "range": 0,
+          "firstMoveOnly": false
+        },
+        {
+          "kind": "LEAP",
+          "forward": 2,
+          "right": 1,
+          "symmetry": "ALL",
+          "mode": "BOTH",
+          "range": 0,
+          "firstMoveOnly": false
+        }
+      ],
+      "betza": "RN"
+    },
+    {
+      "name": "Camel",
+      "letter": "L",
+      "value": 250,
+      "royal": false,
+      "promotesTo": "",
+      "enPassant": false,
+      "castlingRole": "NONE",
+      "atoms": [
+        {
+          "kind": "LEAP",
+          "forward": 3,
+          "right": 1,
+          "symmetry": "ALL",
+          "mode": "BOTH",
+          "range": 0,
+          "firstMoveOnly": false
+        }
+      ],
+      "betza": "C"
+    },
+    {
+      "name": "Pawn",
+      "letter": "P",
+      "value": 100,
+      "royal": false,
+      "promotesTo": "EL",
+      "enPassant": true,
+      "castlingRole": "NONE",
+      "atoms": [
+        {
+          "kind": "SLIDE",
+          "forward": 1,
+          "right": 0,
+          "symmetry": "ONE",
+          "mode": "MOVE",
+          "range": 1,
+          "firstMoveOnly": false
+        },
+        {
+          "kind": "SLIDE",
+          "forward": 1,
+          "right": 0,
+          "symmetry": "ONE",
+          "mode": "MOVE",
+          "range": 2,
+          "firstMoveOnly": true
+        },
+        {
+          "kind": "LEAP",
+          "forward": 1,
+          "right": 1,
+          "symmetry": "SIDEWAYS",
+          "mode": "CAPTURE",
+          "range": 0,
+          "firstMoveOnly": false
+        }
+      ],
+      "betza": "mfWimfW2cfF"
+    }
+  ]
+}

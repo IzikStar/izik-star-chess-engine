@@ -50,6 +50,8 @@ games/
 ### Shared database settings and this copy's sync state (see docs/cloud-server.md) ###
 cloud.properties
 cloud-sync.db
+playtest/*/KEY-do-not-open.md
+playtest/*/ranking.csv
 
 # code-review-graph local index
 .code-review-graph/
