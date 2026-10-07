@@ -11,16 +11,19 @@ there is no password to set. Only devices signed in to your tailnet reach it.
 
 ## 1. A machine (Oracle Cloud Always Free)
 
-Oracle's free tier includes an ARM machine with up to 4 cores and 24 GB of memory, free with no
-time limit. That is plenty for play, analysis and Lab runs (a run plays several games at once, one
-per core).
+Oracle's free tier includes ARM (Ampere A1) time with no end date: 1,500 OCPU hours and 9,000 GB
+hours a month, which is one machine with **2 cores and 12 GB of memory** running all month (Oracle
+cut it from 4 cores and 24 GB on 15 June 2026). Enough to play, analyse and run the Lab around the
+clock, two games at a time. For a bigger burst, rent an hourly machine (Hetzner, below) for the run
+and delete it afterwards.
 
 1. Sign up at <https://www.oracle.com/cloud/free/>. A credit card is asked for to check your
    identity; the Always Free resources are not charged. Pick a home region near you (it cannot
    be changed later).
 2. In the console: **Compute → Instances → Create instance**.
    - **Image:** Canonical Ubuntu 24.04.
-   - **Shape:** Ampere, `VM.Standard.A1.Flex`, 4 OCPUs and 24 GB memory.
+   - **Shape:** Ampere, `VM.Standard.A1.Flex`, 2 OCPUs and 12 GB memory (more is billed on a
+     paid account and stopped on a free one).
    - **Networking:** keep the defaults (a public address is needed for SSH and for downloads).
    - **SSH keys:** let it generate a key pair and download the private key.
 3. Create. If it says "Out of capacity", try another availability domain, or again later; free ARM
@@ -29,7 +32,9 @@ per core).
 
 **Idle machines.** Oracle may reclaim an Always Free machine that stays nearly idle for a week
 (CPU, network and memory all low). If that worries you, upgrade the account to *Pay As You Go*
-(Billing → Upgrade): Always Free resources stay free, and idle machines are no longer reclaimed.
+(Billing → Upgrade): Oracle does not charge for Always Free resources after the upgrade, only for
+use above them, so keep the machine at 2 OCPUs / 12 GB and set a budget alert (Billing → Budgets).
+A paid account also gets past "Out of capacity" more easily.
 
 Any other Ubuntu machine works the same (Hetzner, a spare PC). Without Oracle's firewall rules the
 script's iptables step is a no-op.
@@ -71,6 +76,9 @@ pulls `main`, rebuilds and restarts. Data in `/var/lib/izikstar` is kept. A Lab 
 stops with the restart; resume it from the Lab page.
 
 ## 5. The shared database (Cloudflare D1)
+
+Optional. When the server is the only copy that plays and stores (the phone and the computer just
+open it in the browser), there is nothing to share and this section can be skipped.
 
 With a shared database, every copy (the server, the home computer) sees the others' runs, saved
 games, variants and hall of fame. Each copy keeps writing its own files exactly as before, so
