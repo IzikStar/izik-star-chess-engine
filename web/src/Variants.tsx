@@ -7,8 +7,6 @@ import {
 } from './variants/model';
 import './variants/pages.css';
 
-export type { PieceDef, VariantDef } from './variants/model';
-export { slug } from './variants/model';
 
 // "Variants": the variant designer, over several screens chosen by the hash below "#variants" (like
 // the Lab): the list of variants (#variants), and one variant's Overview, Board, Pieces and Health

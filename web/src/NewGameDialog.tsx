@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { eloText, engineText, LEVELS, MAX_LEVEL, MIN_LEVEL, STOCKFISH_FROM_LEVEL, TIME_CONTROLS, TOP_BUILT_IN_LEVEL, VARIANTS, goalsRule, type GoalDef } from './chess';
+import { eloText, engineText, LEVELS, MAX_LEVEL, MIN_LEVEL, STOCKFISH_FROM_LEVEL, TIME_CONTROLS, TOP_BUILT_IN_LEVEL, VARIANTS, goalsRule } from './chess';
 import type { Champion, Color, Mode, StockfishInfo, VariantId, Weights } from './protocol';
 import { StockfishInstall } from './StockfishInstall';
+import type { VariantRow } from './variants/model';
 
 export interface NewGameChoice {
   mode: Mode;
@@ -20,13 +21,6 @@ export interface NewGameChoice {
   variant: VariantId;
 }
 
-/** The variants the server knows (built-in and made), for the Game choice. */
-interface VariantRow {
-  id: string;
-  name: string;
-  builtIn: boolean;
-  goals?: GoalDef[];
-}
 
 /** Stockfish plays chess only: in a variant the ladder stops at the built-in engine's top level. */
 export function maxLevelFor(variant: VariantId): number {

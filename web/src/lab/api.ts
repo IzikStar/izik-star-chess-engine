@@ -36,7 +36,7 @@ export interface Job {
   running: boolean; file?: string; name?: string; generation?: number; gamesDone?: number; gamesPlanned?: number;
   startedAt?: string; stopping?: boolean; finished?: boolean; error?: string;
 }
-export interface VariantRow { id: string; name: string; builtIn: boolean; goal: string; fairy?: boolean }
+export type { VariantRow } from '../variants/model';
 
 export const REFRESH_MS = 4000;
 

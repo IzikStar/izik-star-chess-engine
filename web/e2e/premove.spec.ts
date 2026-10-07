@@ -1,15 +1,10 @@
 import { expect, test, type Page, type WebSocketRoute } from '@playwright/test';
+import { clickMove } from './helpers';
 
 // Premoves in set-up positions. The real server cannot start from a chosen position, so these
 // tests stand in for it on the WebSocket: they send the states a game would and check which moves
 // the browser sends back.
 
-const square = (page: Page, name: string) => page.locator(`[data-square="${name}"]`).first();
-
-async function clickMove(page: Page, from: string, to: string) {
-  await square(page, from).click();
-  await square(page, to).click();
-}
 
 function state(fen: string, legalMoves: string[] = []) {
   const humanTurn = fen.split(' ')[1] === 'w';

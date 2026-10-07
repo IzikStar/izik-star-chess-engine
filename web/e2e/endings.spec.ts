@@ -1,15 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
+import { clickMove, sendCommand, square } from './helpers';
 
 // Clocks, resigning, draw offers and PGN, through the browser against the packaged jar.
 
 const SHOTS = '../target/e2e-screens';
-const square = (page: Page, name: string) => page.locator(`[data-square="${name}"]`).first();
 const moveList = (page: Page) => page.getByTestId('move-list');
-
-async function clickMove(page: Page, from: string, to: string) {
-  await square(page, from).click();
-  await square(page, to).click();
-}
 
 async function newGame(page: Page, opponent: 'Computer' | 'A friend', time = 'Untimed', level?: number) {
   await page.getByRole('button', { name: 'New game' }).click();
@@ -22,19 +17,6 @@ async function newGame(page: Page, opponent: 'Computer' | 'A friend', time = 'Un
 }
 
 /** Sends one command over a second socket (the server shares the game with every browser). */
-async function sendCommand(page: Page, command: object) {
-  await page.evaluate((cmd) => new Promise<void>((resolve) => {
-    const ws = new WebSocket(`ws://${location.host}/ws`);
-    ws.onopen = () => {
-      ws.send(JSON.stringify(cmd));
-      setTimeout(() => {
-        ws.close();
-        resolve();
-      }, 200);
-    };
-  }), command);
-}
-
 test('a timed game: clocks start at the time control and run for the side to move', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'New game' }).click();

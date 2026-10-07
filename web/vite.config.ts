@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 // The production build lands in the jar's classpath under /webapp (WebServer serves it from there).
-// `npm run dev` serves the app on :5173 and forwards the game socket to a running
+// `npm run dev` serves the app on :5173 and forwards the game socket and the REST API to a running
 // WebServer on :7070 (`java -jar target/izikstar-chess-3.1.0.jar --no-browser`).
 export default defineConfig({
   plugins: [react()],
@@ -13,6 +13,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/ws': { target: 'ws://127.0.0.1:7070', ws: true },
+      '/api': 'http://127.0.0.1:7070',
     },
   },
 });

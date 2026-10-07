@@ -1,10 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
+import { square } from './helpers';
 
 // My games: every game is saved as it is played; a saved game opens for review, and an
 // unfinished one can be carried on.
 
 const SHOTS = '../target/e2e-screens';
-const square = (page: Page, name: string) => page.locator(`[data-square="${name}"]`).first();
 
 /** Plays a move and waits for the server to take it, so the next click is not lost to the redraw. */
 async function clickMove(page: Page, from: string, to: string) {

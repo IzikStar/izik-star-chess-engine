@@ -1,7 +1,7 @@
 import type { Atom } from '../reach';
 import { goalName, type GoalDef } from '../chess';
 
-export { goalName, type GoalDef, type GoalKind } from '../chess';
+export type { GoalDef } from '../chess';
 
 // The variant designer's data: a variant as the server sends it (web.VariantsApi), the list rows,
 // the hash routes below "#variants", and a guard that asks before unsaved changes are dropped.
@@ -146,9 +146,6 @@ export function variantsHash(id: string | null, tab: Tab = 'overview', letter: s
   return '#variants/' + encodeURIComponent(id) + (tab === 'overview' ? '' : '/' + tab) + (tab === 'pieces' && letter ? '/' + encodeURIComponent(letter) : '');
 }
 
-export function goVariants(id: string | null, tab: Tab = 'overview', letter: string | null = null) {
-  location.hash = variantsHash(id, tab, letter);
-}
 
 // ---- leaving with unsaved changes -----------------------------------------------------------------
 
