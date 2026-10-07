@@ -3,19 +3,16 @@ package lab;
 import ai.eval.ChessEvaluate;
 import ai.board.Boards;
 import ai.eval.ParamVector;
-import arena.GameRecord;
 import arena.Opening;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import rules.Game;
-import rules.Rules;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TexelTest {

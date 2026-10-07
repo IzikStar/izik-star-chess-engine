@@ -8,10 +8,8 @@ import com.google.gson.JsonParser;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -51,14 +49,7 @@ public final class GameArchive {
     public synchronized void save(SavedGame game) {
         Path file = file(game.id());
         try {
-            Files.createDirectories(dir);
-            Path tmp = dir.resolve(game.id() + ".json.tmp");
-            Files.writeString(tmp, toJson(game).toString(), StandardCharsets.UTF_8);
-            try {
-                Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            } catch (AtomicMoveNotSupportedException e) {
-                Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
-            }
+            AtomicWrite.write(file, toJson(game).toString());
         } catch (IOException e) {
             throw new UncheckedIOException("could not save the game to " + file, e);
         }

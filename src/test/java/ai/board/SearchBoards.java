@@ -3,7 +3,7 @@ package ai.board;
 import java.util.List;
 
 /** Test helpers for the search's boards. Squares: a8 is bit 0, h1 is bit 63. */
-final class SearchBoards {
+public final class SearchBoards {
 
     private SearchBoards() {}
 
@@ -36,7 +36,7 @@ final class SearchBoards {
     }
 
     /** Perft through the search's move generator, releasing each explored subtree. */
-    static long perft(Board board, int depth) {
+    public static long perft(Board board, int depth) {
         if (depth == 0) {
             return 1;
         }

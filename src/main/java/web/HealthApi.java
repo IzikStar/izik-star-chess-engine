@@ -59,10 +59,10 @@ final class HealthApi {
 
     void routes(Javalin app) {
         app.post("/api/health", this::start);
-        app.get("/api/health", ctx -> json(ctx, state(job)));
+        app.get("/api/health", ctx -> Json.send(ctx, state(job)));
         app.delete("/api/health", ctx -> {
             stop();
-            json(ctx, state(job));
+            Json.send(ctx, state(job));
         });
     }
 
@@ -84,7 +84,7 @@ final class HealthApi {
             JsonObject o = new JsonObject();
             o.addProperty("error", String.valueOf(e.getMessage()));
             ctx.status(400);
-            json(ctx, o);
+            Json.send(ctx, o);
             return;
         }
         stop();
@@ -98,7 +98,7 @@ final class HealthApi {
         }, "variant-health-job");
         thread.setDaemon(true);
         thread.start();
-        json(ctx, state(next));
+        Json.send(ctx, state(next));
     }
 
     /** The settings in {@code body}; each one left out keeps its usual value. */
@@ -225,7 +225,4 @@ final class HealthApi {
         return new JsonPrimitive(String.valueOf(value));
     }
 
-    private static void json(Context ctx, JsonObject body) {
-        ctx.contentType("application/json").result(body.toString());
-    }
 }

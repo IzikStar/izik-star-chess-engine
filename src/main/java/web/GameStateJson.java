@@ -12,7 +12,6 @@ import rules.ChessMove;
 import rules.GameStatus;
 import rules.MoveResult;
 import rules.Pgn;
-import rules.Position;
 
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
@@ -51,7 +50,6 @@ final class GameStateJson {
         state.addProperty("engineThinking", session.isEngineThinking());
         state.addProperty("hintPending", session.isHintPending());
         state.addProperty("hint", hint == null ? null : hint.toUci());
-        state.addProperty("material", material(session.position()));
 
         JsonArray legal = new JsonArray();
         if (session.isHumanTurn()) {
@@ -250,21 +248,5 @@ final class GameStateJson {
     /** "1-0", "0-1", "1/2-1/2", or null while the game is on. */
     static String result(GameStatus status, boolean whiteToMove) {
         return status.result(whiteToMove);
-    }
-
-    /** White's material minus Black's (P 1, N/B 3, R 5, Q 9), as the Swing score panel showed it. */
-    static int material(Position position) {
-        int score = 0;
-        for (char piece : position.pieces()) {
-            int value = switch (Character.toLowerCase(piece)) {
-                case 'p' -> 1;
-                case 'n', 'b' -> 3;
-                case 'r' -> 5;
-                case 'q' -> 9;
-                default -> 0;
-            };
-            score += Character.isUpperCase(piece) ? value : -value;
-        }
-        return score;
     }
 }

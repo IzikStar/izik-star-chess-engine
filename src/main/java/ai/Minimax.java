@@ -15,8 +15,7 @@ import java.util.function.BooleanSupplier;
  * Alpha-beta search over a {@link Board}: it reads positions only through that interface, so it
  * plays any board that implements it (Phase 6). Each depth runs on its own instance, so no search state
  * survives between searches, and the search always chooses a move for the side to move at the
- * root — it reads no UI settings (Phase 3; the old version inferred "am I at the root" from
- * {@code ChoosePlayFormat}, which broke whenever those flags were flipped around an engine call).
+ * root.
  *
  * <p>Iterative deepening (Phase 4): depths 1, 2, … up to the requested depth, each a complete
  * search of its own. A {@code stop} signal (cancelled, or out of time) abandons the depth in
@@ -379,7 +378,7 @@ public class Minimax {
         final int[][] killers;
         /**
          * [side to move][from][to]: how much a quiet move has cut off, weighted by depth squared.
-         * Two players on 64 squares, as long as chess is the only board.
+         * Two players on at most 64 squares ({@code ai.piece.Grid}'s limit).
          */
         final int[][][] history = new int[2][64][64];
 

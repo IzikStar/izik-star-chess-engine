@@ -89,7 +89,7 @@ final class AnalysisApi {
             JsonObject o = new JsonObject();
             o.addProperty("error", "Analysis needs Stockfish, and it is not installed yet.");
             o.addProperty("noStockfish", true);
-            json(ctx, o);
+            Json.send(ctx, o);
             return;
         }
         String startFen;
@@ -117,7 +117,7 @@ final class AnalysisApi {
         JsonObject o = new JsonObject();
         o.addProperty("id", id);
         o.addProperty("total", job.total);
-        json(ctx, o);
+        Json.send(ctx, o);
     }
 
     private static void run(Job job, List<String> engine, String startFen, List<String> moves, int depth) {
@@ -151,7 +151,7 @@ final class AnalysisApi {
         if (job.report != null) {
             o.add("report", job.report);
         }
-        json(ctx, o);
+        Json.send(ctx, o);
     }
 
     static JsonObject toJson(Report r) {
@@ -207,10 +207,7 @@ final class AnalysisApi {
     private static void error(Context ctx, String message) {
         JsonObject o = new JsonObject();
         o.addProperty("error", message);
-        json(ctx, o);
+        Json.send(ctx, o);
     }
 
-    private static void json(Context ctx, JsonObject body) {
-        ctx.contentType("application/json").result(body.toString());
-    }
 }

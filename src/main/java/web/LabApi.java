@@ -1,6 +1,5 @@
 package web;
 
-import ai.eval.ChessEvaluate;
 import ai.eval.ParamSchema;
 import ai.eval.ParamSpec;
 import ai.eval.ParamVector;
@@ -60,22 +59,22 @@ final class LabApi {
     }
 
     void routes(Javalin app) {
-        app.get("/api/lab/runs", ctx -> json(ctx, runs()));
-        app.get("/api/lab/runs/{file}", ctx -> json(ctx, run(ctx.pathParam("file"))));
+        app.get("/api/lab/runs", ctx -> Json.send(ctx, runs()));
+        app.get("/api/lab/runs/{file}", ctx -> Json.send(ctx, run(ctx.pathParam("file"))));
         app.get("/api/lab/runs/{file}/generations/{n}", ctx ->
-                json(ctx, generation(ctx.pathParam("file"), Integer.parseInt(ctx.pathParam("n")))));
-        app.get("/api/lab/runs/{file}/generations/{n}/games/{i}", ctx -> json(ctx, game(ctx.pathParam("file"),
+                Json.send(ctx, generation(ctx.pathParam("file"), Integer.parseInt(ctx.pathParam("n")))));
+        app.get("/api/lab/runs/{file}/generations/{n}/games/{i}", ctx -> Json.send(ctx, game(ctx.pathParam("file"),
                 Integer.parseInt(ctx.pathParam("n")), Integer.parseInt(ctx.pathParam("i")))));
         app.get("/api/lab/runs/{file}/pgn", ctx -> download(ctx, ctx.pathParam("file").replaceFirst("\\.db$", ".pgn"),
                 runPgn(ctx.pathParam("file"))));
-        app.post("/api/lab/runs/{file}/generations/{n}/keep", ctx -> json(ctx, keep(ctx.pathParam("file"),
+        app.post("/api/lab/runs/{file}/generations/{n}/keep", ctx -> Json.send(ctx, keep(ctx.pathParam("file"),
                 Integer.parseInt(ctx.pathParam("n")), JsonParser.parseString(ctx.body()).getAsJsonObject())));
-        app.get("/api/lab/runs/{file}/schema", ctx -> json(ctx, schemaOf(ctx.pathParam("file"))));
+        app.get("/api/lab/runs/{file}/schema", ctx -> Json.send(ctx, schemaOf(ctx.pathParam("file"))));
         app.get("/api/lab/runs/{file}/generations/{n}/members/{i}", ctx -> ctx.header("Content-Disposition",
                         "attachment; filename=\"" + ctx.pathParam("file").replaceFirst("\\.db$", "") + "-g" + ctx.pathParam("n")
                                 + "-m" + ctx.pathParam("i") + ".json\"").contentType("application/json")
                 .result(memberJson(ctx.pathParam("file"), Integer.parseInt(ctx.pathParam("n")), Integer.parseInt(ctx.pathParam("i")))));
-        app.get("/api/lab/fame", ctx -> json(ctx, fame()));
+        app.get("/api/lab/fame", ctx -> Json.send(ctx, fame()));
         app.get("/api/lab/fame/{name}/pgn", ctx -> download(ctx, ctx.pathParam("name") + ".pgn",
                 hall().get(ctx.pathParam("name")).orElseThrow(() -> new NotFoundResponse("no such entry")).pgn()));
     }
@@ -139,9 +138,6 @@ final class LabApi {
         }
     }
 
-    private static void json(Context ctx, JsonObject body) {
-        ctx.contentType("application/json").result(body.toString());
-    }
 
     // ---- runs ----------------------------------------------------------------
 

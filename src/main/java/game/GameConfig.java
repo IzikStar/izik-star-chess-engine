@@ -1,8 +1,7 @@
 package game;
 
 /**
- * How a game is being played — replaces the {@code main.setting.ChoosePlayFormat} statics and
- * {@code SettingPanel.skillLevel} (Phase 3). Immutable: change it with the {@code with*} methods
+ * How a game is being played. Immutable: change it with the {@code with*} methods
  * and hand the result to {@link GameSession#updateConfig}.
  *
  * @param mode             who plays each side

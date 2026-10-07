@@ -100,9 +100,10 @@ public record WinCondition(Kind kind, int count, List<String> squares, String pi
     /** The middle squares of a board: one or two middle files by one or two middle ranks (King of the Hill). */
     public static List<String> centre(int width, int height) {
         List<String> out = new java.util.ArrayList<>();
+        ai.piece.Grid grid = new ai.piece.Grid(width, height);
         for (int row = (height - 1) / 2; row <= height / 2; row++) {
             for (int col = (width - 1) / 2; col <= width / 2; col++) {
-                out.add("" + (char) ('a' + col) + (height - row));
+                out.add(grid.name(grid.square(row, col)));
             }
         }
         return out;

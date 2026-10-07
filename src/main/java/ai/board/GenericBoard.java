@@ -382,7 +382,7 @@ public final class GenericBoard implements ChessPosition, PieceBoard {
     }
 
     private String squareName(int sq) {
-        return "" + (char) ('a' + rules.grid.col(sq)) + (rules.grid.height() - rules.grid.row(sq));
+        return rules.grid.name(sq);
     }
 
     // ---- ChessPosition ----------------------------------------------------------------------

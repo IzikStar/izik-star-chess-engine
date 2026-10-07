@@ -11,13 +11,8 @@ import rules.Game;
 import rules.MoveResult;
 import rules.Position;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
 import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -263,57 +258,22 @@ public final class LadderCalibration {
 
     /** Stockfish held to a UCI_Elo, {@link #ANCHOR_MOVE_MS} a move. */
     private static final class Anchor implements Side {
-        private final Process process;
-        private final BufferedReader in;
-        private final PrintWriter out;
+        private final UciSession session;
 
         Anchor(String stockfish, int elo) {
-            try {
-                process = new ProcessBuilder(stockfish).redirectErrorStream(true).start();
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-            in = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
-            out = new PrintWriter(new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8), true);
-            out.println("uci");
-            out.println("setoption name Threads value 1");
-            out.println("setoption name UCI_LimitStrength value true");
-            out.println("setoption name UCI_Elo value " + elo);
-            out.println("ucinewgame");
-            out.println("isready");
-            await("readyok");
+            session = new UciSession(new ExternalEngine(stockfish,
+                    Map.of("Threads", "1", "UCI_LimitStrength", "true", "UCI_Elo", String.valueOf(elo)),
+                    0, ANCHOR_MOVE_MS));
         }
 
         @Override
         public ChessMove move(String fen, List<ChessMove> moves) {
-            StringBuilder position = new StringBuilder("position startpos");
-            if (!moves.isEmpty()) {
-                position.append(" moves");
-                moves.forEach(m -> position.append(' ').append(m.toUci()));
-            }
-            out.println(position);
-            out.println("go movetime " + ANCHOR_MOVE_MS);
-            String line = await("bestmove");
-            return ChessMove.fromUci(line.split("\\s+")[1]);
-        }
-
-        private String await(String prefix) {
-            try {
-                for (String line; (line = in.readLine()) != null; ) {
-                    if (line.startsWith(prefix)) {
-                        return line;
-                    }
-                }
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-            throw new IllegalStateException("Stockfish stopped before '" + prefix + "'");
+            return session.move(moves.stream().map(ChessMove::toUci).toList());
         }
 
         @Override
         public void close() {
-            out.println("quit");
-            process.destroy();
+            session.close();
         }
     }
 

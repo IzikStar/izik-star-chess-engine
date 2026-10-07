@@ -1,7 +1,6 @@
 package lab;
 
 import arena.GameRecord;
-import arena.Score;
 import evolution.Evolution;
 
 import java.io.IOException;

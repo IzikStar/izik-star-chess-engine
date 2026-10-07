@@ -10,10 +10,8 @@ import ai.variant.Variants;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -105,14 +103,7 @@ public final class VariantStore {
         check(variant);
         Path file = file(variant.id());
         try {
-            Files.createDirectories(dir);
-            Path tmp = dir.resolve(variant.id() + ".json.tmp");
-            Files.writeString(tmp, VariantJson.write(variant), StandardCharsets.UTF_8);
-            try {
-                Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            } catch (AtomicMoveNotSupportedException e) {
-                Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
-            }
+            AtomicWrite.write(file, VariantJson.write(variant));
             // pictures of pieces the variant no longer has go with them
             for (var e : artIndex(variant.id()).entrySet()) {
                 if (variant.pieces().stream().noneMatch(t -> t.letter() == e.getKey())) {
@@ -190,13 +181,7 @@ public final class VariantStore {
             com.google.gson.JsonObject o = new com.google.gson.JsonObject();
             o.addProperty("family", about.family());
             o.addProperty("notes", about.notes());
-            Path tmp = dir.resolve(id + ".about.tmp");
-            Files.writeString(tmp, o.toString(), StandardCharsets.UTF_8);
-            try {
-                Files.move(tmp, aboutFile(id), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            } catch (AtomicMoveNotSupportedException e) {
-                Files.move(tmp, aboutFile(id), StandardCopyOption.REPLACE_EXISTING);
-            }
+            AtomicWrite.write(aboutFile(id), o.toString());
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

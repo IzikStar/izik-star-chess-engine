@@ -1,7 +1,6 @@
 package arena;
 
 import ai.eval.ChessEvaluate;
-import ai.eval.Evaluator;
 import ai.eval.ParamVector;
 
 import java.io.IOException;

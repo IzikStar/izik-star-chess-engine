@@ -7,8 +7,8 @@ package ai.board;
  * a move, since a move's from- and to-square differ.
  *
  * <p>Layout: bits 0-7 from, 8-15 to, 16-20 the promotion piece's letter as 1-26 for a-z (0 when
- * none): 21 bits, which the transposition table stores whole. Eight bits per square leave room for
- * boards of up to 256 squares.
+ * none): 21 bits, which the transposition table stores whole. Eight bits per square would allow
+ * boards of up to 256 squares; {@code ai.piece.Grid} caps them at 64 for now (bitboards are longs).
  */
 public final class Move {
 
