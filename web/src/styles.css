@@ -746,3 +746,67 @@ label.btn.disabled { opacity: 0.5; cursor: default; pointer-events: none; }
   .fx-land, .fx-shard, .fx-check { display: none; }
   @keyframes fx-ghost { from { opacity: 1; } to { opacity: 0; } }
 }
+
+/* ---- the other screens: one look for headings, sub-navigation, forms, tables and cards ---- */
+/* page titles in the display face, like the brand */
+.home-head h2, .my-games h2, .lab-screen h2, .variant-page .title-block h2, .panel > h2:first-child, .run-head h2 {
+  font-family: var(--display); font-weight: 600; letter-spacing: -0.02em; font-variation-settings: 'opsz' 72; }
+.lab-screen h2 { font-size: 26px; }
+.lab-screen h3, .panel h3, .section-head { letter-spacing: -0.01em; }
+/* sub-navigation (Lab screens, a variant's screens): the current one is underlined in the accent */
+.lab-nav, .sub-tabs { gap: 2px; }
+.lab-nav .btn, .sub-tabs .btn { position: relative; border-radius: 8px; }
+.lab-nav .btn.on, .sub-tabs .btn.on { color: var(--fg); background: transparent; font-weight: 600; }
+.lab-nav .btn::after, .sub-tabs .btn::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: -9px; height: 2px; border-radius: 2px; background: var(--accent);
+  transform: scaleX(0); transition: transform 240ms var(--ease-out); }
+.lab-nav .btn.on::after, .sub-tabs .btn.on::after { transform: scaleX(1); }
+.lab-nav .job-pill::after { display: none; }
+.lab-nav .job-pill { background: var(--accent-soft); color: color-mix(in srgb, var(--accent) 70%, var(--fg)); border-radius: 999px; padding: 5px 12px; font-weight: 600; }
+/* fields: one height, one border, the accent ring when focused */
+:where(.lab-page, .variants, .variants-page, .my-games, .dialog, .variant-home) :is(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']), select, textarea) {
+  border: 1px solid var(--line); border-radius: 9px; background-color: var(--surface); color: var(--fg); transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out); }
+:where(.lab-page, .variants, .variants-page, .my-games, .dialog, .variant-home) :is(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']), select, textarea):hover:not(:disabled) { border-color: var(--line-strong); }
+:where(.lab-page, .variants, .variants-page, .my-games, .dialog, .variant-home) :is(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']), select, textarea):focus-visible {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+select { cursor: pointer; }
+/* tables: quiet header, rows that answer the mouse, figures that line up */
+.game-table, .lab-page table, .health-report table { font-variant-numeric: tabular-nums; }
+.game-table th, .lab-page th { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--faint); }
+.game-table td, .lab-page td { transition: background-color 120ms var(--ease-out); }
+.game-table tbody tr:last-child td, .lab-page tbody tr:last-child td { border-bottom: 0; }
+.game-table td:first-child, .game-table th:first-child { padding-left: 12px; }
+.game-table tbody tr, .lab-page .standings tbody tr, .lab-page .games tbody tr { transition: background-color 120ms var(--ease-out); }
+.o-won .res::before, .o-lost .res::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 7px; vertical-align: 1px; background: currentColor; }
+.tag { border-radius: 6px; letter-spacing: 0.01em; }
+.state, .tag { font-family: var(--font); font-variation-settings: normal; }
+.state { letter-spacing: 0.06em; font-size: 11px; padding: 3px 9px; }
+/* cards lift a little under the mouse */
+.run-card, .variant-card { transition: transform 200ms var(--ease-out), box-shadow 200ms var(--ease-out), border-color 200ms var(--ease-out); }
+@media (hover: hover) {
+  .run-card:hover, .variant-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--line-strong); }
+}
+.run-card.playing { box-shadow: 0 0 0 3px var(--accent-ring), var(--shadow-sm); }
+.progress { background: var(--surface-3); }
+.progress .bar { background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 70%, white), var(--accent)); transition: width 600ms var(--ease-out); }
+.run-card .title { font-family: var(--display); font-size: 21px; font-weight: 600; letter-spacing: -0.02em; }
+/* screens come in: a short rise, their parts one after another */
+.lab-screen > *, .my-games > *, .variant-home > *, .variant-page > * { animation: rise-in 360ms var(--ease-out) both; }
+.lab-screen > :nth-child(2), .my-games > :nth-child(2), .variant-home > :nth-child(2), .variant-page > :nth-child(2) { animation-delay: 50ms; }
+.lab-screen > :nth-child(3), .my-games > :nth-child(3), .variant-home > :nth-child(3), .variant-page > :nth-child(3) { animation-delay: 100ms; }
+.lab-screen > :nth-child(n + 4), .my-games > :nth-child(n + 4), .variant-home > :nth-child(n + 4), .variant-page > :nth-child(n + 4) { animation-delay: 150ms; }
+.run-cards > *, .variant-cards > * { animation: rise-in 360ms var(--ease-out) both; }
+.run-cards > :nth-child(2), .variant-cards > :nth-child(2) { animation-delay: 40ms; }
+.run-cards > :nth-child(3), .variant-cards > :nth-child(3) { animation-delay: 80ms; }
+.run-cards > :nth-child(n + 4), .variant-cards > :nth-child(n + 4) { animation-delay: 120ms; }
+@media (prefers-reduced-motion: reduce) {
+  .lab-screen > *, .my-games > *, .variant-home > *, .variant-page > *, .run-cards > *, .variant-cards > * { animation: fade-in 200ms var(--ease-out) both; }
+  .run-card:hover, .variant-card:hover { transform: none; }
+}
+/* charts: the line drawn a touch heavier, with round joins */
+.chart .line { stroke-linejoin: round; stroke-linecap: round; }
+.chart .grid { stroke-dasharray: 2 4; }
+.chart-expand { transition: opacity 160ms var(--ease-out), background-color 160ms var(--ease-out), transform 120ms var(--ease-out); }
+.chart-expand:active { transform: scale(0.94); }
+/* the first-visit offer and the guide read as prose */
+.guide { max-width: 72ch; }
+.summary p, .guide p, .guide li { line-height: 1.65; }
