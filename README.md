@@ -150,6 +150,8 @@ structure, and was rebuilt in a planned, test-first refactor:
   step, a test safety net and explicit exit criteria.
 - **[docs/history/architecture-before-refactor.md](docs/history/architecture-before-refactor.md)**
   is the map of the code as found, with its flaws ranked, and how each phase changed it.
+- **[docs/history/original-code.md](docs/history/original-code.md)** says where the original
+  2024 code is kept unchanged (branch `legacy-original` of the private legacy repository).
 
 | Phase | Goal | Status |
 |---|---|---|
