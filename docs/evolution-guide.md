@@ -18,8 +18,9 @@ evaluation (`ai.eval.ParamVector`, over the schema `ChessEvaluate.SCHEMA`).
 - `schema.defaults()` is where evolution starts: the Texel-tuned weights, preset `tuned-v1`
   (`src/main/resources/presets/tuned-v1.json`, see section 6). The hand-written weights the
   engine has always played with are kept as the preset `classic` (`ChessEvaluate.CLASSIC`,
-  `src/main/resources/presets/classic.json`), and the game plays with them. Edit that file to
-  improve them by hand; `engine.SameMoveTest` records the moves they play.
+  `src/main/resources/presets/classic.json`); the game plays with `tuned-v1` by default, and
+  `classic` can be picked in the *New game* dialog. `engine.SameMoveTest` records the moves
+  `classic` plays.
 - Most terms come in pairs, `.mg` (middlegame) and `.eg` (endgame). The engine blends the two by
   the material left on the board.
 - Groups: `material` 5 terms, `pawns` 17, `kingSafety` 8, `king` 5, `development` 5,
@@ -112,8 +113,8 @@ screen of any run prints the command line that replays it.
 **Variants.** A run on antichess, King of the Hill, three-check or a made variant evolves the
 piece-set evaluation (`PieceSetEvaluate`: material, mobility and a value per square for each
 piece type) instead of the chess one; in antichess it starts from all zeros. Yardsticks there are
-`default` (the piece values), `zero`, a file or a hall of fame entry of the same game; Stockfish
-does not play variants.
+`default` (the piece values), `zero`, a file or a hall of fame entry of the same game,
+Fairy-Stockfish and the random mover (below); Stockfish plays chess only.
 
 **Algorithm settings.** An `Evolution` may list `Option`s (`options()`), each a number with a
 range or a choice with a help line; `configure(values)` hands over the chosen values, checked,
@@ -123,9 +124,12 @@ with the defaults filled in, plus `generations`. `FromZero` shows the pattern.
 `classic` (the hand-written weights), any parameter file, `sf:1500` (Stockfish held to UCI_Elo
 1500, 20,000 nodes a move; `sf:1500@50000` for 50,000), or `sf:auto`: Stockfish at the level where
 the champion scores between 30% and 70%. It starts at 1320, the lowest Stockfish allows, and moves
-one level up after a match above 70% and one down below 30%. Against an opponent that wins every
-game there is no signal. Yardsticks with the same weights (today `default` and `classic`) play
-once and report the same result. Yardstick matches use the generation's share of deep games too,
+one level up after a match above 70% and one down below 30%. In any built-in variant and most
+made ones, `fsf` is Fairy-Stockfish at full strength at a fixed number of nodes a move (`fsf:5000`
+for 5,000). `random` plays any legal move, the floor every evaluation should beat, and
+`net:FILE.json` is the search with a trained network as its evaluation
+([net-training-guide.md](net-training-guide.md)). Against an opponent that wins every game there
+is no signal. Yardsticks with the same weights play once and report the same result. Yardstick matches use the generation's share of deep games too,
 and `show` and the Lab tab give the score at each depth, so you can see whether a gain at depth 3
 holds at depth 4.
 
@@ -158,7 +162,7 @@ is above 0. Keep any member by hand with `lab.Cli keep runs/try1.db GENERATION M
 (`arena.Cli match`, `--yardsticks`), `hof:NAME` is that entry, and the Lab tab plays against it.
 
 `lab.Cli export runs/try1.db positions.csv` writes every quiet position of every game with its
-result (`fen,result`), for fitting weights directly (section 6).
+result and the engine's score (`fen,result,score`), for fitting weights directly (section 6).
 
 ## 4. Reading the numbers
 
@@ -251,3 +255,4 @@ weights are pulled back toward them. `lab.Cli export` positions from a run's gam
 | Lab page | `web/src/Lab.tsx` and `web/src/lab/` (runs, new run, a run, hall of fame, guide), served by `web.LabApi` (reading) and `web.LabJobs` (start, stop, resume, delete) |
 | Algorithms that ship | `evolution.FromZero` (any game, every choice a setting), `evolution.MaterialExperiment` (chess), the example |
 | Design and decisions | `docs/phase-5-research.md` (§9 is the log of what was built) |
+| Experiments run so far | [Material 1](experiments/material-1.md) (chess piece values), [Antichess from zero 1](experiments/antichess-zero-1.md) and its [yardstick follow-up](experiments/antichess-zero-1-yardsticks.md) |

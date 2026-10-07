@@ -1,5 +1,7 @@
 # Phase 4 — Concurrency and the Stockfish integration
 
+*Decision record: describes the code at the time of Phase 4; see [docs/architecture.md](architecture.md) for the current state.*
+
 **Status: DONE — merged to `master` 2026-10-02 (PR #3); decisions in §8, log in §9.** Branch
 `phase-4-concurrency-stockfish`, cut from `phase-3-decouple-ui` and merged right after it (PR #2).
 

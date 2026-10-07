@@ -1,5 +1,7 @@
 # UI/UX research — what is wrong with the game screen, and what to build next
 
+*Decision record: describes the code at the time of Phase 4c; see [docs/architecture.md](architecture.md) for the current state.*
+
 Status: **decisions locked 2026-10-02 — the owner approved every recommendation in §6** (U1 web UI,
 U2 before Phase 5, U3 Javalin, U4 react-chessboard, U5 English, U6 Swing kept until parity then
 deleted, U7 the listed first slice). Implementation is Phase 4c in REFACTOR_GUIDE.md; the

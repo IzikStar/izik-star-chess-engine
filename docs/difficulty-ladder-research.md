@@ -1,5 +1,7 @@
 # Difficulty ladder — research
 
+*Implemented; the current table is in [difficulty-ladder.md](difficulty-ladder.md).*
+
 Branch `difficulty-ladder`. The owner asked (2026-10-03) for the built-in engine to play the
 lower levels with a search depth that keeps rising "for as long as it still plays at a realistic
 speed", then Stockfish, with more levels in total so several are Stockfish, and with the average

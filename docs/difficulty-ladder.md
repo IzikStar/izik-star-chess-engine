@@ -22,7 +22,7 @@ ladder was chosen: `docs/difficulty-ladder-research.md`.
 
 The built-in levels search one ply deeper with 9-12 pieces left and two deeper with 8 or fewer,
 and stop deepening at 5 s (`MinimaxEngine.TIME_CAP_MS`). Without Stockfish, Levels 9-13 play
-Level 8 and the game says so. Hints are Stockfish at full strength.
+Level 8 and the game says so. Hints are Stockfish at full strength, 4 s a move.
 
 The Elo column is the research measurement (20-100 games a pairing, about ±100 per level), on
 the scale of Stockfish's UCI_Elo: Stockfish's own calibration against the CCRL computer rating
@@ -78,7 +78,7 @@ up to 5 s a move). It writes every finished game to its results file, so an inte
 continues where it stopped when started again with the same command.
 
 ```
-mvn package -DskipTests
+./mvnw package -DskipTests
 java -cp target/izikstar-chess-3.1.0.jar arena.LadderCalibration --games 100 --results ladder-results.txt
 java -cp target/izikstar-chess-3.1.0.jar arena.LadderCalibration --results ladder-results.txt --report-only
 ```

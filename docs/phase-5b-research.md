@@ -1,6 +1,8 @@
 # Phase 5b — Transposition table and move ordering
 
-Branch `phase-5b-search-tt`. The owner asked (2026-10-03) to start straight away, so the
+*Decision record: describes the code at the time of Phase 5b; see [docs/architecture.md](architecture.md) for the current state.*
+
+**Status: DONE — merged** (branch `phase-5b-search-tt`). The owner asked (2026-10-03) to start straight away, so the
 decisions below are the defaults this phase went with, listed so they can be changed, not
 questions waiting for an answer.
 

@@ -2,8 +2,10 @@
 
 Roadmap stage 3 (docs/phase-6-research.md, owner's roadmap of 2026-10-05): "a small NNUE-style
 value net, Python training on CPU, Java inference, on one variant's self-play". Written on the
-night of 2026-10-05/06 while the owner slept, so **nothing here is decided**: §5 lists the choices
-with a recommendation each, and only the groundwork every option needs was built (§4).
+night of 2026-10-05/06 while the owner slept, as choices with a recommendation each (§5) and only
+the groundwork every option needs (§4). **The owner decided on 2026-10-06** (§5): every
+recommendation, except that he writes the trainer himself. Step 1 is merged (PR #62); §6 tracks
+what is left.
 
 ## 1. What a "small net" means here
 
