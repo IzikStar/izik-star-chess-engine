@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="All tests" type="JUnit" factoryName="JUnit">
+    <module name="izikstar-chess" />
+    <!-- The main suite, like `mvn test`: everything except the smoke and stress tags. -->
+    <option name="TEST_OBJECT" value="tags" />
+    <option name="TAGS" value="!smoke &amp; !stress" />
+    <!-- Assertions OFF, like the app and like Surefire. IntelliJ enables -ea by default. -->
+    <option name="VM_PARAMETERS" value="-da" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

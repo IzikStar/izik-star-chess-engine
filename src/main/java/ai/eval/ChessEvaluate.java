@@ -3,10 +3,6 @@ package ai.eval;
 import ai.board.Board;
 import ai.board.Outcome;
 import ai.board.ChessPosition;
-import ai.eval.Evaluator;
-import ai.eval.ParamSchema;
-import ai.eval.ParamSpec;
-import ai.eval.ParamVector;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -254,21 +250,21 @@ public final class ChessEvaluate implements Evaluator {
     }
 
     private static final long[] WHITE_KING_SQUARES = {
-            (BoardParts.Tile.G1.position | BoardParts.Tile.B1.position),
-            (BoardParts.Tile.F1.position | BoardParts.Tile.C1.position),
+            (BoardParts.G1 | BoardParts.B1),
+            (BoardParts.F1 | BoardParts.C1),
             (BoardParts.FIRST_RANK),
             (BoardParts.SECOND_RANK)
     };
 
     private static final long[] BLACK_KING_SQUARES = {
-            (BoardParts.Tile.G8.position | BoardParts.Tile.B8.position),
-            (BoardParts.Tile.F8.position | BoardParts.Tile.C8.position),
+            (BoardParts.G8 | BoardParts.B8),
+            (BoardParts.F8 | BoardParts.C8),
             (BoardParts.EIGHTH_RANK),
             (BoardParts.SEVENTH_RANK)
     };
 
-    private static final long WHITE_KNIGHT_SQUARES = (BoardParts.Tile.F3.position | BoardParts.Tile.C3.position);
-    private static final long BLACK_KNIGHT_SQUARES = (BoardParts.Tile.F6.position | BoardParts.Tile.C6.position);
+    private static final long WHITE_KNIGHT_SQUARES = (BoardParts.F3 | BoardParts.C3);
+    private static final long BLACK_KNIGHT_SQUARES = (BoardParts.F6 | BoardParts.C6);
 
     /** Ranks a pawn advances through, nearest to promotion first. */
     private static final long[] WHITE_PAWN_RANKS = {
@@ -518,8 +514,8 @@ public final class ChessEvaluate implements Evaluator {
         // development
         f[BISHOPS_HOME.index()] = ((b.blackBishops & BoardParts.EIGHTH_RANK) != 0 ? 1 : 0) - ((b.whiteBishops & BoardParts.FIRST_RANK) != 0 ? 1 : 0);
         if (b.numOfTurns < openingUntilTurn) {
-            f[QUEEN_OUT_EARLY.index()] = ((b.blackQueens & BoardParts.Tile.D8.position) == 0 ? 1 : 0)
-                    - ((b.whiteQueens & BoardParts.Tile.D1.position) == 0 ? 1 : 0);
+            f[QUEEN_OUT_EARLY.index()] = ((b.blackQueens & BoardParts.D8) == 0 ? 1 : 0)
+                    - ((b.whiteQueens & BoardParts.D1) == 0 ? 1 : 0);
         }
         f[KNIGHTS_HOME.index()] = ((b.blackKnights & BoardParts.EIGHTH_RANK) != 0 ? 1 : 0) - ((b.whiteKnights & BoardParts.FIRST_RANK) != 0 ? 1 : 0);
         f[KNIGHT_GOOD_SQUARE.index()] = Long.bitCount(b.blackKnights & BLACK_KNIGHT_SQUARES) - Long.bitCount(b.whiteKnights & WHITE_KNIGHT_SQUARES);

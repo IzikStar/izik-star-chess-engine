@@ -196,8 +196,7 @@ checkmate."*
   itself (those deletions are in this branch). `.idea/flatlaf-3.0.jar` is now redundant and can
   be removed whenever.
 - **`out/`** (stale IDE build output) is git-ignored, not tracked; left on disk, harmless.
-- `samples/pgn/` is reference data, unused by code — kept for Phase 5 (game DB) and Phase 2
-  ("avoids mate" repro) fixtures.
+- `samples/pgn/` was reference data, unused by code (removed in the 2026-10 cleanup; see git history).
 - Local Maven install used to verify: `C:\Users\Itschak_Shteren\apache-maven-3.9.11` (not in
   the repo; the committed wrapper is what the project uses).
 

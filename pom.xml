@@ -9,7 +9,7 @@
     <version>3.1.0</version>
     <packaging>jar</packaging>
     <name>IzikStar Chess</name>
-    <description>Chess with a browser UI, a bitboard alpha-beta engine and a Stockfish UCI bridge.</description>
+    <description>Chess and chess variants with a browser UI, an alpha-beta engine, an evolution lab and a Stockfish UCI bridge.</description>
 
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
@@ -25,20 +25,12 @@
         <node.version>v22.22.0</node.version>
         <skip.web>false</skip.web>
 
-        <!-- Surefire test selection. Defaults run the "do not regress" suite and skip
-             both the known-bug tests and the slower end-to-end smoke tests; the
-             `known-bugs` and `smoke` profiles flip these. -->
+        <!-- Surefire test selection. Defaults skip the slower smoke and stress tests;
+             the `smoke` and `stress` profiles flip these. -->
         <surefire.groups></surefire.groups>
-        <surefire.excludedGroups>known-bug,smoke,stress</surefire.excludedGroups>
-        <surefire.testFailureIgnore>false</surefire.testFailureIgnore>
+        <surefire.excludedGroups>smoke,stress</surefire.excludedGroups>
 
-        <!-- Dependency versions: pinned to match the jars previously checked into libs/
-             (see docs/phase-0-notes.md for the one deliberate deviation: okio). -->
-        <retrofit.version>2.9.0</retrofit.version>
         <gson.version>2.8.9</gson.version>
-        <okhttp.version>4.9.3</okhttp.version>
-        <!-- 1.9.25 (was 1.8.0): Javalin 6.7 is built against Kotlin 1.9; the 1.9 stdlib still
-             serves okhttp 4.9.3, which needs >= 1.4. -->
         <kotlin.version>1.9.25</kotlin.version>
         <junit.version>5.10.2</junit.version>
         <javalin.version>6.7.0</javalin.version>
@@ -47,33 +39,12 @@
     </properties>
 
     <dependencies>
-        <!-- ai/openingBook: Retrofit + OkHttp + Gson client for the Lichess API.
-             Currently never invoked at runtime; kept so the package keeps compiling.
-             okio is intentionally NOT pinned here - it resolves transitively from
-             okhttp 4.9.3 (okio 2.8.0). The libs/okio-3.2.0.jar that used to be on
-             the classpath is a 25 KB stub incompatible with this okhttp; see notes. -->
-        <dependency>
-            <groupId>com.squareup.retrofit2</groupId>
-            <artifactId>retrofit</artifactId>
-            <version>${retrofit.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.squareup.retrofit2</groupId>
-            <artifactId>converter-gson</artifactId>
-            <version>${retrofit.version}</version>
-        </dependency>
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
             <version>${gson.version}</version>
         </dependency>
-        <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
-            <version>${okhttp.version}</version>
-        </dependency>
-        <!-- Was checked in explicitly under libs/; okhttp pulls a matching version
-             transitively, but pin it so the migration doesn't silently drop it. -->
+        <!-- Javalin 6.7 is built against Kotlin 1.9; pinned so the stdlib version is explicit. -->
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
             <artifactId>kotlin-stdlib</artifactId>
@@ -125,17 +96,11 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.2</version>
                 <configuration>
-                    <!-- Headless so board/piece construction never needs a display. -->
-                    <argLine>-Djava.awt.headless=true</argLine>
-                    <!-- Mirror how the app actually runs: assertions OFF. Surefire turns
-                         them on by default, which trips a stray `assert` in
-                         BoardState.sameTeam() that the next line already handles. -->
+                    <!-- Mirror how the app actually runs: assertions OFF. -->
                     <enableAssertions>false</enableAssertions>
-                    <!-- Driven by properties so the `known-bugs` profile can flip them
-                         without a fragile config merge (see docs/phase-0-notes.md). -->
+                    <!-- Driven by properties so the profiles below can flip them. -->
                     <groups>${surefire.groups}</groups>
                     <excludedGroups>${surefire.excludedGroups}</excludedGroups>
-                    <testFailureIgnore>${surefire.testFailureIgnore}</testFailureIgnore>
                 </configuration>
             </plugin>
 
@@ -231,31 +196,14 @@
     </build>
 
     <profiles>
-        <!-- mvn test -Pknown-bugs
-             Runs ONLY the tests tagged "known-bug". These assert the CORRECT chess
-             behavior and are expected to FAIL against the current engine; each one is
-             a concrete "is this fixed yet" signal for a later phase. The build still
-             succeeds (testFailureIgnore) - the failure report is the deliverable. -->
-        <profile>
-            <id>known-bugs</id>
-            <properties>
-                <surefire.groups>known-bug</surefire.groups>
-                <surefire.excludedGroups>smoke,stress</surefire.excludedGroups>
-                <surefire.testFailureIgnore>true</surefire.testFailureIgnore>
-            </properties>
-        </profile>
-
         <!-- mvn test -Psmoke
-             Runs ONLY the @Tag("smoke") end-to-end tests (AppSmokeTest): a full scripted
-             game to checkmate through the OO rules path, a full random game in the bitboard
-             engine. These MUST pass; they are the
-             automated stand-in for the manual play-through the refactor guide left owed. -->
+             Runs ONLY the @Tag("smoke") end-to-end tests (AppSmokeTest): full games through
+             the rules API and the search board. These MUST pass. -->
         <profile>
             <id>smoke</id>
             <properties>
                 <surefire.groups>smoke</surefire.groups>
                 <surefire.excludedGroups>stress</surefire.excludedGroups>
-                <surefire.testFailureIgnore>false</surefire.testFailureIgnore>
             </properties>
         </profile>
 
@@ -270,7 +218,6 @@
             <properties>
                 <surefire.groups>stress</surefire.groups>
                 <surefire.excludedGroups></surefire.excludedGroups>
-                <surefire.testFailureIgnore>false</surefire.testFailureIgnore>
             </properties>
         </profile>
     </profiles>

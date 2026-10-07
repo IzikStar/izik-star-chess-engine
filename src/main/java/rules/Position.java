@@ -137,22 +137,6 @@ public final class Position {
         return fullmoveNumber;
     }
 
-    public boolean canCastleWK() {
-        return castleWK;
-    }
-
-    public boolean canCastleWQ() {
-        return castleWQ;
-    }
-
-    public boolean canCastleBK() {
-        return castleBK;
-    }
-
-    public boolean canCastleBQ() {
-        return castleBQ;
-    }
-
     /** Every piece letter currently on the board, in no particular order. */
     public List<Character> pieces() {
         List<Character> out = new ArrayList<>();

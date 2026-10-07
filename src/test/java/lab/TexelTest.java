@@ -80,20 +80,11 @@ class TexelTest {
     }
 
     @Test
-    @DisplayName("Kept positions are past the opening, not in check, and followed by a quiet move")
-    void quietPositions() {
+    @DisplayName("A randomized opening adds the requested number of legal moves")
+    void randomizedOpening() {
         Opening line = Texel.randomized(Opening.suite().getFirst(), 4, new Random(1));
         assertEquals(Opening.suite().getFirst().moves().size() + 4, line.moves().size());
         Game game = new Game();
         line.moves().forEach(game::play);
-        List<String> moves = new ArrayList<>(line.moves());
-        for (int i = 0; i < 30 && !game.status().isGameOver(); i++) {
-            String uci = game.legalMoves().getFirst().toUci();
-            game.play(uci);
-            moves.add(uci);
-        }
-        List<String> quiet = Texel.quietPositions(new GameRecord("a", "b", "x", moves, GameRecord.Result.DRAW, "", 0));
-        assertFalse(quiet.isEmpty());
-        quiet.forEach(fen -> assertFalse(Rules.isCheck(fen), fen));
     }
 }

@@ -55,3 +55,6 @@ playtest/*/ranking.csv
 
 # code-review-graph local index
 .code-review-graph/
+
+# Python bytecode
+__pycache__/

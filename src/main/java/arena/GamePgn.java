@@ -18,12 +18,7 @@ public final class GamePgn {
 
     private GamePgn() {}
 
-    /** One game. {@code depth} 0 leaves the depth out. */
-    public static String write(GameRecord g, String event, int round, int depth) {
-        return write(ai.variant.Variants.CHESS, g, event, round, depth);
-    }
-
-    /** One game of {@code variant}, which gets its {@code Variant} tag. */
+    /** One game of {@code variant}, which gets its {@code Variant} tag; {@code depth} 0 leaves the depth out. */
     public static String write(ai.variant.Variant variant, GameRecord g, String event, int round, int depth) {
         Game game = new Game(variant);
         List<MoveResult> moves = new ArrayList<>();

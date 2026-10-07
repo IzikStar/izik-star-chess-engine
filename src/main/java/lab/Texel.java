@@ -102,19 +102,6 @@ public final class Texel {
         return new Opening(opening.name() + " +" + extra, moves);
     }
 
-    /** The positions of {@code record} where the side to move was not in check and played a quiet move. */
-    static List<String> quietPositions(GameRecord record) {
-        Game game = new Game();
-        List<String> quiet = new ArrayList<>();
-        for (String uci : record.moves()) {
-            MoveResult m = game.play(uci);
-            if (game.plyCount() > SKIP_PLIES && !m.isCapture() && !m.isPromotion() && !Rules.isCheck(m.fenBefore())) {
-                quiet.add(m.fenBefore());
-            }
-        }
-        return quiet;
-    }
-
     // ---- positions as features ---------------------------------------------------------------
 
     /**

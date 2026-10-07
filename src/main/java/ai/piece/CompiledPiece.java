@@ -119,18 +119,6 @@ public final class CompiledPiece {
                 && java.util.Arrays.deepEquals(leapMoves, leapCaptures);
     }
 
-    public PieceType type() {
-        return type;
-    }
-
-    public Grid grid() {
-        return grid;
-    }
-
-    public int player() {
-        return player;
-    }
-
     /**
      * The squares of group {@code g}'s rays from {@code square}, each up to and including the first
      * occupied one.

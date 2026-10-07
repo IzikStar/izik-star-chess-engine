@@ -46,9 +46,4 @@ public record CastlingRule(boolean enabled, int steps, Partner partner, Sides si
             throw new IllegalArgumentException("castling needs a partner landing and sides");
         }
     }
-
-    /** True when this castles exactly as chess does (or not at all, when {@code enabled} is off). */
-    public boolean chessLike() {
-        return steps == 0 && partner == Partner.INSIDE && sides == Sides.BOTH && safePassage;
-    }
 }

@@ -7,7 +7,7 @@ Elo rising by roughly the same amount from each level to the next. This note has
 measurements and the proposed ladder; nothing in the code has changed yet.
 
 All numbers come from the cloud container (4 cores, JDK 21, Stockfish 16 from apt). The raw
-output and the probe programs are in `docs/ladder-data/`.
+output and the probe programs were in `docs/ladder-data/` (removed once `arena.LadderCalibration` replaced them; see git history).
 
 ## 1. The ladder today
 
