@@ -305,7 +305,7 @@ textarea.pgn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1
   .board-area { order: 2; }
   .side > .player.bottom { order: 3; }
   .side > .status { order: 4; }
-  .side > .ask, .side > .notice, .side > .result, .side > .variant-tag { order: 5; }
+  .side > .ask, .side > .notice, .side > .result, .side > .fun-test, .side > .variant-tag { order: 5; }
   .side > .controls { order: 6; }
   .side > .nav { order: 9; }
 }
@@ -589,3 +589,12 @@ label.btn.disabled { opacity: 0.5; cursor: default; pointer-events: none; }
 .tour-step { font-size: 12px; font-weight: 700; color: var(--accent); }
 .tour-target { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 8px; position: relative; z-index: 51; }
 @media (prefers-reduced-motion: reduce) { .tour-card { animation: none; } }
+
+/* the blind fun test's question, under a fun-test variant's result (docs/fun-test.md) */
+.fun-test { padding: 12px 14px; border: 1px dashed var(--line); border-radius: 10px; background: var(--surface); display: flex; flex-direction: column; gap: 8px; text-align: center; }
+.fun-test-name { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; }
+.fun-test-name input { min-width: 0; width: 12em; }
+.fun-test-q { margin: 0; font-weight: 600; }
+.fun-test-scale { display: flex; gap: 6px; justify-content: center; }
+.fun-test-scale .btn { min-width: 2.6em; }
+.fun-test-hint { margin: 0; color: var(--muted); font-size: 0.9em; }

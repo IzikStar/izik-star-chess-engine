@@ -18,6 +18,7 @@ import { play } from './sounds';
 import { inventedReach } from './reach';
 import { Icon } from './icons';
 import { Confetti } from './Confetti';
+import { FunTestCard } from './FunTestCard';
 import { Tour } from './Tour';
 
 const EMPTY = new Map<string, string[]>();
@@ -462,6 +463,10 @@ export function App() {
                 )}
               </div>
             </section>
+          )}
+
+          {over && variant.startsWith('fun-test-') && config.mode !== 'computer' && (
+            <FunTestCard variant={variant} game={state.savedId ?? null} />
           )}
 
           <AnalysisPanel analysis={analysis} ply={ply} onPick={goTo} onRetry={analyse} />
