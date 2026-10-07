@@ -1,5 +1,7 @@
 # Phase 2 — Unify the board representation and the rules engine
 
+*Decision record: describes the code at the time of Phase 2; see [docs/architecture.md](architecture.md) for the current state.*
+
 **Status: COMPLETE — merged to `master` 2026-09-06.** All 7 increments landed on branch
 `phase-2-unify-rules-engine` (7 commits, `31c1ae2`..`612f2cf`), then merged `--no-ff`.
 Baseline was `master` @ `3a01bc8` (post Phase 1 merge): `./mvnw test` → 23 green, `-Psmoke` →
@@ -27,8 +29,8 @@ it does bias the fork decisions toward a headless, network-serialisable core —
 
 | Method | What it does | Live callers |
 |---|---|---|
-| `isMoveCausesCheck(Move)` | ray-cast from the king after a hypothetical move | `BoardState.isValidMove` ([BoardState.java:241](../src/main/java/ai/BoardState.java#L241)); `King.canCastle` ([King.java:46,54](../src/main/java/pieces/King.java#L46)) |
-| `isGameOver(Piece king)` | brute force: every friendly piece × every square → build `Move` → `isValidMove`; **writes `Board.selectedPiece` mid-loop** ([CheckScanner.java:117](../src/main/java/main/CheckScanner.java#L117)) | `BoardState.getAccurateStatus` (525), `BoardState.getStatus` (757), `Board.updateGameState` (522) |
+| `isMoveCausesCheck(Move)` | ray-cast from the king after a hypothetical move | `BoardState.isValidMove` (`BoardState.java:241`); `King.canCastle` (`King.java:46,54`) |
+| `isGameOver(Piece king)` | brute force: every friendly piece × every square → build `Move` → `isValidMove`; **writes `Board.selectedPiece` mid-loop** (`CheckScanner.java:117`) | `BoardState.getAccurateStatus` (525), `BoardState.getStatus` (757), `Board.updateGameState` (522) |
 | `isChecking(BoardState)` | "is the side to move in check" | `Board.paintComponent` (105,120), `Board.updateGameState` (523,560), `myEngine.getRandomMove` (182) |
 | `isCheckingForClone(BoardState)` | "did the side that just moved leave its own king in check" | `BoardState.makeMoveToCheckIt` (463) |
 | `isCheckingForEvaluation(BoardState)` | same as `isChecking` with a null-guard + debug print | `BoardState.getIsCheck` (764) → `getAccurateStatus` |
@@ -49,9 +51,9 @@ promotion all handled in generation, mate as `MAX`/`MIN`, stalemate as `0`.
 
 **Path 3 — simulate-and-revert, triggered by PGN string formatting.**
 
-`Board.makeMove` → `Move.setRepresentation()` ([Move.java:61](../src/main/java/main/Move.java#L61))
+`Board.makeMove` → `Move.setRepresentation()` (`Move.java:61`)
 → `getStatusString()` (135) → `BoardState.makeMoveAndGetStatus(this)`
-([BoardState.java:481](../src/main/java/ai/BoardState.java#L481)) mutates the live board (moves the
+(`BoardState.java:481`) mutates the live board (moves the
 piece, toggles the turn, removes any capture), calls `getAccurateStatus()` (Path 1), then
 `loadPiecesFromFen(tempFen)` to roll back. Formatting a move re-derives check/mate/draw a third
 time, on the real board object.
@@ -90,10 +92,10 @@ while `getAllPossibleMovesForASide()` iterates it → the characterized `Concurr
   and one transit square (kingside also checks `isChecking`; **queenside does not check the current
   square for check**), and `Board.moveKing` / `BoardState.moveKingForClone` execute the rook hop.
 - *Promotion:* bitboard generates all four promotion pieces. The OO clone path hard-codes `"q"`
-  ([BoardState.java:642](../src/main/java/ai/BoardState.java#L642)) and the live path defers to a
+  (`BoardState.java:642`) and the live path defers to a
   Swing dialog or an engine field.
 - *En passant:* both models implement it; the OO FEN writer's target-square math
-  (`fromR + colorIndex % 8`, [BoardState.java:328](../src/main/java/ai/BoardState.java#L328)) has an
+  (`fromR + colorIndex % 8`, `BoardState.java:328`) has an
   operator-precedence bug.
 
 ### 1.4 Consumers that must be re-pointed at the unified authority
@@ -112,7 +114,7 @@ while `getAllPossibleMovesForASide()` iterates it → the characterized `Concurr
 ### 1.5 Object model ↔ rendering entanglement (guide research item: "how deeply is `Piece` relied on for rendering vs rules")
 
 `pieces.Piece` carries `col,row` **and** `xPos,yPos` **and** `sprite`, and decodes
-`/pieces.png` in an instance initialiser ([Piece.java:24-31](../src/main/java/pieces/Piece.java#L24)).
+`/pieces.png` in an instance initialiser (`Piece.java:24-31`).
 `King`/`Pawn`/etc. constructors read `Board.tileSize` and `ChoosePlayFormat.isPlayingWhite`. So
 every `BoardState` built from a FEN — including every clone in the mutate-revert paths — decodes
 and rescales an image six-plus times. Rules never touch `xPos/yPos/sprite`; the renderer never
@@ -183,13 +185,13 @@ flipped from 'characterized bug' to 'correct' as part of this phase."
 - Queenside castling through an attacked square, OO path (`King.canCastle` skips the check).
   Still open — increment 3 (when the OO path is re-pointed at the facade).
 - `BitBoard(BoardState)` black-kingside-rook branch set `canBlackCastleQueenSide = false` instead
-  of `canBlackCastleKingSide` ([BitBoard.java:96-99](../src/main/java/ai/BitBoard/BitBoard.java#L96)).
+  of `canBlackCastleKingSide` (`BitBoard.java:96-99`).
   **Corrected increment 2**, but note this is currently a *latent* typo: lines 119-122 of the same
   constructor unconditionally copy `boardState.canWhite/BlackCastle*` afterwards, overriding the
   whole per-piece castling block. No behavioural change today; the redundant per-piece block goes
   when `BitBoard(BoardState)` is retired in Phase 3.
 - `BitMove(long, Move, int, int, boolean, boolean)` is an empty stub
-  ([BitMove.java:39](../src/main/java/ai/BitBoard/BitMove.java#L39)); `new BitBoard(BoardState)`
+  (`BitMove.java:39`); `new BitBoard(BoardState)`
   builds `lastMove` from it, so a bitboard made from a real `BoardState` has a hollow `lastMove`.
   Currently benign — the search reads child `lastMove`s (set correctly by `getNewBoardFromMove`),
   never the root's. Deferred to Phase 3 with the rest of the `BoardState → BitBoard` bridge; the

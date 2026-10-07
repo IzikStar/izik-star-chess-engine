@@ -9,9 +9,9 @@ in the browser: the jar starts a small local server and opens the game.
 *An Italian Game in progress. Yellow marks the last move, dots show where the selected bishop
 can go, and the green arrow is a hint the player asked for (castle).*
 
-I started this as a personal project in 2024. It is now going through a planned, test-first
-refactor, which is documented phase by phase in this repository (see
-[Architecture and refactor](#architecture-and-the-ongoing-refactor)). This public repository
+I started this as a personal project in 2024 and rebuilt it in a planned, test-first refactor,
+documented phase by phase in this repository (see
+[Architecture and the refactor](#architecture-and-the-refactor)). This public repository
 starts from a cleaned copy of the original private one; pull request numbers in the docs up to
 Phase 4c (#2 to #6) refer to that repository.
 
@@ -83,131 +83,57 @@ Phase 4c (#2 to #6) refer to that repository.
 
 ## How the engine works
 
-Everything below describes code that runs today. Parts that exist but are not wired in yet are
-marked as such.
+A short summary; [docs/architecture.md](docs/architecture.md) has the details.
 
-### Pieces as data, one board
+- **Pieces as data, one board.** A piece is a list of leaps and slides
+  ([`ai/piece/`](src/main/java/ai/piece/)); the six chess pieces are defined that way in
+  [`StandardPieces`](src/main/java/ai/piece/StandardPieces.java), and a new piece is a new
+  definition, not new code. [`GenericBoard`](src/main/java/ai/board/GenericBoard.java) plays any
+  such piece set with bitboards and immutable positions; everything else talks to the
+  [`Board`](src/main/java/ai/board/Board.java) interface.
+- **One rules authority.** The headless [`rules`](src/main/java/rules/) package wraps the board:
+  give it a FEN, and `rules.Rules` returns the legal moves (in UCI, e.g. `e2e4`), the status
+  (check, mate, stalemate or draw) and SAN. Perft tests check the move generator against
+  published counts and Stockfish.
+- **Search.** [`ai/Minimax.java`](src/main/java/ai/Minimax.java): alpha-beta with iterative
+  deepening (stops at 5 s or when the game moves on), a transposition table, killer and history
+  move ordering, quiescence through captures, and repetition detection. Depth comes from the
+  level (1 ply at Level 2 to 7 plies at Level 8, deeper once the board thins out); any root move
+  within 0.2 pawn of the best may be played, so games vary.
+- **Evaluation.** [`ai/eval/ChessEvaluate.java`](src/main/java/ai/eval/ChessEvaluate.java): 499
+  named, bounded parameters in centipawns, each with a middlegame and an endgame value blended by
+  the material left: material, piece-square tables, pawn structure, king safety, castling,
+  development, piece placement, mobility and threats. The game plays with `tuned-v1` (fitted by
+  Texel tuning) by default; `classic` (pawn 100, knight 300, bishop 330, rook 500, queen 900, the
+  original hand-tuned engine) can be picked in the *New game* dialog.
+- **Stockfish bridge.** [`engine/StockfishEngine.java`](src/main/java/engine/StockfishEngine.java)
+  keeps one Stockfish process for the session over UCI and checks every suggested move against
+  the program's own rules. Levels 9-12 hold it to a UCI_Elo of 2150, 2400, 2650 and 2900 at
+  500 ms a move; Level 13 plays full strength at 1 s, and hints full strength at 4 s. If
+  Stockfish crashes it is restarted, and if it is missing or keeps failing the built-in engine
+  takes over.
 
-A piece is data ([`ai/piece/`](src/main/java/ai/piece/)): a list of *atoms*, each a leap (a
-fixed offset, like the knight's (1,2)) or a slide (a direction until blocked, with an optional
-range), marked move, capture or both, with a symmetry (all eight directions, mirrored left-right,
-or one) and optionally "first move only". A piece type adds whether it is royal, what it promotes
-to, en passant and castling roles, and a starting value. The six chess pieces are defined this
-way in [`StandardPieces`](src/main/java/ai/piece/StandardPieces.java); a new piece is a new
-definition, not new code (Phase 6, [research](docs/phase-6-research.md)).
-
-[`ai/board/GenericBoard.java`](src/main/java/ai/board/GenericBoard.java) plays any such piece
-set ([`BoardRules`](src/main/java/ai/board/BoardRules.java): pieces, grid, start position). It
-stores one 64-bit mask per player and piece type, plus side to move, castling rights (found from
-the start position), the en-passant square, unmoved pieces and the move clocks. Making a move
-returns a **new** position, so positions are immutable and the search has nothing to undo.
-Everything else (search, rules, evaluation) talks to the [`Board`](src/main/java/ai/board/Board.java)
-interface, with players numbered from 0 and squares as plain ids.
-
-### Move generation
-
-Each piece is compiled once into per-square tables
-([`CompiledPiece`](src/main/java/ai/piece/CompiledPiece.java)): one mask of leap targets, and for
-slides the squares of each ray, so the first piece in the way is the lowest or highest set bit of
-"ray AND occupied". Moves that leave the mover's royal piece attacked are dropped. A square is
-attacked by a piece exactly when the same piece of the other side, standing on that square, would
-attack the attacker, so one table serves both questions; the test is skipped for moves that
-provably cannot expose the king.
-
-Perft tests count the moves to a fixed depth in 23 positions and compare the totals with the
-published values and with Stockfish (Phase 4b).
-
-Since Phase 2 of the refactor, this generator is the **only** rules authority in the program.
-The headless [`rules`](src/main/java/rules/) package wraps it in a small API with no Swing or
-AWT dependency: give it a FEN string, and `rules.Rules` returns the legal moves (in UCI notation,
-e.g. `e2e4`), the position status (check, mate, stalemate or draw) and the position after a move.
-
-### Search
-
-[`ai/Minimax.java`](src/main/java/ai/Minimax.java) runs a **minimax search with alpha-beta
-pruning** over `Board` positions:
-
-- **Transposition table.** The depths of one search share a table keyed by a Zobrist hash of
-  everything the evaluation reads (pieces, side to move, castling rights, en passant, move
-  number). A position already searched deeply enough returns its stored score or bound, and every
-  position tries first the move that was best there one depth earlier. Up to 16 MB per search.
-- **Move ordering.** After the table's move: captures, most valuable victim first and cheapest
-  attacker first; then the two "killer" quiet moves that cut the search off at the same ply; then
-  quiet moves by how often they cut off elsewhere (history). With the table this makes the
-  middlegame search at depth 6 about 5 times faster, and it finds the same score as before at
-  every depth ([Phase 5b research](docs/phase-5b-research.md)).
-- **Depth and time.** Depth comes from the difficulty level, from 1 ply at level 2 to 7 plies at
-  level 8, and 1-2 plies deeper once the board thins out to 12 or fewer pieces. The search
-  deepens one ply at a time and stops after 5 seconds, playing the move of the deepest depth it
-  finished; it also stops at once when the game moves on (take-back, new game). Level 6 finishes
-  its full depth in well under a second and Level 7 its depth 6 in under 1.5 seconds in the
-  benchmark positions.
-- **Quiescence.** When the depth runs out the search does not stop in the middle of an
-  exchange: it plays on through captures and queen promotions until the position is quiet, so
-  it never counts a piece that is about to be taken back. At the same depth this wins about 90%
-  of the points against the search without it.
-- **Repetition.** Positions get Zobrist hashes (keyed per player and piece type in
-  [`BoardRules`](src/main/java/ai/board/BoardRules.java)). A per-branch stack
-  ([`BoardStateTracker`](src/main/java/ai/BoardStateTracker.java)) uses them to spot threefold
-  repetition inside the search tree.
-- **Variety.** Any root move scoring within 0.2 pawn of the best may be played, picked at
-  random, so the engine does not repeat the same game. It never passes up a forced mate.
-
-### Evaluation
-
-[`ai/eval/ChessEvaluate.java`](src/main/java/ai/eval/ChessEvaluate.java) scores a
-position with hand-written terms, mostly computed with bit masks and popcounts. Since Phase 5
-every weight is a named, bounded parameter (about 500 of them, saved and loaded as JSON), each
-with a middlegame and an endgame value blended by the material left; the defaults reproduce the
-hand-tuned engine, and new terms start at 0 for evolution to switch on. The terms:
-
-- material (P=10, N=30, B=33, R=50, Q=90)
-- pawn advancement, with a bonus for central pawns
-- king placement in the opening (castled-side squares are preferred)
-- castling, and castling rights lost
-- mobility and threats: how many squares each side attacks, and which enemy and own pieces are
-  under attack
-- development: knights and bishops off the back rank, an early queen sortie penalised, knights
-  on their natural squares
-
-Checkmate and stalemate are scored as terminal values.
-
-### Opening book
-
-There is an [`ai/openingBook`](src/main/java/ai/openingBook/) package: a file-backed book
-format and a Retrofit/OkHttp client for the Lichess API. **It is not used during play yet.** Nothing
-calls it, and wiring it in is planned for Phase 5.
-
-### Stockfish bridge
-
-[`engine/StockfishEngine.java`](src/main/java/engine/StockfishEngine.java) starts a Stockfish
-process and talks to it over the UCI protocol through stdin and stdout. The suggested move is
-checked against the program's own rules before it is played. One Stockfish process serves the
-whole session: the UCI handshake runs once, and each move sends the game's moves so far.
-Levels 9-12 hold Stockfish to a UCI_Elo of 2150, 2400, 2650 and 2900 and let it think 500 ms;
-Level 13 and hints use full strength and 1000 ms. If Stockfish crashes it is restarted, and if it is missing or
-keeps failing the built-in engine takes over.
-
-## Architecture and the ongoing refactor
+## Architecture and the refactor
 
 ```
 src/main/java/
 ├── rules/          headless rules API: FEN in, legal moves / status / SAN out; one game's history
 ├── ai/             Minimax search, transposition table
 │   ├── board/      the Board interface and the generic board that plays any piece set
-│   ├── piece/      pieces as data: atoms, piece types, the six chess pieces, compiled tables
-│   ├── eval/       the evaluation: parameter vectors and the chess evaluation
-│   └── openingBook/  (not wired in yet)
-│   └── variant/    a variant: pieces, start position, goal (chess, antichess, made ones)
+│   ├── piece/      pieces as data: atoms, piece types, the six chess pieces, compiled tables, Betza
+│   ├── variant/    a variant: pieces, start position, rules (chess, antichess, made ones)
+│   └── eval/       the evaluations: parameter vectors, the chess evaluation, any piece set, the network
 ├── engine/         Engine interface: the built-in search, Stockfish, and which one plays a level
 ├── game/           GameSession: turn-taking, the engine thread, events for any front end;
 │                   saved games, the player's variants
-├── arena/          engine against engine: matches, tournaments, openings, Elo, Stockfish as a player
+├── analysis/       game analysis with Stockfish
+├── arena/          engine against engine: matches, tournaments, openings, Elo, outside players
 ├── evolution/      the Evolution API and the algorithms (FromZero, MaterialExperiment, the example)
-├── lab/            runs: the runner, the SQLite record, the hall of fame, Texel tuning, training data, the CLI,
-│                   the variant health check
+├── lab/            runs: the runner, the SQLite record, the hall of fame, Texel tuning, training data,
+│                   the CLI, the variant health check, the fun test
+├── cloud/          sharing runs, games and variants between copies through Cloudflare D1
 └── web/            local web server: the browser UI's files, the game over one WebSocket, and the
-                    HTTP APIs (games, variants, analysis, the Lab's runs and jobs)
+                    HTTP APIs (games, variants, health check, analysis, fun test, sync, the Lab)
 web/                the browser UI: React + TypeScript (Vite), board by react-chessboard;
                     web/src/lab/ is the Lab's screens
 ```
@@ -216,14 +142,14 @@ Lower layers never import higher ones, and nothing below `web` imports Swing, AW
 server; a test (`architecture.LayeringTest`) fails the build otherwise. The browser never
 decides what is legal: the server sends it the legal moves with every position.
 
-The code started as a single-developer IntelliJ project that grew features faster than
-structure. Two documents describe it honestly instead of hiding the problems:
+The code started in 2024 as a single-developer IntelliJ project that grew features faster than
+structure, and was rebuilt in a planned, test-first refactor:
 
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** maps the system as it actually is, including its
-  flaws, ranked: UI and game logic mixed together, global mutable state reaching into the
-  search, and inconsistent concurrency.
-- **[REFACTOR_GUIDE.md](REFACTOR_GUIDE.md)** is the phased plan to fix it. Each phase requires
-  a research step, a test safety net and explicit exit criteria.
+- **[docs/architecture.md](docs/architecture.md)** maps the code as it is now.
+- **[REFACTOR_GUIDE.md](REFACTOR_GUIDE.md)** is the phased plan. Each phase required a research
+  step, a test safety net and explicit exit criteria.
+- **[docs/history/architecture-before-refactor.md](docs/history/architecture-before-refactor.md)**
+  is the map of the code as found, with its flaws ranked, and how each phase changed it.
 
 | Phase | Goal | Status |
 |---|---|---|
@@ -235,8 +161,10 @@ structure. Two documents describe it honestly instead of hiding the problems:
 | 4b | Fix the move generator's rule bugs; make the search fast enough for Levels 6-7 | Done ([research](docs/phase-4b-research.md)) |
 | 4c | Replace the Swing screens with a browser UI | Done ([research](docs/ui-research.md)) |
 | 5 | Groundwork for an engine that learns by self-play evolution | Done: parameters, quiescence, arena, run record, Lab ([research](docs/phase-5-research.md)) |
+| 5b | A working transposition table and move ordering | Done ([research](docs/phase-5b-research.md)) |
 | 6 | Pieces as data: any piece set and variant on one board, a piece designer, a health check | Done R1-R5 ([research](docs/phase-6-research.md)) |
 | 6, stage 2 | The Lab runs experiments on any game from the browser; evolution from zero on antichess | Done ([research](docs/phase-6-research.md) §6) |
+| 7 | A small neural network as the evaluation | Step 1 (features, training data, `net:` player) done; the trainer, written by the owner, is next ([research](docs/phase-7-research.md)) |
 
 Phase 2 is a good example of the approach:
 
@@ -258,8 +186,9 @@ java -jar target/izikstar-chess-3.1.0.jar # play: opens http://localhost:7070/ i
 On Windows use `.\mvnw.cmd` (PowerShell needs the `.\`); double-clicking the jar works too. The first `package` downloads its
 own Node.js into `target/` to build the browser UI (`-Dskip.web=true` skips that step). The
 server listens on this computer only; stop it with Ctrl+C or by closing its console. Options:
-`--port N`, `--no-browser`, `--games DIR` (where your games are saved, default `games`), `--variants DIR` (the variants you make, default `variants`), `--lan`
-(see below), `--host ADDR` (listen on that one address only).
+`--port N`, `--no-browser`, `--games DIR` (where your games are saved, default `games`),
+`--variants DIR` (the variants you make, default `variants`), `--runs DIR` (the Lab's runs,
+default `runs`), `--lan` (see below), `--host ADDR` (listen on that one address only).
 
 **Playing from a phone.** The engine, Stockfish and the lab keep running on the computer; the phone
 only shows the page. Start the jar with `--lan` and it prints the address to open, for example:
@@ -356,7 +285,10 @@ java -cp target/izikstar-chess-3.1.0.jar arena.Cli match champion.json fsf:20000
 ```
 
 [docs/evolution-guide.md](docs/evolution-guide.md) explains the API, the numbers and the traps;
-[docs/experiments/](docs/experiments/) holds the write-ups of the experiments run so far.
+[docs/experiments/](docs/experiments/) holds the write-ups of the experiments run so far:
+[Material 1](docs/experiments/material-1.md) (chess piece values),
+[Antichess from zero 1](docs/experiments/antichess-zero-1.md) and its
+[yardstick follow-up](docs/experiments/antichess-zero-1-yardsticks.md).
 
 ### A network as the evaluation
 
@@ -376,7 +308,6 @@ named. [docs/net-training-guide.md](docs/net-training-guide.md) has the formats 
 ./mvnw test               # main suite: must be green
 ./mvnw test -Psmoke       # end-to-end smoke tests: must be green
 ./mvnw test -Pstress      # long runs, several minutes: must be green
-./mvnw test -Pknown-bugs  # tests that pin known bugs (currently none; see below)
 ```
 
 - **Characterization tests** ([`src/test/java/characterization/`](src/test/java/characterization/))
@@ -403,10 +334,6 @@ named. [docs/net-training-guide.md](docs/net-training-guide.md) has the formats 
   ([`SearchSpeedTest`](src/test/java/engine/SearchSpeedTest.java)).
 - **Smoke tests** ([`AppSmokeTest`](src/test/java/characterization/AppSmokeTest.java)) play a
   scripted game to checkmate, and play a full random game on the search's board.
-- **Known-bug tests** are tagged `known-bug`. They assert the *correct* behaviour and are
-  expected to fail until a phase fixes the bug. The four from Phase 0 were all fixed in Phase 2
-  and became regular tests, so the profile is currently empty.
-
 - **Web server tests** ([`WebServerTest`](src/test/java/web/WebServerTest.java)) drive whole
   games through the WebSocket the way the browser does, with no browser.
 - **Browser tests** ([`web/e2e/`](web/e2e/)) play real games in Chromium against the packaged
@@ -415,8 +342,6 @@ named. [docs/net-training-guide.md](docs/net-training-guide.md) has the formats 
   (listed, reviewed and carried on).
   After `./mvnw package`, run them in `web/` with `npx playwright install chromium` (once) and
   `npm run e2e`.
-
-Tests run with `-Djava.awt.headless=true`, so no display is needed.
 
 ## Optional: Stockfish
 
@@ -452,7 +377,6 @@ name starts with `fairy-stockfish` is found there, or name it with `-Dfairy.path
 `FAIRY_STOCKFISH_PATH`, or put `fairy-stockfish` on your `PATH`. It is GPLv3 and not distributed
 here. Without it, those yardsticks are refused with a message and everything else works.
 
-
 ## Roadmap
 
 - **Done:** every evaluation weight a parameter, a self-play arena, a record of every run, and a
@@ -460,10 +384,9 @@ here. Without it, those yardsticks are refused with a message and everything els
   designer for new pieces and variants.
 - **Now:** a small neural network that reads the board. The data pipeline, the inputs, the
   network file and the Java side are in ([docs/net-training-guide.md](docs/net-training-guide.md));
-  the trainer is being written; then the network in the Lab and the web game, and the data loop
+  the owner is writing the trainer; then the network in the Lab and the web game, and the data loop
   over the engine's own games. Decisions in [docs/phase-7-research.md](docs/phase-7-research.md).
 - **Next:** wider variants (fairy pieces, other boards).
-- **Later:** the online opening book.
 - **Longer term:** split the headless `rules`/engine core into a backend service behind the
   web front end that Phase 4c started.
 

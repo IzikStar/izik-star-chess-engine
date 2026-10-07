@@ -1,16 +1,35 @@
 # Refactor Guide — IzikStar Chess 3.1
 
-This is the macro-level plan for turning the current codebase (mapped in
-[ARCHITECTURE.md](ARCHITECTURE.md)) into something with a real architecture. It is intentionally
+*Decision record: the plan is complete through Phase 6, and Phase 7 is in progress. The code as it
+is now is mapped in [docs/architecture.md](docs/architecture.md). "ARCHITECTURE.md" below is the
+map of the code as found, now
+[docs/history/architecture-before-refactor.md](docs/history/architecture-before-refactor.md).*
+
+| Phase | Goal | Status |
+|---|---|---|
+| 0 | Maven build + characterization tests | Done 2026-09-05 |
+| 1 | Remove dead and parallel code | Done 2026-09-05 |
+| 2 | One board model and one rules engine | Done 2026-09-06 |
+| 3 | Headless rules API, UI decoupled | Done 2026-10-02 |
+| 4 | One concurrency model, one Stockfish session | Done 2026-10-02 |
+| 4b | Move-generator bugs, a fast enough search | Done 2026-10-02 |
+| 4c | Browser UI | Done 2026-10-02 |
+| 5 | Groundwork for self-play evolution | Done |
+| 5b | Transposition table and move ordering | Done |
+| 6 | Pieces as data, variants, the Lab on any game | Done (R1-R5, stage 2) |
+| 7 | A small neural network as the evaluation | In progress: step 1 merged, the trainer next |
+
+This is the macro-level plan for turning the codebase as found (mapped in
+[the history file](docs/history/architecture-before-refactor.md)) into something with a real architecture. It is intentionally
 written at the **phase** level, not the task/PR level — each phase covers weeks of the project's
 attention, not a single sitting, and is expected to fill its own large context window once it's
 actually being executed. Do not try to plan phase 3's implementation details while phase 0 is
 still running; re-derive each phase's concrete plan at the time you start it, using the research
 step below.
 
-This document should be treated as living: update it (and re-sync ARCHITECTURE.md) at the end of
-every phase, because finishing a phase changes the facts the next phase's research will start
-from.
+While the refactor ran, this document was updated (and ARCHITECTURE.md re-synced) at the end of
+every phase, because finishing a phase changes the facts the next phase's research starts from.
+That re-sync is history now: the current map is [docs/architecture.md](docs/architecture.md).
 
 ## How to use this guide
 
@@ -205,7 +224,7 @@ works exactly as before.
 > One reported gameplay bug — *the engine stops playing when it's losing / mate is near* — is
 > **documented, not fixed** (owner deferred it): root cause is the `ChoosePlayFormat` statics
 > flipped around an async search + a swallowed NPE; fix is Phase 3 (retire the statics) +
-> Phase 4 (one concurrency model). See [ARCHITECTURE.md](ARCHITECTURE.md) §2.4.
+> Phase 4 (one concurrency model). See [ARCHITECTURE.md](docs/history/architecture-before-refactor.md) §2.4.
 >
 > Locked decisions (2026-09-05):
 > (1) the **bitboard becomes the single rules authority**, wrapped behind a new Swing-free
@@ -237,7 +256,7 @@ works exactly as before.
 > so nothing to re-point there. `./mvnw test` 49 green, `-Psmoke` 3 green.
 > Left for later: `Piece.isValidMovement` / `moveCollidesWithPiece` / `King.canCastle` are now
 > dead but still present — a Phase 3 `pieces`-restructure cleanup.
-> **Increment 6 done: [ARCHITECTURE.md](ARCHITECTURE.md) re-synced** to the unified state
+> **Increment 6 done: [ARCHITECTURE.md](docs/history/architecture-before-refactor.md) re-synced** to the unified state
 > (§2.1–2.4, §3, §4, §5 #2/#6 RESOLVED, §6). A reported gameplay bug — *the engine stops
 > playing when it's losing / mate is near* — is documented in ARCHITECTURE.md §2.4 with its
 > root cause (`ChoosePlayFormat` statics flipped around an async search + a swallowed NPE);
@@ -490,7 +509,8 @@ end-to-end test green; the existing suites unchanged; Swing UI deleted with the 
 > **Built on branch `phase-5-evolution` (PR #1):** parameters, quiescence search, move variety,
 > arena, run record and runner, lab page with "play the champion", and the owner's
 > [evolution guide](docs/evolution-guide.md). The text below is the original plan, kept for the
-> history of why.
+> history of why. The unwired `ai/openingBook` client it mentions was deleted in October 2026
+> (PR #65); games are saved as JSON (`game.GameArchive`) and runs in SQLite.
 
 **Goal.** Now that there's a clean, tested, headless rules/engine core, deliver the two
 capabilities that motivated this project in the first place: real opening-book integration and a
@@ -535,7 +555,7 @@ position); both features are covered by tests in the Phase 0 suite's style.
 
 ## Phase 5b — Transposition table and move ordering
 
-> **Status: in review** (branch `phase-5b-search-tt`). Research, decisions and numbers are in
+> **Status: DONE — merged** (branch `phase-5b-search-tt`). Research, decisions and numbers are in
 > [docs/phase-5b-research.md](docs/phase-5b-research.md).
 
 **Goal.** Win back the speed the Phase 5 quiescence search cost, so Level 7 finishes depth 6
@@ -578,15 +598,39 @@ report on the variant.
 
 ---
 
+## Phase 7 — A small neural network as the evaluation
+
+> **Status: IN PROGRESS.** Step 1 merged (PR #62). Research and decisions:
+> [docs/phase-7-research.md](docs/phase-7-research.md); the recipe:
+> [docs/net-training-guide.md](docs/net-training-guide.md).
+
+**Goal.** An evaluation that learns combinations the linear weights cannot express: a 768 → 32 → 1
+network over (side, piece type, square) inputs, trained on engine self-play positions.
+
+**Decided 2026-10-06.** Chess first, then antichess; positions from Stockfish self-play; labels
+mixing the game's result and the engine's score; a PyTorch trainer on CPU; gradient training
+first and the owner's evolution over the training recipes later. The owner writes the trainer;
+Claude writes the data, the encoding and the Java inference.
+
+**Step 1 (done).** The engine's score per position in `fen,result,score`; `NetFeatures`,
+`NetData` and `lab.Cli features` for the training file; `NetEvaluate` and the `net:FILE.json`
+player; `tools/net/` (reader, encoder, forward pass checked against Java).
+
+**Next.** The owner's trainer; then the net against tuned-v1 and Stockfish in the arena, a report
+in `docs/experiments/`, the net in the Lab and the web game, and the data loop over the engine's
+own games.
+
+---
+
 ## Cross-phase notes
 
 - **Do not parallelize phases 2–4.** They each assume the previous phase's exit criteria are
   actually met, not just started. Phase 0 (tests) and Phase 1 (dead code removal) are the
   exception — Phase 1 can start as soon as Phase 0's test suite exists, since it doesn't depend on
   Phase 0 being "complete" in every other sense.
-- **Re-sync ARCHITECTURE.md after Phase 2 and again after Phase 3.** Those two phases change the
-  actual structure the document describes; leaving it stale defeats its purpose for anyone
-  planning the next phase.
+- *(Historical)* **Re-sync ARCHITECTURE.md after Phase 2 and again after Phase 3.** Those two
+  phases changed the structure the document described. It was kept up to date through Phase 6
+  and is now a history file; the current map is [docs/architecture.md](docs/architecture.md).
 - **If a phase's research turns up something that invalidates this guide's assumptions**
   (e.g. Phase 2's research finds the object model is load-bearing in a way that makes retiring it
   much more expensive than expected), that's a reason to update this guide's plan for that phase,

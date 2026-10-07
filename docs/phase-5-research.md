@@ -1,5 +1,7 @@
 # Phase 5 research — groundwork for an engine that learns by self-play evolution
 
+*Decision record: describes the code at the time of Phase 5; see [docs/architecture.md](architecture.md) for the current state.*
+
 Status: **all decisions (E1-E12) approved by the owner 2026-10-02**, E9-E12 after he asked for
 "dozens more parameters" and research into machine learning setting them or a neural network
 that reads the board (§8). Implementation follows §7.

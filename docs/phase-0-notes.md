@@ -1,5 +1,7 @@
 # Phase 0 — Safety net: build tooling + characterization tests
 
+*Decision record: describes the code at the time of Phase 0; see [docs/architecture.md](architecture.md) for the current state.*
+
 Status: **DONE and verified** (Maven 3.9.11 + OpenJDK 26, 2026-09-05).
 Branch: `phase-0-maven-and-characterization-tests`. Everything here is one revertable unit.
 

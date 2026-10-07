@@ -1,5 +1,7 @@
 # Phase 6 — Pieces as data: a board for invented pieces and variants
 
+*Decision record: describes the code at the time of Phase 6; see [docs/architecture.md](architecture.md) for the current state.*
+
 Branch `phase-6-board-interface` (step R1). The owner approved the direction on 2026-10-05: the
 platform should let him invent chess variants, starting with rule switches and **new pieces now**.
 For now a piece is only movement and capture, a fixed function of the board; long term the owner
