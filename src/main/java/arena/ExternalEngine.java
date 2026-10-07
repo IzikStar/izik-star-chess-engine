@@ -31,11 +31,6 @@ public record ExternalEngine(String command, Map<String, String> options, long n
         }
     }
 
-    /** Stockfish held to {@code elo} (UCI_Elo, 1320-3190), {@link #STOCKFISH_NODES} a move, one thread. */
-    public static ExternalEngine stockfish(int elo) {
-        return stockfish(elo, STOCKFISH_NODES);
-    }
-
     /** Stockfish at full strength, {@code nodes} a move, one thread. */
     public static ExternalEngine stockfishFull(long nodes) {
         Map<String, String> options = new LinkedHashMap<>();

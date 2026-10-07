@@ -110,14 +110,6 @@ public class Minimax {
         }
     }
 
-    /** The searched-node count of the last finished depth on this thread, for benchmarks. */
-    private static final ThreadLocal<long[]> LAST_NODES = ThreadLocal.withInitial(() -> new long[1]);
-
-    /** Nodes (main search and quiescence) the last {@code getBestMove} call on this thread visited. */
-    public static long lastNodeCount() {
-        return LAST_NODES.get()[0];
-    }
-
     private Minimax(int searchDepth, Evaluator evaluator, Options options, int rootPlayer,
                     BooleanSupplier stop, SearchState state, long[] gameHistory) {
         this.state = state;
@@ -176,18 +168,14 @@ public class Minimax {
                 ? new SearchState(maxDepth, options) : null;
         Minimax first = new Minimax(1, evaluator, options, rootPlayer, () -> false, state, gameHistory);
         int best = first.search(root);
-        long nodes = first.nodesChecked;
         for (int depth = 2; depth <= maxDepth && !stop.getAsBoolean(); depth++) {
             Minimax next = new Minimax(depth, evaluator, options, rootPlayer, stop, state, gameHistory);
             try {
                 best = next.search(root);
             } catch (Abandoned e) {
                 break;
-            } finally {
-                nodes += next.nodesChecked;
             }
         }
-        LAST_NODES.get()[0] = nodes;
         return best;
     }
 

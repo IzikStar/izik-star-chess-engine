@@ -95,7 +95,7 @@ The reference every chess player knows is lichess / chess.com. Their game screen
 
 A clickable mockup of this layout, using the same position as the screenshots above, is
 published at <https://claude.ai/artifact/8KC9yQbTStkVDeZSAXsL1W> (private to the owner); its
-source is `docs/ui-mockup.html`.
+source (`docs/ui-mockup.html`) was removed once the real UI replaced it.
 
 ## 4. Options
 

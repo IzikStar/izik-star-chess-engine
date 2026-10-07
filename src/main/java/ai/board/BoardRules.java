@@ -209,18 +209,6 @@ public final class BoardRules {
         checksKey = random.nextLong();
     }
 
-    public Variant variant() {
-        return variant;
-    }
-
-    public List<PieceType> types() {
-        return types;
-    }
-
-    public Grid grid() {
-        return grid;
-    }
-
     public List<Castling> castlings() {
         return castlings;
     }

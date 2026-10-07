@@ -16,16 +16,6 @@ public final class RunPgn {
 
     private RunPgn() {}
 
-    /** One game. {@code depth} 0 leaves the depth out. */
-    public static String game(GameRecord g, String event, int round, int depth) {
-        return GamePgn.write(g, event, round, depth);
-    }
-
-    /** One game of {@code variant}. */
-    public static String game(ai.variant.Variant variant, GameRecord g, String event, int round, int depth) {
-        return GamePgn.write(variant, g, event, round, depth);
-    }
-
     /**
      * Writes the games of a run: every generation, or only {@code generation} (-1 for all); only
      * the games of {@code member} when it is 0 or more. Returns how many games it wrote.
@@ -46,7 +36,7 @@ public final class RunPgn {
                     if (member >= 0 && !isMember(g, member, kind, row)) {
                         continue;
                     }
-                    out.write(game(variant, g, event, row.number(), depths.get(i)));
+                    out.write(GamePgn.write(variant, g, event, row.number(), depths.get(i)));
                     out.write('\n');
                     written++;
                 }

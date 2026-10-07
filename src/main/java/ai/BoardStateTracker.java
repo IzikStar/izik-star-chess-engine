@@ -1,10 +1,9 @@
 package ai;
 
-import ai.board.Board;
-
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Stack;
 
 /**
  * The positions on the way to the node being searched: the game's positions before the root
@@ -12,47 +11,33 @@ import java.util.Stack;
  * this path as a draw: whoever wants the draw can repeat it again.
  */
 public class BoardStateTracker {
-    private final Stack<Long> currentBranchStack; // סטאק של המצבים בענף הנוכחי
-    private final Map<Long, Integer> allBoardStates; // מפה של כל המצבים שנבדקו
+    private final Deque<Long> branch = new ArrayDeque<>();
+    private final Map<Long, Integer> counts = new HashMap<>();
 
-    public BoardStateTracker() {
-        currentBranchStack = new Stack<>();
-        allBoardStates = new HashMap<>();
-    }
+    public BoardStateTracker() {}
 
-    /** The game's positions before the root ({@link Board#repetitionKey()}); they are never removed. */
+    /** The game's positions before the root ({@link ai.board.Board#repetitionKey()}); they are never removed. */
     public BoardStateTracker(long[] gameHistory) {
-        this();
         for (long hash : gameHistory) {
-            allBoardStates.merge(hash, 1, Integer::sum);
+            counts.merge(hash, 1, Integer::sum);
         }
     }
 
-    // הוספת מצב חדש לסטאק ולמפה
+    /** Pushes a position onto the line being searched. */
     public void addBoardState(long hash) {
-        currentBranchStack.push(hash);
-        allBoardStates.merge(hash, 1, Integer::sum);
+        branch.push(hash);
+        counts.merge(hash, 1, Integer::sum);
     }
 
-    public void addBoardState(Board board) {
-        addBoardState(board.repetitionKey());
-    }
-
-    // הסרת מצב מהסטאק כשהענף מסתיים
+    /** Pops the last pushed position when its branch is done. */
     public void removeLastBoardState() {
-        if (!currentBranchStack.isEmpty()) {
-            long lastHash = currentBranchStack.pop();
-            int count = allBoardStates.get(lastHash);
-            if (count == 1) {
-                allBoardStates.remove(lastHash);
-            } else {
-                allBoardStates.put(lastHash, count - 1);
-            }
+        if (!branch.isEmpty()) {
+            counts.computeIfPresent(branch.pop(), (h, n) -> n == 1 ? null : n - 1);
         }
     }
 
     /** True when {@code hash} already occurred in the game or on the line being searched. */
     public boolean contains(long hash) {
-        return allBoardStates.containsKey(hash);
+        return counts.containsKey(hash);
     }
 }

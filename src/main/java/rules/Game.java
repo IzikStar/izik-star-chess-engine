@@ -99,12 +99,6 @@ public final class Game {
         return play(ChessMove.fromUci(uci));
     }
 
-    /** True if {@code move} is a pawn reaching the last rank (it needs a promotion piece). */
-    public static boolean isPromotionMove(Position pos, ChessMove move) {
-        char piece = pos.pieceAt(move.from());
-        int toRow = Square.rank8Row(move.to());
-        return (piece == 'P' && toRow == 0) || (piece == 'p' && toRow == 7);
-    }
 
     /**
      * The piece {@code move} promotes to when none is named: the first the moving piece lists, if

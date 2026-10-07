@@ -29,10 +29,6 @@ public final class DrawOffers {
     }
 
     /** The static evaluation from the engine's side (positive: the engine is better). */
-    static int engineScore(String fen, boolean engineIsWhite) {
-        return engineScore(Variants.CHESS, fen, engineIsWhite);
-    }
-
     static int engineScore(Variant variant, String fen, boolean engineIsWhite) {
         var evaluator = Evaluators.usesChessEvaluation(variant) ? Weights.DEFAULT.evaluator() : Evaluators.forVariant(variant);
         return evaluator.evaluate(Boards.fromFen(variant, fen), engineIsWhite ? 0 : 1);

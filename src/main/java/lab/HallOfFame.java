@@ -216,7 +216,7 @@ public final class HallOfFame {
                         ? new GameRecord(g.white().equals(self) ? name : g.white(), g.black().equals(self) ? name : g.black(),
                         g.opening(), g.moves(), g.result(), g.reason(), g.seed())
                         : g;
-                pgn.append(RunPgn.game(variant, named, run.name(), generation, depths.get(i))).append('\n');
+                pgn.append(arena.GamePgn.write(variant, named, run.name(), generation, depths.get(i))).append('\n');
             }
         }
         String fileName = runFile.getFileName().toString();

@@ -45,7 +45,7 @@ public record Player(String name, Evaluator evaluator, int depth, int variety, b
         this(name, evaluator, depth, variety, quiescence, true, 0);
     }
 
-    /** An engine outside this program, e.g. {@code Player.external("sf1500", ExternalEngine.stockfish(1500))}. */
+    /** An engine outside this program, e.g. {@code Player.external("sf1500", ExternalEngine.stockfish(1500, ExternalEngine.STOCKFISH_NODES))}. */
     public static Player external(String name, ExternalEngine engine) {
         return new Player(name, null, 1, 0, true, true, 0, java.util.Objects.requireNonNull(engine));
     }
@@ -57,10 +57,5 @@ public record Player(String name, Evaluator evaluator, int depth, int variety, b
     /** A player with the usual search: quiescence on, the given variety. */
     public static Player of(String name, Evaluator evaluator, int depth, int variety) {
         return new Player(name, evaluator, depth, variety, true);
-    }
-
-    /** The default weights at {@code depth}: the yardstick candidates are measured against. */
-    public static Player yardstick(int depth, int variety) {
-        return of("default", ChessEvaluate.DEFAULT, depth, variety);
     }
 }

@@ -44,27 +44,6 @@ public final class Rules {
         return out;
     }
 
-    /** Legal moves + status from a single board — for callers that need both. */
-    public static Evaluation evaluate(String fen) {
-        return evaluate(Variants.CHESS, fen);
-    }
-
-    public static Evaluation evaluate(Variant variant, String fen) {
-        Board b = Boards.fromFen(variant, fen);
-        return new Evaluation(legalMoves(b), status(variant, b, fen));
-    }
-
-    /** Immutable pair returned by {@link #evaluate(String)}. */
-    public static final class Evaluation {
-        public final List<ChessMove> legalMoves;
-        public final GameStatus status;
-
-        Evaluation(List<ChessMove> legalMoves, GameStatus status) {
-            this.legalMoves = legalMoves;
-            this.status = status;
-        }
-    }
-
     public static boolean isLegal(String fen, ChessMove move) {
         return isLegal(Variants.CHESS, fen, move);
     }
@@ -129,16 +108,8 @@ public final class Rules {
         return goal >= 0 ? java.util.Optional.of(variant.goals().get(goal)) : java.util.Optional.empty();
     }
 
-    public static boolean hasLegalMove(String fen) {
-        return !Boards.fromFen(fen).children().isEmpty();
-    }
-
     public static boolean isCheckmate(String fen) {
         return status(fen) == GameStatus.CHECKMATE;
-    }
-
-    public static boolean isStalemate(String fen) {
-        return status(fen) == GameStatus.STALEMATE;
     }
 
     /**
