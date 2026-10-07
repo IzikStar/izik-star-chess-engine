@@ -338,7 +338,7 @@ export function App() {
     <PieceArt.Provider value={art}>
     <div className="app">
       <header className="topbar">
-        <div className="brand"><span aria-hidden="true">♞</span> IzikStar Chess</div>
+        <div className="brand"><span className="brand-mark" aria-hidden="true"><PieceSvg code="wN" /></span>IzikStar Chess</div>
         <div className="tabs" role="group" aria-label="Screen">
           <button type="button" className={'btn ghost' + (page === 'game' ? ' on' : '')} aria-pressed={page === 'game'} onClick={() => showPage('game')}>Game</button>
           <button type="button" className={'btn ghost' + (page === 'games' ? ' on' : '')} aria-pressed={page === 'games'} data-tour="games" onClick={() => showPage('games')}>My games</button>
@@ -488,24 +488,24 @@ export function App() {
               setPremoves([]);
               play('back', soundOn);
               send({ type: 'undo' });
-            }}><b aria-hidden="true">↶</b>Take back</button>
+            }}><Icon name="undo" />Take back</button>
             {settings.hints && (
               <button type="button" className="icon labelled" disabled={!live || !state.humanTurn || state.hintPending}
                 title={hintLevel === null ? 'The strongest move' : `What Level ${hintLevel} would play`}
-                onClick={() => send({ type: 'hint', level: hintLevel })}><b aria-hidden="true">✦</b>Hint</button>
+                onClick={() => send({ type: 'hint', level: hintLevel })}><Icon name="hint" />Hint</button>
             )}
-            <button type="button" className="icon labelled" onClick={() => setFlipped(!flipped)}><b aria-hidden="true">⇅</b>Flip board</button>
+            <button type="button" className="icon labelled" onClick={() => setFlipped(!flipped)}><Icon name="flip" />Flip board</button>
             <button type="button" className="icon labelled" disabled={!isChess || moves.length === 0 || analysis.status === 'running'}
-              title={isChess ? undefined : 'Stockfish analyses chess games only'} onClick={analyse}><b aria-hidden="true">≋</b>Analyse</button>
+              title={isChess ? undefined : 'Stockfish analyses chess games only'} onClick={analyse}><Icon name="analyse" />Analyse</button>
             <button type="button" className="icon labelled" disabled={!live || !state.canOfferDraw} onClick={() => {
               setNotice(null);
               send({ type: 'offerDraw' });
-            }}><b aria-hidden="true">½</b>Offer draw</button>
-            <button type="button" className="icon labelled" disabled={!state.canResign} onClick={() => setConfirmResign(true)}><b aria-hidden="true">⚑</b>Resign</button>
+            }}><Icon name="draw" />Offer draw</button>
+            <button type="button" className="icon labelled" disabled={!state.canResign} onClick={() => setConfirmResign(true)}><Icon name="flag" />Resign</button>
             <button type="button" className="icon labelled" onClick={() => {
               setPgnError(null);
               setPgnOpen(true);
-            }}><b aria-hidden="true">⎘</b>PGN</button>
+            }}><Icon name="pgn" />PGN</button>
           </div>
         </aside>
       </main>
@@ -576,7 +576,7 @@ function PlayerCard({ state, color, fen, live, receivedAt, place }: { state: Gam
   const toMove = live && !isOver(state) && state.turn === color;
   return (
     <div className={'player ' + place + (toMove ? ' to-move' : '')} data-testid={`player-${color}`}>
-      <div className="avatar" aria-hidden="true">{isEngine ? '⚙' : <PieceSvg code={color === 'white' ? 'wK' : 'bK'} />}</div>
+      <div className="avatar" aria-hidden="true">{isEngine ? <Icon name="engine" /> : <PieceSvg code={color === 'white' ? 'wK' : 'bK'} />}</div>
       <div className="who">
         <div className="name">{name}</div>
         <div className="detail">{detail}</div>
