@@ -3,7 +3,7 @@ import { Chessboard, type Arrow } from 'react-chessboard';
 import type { Color } from './protocol';
 import { QUALITY, type Quality } from './Analysis';
 import { boardOf } from './chess';
-import { PieceSvg, pieceSet } from './pieces';
+import { codeOf, PieceSvg, pieceSet } from './pieces';
 import type { Reach } from './reach';
 
 interface Props {
@@ -41,18 +41,68 @@ interface Props {
 /** Each board's own id: react-chessboard finds its squares by id, so two boards must not share one. */
 let boards = 0;
 
-const LAST = 'rgba(235, 220, 90, 0.5)';
+const LAST = 'rgba(240, 214, 96, 0.52)';
 // warm, so it shows on the green squares as well as the light ones
-const SELECTED = 'rgba(240, 165, 40, 0.7)';
+const SELECTED = 'rgba(240, 165, 40, 0.72)';
 const PREMOVE = 'rgba(40, 70, 140, 0.5)';
-const DOT = 'radial-gradient(circle, rgba(20, 30, 20, 0.28) 22%, transparent 23%)';
-const RING = 'radial-gradient(circle, transparent 79%, rgba(20, 30, 20, 0.3) 80%)';
+const DOT = 'radial-gradient(circle, rgba(16, 32, 24, 0.3) 19%, rgba(16, 32, 24, 0.18) 21%, transparent 22.5%)';
+const RING = 'radial-gradient(circle, transparent 78%, rgba(16, 32, 24, 0.32) 79.5%)';
+/** The square the mouse is over while a piece is chosen and could go there. */
+const TARGET = 'inset 0 0 0 3px rgba(255, 255, 255, 0.55)';
+/** Motion on the board, kept short: a piece's slide, and the marks that grow in when a piece is chosen. */
+const SLIDE_MS = 240;
+const GROW_IN = { backgroundRepeat: 'no-repeat', backgroundPosition: 'center', backgroundSize: '100% 100%', animation: 'sq-grow 160ms var(--ease-out)' } as const;
 /** A square marked with a right click, drawn over whatever else the square shows. */
 const MARK = 'linear-gradient(rgba(235, 97, 80, 0.75), rgba(235, 97, 80, 0.75))';
 /** Where the piece under the mouse could go: a violet dot, or a violet ring around a piece it could take. */
 const HOVER_DOT = 'radial-gradient(circle, rgba(130, 70, 200, 0.55) 20%, transparent 21%)';
 const HOVER_RING = 'radial-gradient(circle, transparent 74%, rgba(130, 70, 200, 0.7) 75%)';
 const CHECK = 'radial-gradient(circle, rgba(255, 0, 0, 0.85) 0%, rgba(231, 0, 0, 0.5) 30%, rgba(169, 0, 0, 0) 75%)';
+
+/** A short effect over one square: a piece landing, a piece being taken, a king put in check. */
+type Fx = { id: number; kind: 'land' | 'capture' | 'check'; square: string; code?: string };
+let fxIds = 0;
+
+/** True while the player asks for less motion (the system setting). */
+function useReducedMotion() {
+  const query = '(prefers-reduced-motion: reduce)';
+  const [reduced, setReduced] = useState(() => typeof matchMedia === 'function' && matchMedia(query).matches);
+  useEffect(() => {
+    if (typeof matchMedia !== 'function') return;
+    const m = matchMedia(query);
+    const on = () => setReduced(m.matches);
+    m.addEventListener('change', on);
+    return () => m.removeEventListener('change', on);
+  }, []);
+  return reduced;
+}
+
+/** Where a square sits on the board as it is turned, in eighths from the top left. */
+function cell(square: string, orientation: Color) {
+  const file = square.charCodeAt(0) - 97;
+  const rank = Number(square.slice(1)) - 1;
+  return { col: orientation === 'white' ? file : 7 - file, row: orientation === 'white' ? 7 - rank : rank };
+}
+
+/**
+ * What the last move did, if it was just played (not stepped back to): the square it landed on
+ * and the piece it took, with the square that piece stood on (en passant takes beside the target).
+ */
+function moveEffects(before: Record<string, string>, after: Record<string, string>, move: string): Omit<Fx, 'id'>[] {
+  const from = move.slice(0, 2);
+  const to = move.slice(2, 4);
+  const mover = before[from];
+  if (!mover || !after[to] || after[from] === mover && before[to] === after[to]) return [];
+  const white = (p: string) => p === p.toUpperCase();
+  const fx: Omit<Fx, 'id'>[] = [{ kind: 'land', square: to }];
+  let taken = before[to] && white(before[to]) !== white(mover) ? to : null;
+  if (!taken && mover.toLowerCase() === 'p' && from[0] !== to[0]) {
+    const beside = to[0] + from.slice(1);
+    if (before[beside] && !after[beside]) taken = beside;
+  }
+  if (taken) fx.push({ kind: 'capture', square: taken, code: codeOf(before[taken]) });
+  return fx;
+}
 
 /**
  * The board: react-chessboard with click-to-move and drag-to-move, conventional highlights,
@@ -69,6 +119,32 @@ export function Board({ fen, orientation, legal, lastMove, checkSquares, hint, o
   const pieces = useMemo(() => boardOf(fen), [fen]);
   const [marks, setMarks] = useState<string[]>([]);
   const rightPress = useRef<string | null>(null);
+  const reduced = useReducedMotion();
+  const moving = animate && !reduced;
+
+  // the effects of a move just played, and of a check just given; each clears itself
+  const [fx, setFx] = useState<Fx[]>([]);
+  const before = useRef(pieces);
+  const checked = useRef(checkSquares.join());
+  useEffect(() => {
+    const prev = before.current;
+    before.current = pieces;
+    const fresh: Omit<Fx, 'id'>[] = lastMove && prev !== pieces && animate ? moveEffects(prev, pieces, lastMove) : [];
+    const nowChecked = checkSquares.join();
+    if (nowChecked && nowChecked !== checked.current && animate) for (const square of checkSquares) fresh.push({ kind: 'check', square });
+    checked.current = nowChecked;
+    if (!fresh.length) return;
+    const added = fresh.map((f) => ({ ...f, id: ++fxIds }));
+    setFx((all) => [...all, ...added]);
+    const ids = new Set(added.map((f) => f.id));
+    const timer = window.setTimeout(() => {
+      timers.current.delete(timer);
+      setFx((all) => all.filter((f) => !ids.has(f.id)));
+    }, 900);
+    timers.current.add(timer);
+  }, [pieces]);
+  const timers = useRef(new Set<number>());
+  useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
 
   useEffect(() => setMarks([]), [fen]);
 
@@ -123,7 +199,7 @@ export function Board({ fen, orientation, legal, lastMove, checkSquares, hint, o
     add(lastMove.slice(0, 2), { backgroundColor: LAST });
     add(lastMove.slice(2, 4), { backgroundColor: LAST });
   }
-  for (const sq of checkSquares) add(sq, { backgroundImage: CHECK });
+  for (const sq of checkSquares) add(sq, { backgroundImage: CHECK, animation: 'check-pulse 1.6s var(--ease-in-out) infinite' });
   for (const uci of premoves) {
     add(uci.slice(0, 2), { backgroundColor: PREMOVE });
     add(uci.slice(2, 4), { backgroundColor: PREMOVE });
@@ -133,7 +209,7 @@ export function Board({ fen, orientation, legal, lastMove, checkSquares, hint, o
     add(selected, { backgroundColor: SELECTED });
     for (const uci of legal.get(selected) ?? []) {
       const to = uci.slice(2, 4);
-      add(to, { backgroundImage: pieces[to] ? RING : DOT, cursor: 'pointer' });
+      add(to, { backgroundImage: pieces[to] ? RING : DOT, cursor: 'pointer', ...GROW_IN, ...(to === hovered ? { boxShadow: TARGET } : {}) });
     }
   }
 
@@ -142,7 +218,8 @@ export function Board({ fen, orientation, legal, lastMove, checkSquares, hint, o
     for (const [to, kind] of hoverReach) add(to, { backgroundImage: kind === 'capture' ? HOVER_RING : HOVER_DOT });
   }
 
-  const arrows: Arrow[] = hint ? [{ startSquare: hint.slice(0, 2), endSquare: hint.slice(2, 4), color: 'rgba(31, 122, 100, 0.85)' }] : [];
+  const arrows: Arrow[] = hint ? [{ startSquare: hint.slice(0, 2), endSquare: hint.slice(2, 4), color: 'rgba(31, 132, 104, 0.88)' }] : [];
+  const notation: CSSProperties = { fontFamily: 'var(--font)', fontWeight: 600, fontSize: 'clamp(8px, 1.15vmin, 12px)', opacity: 0.9 };
 
   return (
     <div className="board" data-testid="board" data-hint={hint ?? ''} data-marks={marks.join(' ')}
@@ -156,13 +233,18 @@ export function Board({ fen, orientation, legal, lastMove, checkSquares, hint, o
           squareStyles,
           arrows,
           allowDrawingArrows: true,
-          animationDurationInMs: 200,
-          showAnimations: animate,
+          animationDurationInMs: SLIDE_MS,
+          showAnimations: moving,
           lightSquareStyle: { backgroundColor: 'var(--sq-light)' },
           darkSquareStyle: { backgroundColor: 'var(--sq-dark)' },
           lightSquareNotationStyle: { color: 'var(--sq-dark)' },
           darkSquareNotationStyle: { color: 'var(--sq-light)' },
-          dropSquareStyle: { boxShadow: 'inset 0 0 0 4px rgba(255,255,255,0.6)' },
+          alphaNotationStyle: { ...notation, position: 'absolute', bottom: '2%', right: '5%', userSelect: 'none' },
+          numericNotationStyle: { ...notation, position: 'absolute', top: '3%', left: '5%', userSelect: 'none' },
+          dropSquareStyle: { boxShadow: 'inset 0 0 0 4px rgba(255,255,255,0.65)' },
+          // a picked-up piece lifts off the board, its shadow under it; the one left behind fades
+          draggingPieceStyle: reduced ? {} : { transform: 'scale(1.16)', filter: 'drop-shadow(0 14px 10px rgba(0, 0, 0, 0.32))' },
+          draggingPieceGhostStyle: { opacity: 0.28 },
           canDragPiece: ({ square }) => canPick(square),
           onMouseOverSquare: ({ square }) => setHovered(square),
           onMouseOutSquare: ({ square }) => setHovered((h) => (h === square ? null : h)),
@@ -219,6 +301,9 @@ export function Board({ fen, orientation, legal, lastMove, checkSquares, hint, o
           },
         }}
       />
+      <div className="board-fx" aria-hidden="true">
+        {fx.map((f) => <Effect key={f.id} fx={f} orientation={orientation} />)}
+      </div>
       {badge && <QualityBadge square={badge.square} quality={badge.quality} orientation={orientation} />}
       {promotion && (
         <PromotionPicker
@@ -273,6 +358,22 @@ function PromotionPicker({ square, orientation, color, choices, onPick, onCancel
     </div>
   );
 }
+
+/** One effect, over its square: a ring where a piece lands, a taken piece breaking up, a red wave for a check. */
+function Effect({ fx, orientation }: { fx: Fx; orientation: Color }) {
+  const { col, row } = cell(fx.square, orientation);
+  return (
+    <div className={'fx fx-' + fx.kind} data-fx={fx.kind} data-square-fx={fx.square} style={{ left: `${col * 12.5}%`, top: `${row * 12.5}%` }}>
+      {fx.kind === 'capture' && fx.code && (
+        <>
+          <span className="fx-ghost"><PieceSvg code={fx.code} /></span>
+          {SHARDS.map((angle, i) => <i key={i} className="fx-shard" style={{ '--a': `${angle}deg`, '--d': `${i % 2 ? 62 : 48}%` } as CSSProperties} />)}
+        </>
+      )}
+    </div>
+  );
+}
+const SHARDS = [12, 57, 102, 147, 192, 237, 282, 327];
 
 /** A round mark in the top-right corner of a square: ★ best, ?? blunder and so on. */
 function QualityBadge({ square, quality, orientation }: { square: string; quality: Quality; orientation: Color }) {
