@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { tab } from './helpers';
 
 // The designer's big start-position editor (variants/BoardEditor.tsx) and the piece drawer
 // (variants/PieceDrawer.tsx): click a square for a piece, drag, swap, stamp, take away, the keys;
@@ -33,11 +34,6 @@ async function copyChess(page: Page, name: string) {
 }
 
 /** Opens one of the variant's screens by its tab. */
-async function tab(page: Page, name: 'Overview' | 'Board' | 'Pieces' | 'Health') {
-  await page.getByRole('navigation', { name: 'Variant screens' }).getByRole('link', { name }).click();
-  await expect(page.getByRole('navigation', { name: 'Variant screens' }).getByRole('link', { name })).toHaveAttribute('aria-current', 'page');
-}
-
 test('the start-position editor: click, drag, swap, stamp, take away, keys', async ({ page }) => {
   const editor = await copyChess(page, 'Board editor test');
   await tab(page, 'Board');

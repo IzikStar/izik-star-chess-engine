@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type RefObject } from 'react';
-import type { VariantDef } from '../Variants';
+import { api, type VariantDef } from './model';
 import './health.css';
 
 // The variant health check (web.HealthApi, lab.VariantHealth): the engine plays the variant against
@@ -41,13 +41,6 @@ interface RunSettings {
 interface HealthState {
   running: boolean; cancelled?: boolean; variantId?: string; variantName?: string; games?: number; depth?: number;
   done?: number; report?: Report; error?: string; settings?: RunSettings; fairyInstalled?: boolean; cores?: number;
-}
-
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, { ...init, headers: { 'Content-Type': 'application/json' } });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error ?? `${res.status} ${res.statusText}`);
-  return body as T;
 }
 
 /** The width of an element, followed as it changes, so a chart draws at its real size. */

@@ -1,16 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
+import { square, tab } from './helpers';
 
 // The rule building blocks in the designer (docs/variant-rules.md): ways to win as a list, the royal
 // mode, the endings and castling, each explained; then two made variants played to the win.
 
 const SHOTS = '../target/e2e-screens';
-const square = (page: Page, name: string) => page.locator(`[data-square="${name}"]`).first();
-
-async function tab(page: Page, name: 'Overview' | 'Board' | 'Pieces' | 'Health') {
-  const link = page.getByRole('navigation', { name: 'Variant screens' }).getByRole('link', { name });
-  await link.click();
-  await expect(link).toHaveAttribute('aria-current', 'page');
-}
 
 /** Plays moves by clicking, each waiting for the move list to show it. */
 async function play(page: Page, moves: [string, string, string][]) {

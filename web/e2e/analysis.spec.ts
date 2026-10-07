@@ -1,13 +1,8 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+import { clickMove } from './helpers';
 
 // Game analysis with Stockfish (needs Stockfish where the server can find it, e.g. apt install stockfish).
 
-const square = (page: Page, name: string) => page.locator(`[data-square="${name}"]`).first();
-
-async function clickMove(page: Page, from: string, to: string) {
-  await square(page, from).click();
-  await square(page, to).click();
-}
 
 test("analysing Scholar's mate: eval bar, Elo per side, and ...Nf6 marked a blunder", async ({ page }) => {
   await page.goto('/');

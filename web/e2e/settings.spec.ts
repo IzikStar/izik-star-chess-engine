@@ -1,14 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
+import { clickMove } from './helpers';
 
 // The Settings dialog (hints, hint strength, the evaluation bar per kind of game) and "Play the
 // next level". The live bar needs Stockfish where the server can find it (apt install stockfish).
 
-const square = (page: Page, name: string) => page.locator(`[data-square="${name}"]`).first();
-
-async function clickMove(page: Page, from: string, to: string) {
-  await square(page, from).click();
-  await square(page, to).click();
-}
 
 async function newGame(page: Page, opponent: 'Computer' | 'A friend', level?: number) {
   await page.getByRole('button', { name: 'New game' }).click();

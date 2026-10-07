@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+import { tab } from './helpers';
 
 // The variant designer (Phase 6 R5c): copy a built-in variant, invent a piece by clicking squares
 // and by Betza text, put it in the start position, save, and delete.
@@ -8,12 +9,6 @@ const SHOTS = '../target/e2e-screens';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
 
 /** Opens one of the variant's screens by its tab. */
-async function tab(page: Page, name: 'Overview' | 'Board' | 'Pieces' | 'Health') {
-  const link = page.getByRole('navigation', { name: 'Variant screens' }).getByRole('link', { name });
-  await link.click();
-  await expect(link).toHaveAttribute('aria-current', 'page');
-}
-
 test('make a variant with an invented piece', async ({ page }) => {
   await page.goto('/#variants');
   await page.getByTestId('variant-list').getByRole('button', { name: /^Chess/ }).click();

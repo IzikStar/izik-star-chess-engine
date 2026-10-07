@@ -1,13 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
+import { clickMove, square } from './helpers';
 
 // Plays real games through the browser UI against the packaged jar (Phase 4c, docs/ui-research.md §7 step 5).
 
-const square = (page: Page, name: string) => page.locator(`[data-square="${name}"]`).first();
-
-async function clickMove(page: Page, from: string, to: string) {
-  await square(page, from).click();
-  await square(page, to).click();
-}
 
 /** A real drag: press, move in steps (the board starts a drag only after a few pixels), release. */
 async function dragMove(page: Page, from: string, to: string) {
