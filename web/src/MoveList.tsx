@@ -50,7 +50,12 @@ export function MoveList({ moves, result, ply, onPick, qualities, empty }: {
 }) {
   const list = useRef<HTMLOListElement>(null);
   useEffect(() => {
-    list.current?.querySelector('.current')?.scrollIntoView({ block: 'nearest' });
+    // scroll the list box only: scrollIntoView also scrolls the page, which on a phone jumps below the board
+    const box = list.current, row = box?.querySelector<HTMLElement>('.current')?.closest('li');
+    if (!box || !row) return;
+    const top = row.offsetTop - box.offsetTop;
+    if (top < box.scrollTop) box.scrollTop = top;
+    else if (top + row.offsetHeight > box.scrollTop + box.clientHeight) box.scrollTop = top + row.offsetHeight - box.clientHeight;
   }, [ply, moves.length]);
 
   // rows of [white, black]; a game set up with Black to move would start with an empty White cell

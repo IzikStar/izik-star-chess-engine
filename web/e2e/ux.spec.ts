@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { clickMove } from './helpers';
 
 // Small things that make the screens readable and pleasant (the UX review of 2026-10-06).
 
@@ -56,6 +57,20 @@ test('on a phone the opponent sits above the board and you below it, the top bar
   const bar = await page.locator('.topbar').boundingBox();
   expect(bar!.width).toBeLessThanOrEqual(390);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});
+
+test('on a phone a move does not scroll the page down to the move list', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'New game' }).click();
+  const dialog = page.getByRole('dialog', { name: 'New game' });
+  await dialog.getByRole('button', { name: 'A friend', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Start game' }).click();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await clickMove(page, 'e2', 'e4');
+  await clickMove(page, 'e7', 'e5');
+  await expect(page.getByTestId('move-list')).toContainText('e5');
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
 });
 
 test('a variant\'s actions sit in its header, above its screens, on a wide screen and on a phone', async ({ page }) => {
