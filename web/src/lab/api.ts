@@ -30,6 +30,12 @@ export interface GenerationDetail { number: number; members: Member[]; standings
 export interface Spec { name: string; group: string; default: number; min: number; max: number; description: string }
 export interface FameEntry { name: string; reason: string; savedAt: string; run: string | null; runName: string | null; generation: number; member: number; yardsticks: string[]; games: number }
 export interface Replay { white: string; black: string; opening: string; result: string; reason: string; startFen: string; moves: { uci: string; san: string; fenAfter: string }[] }
+export interface Tally { games: number; whiteWins: number; draws: number; blackWins: number }
+export interface OpeningBranch { uci: string; san: string; tally: Tally; forced: number; byGeneration: number[] }
+export interface OpeningNode {
+  fen: string; line: { uci: string; san: string }[]; firstGeneration: number; lastGeneration: number;
+  tally: Tally; byGeneration: number[]; children: OpeningBranch[];
+}
 export interface AlgorithmOption { key: string; label: string; help: string; default: string; min?: number; max?: number; choices?: string[]; multiple?: boolean }
 export interface Algorithm { className: string; name: string; about: string; chessOnly: boolean; options: AlgorithmOption[] }
 export interface Job {

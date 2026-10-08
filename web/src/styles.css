@@ -280,6 +280,32 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--accent); width
 .games tbody tr:hover { background: var(--surface-2); }
 .games tbody tr.on { background: var(--accent-soft); }
 .games tbody tr.yardstick td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+/* the Lab's opening tree */
+.tree-layout { display: grid; grid-template-columns: minmax(260px, 380px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.tree-board { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.tree-moves { min-width: 0; }
+.tree-board .nav { grid-template-columns: repeat(2, 1fr); }
+.tree-board .sans { line-height: 1.8; margin: 0; font-size: 13px; }
+.tree-board .mv { background: none; border: 0; padding: 1px 3px; border-radius: 4px; cursor: pointer; font-size: 13px; color: inherit; }
+.tree-board .mv.current { background: var(--accent); color: var(--accent-fg); }
+.tree-filters { flex-wrap: wrap; gap: 10px; }
+.tree-moves > p { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 0; }
+.tree-moves > p .result-bar { width: 220px; }
+.lab-page table.tree tbody tr { cursor: pointer; transition: background-color 120ms var(--ease-out); }
+@media (hover: hover) { .lab-page table.tree tbody tr:hover { background: var(--surface-2); } }
+table.tree td { vertical-align: middle; }
+table.tree .link { font-family: inherit; font-size: 14px; text-decoration: none; }
+.result-bar { display: flex; width: 100%; min-width: 140px; height: 18px; border-radius: 4px; overflow: hidden; border: 1px solid var(--line-strong); font-size: 11px; font-weight: 600; line-height: 16px; }
+.result-bar span { display: block; text-align: center; overflow: hidden; white-space: nowrap; }
+.result-bar .w { background: #f4f1ea; color: #333; }
+.result-bar .d { background: #a3a29d; color: #222; }
+.result-bar .b { background: #33312e; color: #eee; }
+.trend { width: 120px; height: 24px; display: block; }
+.trend rect { fill: var(--accent); }
+.trend rect.none { fill: var(--line); }
+@media (max-width: 760px) {
+  .tree-layout { grid-template-columns: 1fr; }
+}
 .replay { display: flex; flex-direction: column; gap: 8px; }
 .replay p { margin: 0; font-size: 13px; }
 .replay-board .board { width: 100%; min-width: 0; }

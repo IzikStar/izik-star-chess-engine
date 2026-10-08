@@ -129,7 +129,7 @@ src/main/java/
 ├── analysis/       game analysis with Stockfish
 ├── arena/          engine against engine: matches, tournaments, openings, Elo, outside players
 ├── evolution/      the Evolution API and the algorithms (FromZero, MaterialExperiment, the example)
-├── lab/            runs: the runner, the SQLite record, the hall of fame, Texel tuning, training data,
+├── lab/            runs: the runner, the SQLite record, the hall of fame, the opening tree, Texel tuning, training data,
 │                   the CLI, the variant health check, the fun test
 ├── cloud/          sharing runs, games and variants between copies through Cloudflare D1
 └── web/            local web server: the browser UI's files, the game over one WebSocket, and the
@@ -266,7 +266,9 @@ The **Lab** tab of the web app runs the experiments:
   settings, the yardsticks to measure against, and what it adds up to (games and a rough time).
 - **A run**: progress bar and live game count; the champion's Elo against each yardstick with its
   interval; charts of the champion's score, decisive games and game length per generation; every
-  generation in a table; how the champions' weights moved; the settings, with the equivalent
+  generation in a table; how the champions' weights moved; the opening tree (which moves the
+  members chose from any position, how those games ended, and how often each generation chose
+  them, with the run's fixed opening moves marked); the settings, with the equivalent
   command line. **A generation**: the champion against the yardsticks, standings of every member
   with what it thinks each piece is worth and its weights as a download, every game (replay on
   the board), keep a member in the hall of fame.

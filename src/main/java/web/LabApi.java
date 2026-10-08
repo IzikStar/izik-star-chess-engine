@@ -14,6 +14,7 @@ import io.javalin.http.Context;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.NotFoundResponse;
 import lab.HallOfFame;
+import lab.OpeningTree;
 import lab.RunPgn;
 import lab.RunStore;
 import rules.Game;
@@ -25,6 +26,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -39,6 +41,7 @@ import java.util.stream.Stream;
  * GET /api/lab/runs/{file}/generations/{n}           a generation's games
  * GET /api/lab/runs/{file}/generations/{n}/games/{i} one game, move by move, for replay
  * GET /api/lab/runs/{file}/pgn                       every game of the run, PGN (a download)
+ * GET /api/lab/runs/{file}/tree?moves=&from=&to=&kinds=  the opening tree after a line (UCI, comma separated)
  * POST /api/lab/runs/{file}/generations/{n}/keep     {member, name?, note?}: into the hall of fame
  * GET /api/lab/runs/{file}/schema                    every parameter the run's weights have
  * GET /api/lab/runs/{file}/generations/{n}/members/{i} a member's weights, a parameter file (a download)
@@ -67,6 +70,9 @@ final class LabApi {
                 Integer.parseInt(ctx.pathParam("n")), Integer.parseInt(ctx.pathParam("i")))));
         app.get("/api/lab/runs/{file}/pgn", ctx -> download(ctx, ctx.pathParam("file").replaceFirst("\\.db$", ".pgn"),
                 runPgn(ctx.pathParam("file"))));
+        app.get("/api/lab/runs/{file}/tree", ctx -> Json.send(ctx, tree(ctx.pathParam("file"),
+                split(ctx.queryParam("moves")), intParam(ctx.queryParam("from"), 0),
+                intParam(ctx.queryParam("to"), Integer.MAX_VALUE), split(ctx.queryParam("kinds")))));
         app.post("/api/lab/runs/{file}/generations/{n}/keep", ctx -> Json.send(ctx, keep(ctx.pathParam("file"),
                 Integer.parseInt(ctx.pathParam("n")), JsonParser.parseString(ctx.body()).getAsJsonObject())));
         app.get("/api/lab/runs/{file}/schema", ctx -> Json.send(ctx, schemaOf(ctx.pathParam("file"))));
@@ -432,6 +438,107 @@ final class LabApi {
             out.addProperty("startFen", game.history().getFirst());
             out.add("moves", moves);
             return out;
+        }
+    }
+
+    // ---- the opening tree ------------------------------------------------------
+
+    /** The lines last read, by run file, kinds and the file's time: a run's tree is browsed move by move. */
+    private final Map<String, List<OpeningTree.Line>> lines = java.util.Collections.synchronizedMap(
+            new java.util.LinkedHashMap<>(4, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, List<OpeningTree.Line>> eldest) {
+                    return size() > 2;
+                }
+            });
+
+    /**
+     * The opening tree after {@code path} over generations {@code from} to {@code to} of the games of
+     * {@code kinds} (the population's by default): the position, the moves played next with how
+     * their games ended and how often each generation chose them.
+     */
+    JsonObject tree(String file, List<String> path, int from, int to, List<String> kinds) {
+        List<String> k = kinds.isEmpty() ? List.of("population") : kinds;
+        if (!KINDS.containsAll(k)) {
+            throw new BadRequestResponse("kinds are " + KINDS);
+        }
+        try (RunStore store = open(file)) {
+            RunStore.RunRow run = store.run().orElseThrow(() -> new NotFoundResponse("no run in " + file));
+            List<RunStore.GenerationRow> rows = store.generations();
+            int next = rows.isEmpty() ? 0 : rows.getLast().number() + 1;
+            int last = next < run.settings().generations() ? next : next - 1; // the generation under way counts too
+            int first = Math.max(0, from);
+            int upTo = Math.min(to, last);
+            String key = file + "|" + k + "|" + modified(dir.resolve(file)) + "|" + store.gameCount(next);
+            List<OpeningTree.Line> all = lines.computeIfAbsent(key, x -> store.openingLines(k, run.settings().openings()));
+            OpeningTree.Node node = OpeningTree.at(all, path, first, upTo);
+
+            Game game = new Game(run.settings().variant());
+            JsonArray line = new JsonArray();
+            for (String uci : path) {
+                MoveResult m;
+                try {
+                    m = game.play(uci);
+                } catch (IllegalArgumentException e) {
+                    throw new BadRequestResponse("not a legal line: " + String.join(" ", path));
+                }
+                line.add(move(m.move().toUci(), m.san()));
+            }
+            JsonObject out = new JsonObject();
+            out.addProperty("fen", game.fen());
+            out.add("line", line);
+            out.addProperty("firstGeneration", node.firstGeneration());
+            out.addProperty("lastGeneration", upTo);
+            out.add("tally", tally(node.tally()));
+            out.add("byGeneration", ints(node.byGeneration()));
+            JsonArray children = new JsonArray();
+            for (OpeningTree.Branch b : node.children()) {
+                MoveResult m = game.play(b.uci());
+                JsonObject o = move(b.uci(), m.san());
+                game.undo();
+                o.add("tally", tally(b.tally()));
+                o.addProperty("forced", b.forced());
+                o.add("byGeneration", ints(b.byGeneration()));
+                children.add(o);
+            }
+            out.add("children", children);
+            return out;
+        }
+    }
+
+    private static JsonObject move(String uci, String san) {
+        JsonObject o = new JsonObject();
+        o.addProperty("uci", uci);
+        o.addProperty("san", san);
+        return o;
+    }
+
+    private static JsonObject tally(OpeningTree.Tally t) {
+        JsonObject o = new JsonObject();
+        o.addProperty("games", t.games());
+        o.addProperty("whiteWins", t.whiteWins());
+        o.addProperty("draws", t.draws());
+        o.addProperty("blackWins", t.blackWins());
+        return o;
+    }
+
+    private static JsonArray ints(int[] values) {
+        JsonArray a = new JsonArray();
+        for (int v : values) {
+            a.add(v);
+        }
+        return a;
+    }
+
+    private static List<String> split(String list) {
+        return list == null || list.isBlank() ? List.of() : List.of(list.split(","));
+    }
+
+    private static int intParam(String value, int otherwise) {
+        try {
+            return value == null || value.isBlank() ? otherwise : Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            throw new BadRequestResponse("not a number: " + value);
         }
     }
 

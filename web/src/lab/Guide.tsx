@@ -32,6 +32,9 @@ export function Guide() {
             all draws or all 300-move games mean the weights are not telling the engine anything yet.</li>
           <li><strong>Weights</strong> are shown as how far each champion moved from the default, biggest movers first, with a sparkline over the generations.
             For a game evolved from zero the defaults are all 0, so the table simply shows what the champion learned a piece is worth.</li>
+          <li><strong>Openings</strong> is the tree of the members' games: from any position, which moves they went on with, how those games
+            ended and how often each generation chose them. Games start from fixed openings (the suite in chess, a few random moves in other
+            games), so those moves are marked as not chosen; the bars on the right show a move catching on or dying out as the run goes.</li>
         </ul>
         <h3>Games other than chess</h3>
         <p>Chess runs keep the tuned chess evaluation (499 weights: material, pawn structure, king safety, square tables…) and can start from

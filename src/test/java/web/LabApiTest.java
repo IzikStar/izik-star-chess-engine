@@ -87,6 +87,29 @@ class LabApiTest {
     }
 
     @Test
+    @DisplayName("The opening tree branches the population's games move by move")
+    void openingTree() {
+        JsonObject root = lab.tree("tiny.db", java.util.List.of(), 0, Integer.MAX_VALUE, java.util.List.of());
+        assertEquals(24, root.getAsJsonObject("tally").get("games").getAsInt()); // 2 generations × 12
+        com.google.gson.JsonArray children = root.getAsJsonArray("children");
+        int sum = 0;
+        for (var c : children) {
+            sum += c.getAsJsonObject().getAsJsonObject("tally").get("games").getAsInt();
+        }
+        assertEquals(24, sum);
+        JsonObject first = children.get(0).getAsJsonObject();
+        assertEquals(first.getAsJsonObject("tally").get("games").getAsInt(), first.get("forced").getAsInt()); // the suite's moves
+        String uci = first.get("uci").getAsString();
+        JsonObject next = lab.tree("tiny.db", java.util.List.of(uci), 1, 1, java.util.List.of("population", "yardstick"));
+        assertEquals(first.get("san").getAsString(), next.getAsJsonArray("line").get(0).getAsJsonObject().get("san").getAsString());
+        assertEquals(1, next.get("firstGeneration").getAsInt());
+        assertThrows(io.javalin.http.BadRequestResponse.class,
+                () -> lab.tree("tiny.db", java.util.List.of("e2e5"), 0, 9, java.util.List.of()));
+        assertThrows(io.javalin.http.BadRequestResponse.class,
+                () -> lab.tree("tiny.db", java.util.List.of(), 0, 9, java.util.List.of("bogus")));
+    }
+
+    @Test
     @DisplayName("Only run files in the folder can be read")
     void rejectsOtherFiles() {
         assertThrows(NotFoundResponse.class, () -> lab.run("../tiny.db"));
