@@ -1,11 +1,13 @@
 package arena;
 
+import ai.Minimax;
 import engine.Cancellation;
 import engine.Levels;
 import engine.MinimaxEngine;
 import engine.SearchRequest;
 import engine.StockfishEngine;
 import engine.StockfishLocator;
+import engine.Weights;
 import rules.ChessMove;
 import rules.Game;
 import rules.MoveResult;
@@ -27,6 +29,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Measures the Elo of every level of the difficulty ladder (docs/difficulty-ladder.md). Long:
@@ -38,9 +42,11 @@ import java.util.concurrent.TimeUnit;
  *
  *   --games N        games per pairing (default 100; both colours of each opening)
  *   --threads N      games at once (default: cores - 1; each game runs on one core)
- *   --results FILE   where each finished game is appended (default ladder-results.txt). Run the
+ *   --results FILE   where each finished game is appended (default ladder-results-WEIGHTS.txt). Run the
  *                    same command again to continue an interrupted run: finished games are kept.
  *   --stockfish P    the Stockfish executable (default: the one the game finds)
+ *   --weights W      the built-in levels' weights: tuned (the app's default) or classic
+ *   --extra A:B,...  also play these pairings, e.g. candidate levels ("D3nq:L4,D1r10:L2")
  *   --report-only    fit and print the table from the results file without playing
  * </pre>
  *
@@ -57,20 +63,31 @@ import java.util.concurrent.TimeUnit;
  * <p>The ratings are the ones that best explain all games at once (Bradley-Terry maximum
  * likelihood), with a 95% interval from 300 parametric bootstrap refits. Levels below Stockfish's
  * lowest UCI_Elo (1320) are rated only through the chain of level-vs-level games.
+ *
+ * <p>A candidate for a new level is named {@code D<depth>[nq][r<percent>]}: the built-in engine at
+ * that depth (with the levels' endgame extension and 5 s cap), {@code nq} without the quiescence
+ * search, {@code r10} playing 10% of its moves at random. {@code --extra} pairs candidates with
+ * levels or anchors; they are fitted together with every other game.
  */
 public final class LadderCalibration {
 
     /** Stockfish's UCI_Elo anchors. 3190 is the highest UCI_Elo Stockfish accepts. */
     static final int[] ANCHORS = {1320, 1500, 1700, 1900, 2100, 2300, 2500, 2700, 2900, 3190};
-    /** The expected Elo of each level (the research measurement), to pick its anchors. */
-    static final int[] EXPECTED = {-1150, 100, 460, 750, 1070, 1260, 1530, 1690, 1910, 2150, 2400, 2650, 2900, 3190};
+    /** The expected Elo of each level (the last calibration), to pick its anchors. */
+    static final int[] EXPECTED = {-680, 120, 420, 720, 1050, 1310, 1460, 1680, 1920, 2120, 2430, 2640, 2930, 3190};
     static final long ANCHOR_MOVE_MS = 500;
     static final int MAX_PLIES = 300;
     static final int BOOTSTRAP = 300;
 
+    /** The weights the built-in levels play with (one run measures one set). */
+    private static volatile Weights weights = Weights.DEFAULT;
+
     private LadderCalibration() {}
 
-    /** One side of a game: a level ("L5") or an anchor ("SF1900"). */
+    /** A candidate level: D, depth, optional "nq" (no quiescence), optional "r" + random percent. */
+    static final Pattern CANDIDATE = Pattern.compile("D(\\d+)(nq)?(?:r(\\d+))?");
+
+    /** One side of a game: a level ("L5"), a candidate ("D3nq") or an anchor ("SF1900"). */
     record Pairing(String a, String b) {
         String key() {
             return a + " " + b;
@@ -102,11 +119,20 @@ public final class LadderCalibration {
         int games = Integer.parseInt(options.getOrDefault("games", "100"));
         int threads = Integer.parseInt(options.getOrDefault("threads",
                 String.valueOf(Math.max(1, Runtime.getRuntime().availableProcessors() - 1))));
-        Path results = Path.of(options.getOrDefault("results", "ladder-results.txt"));
+        weights = Weights.of(options.getOrDefault("weights", Weights.DEFAULT.id()));
+        // one results file per set of weights, so a resumed run never mixes them
+        Path results = Path.of(options.getOrDefault("results", "ladder-results-" + weights.id() + ".txt"));
+        System.out.println("Built-in levels play with the " + weights.label() + " weights");
         String stockfish = options.containsKey("stockfish") ? options.get("stockfish")
                 : StockfishLocator.find().map(Path::toString).orElse(null);
 
-        List<Pairing> pairings = pairings();
+        List<Pairing> pairings = new ArrayList<>(pairings());
+        if (options.containsKey("extra")) {
+            for (String pair : options.get("extra").split(",")) {
+                String[] ab = pair.split(":");
+                pairings.add(new Pairing(ab[0], ab[1]));
+            }
+        }
         Map<String, Tally> tallies = load(results);
         if (!options.containsKey("report-only")) {
             if (stockfish == null) {
@@ -233,6 +259,11 @@ public final class LadderCalibration {
         if (name.startsWith("SF")) {
             return new Anchor(stockfish, Integer.parseInt(name.substring(2)));
         }
+        Matcher candidate = CANDIDATE.matcher(name);
+        if (candidate.matches()) {
+            return candidate(Integer.parseInt(candidate.group(1)), candidate.group(2) == null,
+                    candidate.group(3) == null ? 0 : Integer.parseInt(candidate.group(3)), seed);
+        }
         int level = Integer.parseInt(name.substring(1));
         if (Levels.isStockfish(level)) {
             StockfishEngine engine = new StockfishEngine(List.of(stockfish));
@@ -246,10 +277,37 @@ public final class LadderCalibration {
                 }
             };
         }
-        MinimaxEngine engine = new MinimaxEngine(new Random(seed));
+        MinimaxEngine engine = new MinimaxEngine(new Random(seed), MinimaxEngine.TIME_CAP_MS, weights.evaluator());
         return new Side() {
             public ChessMove move(String fen, List<ChessMove> moves) {
                 return engine.bestMove(new SearchRequest(fen, Position.START_FEN, moves, level, Cancellation.NONE));
+            }
+
+            public void close() {}
+        };
+    }
+
+    /** The built-in engine at {@code depth} (plus the levels' endgame extension), 5 s cap. */
+    private static Side candidate(int depth, boolean quiescence, int randomPercent, long seed) {
+        Random random = new Random(seed);
+        Minimax.Options options = new Minimax.Options(MinimaxEngine.DEFAULT_VARIETY, random, quiescence);
+        return new Side() {
+            public ChessMove move(String fen, List<ChessMove> moves) {
+                List<ChessMove> legal = rules.Rules.legalMoves(fen);
+                if (random.nextInt(100) < randomPercent) {
+                    return legal.get(random.nextInt(legal.size()));
+                }
+                int pieces = Position.fromFen(fen).pieces().size();
+                int d = depth + (pieces <= 8 ? 2 : pieces <= 12 ? 1 : 0);
+                List<String> gameFens = new ArrayList<>();
+                Game game = new Game();
+                gameFens.add(game.fen());
+                for (ChessMove m : moves) {
+                    game.play(m);
+                    gameFens.add(game.fen());
+                }
+                return MinimaxEngine.searchWithin(fen, gameFens, d, weights.evaluator(), options,
+                        MinimaxEngine.TIME_CAP_MS);
             }
 
             public void close() {}
@@ -398,6 +456,18 @@ public final class LadderCalibration {
                     s.get((int) (s.size() * 0.025)), s.get((int) (s.size() * 0.975) - 1),
                     previous == null ? "" : String.format(Locale.ROOT, "%+.0f", value - previous)));
             previous = value;
+        }
+        List<String> candidates = new ArrayList<>(elo.keySet().stream()
+                .filter(p -> CANDIDATE.matcher(p).matches()).toList());
+        candidates.sort((x, y) -> Double.compare(elo.get(x), elo.get(y)));
+        if (!candidates.isEmpty()) {
+            out.append("\n| Candidate | Elo | 95% interval |\n|---|---|---|\n");
+            for (String player : candidates) {
+                List<Double> s = new ArrayList<>(samples.get(player));
+                s.sort(Double::compare);
+                out.append(String.format(Locale.ROOT, "| %s | %.0f | %.0f to %.0f |%n", player, elo.get(player),
+                        s.get((int) (s.size() * 0.025)), s.get((int) (s.size() * 0.975) - 1)));
+            }
         }
         out.append("\n| Pairing | Games | Score of the first | Wins / draws / losses |\n|---|---|---|---|\n");
         for (Map.Entry<String, Tally> e : played.entrySet()) {

@@ -344,19 +344,19 @@ export function formatClock(ms: number): string {
  */
 export const LEVELS: { name: string; engine: string; elo: number | null }[] = [
   { name: 'Random moves', engine: 'Plays any legal move', elo: null },
-  { name: 'Beginner', engine: 'Built-in engine, 1 ply, a quarter of its moves random', elo: 100 },
-  { name: 'Novice', engine: 'Built-in engine, looks 1 move ahead', elo: 460 },
-  { name: 'Casual', engine: 'Built-in engine, 2 plies', elo: 750 },
-  { name: 'Improving', engine: 'Built-in engine, 3 plies', elo: 1070 },
-  { name: 'Club player', engine: 'Built-in engine, 4 plies', elo: 1260 },
-  { name: 'Strong club player', engine: 'Built-in engine, 5 plies', elo: 1530 },
-  { name: 'Expert', engine: 'Built-in engine, 6 plies', elo: 1690 },
-  { name: 'Strong expert', engine: 'Built-in engine, 7 plies (its deepest)', elo: 1910 },
-  { name: 'Master', engine: 'Stockfish at 2150, 0.5 s a move', elo: 2150 },
-  { name: 'International master', engine: 'Stockfish at 2400, 0.5 s a move', elo: 2400 },
-  { name: 'Grandmaster', engine: 'Stockfish at 2650, 0.5 s a move', elo: 2650 },
-  { name: 'Super grandmaster', engine: 'Stockfish at 2900, 0.5 s a move', elo: 2900 },
-  { name: 'Full strength', engine: 'Stockfish at full strength, 1 s a move', elo: 3190 },
+  { name: 'Beginner', engine: 'Built-in engine, 1 ply, a quarter of its moves random', elo: 120 },
+  { name: 'Learner', engine: 'Built-in engine, 1 ply, one move in eight random', elo: 420 },
+  { name: 'Novice', engine: 'Built-in engine, looks 1 move ahead', elo: 720 },
+  { name: 'Casual', engine: 'Built-in engine, 2 plies', elo: 1050 },
+  { name: 'Improving', engine: 'Built-in engine, 3 plies', elo: 1310 },
+  { name: 'Club player', engine: 'Built-in engine, 4 plies', elo: 1460 },
+  { name: 'Expert', engine: 'Built-in engine, 6 plies', elo: 1680 },
+  { name: 'Strong expert', engine: 'Built-in engine, 7 plies (its deepest)', elo: 1920 },
+  { name: 'Master', engine: 'Stockfish at 2150, 0.5 s a move', elo: 2120 },
+  { name: 'International master', engine: 'Stockfish at 2400, 0.5 s a move', elo: 2430 },
+  { name: 'Grandmaster', engine: 'Stockfish at 2650, 0.5 s a move', elo: 2640 },
+  { name: 'Super grandmaster', engine: 'Stockfish at 2900, 0.5 s a move', elo: 2930 },
+  { name: 'Full strength', engine: 'Stockfish at full strength, 1 s a move', elo: 3500 },
 ];
 
 export const MIN_LEVEL = 0;
@@ -369,10 +369,11 @@ export const TOP_BUILT_IN_LEVEL = STOCKFISH_FROM_LEVEL - 1;
 /**
  * How much stronger the tuned weights are than the classic ones at each built-in level (1-8):
  * tuned against classic head to head at the level's depth, all openings with both colours
- * (docs/difficulty-ladder.md). Level 1 plays a quarter of its moves at random, so it gets three
- * quarters of Level 2's gain (inferred, not measured). LEVELS' Elo is the classic weights'.
+ * (docs/difficulty-ladder.md). Levels 1 and 2 play some of their moves at random, so they get
+ * part of Level 3's gain (inferred, not measured). LEVELS' Elo is the classic weights', measured
+ * by arena.LadderCalibration.
  */
-export const TUNED_ELO_GAIN: Record<number, number> = { 1: 65, 2: 90, 3: 130, 4: 170, 5: 120, 6: 210, 7: 250, 8: 200 };
+export const TUNED_ELO_GAIN: Record<number, number> = { 1: 65, 2: 80, 3: 90, 4: 130, 5: 170, 6: 120, 7: 250, 8: 200 };
 
 /** A level's Elo with {@code weights}; Stockfish's levels are the same for both. */
 export function levelElo(level: number, weights: Weights = 'tuned'): number | null {
@@ -381,7 +382,7 @@ export function levelElo(level: number, weights: Weights = 'tuned'): number | nu
   return elo + (TUNED_ELO_GAIN[level] ?? 0);
 }
 
-/** "≈ 1530 Elo", "3190+ Elo" for the top level, or "" for Level 0. */
+/** "≈ 1460 Elo", "3500+ Elo" for the top level, or "" for Level 0. */
 export function eloText(level: number, weights: Weights = 'tuned'): string {
   const elo = levelElo(level, weights);
   if (elo === null) return '';
