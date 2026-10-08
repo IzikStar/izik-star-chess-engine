@@ -40,7 +40,7 @@ const WEIGHTS_NOTE: Record<Weights, string> = {
   classic: 'The original hand-written weights.',
 };
 
-/** The champion is the built-in engine: Levels 0-1 are (partly) random moves and 9 up hand over to Stockfish. */
+/** The champion is the built-in engine: Levels 0-2 are (partly) random moves and 9 up hand over to Stockfish. */
 export const CHAMPION_LEVELS = { min: 3, max: TOP_BUILT_IN_LEVEL };
 
 function LevelSlider({ id, label, value, onChange, stockfish, weights, min = MIN_LEVEL, max = MAX_LEVEL }: {
@@ -101,7 +101,7 @@ export function NewGameDialog({ initial, stockfish, onStart, onCancel }: {
   onCancel: () => void;
 }) {
   const [choice, setChoice] = useState<NewGameChoice>(() => initial.champion
-    // Levels 0-1 (random moves) would hide the champion's weights: start it at Improving
+    // Levels 0-2 (random moves) would hide the champion's weights: start it at Improving
     ? { ...initial, mode: 'engine', level: initial.level < CHAMPION_LEVELS.min ? 5 : Math.min(CHAMPION_LEVELS.max, initial.level) }
     : initial);
   const dialog = useRef<HTMLDialogElement>(null);
