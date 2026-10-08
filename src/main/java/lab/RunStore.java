@@ -16,7 +16,9 @@ import java.sql.Statement;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -271,6 +273,35 @@ public final class RunStore implements AutoCloseable {
         } catch (SQLException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    /**
+     * Every game of the given kinds as an opening-tree line, in the order played; {@code openings}
+     * names the run's fixed openings, so each line knows how many of its first moves were one.
+     */
+    public List<OpeningTree.Line> openingLines(java.util.Collection<String> kinds, List<arena.Opening> openings) {
+        Map<String, Integer> forced = new HashMap<>();
+        openings.forEach(o -> forced.put(o.name(), o.moves().size()));
+        Map<String, String> moves = new HashMap<>();
+        List<OpeningTree.Line> lines = new ArrayList<>();
+        String marks = String.join(",", java.util.Collections.nCopies(kinds.size(), "?"));
+        try (PreparedStatement p = db.prepareStatement("SELECT generation, opening, moves, result FROM game"
+                + " WHERE kind IN (" + marks + ") ORDER BY id")) {
+            int i = 1;
+            for (String kind : kinds) {
+                p.setString(i++, kind);
+            }
+            try (ResultSet r = p.executeQuery()) {
+                while (r.next()) {
+                    String m = r.getString(3);
+                    lines.add(OpeningTree.line(r.getInt(1), m.isEmpty() ? List.of() : Arrays.asList(m.split(" ")),
+                            forced.getOrDefault(r.getString(2), 0), GameRecord.Result.valueOf(r.getString(4)), moves));
+                }
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException(e);
+        }
+        return lines;
     }
 
     /** Every game of the run, population and yardstick, in the order played. */

@@ -31,6 +31,18 @@ test('the lab shows a run over several screens, replays a game and starts a game
   // the weights and the settings screens
   await run.getByRole('button', { name: 'Weights', exact: true }).click();
   await expect(page.getByTestId('weights')).toBeVisible();
+  // the opening tree: the members' 2 × 56 games, followed one move down and back
+  await run.getByRole('button', { name: 'Openings', exact: true }).click();
+  const tree = page.getByTestId('openings');
+  await expect(tree).toContainText('112 games reached this position');
+  await expect(tree).toContainText('Start position');
+  const firstMove = tree.getByTestId('tree').locator('tbody tr').first();
+  await expect(firstMove).toContainText('opening');
+  await firstMove.click();
+  await expect(tree.getByTestId('tree-line').getByRole('button')).toHaveCount(1);
+  await page.screenshot({ path: '../target/e2e-screens/lab-openings.png', fullPage: true });
+  await tree.getByRole('button', { name: 'Back one move' }).click();
+  await expect(tree).toContainText('Start position');
   await run.getByRole('button', { name: 'Settings', exact: true }).click();
   await expect(page.locator('pre.cli')).toContainText('lab.Cli run runs/demo.db');
 

@@ -3,15 +3,16 @@ import { Board } from '../Board';
 import type { Champion } from '../protocol';
 import { Icon } from '../icons';
 import { ChartFrame, LineChart } from '../ChartFrame';
+import { Openings } from './Openings';
 import {
   algorithmName, duration, elo, goLab, pct, player, post, reasonText, resultText, runUrl, signed, usePolled,
   type GenerationDetail, type GenerationRow, type Job, type Replay, type RunDetail, type Score, type Spec, type Weight,
 } from './api';
 
 const EMPTY = new Map<string, string[]>();
-const TABS: [string, string][] = [['overview', 'Overview'], ['generations', 'Generations'], ['weights', 'Weights'], ['settings', 'Settings']];
+const TABS: [string, string][] = [['overview', 'Overview'], ['generations', 'Generations'], ['weights', 'Weights'], ['openings', 'Openings'], ['settings', 'Settings']];
 
-/** One run: its progress, every generation, how the weights moved, its settings; and one generation in detail. */
+/** One run: its progress, every generation, how the weights moved, its opening tree, its settings; and one generation in detail. */
 export function Run({ file, generation, tab, job, onPlay }: {
   file: string;
   generation: number | null;
@@ -94,6 +95,7 @@ export function Run({ file, generation, tab, job, onPlay }: {
       {tab === 'overview' && <Overview run={run} />}
       {tab === 'generations' && <Generations run={run} onPlay={onPlay} />}
       {tab === 'weights' && <WeightsScreen run={run} />}
+      {tab === 'openings' && <Openings run={run} />}
       {tab === 'settings' && <SettingsScreen run={run} />}
       {tab === 'generation' && generation !== null && <GenerationScreen run={run} number={generation} onPlay={onPlay} />}
     </div>
