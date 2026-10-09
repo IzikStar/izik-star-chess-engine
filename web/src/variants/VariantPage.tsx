@@ -44,6 +44,11 @@ export interface OpenVariant {
   fresh: boolean;
   /** Changed since it was opened or saved. */
   dirty: boolean;
+  /**
+   * Pictures given to pieces the server does not have yet (a new variant, a new piece or a new
+   * letter), by code ('wA'); they are sent when the variant is saved.
+   */
+  pendingArt?: Record<string, File>;
 }
 
 /**
@@ -69,7 +74,7 @@ function useRulesCheck(v: VariantDef): RulesCheck | null {
   return check;
 }
 
-export function VariantPage({ open, route, families, error, saved, onEdit, onPatch, onSave, onCopy, onDelete, onPlay, onRoute }: {
+export function VariantPage({ open, route, families, error, saved, onEdit, onPatch, onPendingArt, onSave, onCopy, onDelete, onPlay, onRoute }: {
   open: OpenVariant;
   route: Route;
   /** The families the player's variants already use, offered when typing one. */
@@ -81,6 +86,8 @@ export function VariantPage({ open, route, families, error, saved, onEdit, onPat
   onEdit: (def: VariantDef | ((now: VariantDef) => VariantDef)) => void;
   /** A change that is not the player's (Betza text written back, pictures): does not mark it changed. */
   onPatch: (f: (def: VariantDef) => VariantDef) => void;
+  /** A change to the pictures waiting for the save (marks the variant changed). */
+  onPendingArt: (f: (now: Record<string, File>) => Record<string, File>) => void;
   onSave: () => void;
   onCopy: () => void;
   onDelete: () => void;
@@ -94,7 +101,13 @@ export function VariantPage({ open, route, families, error, saved, onEdit, onPat
   const routeId = route.id ?? v.id;
 
   const [artError, setArtError] = useState<string | null>(null);
-  const artMap = useMemo(() => artUrls(v.id, v.art ?? {}), [v.id, v.art]);
+  const pendingUrls = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const [code, file] of Object.entries(open.pendingArt ?? {})) out[code] = URL.createObjectURL(file);
+    return out;
+  }, [open.pendingArt]);
+  useEffect(() => () => Object.values(pendingUrls).forEach((u) => URL.revokeObjectURL(u)), [pendingUrls]);
+  const artMap = useMemo(() => ({ ...artUrls(v.id, v.art ?? {}), ...pendingUrls }), [v.id, v.art, pendingUrls]);
   const check = useRulesCheck(v);
 
   return (
@@ -140,7 +153,7 @@ export function VariantPage({ open, route, families, error, saved, onEdit, onPat
         {route.tab === 'board' && <BoardTab v={v} readOnly={readOnly} check={check} onEdit={onEdit} />}
         {route.tab === 'pieces' && (
           <PiecesTab open={open} route={route} readOnly={readOnly} artMap={artMap} artError={artError} setArtError={setArtError}
-            onEdit={onEdit} onPatch={onPatch} onRoute={onRoute} />
+            onEdit={onEdit} onPatch={onPatch} onPendingArt={onPendingArt} onRoute={onRoute} />
         )}
         {route.tab === 'health' && <HealthPage variant={v} fairy={check ? check.fairy : null} fairyReason={check?.fairyReason ?? null} />}
       </div>
@@ -396,7 +409,14 @@ function BoardTab({ v, readOnly, check, onEdit }: { v: VariantDef; readOnly: boo
   );
 }
 
-function PiecesTab({ open, route, readOnly, artMap, artError, setArtError, onEdit, onPatch, onRoute }: {
+/** Why the server would refuse a picture (VariantStore.saveArt), or null when it takes it. */
+function artProblem(file: File): string | null {
+  if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml'].includes(file.type)) return `A picture is PNG, JPEG, WebP, GIF or SVG, not ${file.type || 'this file'}.`;
+  if (file.size === 0 || file.size > 1 << 20) return 'A picture is at most 1024 KB.';
+  return null;
+}
+
+function PiecesTab({ open, route, readOnly, artMap, artError, setArtError, onEdit, onPatch, onPendingArt, onRoute }: {
   open: OpenVariant;
   route: Route;
   readOnly: boolean;
@@ -405,6 +425,7 @@ function PiecesTab({ open, route, readOnly, artMap, artError, setArtError, onEdi
   setArtError: (e: string | null) => void;
   onEdit: (def: VariantDef | ((now: VariantDef) => VariantDef)) => void;
   onPatch: (f: (def: VariantDef) => VariantDef) => void;
+  onPendingArt: (f: (now: Record<string, File>) => Record<string, File>) => void;
   onRoute: (tab: Tab, letter?: string | null, replace?: boolean) => void;
 }) {
   const v = open.def;
@@ -425,6 +446,9 @@ function PiecesTab({ open, route, readOnly, artMap, artError, setArtError, onEdi
       }
       start = withPlacement(start, b);
       pieces = pieces.map((q) => ({ ...q, promotesTo: q.promotesTo.replaceAll(old.letter, p.letter) }));
+      if (Object.keys(open.pendingArt ?? {}).some((c) => c[1] === old.letter)) {
+        onPendingArt((now) => Object.fromEntries(Object.entries(now).map(([c, f]) => [c[1] === old.letter ? c[0] + p.letter : c, f])));
+      }
       onRoute('pieces', p.letter, true);
     }
     onEdit({ ...v, start, pieces });
@@ -446,13 +470,24 @@ function PiecesTab({ open, route, readOnly, artMap, artError, setArtError, onEdi
       })
       .catch((e: Error) => setArtError(e.message));
   };
+  // the server keeps pictures of saved pieces only; the others wait for the save
+  const onServer = !!piece && !open.fresh && open.savedPieces.some((p) => p.letter === piece.letter);
+  const pending = open.pendingArt ?? {};
   const pictures: PictureProps | null = readOnly || !piece ? null : {
-    blocked: open.fresh ? 'Save the variant first, then add pictures.'
-      : open.dirty && !open.savedPieces.some((p) => p.letter === piece.letter) ? 'Save the variant first: this piece is new.' : null,
+    note: onServer ? null : 'The pictures are kept with the piece and saved when you save the variant.',
     urls: artMap,
     error: artError,
-    onUpload: (side, file) => artCall(side, { method: 'PUT', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file }),
-    onRemove: (side) => artCall(side, { method: 'DELETE' }),
+    onUpload: (side, file) => {
+      if (onServer) return artCall(side, { method: 'PUT', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file });
+      const problem = artProblem(file);
+      setArtError(problem);
+      if (!problem) onPendingArt((now) => ({ ...now, [side + piece.letter]: file }));
+    },
+    onRemove: (side) => {
+      const code = side + piece.letter;
+      if (pending[code]) onPendingArt(({ [code]: _gone, ...rest }) => rest);
+      else return artCall(side, { method: 'DELETE' });
+    },
   };
 
   const counts = useMemo(() => {
