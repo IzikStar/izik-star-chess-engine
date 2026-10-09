@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { VariantList } from './variants/List';
 import { VariantPage, type OpenVariant } from './variants/VariantPage';
 import {
-  api, freeId, mayLeave, NEW_ID, setLeaveGuard, slug, variantsHash, variantsRoute,
+  api, freeId, mayLeave, NEW_ID, putArt, setLeaveGuard, slug, variantsHash, variantsRoute,
   type Route, type Tab, type VariantDef, type VariantRow,
 } from './variants/model';
 import './variants/pages.css';
@@ -146,16 +146,36 @@ export function Variants({ onPlay }: { onPlay: (id: string) => void }) {
     });
   };
   const patch = (f: (def: VariantDef) => VariantDef) => setOpen((o) => (o ? { ...o, def: f(o.def) } : o));
+  const pendingArt = (f: (now: Record<string, File>) => Record<string, File>) => {
+    setSaved(false);
+    setOpen((o) => (o ? { ...o, pendingArt: f(o.pendingArt ?? {}), dirty: true } : o));
+  };
 
   const save = () => {
     if (!open) return;
     setError(null);
     const wasFresh = open.fresh;
     api<VariantDef>(`/api/variants/${encodeURIComponent(open.def.id)}`, { method: 'PUT', body: JSON.stringify(open.def) })
-      .then((r) => {
+      .then(async (r) => {
+        // the pictures given to pieces before they were saved go up now that the pieces are there
+        const pending = Object.entries(open.pendingArt ?? {}).filter(([code]) => r.pieces.some((p) => p.letter === code[1]));
+        const left: Record<string, File> = {};
+        let art = r.art;
+        for (const [code, file] of pending) {
+          try {
+            art = await putArt(r.id, code[1], code[0] as 'w' | 'b', file);
+          } catch (e) {
+            left[code] = file;
+            setError(`The ${code[0] === 'w' ? 'white' : 'black'} picture of ${code[1]} was not saved: ${(e as Error).message}`);
+          }
+        }
+        const done = Object.keys(left).length === 0;
         // keep the Betza text the editor wrote; the server's answer has the rest
-        setOpen((o) => ({ def: { ...r, pieces: r.pieces.map((p, i) => ({ ...p, betza: p.betza ?? o?.def.pieces[i]?.betza })) }, savedPieces: r.pieces, fresh: false, dirty: false }));
-        setSaved(true);
+        setOpen((o) => ({
+          def: { ...r, art, pieces: r.pieces.map((p, i) => ({ ...p, betza: p.betza ?? o?.def.pieces[i]?.betza })) },
+          savedPieces: r.pieces, fresh: false, dirty: !done, pendingArt: left,
+        }));
+        setSaved(done);
         load();
         if (wasFresh) go(variantsHash(r.id, routeRef.current.tab, routeRef.current.letter), { replace: true });
       })
@@ -206,7 +226,7 @@ export function Variants({ onPlay }: { onPlay: (id: string) => void }) {
       {!open && !error && <p className="muted">Loading…</p>}
       {open && (
         <VariantPage open={open} route={route} families={families} error={error} saved={saved}
-          onEdit={edit} onPatch={patch} onSave={save} onCopy={copy} onDelete={remove}
+          onEdit={edit} onPatch={patch} onPendingArt={pendingArt} onSave={save} onCopy={copy} onDelete={remove}
           onPlay={() => onPlay(open.def.id)} onRoute={onRoute} />
       )}
     </main>

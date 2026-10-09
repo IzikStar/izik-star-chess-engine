@@ -171,8 +171,8 @@ function MoveGrid({ atoms, letter, onChange }: { atoms: Atom[]; letter: string; 
 
 /** What the piece editor needs for the piece's pictures. */
 export interface PictureProps {
-  /** Why pictures cannot be added yet (an unsaved variant), or null when they can. */
-  blocked: string | null;
+  /** A word on where the pictures go (kept until the variant is saved), or null. */
+  note: string | null;
   urls: Record<string, string>;
   onUpload: (side: 'w' | 'b', file: File) => void | Promise<void>;
   onRemove: (side: 'w' | 'b') => void;
@@ -194,24 +194,24 @@ function Pictures({ letter, pictures }: { letter: string; pictures: PictureProps
             </div>
             <div className="picture-actions">
               <span className="small">{side === 'w' ? 'White' : 'Black'}</span>
-              <label className={'btn small-btn' + (pictures.blocked ? ' disabled' : '')}>
+              <label className="btn small-btn">
                 {url ? 'Change' : 'Upload'}
                 <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" hidden
-                  aria-label={`${side === 'w' ? 'White' : 'Black'} picture`} disabled={!!pictures.blocked}
+                  aria-label={`${side === 'w' ? 'White' : 'Black'} picture`}
                   onChange={(e) => {
                     const f = e.target.files?.[0];
                     if (f) pictures.onUpload(side, f);
                     e.target.value = '';
                   }} />
               </label>
-              <button type="button" className="btn small-btn" disabled={!!pictures.blocked} onClick={() => setDrawing(side)}>Draw it</button>
+              <button type="button" className="btn small-btn" onClick={() => setDrawing(side)}>Draw it</button>
               {url && <button type="button" className="btn ghost small-btn" onClick={() => pictures.onRemove(side)}>Remove</button>}
             </div>
           </div>
         );
       })}
       <p className="muted small picture-note">
-        {pictures.blocked ?? 'PNG, JPEG, WebP, GIF or SVG, up to 1 MB; a transparent background looks best. With one side only, the other side uses it darkened or lightened.'}
+        {pictures.note && <>{pictures.note} </>}{'PNG, JPEG, WebP, GIF or SVG, up to 1 MB; a transparent background looks best. With one side only, the other side uses it darkened or lightened.'}
       </p>
       {pictures.error && <p className="error small" role="alert">{pictures.error}</p>}
       {drawing && (

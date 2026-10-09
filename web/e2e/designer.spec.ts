@@ -151,3 +151,43 @@ test('the whole path: invent a piece, save the variant, play it from New game', 
   await dialog.getByRole('button', { name: 'Start game' }).click();
   await expect(dialog).toBeHidden();
 });
+
+test('a new piece takes pictures before the variant is saved, and they are saved with it', async ({ page }) => {
+  await page.goto('/#variants/chess');
+  const editor = page.getByTestId('variant-editor');
+  await expect(editor.getByRole('heading', { name: 'Chess' })).toBeVisible();
+  await editor.getByRole('button', { name: 'Make a copy' }).click();
+  await editor.getByLabel('Name', { exact: true }).first().fill('Early pictures');
+  await tab(page, 'Pieces');
+  await editor.getByRole('button', { name: 'Add a piece' }).click();
+  const pictures = page.getByTestId('pictures');
+  await expect(pictures).toContainText('saved when you save the variant');
+
+  // an uploaded picture for white and a drawn one for black, both before any save
+  await pictures.getByLabel('White picture').setInputFiles({ name: 'w.png', mimeType: 'image/png', buffer: PNG });
+  await expect(pictures.getByRole('img', { name: 'White picture' })).toBeVisible();
+  await pictures.getByRole('button', { name: 'Draw it' }).nth(1).click();
+  const dialog = page.getByRole('dialog', { name: 'Draw the A' });
+  const canvas = dialog.getByTestId('piece-canvas');
+  const box = (await canvas.boundingBox())!;
+  await dialog.getByRole('button', { name: 'Ellipse' }).click();
+  await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.3);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.7, { steps: 5 });
+  await page.mouse.up();
+  await dialog.getByRole('button', { name: 'Save pictures' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(pictures.getByRole('img', { name: 'Black picture' })).toBeVisible();
+  await expect(pictures.getByRole('alert')).toHaveCount(0);
+
+  // the piece needs moves to be saved; then the pictures go up with it
+  const piece = page.getByTestId('piece-editor');
+  await piece.getByLabel('Betza').fill('WF');
+  await piece.getByLabel('Betza').press('Enter');
+  await editor.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(editor.getByRole('button', { name: 'Saved', exact: true })).toBeVisible();
+  await expect(pictures).not.toContainText('saved when you save the variant');
+  const art = await page.evaluate(() => fetch('/api/variants/early-pictures').then((r) => r.json()).then((v) => v.art));
+  expect(Object.keys(art.A ?? {}).sort()).toEqual(['b', 'w']);
+  await expect(pictures.getByRole('img', { name: 'White picture' })).toHaveAttribute('src', /\/api\/variants\/early-pictures\/art\/A\/w/);
+});

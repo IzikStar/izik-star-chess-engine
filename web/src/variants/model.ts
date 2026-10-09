@@ -116,6 +116,15 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
+/** Sends a piece's picture for one side; answers with the variant's pictures (VariantDef.art). */
+export async function putArt(id: string, letter: string, side: 'w' | 'b', file: Blob): Promise<VariantDef['art']> {
+  const res = await fetch(`/api/variants/${encodeURIComponent(id)}/art/${letter}/${side}`,
+    { method: 'PUT', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error ?? `${res.status} ${res.statusText}`);
+  return body;
+}
+
 // ---- routes ---------------------------------------------------------------------------------------
 
 /** The variant's screens: #variants/<id>, #variants/<id>/board, /pieces, /pieces/<letter>, /health. */
