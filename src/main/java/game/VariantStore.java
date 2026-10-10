@@ -243,11 +243,7 @@ public final class VariantStore {
         if (variant.pieces().stream().noneMatch(t -> t.letter() == letter)) {
             throw new IllegalArgumentException(id + " has no piece " + letter);
         }
-        String ext = ART_TYPES.entrySet().stream().filter(e -> e.getValue().equals(type)).map(java.util.Map.Entry::getKey)
-                .findFirst().orElseThrow(() -> new IllegalArgumentException("a picture is PNG, JPEG, WebP, GIF or SVG, not " + type));
-        if (bytes.length == 0 || bytes.length > MAX_ART_BYTES) {
-            throw new IllegalArgumentException("a picture is at most " + MAX_ART_BYTES / 1024 + " KB");
-        }
+        String ext = artExtension(type, bytes);
         try {
             Files.createDirectories(artDir(id));
             deleteArt(id, letter, side);
@@ -255,6 +251,20 @@ public final class VariantStore {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    /**
+     * The file extension for a picture of this Content-Type.
+     *
+     * @throws IllegalArgumentException if it is not a PNG, JPEG, WebP, GIF or SVG of at most {@link #MAX_ART_BYTES}
+     */
+    static String artExtension(String type, byte[] bytes) {
+        String ext = ART_TYPES.entrySet().stream().filter(e -> e.getValue().equals(type)).map(java.util.Map.Entry::getKey)
+                .findFirst().orElseThrow(() -> new IllegalArgumentException("a picture is PNG, JPEG, WebP, GIF or SVG, not " + type));
+        if (bytes.length == 0 || bytes.length > MAX_ART_BYTES) {
+            throw new IllegalArgumentException("a picture is at most " + MAX_ART_BYTES / 1024 + " KB");
+        }
+        return ext;
     }
 
     /** The picture of a piece for one side, if there is one. */

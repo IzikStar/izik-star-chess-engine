@@ -230,7 +230,7 @@ function Pictures({ letter, pictures }: { letter: string; pictures: PictureProps
   );
 }
 
-export function PieceEditor({ piece, letters, readOnly, pictures, onChange, onAtoms, onBetza, onRemove }: {
+export function PieceEditor({ piece, letters, readOnly, pictures, onChange, onAtoms, onBetza, onRemove, onSaveToBank, bankNote }: {
   /** Null for a built-in variant (no pictures). */
   pictures: PictureProps | null;
   piece: PieceDef;
@@ -242,6 +242,10 @@ export function PieceEditor({ piece, letters, readOnly, pictures, onChange, onAt
   /** The piece's moves as Betza text, once the server has written them ('' when Betza has no letter for them). */
   onBetza: (text: string) => void;
   onRemove: () => void;
+  /** Keeps a copy of the piece, with its pictures, in the piece bank. */
+  onSaveToBank: () => void;
+  /** What the last save to the bank came to, or null. */
+  bankNote: string | null;
 }) {
   const [text, setText] = useState(piece.betza ?? '');
   const [betzaError, setBetzaError] = useState<string | null>(null);
@@ -274,8 +278,12 @@ export function PieceEditor({ piece, letters, readOnly, pictures, onChange, onAt
     <section className="panel piece-editor" aria-label={`Piece ${piece.name}`} data-testid="piece-editor">
       <div className="run-head">
         <h3>{piece.name || 'New piece'}</h3>
-        {!readOnly && <button type="button" className="btn ghost" onClick={onRemove}>Remove piece</button>}
+        <span className="head-actions">
+          <button type="button" className="btn ghost" onClick={onSaveToBank}>Save to bank</button>
+          {!readOnly && <button type="button" className="btn ghost" onClick={onRemove}>Remove piece</button>}
+        </span>
       </div>
+      {bankNote && <p className="muted small" role="status">{bankNote}</p>}
       <fieldset disabled={readOnly} className="plain">
       <div className="form-grid">
         <label>Name<input value={piece.name} onChange={(e) => onChange({ ...piece, name: e.target.value })} /></label>

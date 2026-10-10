@@ -8,7 +8,7 @@
 .hc-grid input, .hc-grid select { font: inherit; font-weight: 400; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; min-width: 0; }
 .hc-advanced p { margin: 10px 0 4px; }
 .hc .filters select { font: inherit; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
-.hc-progress { height: 22px; border-radius: 6px; }
+.hc-progress-text { margin: 0 0 8px; font-variant-numeric: tabular-nums; }
 
 .hc-report { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .hc-section { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 10px; min-width: 0; }

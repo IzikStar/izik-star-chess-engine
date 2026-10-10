@@ -529,9 +529,6 @@ fieldset.plain { border: 0; padding: 0; margin: 0; min-width: 0; }
 .grid-sq .ray { display: inline-block; }
 .health .filters { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .health label.inline { display: flex; gap: 6px; align-items: center; font-size: 14px; }
-.progress { position: relative; height: 22px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; margin: 8px 0; }
-.progress > div { height: 100%; background: var(--accent-soft); transition: width 0.3s; }
-.progress > span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; }
 .score-bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; border: 1px solid var(--line); margin: 10px 0; }
 .score-bar .w { background: #f4efe4; }
 .score-bar .d { background: var(--muted); }

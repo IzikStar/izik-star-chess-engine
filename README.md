@@ -74,6 +74,8 @@ Phase 4c (#2 to #6) refer to that repository.
   Give a piece a picture (white and/or black; PNG, JPEG, WebP, GIF or SVG) and it is drawn with it
   on every board. Hold the mouse over an invented piece, in the designer or in a game, to see the
   squares it can go to.
+  *Save to bank* keeps a piece, with its pictures, in a piece bank of its own; *From the bank*
+  puts it into any variant.
   A *Health check* lets the engine play the variant against itself and says whether one side
   wins too often, games end too soon or never end, and how many moves there are to choose from.
 - **Move list with review.** Click any move, or use the arrow keys, to see that position.

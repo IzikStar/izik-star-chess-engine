@@ -68,26 +68,31 @@ public final class VariantJson {
         o.add("castlingRule", castling);
         JsonArray pieces = new JsonArray();
         for (PieceType t : v.pieces()) {
-            JsonObject p = new JsonObject();
-            p.addProperty("name", t.name());
-            p.addProperty("letter", String.valueOf(t.letter()));
-            p.addProperty("value", t.value());
-            p.addProperty("royal", t.royal());
-            StringBuilder promotes = new StringBuilder();
-            t.promotesTo().forEach(promotes::append);
-            p.addProperty("promotesTo", promotes.toString());
-            p.addProperty("enPassant", t.enPassant());
-            p.addProperty("castlingRole", t.castling().name());
-            p.add("atoms", atoms(t.atoms()));
-            try {
-                p.addProperty("betza", Betza.write(t.atoms()));
-            } catch (IllegalArgumentException e) {
-                // a move Betza has no letter for: the atoms alone say it
-            }
-            pieces.add(p);
+            pieces.add(piece(t));
         }
         o.add("pieces", pieces);
         return o;
+    }
+
+    /** One piece type: name, letter, value, royal, promotesTo, enPassant, castlingRole, atoms and betza. */
+    public static JsonObject piece(PieceType t) {
+        JsonObject p = new JsonObject();
+        p.addProperty("name", t.name());
+        p.addProperty("letter", String.valueOf(t.letter()));
+        p.addProperty("value", t.value());
+        p.addProperty("royal", t.royal());
+        StringBuilder promotes = new StringBuilder();
+        t.promotesTo().forEach(promotes::append);
+        p.addProperty("promotesTo", promotes.toString());
+        p.addProperty("enPassant", t.enPassant());
+        p.addProperty("castlingRole", t.castling().name());
+        p.add("atoms", atoms(t.atoms()));
+        try {
+            p.addProperty("betza", Betza.write(t.atoms()));
+        } catch (IllegalArgumentException e) {
+            // a move Betza has no letter for: the atoms alone say it
+        }
+        return p;
     }
 
     /** Reads a variant; a missing or malformed field is an {@link IllegalArgumentException} naming it. */
@@ -103,24 +108,7 @@ public final class VariantJson {
     public static Variant fromTree(JsonObject o) {
         List<PieceType> pieces = new ArrayList<>();
         for (var element : array(o, "pieces")) {
-            JsonObject p = element.getAsJsonObject();
-            List<Atom> atoms = new ArrayList<>();
-            if (!p.has("atoms") && p.has("betza")) {
-                atoms.addAll(Betza.parse(string(p, "betza")));
-            }
-            if (p.has("atoms") || !p.has("betza")) {
-                atoms.addAll(atoms(array(p, "atoms")));
-            }
-            List<Character> promotes = new ArrayList<>();
-            for (char c : string(p, "promotesTo").toCharArray()) {
-                promotes.add(c);
-            }
-            String letter = string(p, "letter");
-            if (letter.length() != 1) {
-                throw new IllegalArgumentException("a piece's letter is one letter: " + letter);
-            }
-            pieces.add(new PieceType(string(p, "name"), letter.charAt(0), atoms, bool(p, "royal"), promotes,
-                    bool(p, "enPassant"), PieceType.Castling.valueOf(string(p, "castlingRole")), integer(p, "value")));
+            pieces.add(piece(element.getAsJsonObject()));
         }
         Grid grid = new Grid(integer(o, "width"), integer(o, "height"));
         String id = string(o, "id");
@@ -149,6 +137,27 @@ public final class VariantJson {
     }
 
     /** Goals as the JSON array a variant carries. */
+    /** Reads one piece type as {@link #piece(PieceType)} writes it; its moves from atoms, or from betza alone. */
+    public static PieceType piece(JsonObject p) {
+        List<Atom> atoms = new ArrayList<>();
+        if (!p.has("atoms") && p.has("betza")) {
+            atoms.addAll(Betza.parse(string(p, "betza")));
+        }
+        if (p.has("atoms") || !p.has("betza")) {
+            atoms.addAll(atoms(array(p, "atoms")));
+        }
+        List<Character> promotes = new ArrayList<>();
+        for (char c : string(p, "promotesTo").toCharArray()) {
+            promotes.add(c);
+        }
+        String letter = string(p, "letter");
+        if (letter.length() != 1) {
+            throw new IllegalArgumentException("a piece's letter is one letter: " + letter);
+        }
+        return new PieceType(string(p, "name"), letter.charAt(0), atoms, bool(p, "royal"), promotes,
+                bool(p, "enPassant"), PieceType.Castling.valueOf(string(p, "castlingRole")), integer(p, "value"));
+    }
+
     public static JsonArray goals(List<WinCondition> goals) {
         JsonArray out = new JsonArray();
         for (WinCondition g : goals) {

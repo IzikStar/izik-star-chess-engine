@@ -4,6 +4,7 @@ import { placementOf, reach, type Reach } from '../reach';
 import { BoardEditor } from './BoardEditor';
 import { HealthPage } from './Health';
 import { blankPiece, PieceEditor, type PictureProps } from './PieceEditor';
+import { bankPictures, PieceBankDialog, saveToBank, type BankEntry } from './PieceBank';
 import { CHESS_CASTLING, TABS, variantsHash, type GoalDef, type PieceDef, type Route, type RulesCheck, type Tab, type VariantDef } from './model';
 import {
   CASTLING_SIDES, castlingMoves, castlingText, fairyText, forcedCaptureText, GOAL_KINDS, goalProblem, GOALS_TEXT, goalText,
@@ -496,12 +497,53 @@ function PiecesTab({ open, route, readOnly, artMap, artError, setArtError, onEdi
     return out;
   }, [v.start]);
 
+  const [bankOpen, setBankOpen] = useState(false);
+  const [bankNote, setBankNote] = useState<string | null>(null);
+  useEffect(() => setBankNote(null), [picked]);
+
+  /** A piece from the bank as a new piece of this variant: its letter if free, its pictures waiting for the save. */
+  const fromBank = async (e: BankEntry) => {
+    const files = await bankPictures(e);
+    const letter = letters.includes(e.piece.letter) ? blankPiece(letters).letter : e.piece.letter;
+    const known = new Set([...letters, letter]);
+    const p: PieceDef = { ...e.piece, letter, promotesTo: [...e.piece.promotesTo].filter((l) => known.has(l)).join('') };
+    onEdit({ ...v, pieces: [...v.pieces, p] });
+    if (files.w || files.b) {
+      onPendingArt((now) => {
+        const next = { ...now };
+        for (const side of ['w', 'b'] as const) {
+          const f = files[side];
+          if (f) next[side + letter] = f;
+          else delete next[side + letter];
+        }
+        return next;
+      });
+    }
+    setBankOpen(false);
+    onRoute('pieces', letter);
+  };
+
+  const toBank = async (p: PieceDef) => {
+    setBankNote(null);
+    try {
+      const pics = readOnly ? {} : { w: artMap['w' + p.letter], b: artMap['b' + p.letter] };
+      if (await saveToBank(p, pics)) setBankNote(`${p.name} is in the piece bank now.`);
+    } catch (x) {
+      setBankNote(`Not saved to the bank: ${(x as Error).message}`);
+    }
+  };
+
   return (
     <>
       <section className="panel">
         <div className="run-head">
           <h3>Pieces</h3>
-          {!readOnly && v.pieces.length < 16 && <button type="button" className="btn" onClick={addPiece}>Add a piece</button>}
+          {!readOnly && v.pieces.length < 16 && (
+            <span className="head-actions">
+              <button type="button" className="btn" onClick={() => setBankOpen(true)}>From the bank</button>
+              <button type="button" className="btn" onClick={addPiece}>Add a piece</button>
+            </span>
+          )}
         </div>
         {!piece && <p className="muted small">Pick a piece to see or change how it moves. A variant has up to 16 kinds of piece.</p>}
         <div className={'piece-list' + (piece ? '' : ' piece-table')} role="group" aria-label="Pieces" data-testid="piece-list">
@@ -527,8 +569,12 @@ function PiecesTab({ open, route, readOnly, artMap, artError, setArtError, onEdi
           onChange={(p) => setPiece(picked, p)}
           onAtoms={(atoms) => onEdit((now) => ({ ...now, pieces: now.pieces.map((q, j) => (j === picked ? { ...q, atoms } : q)) }))}
           onBetza={(text) => onPatch((d) => ({ ...d, pieces: d.pieces.map((q, j) => (j === picked ? { ...q, betza: text } : q)) }))}
+          onSaveToBank={() => toBank(piece)} bankNote={bankNote}
           onRemove={() => {
             const letter = piece.letter;
+            if (Object.keys(pending).some((c) => c[1] === letter)) {
+              onPendingArt((now) => Object.fromEntries(Object.entries(now).filter(([c]) => c[1] !== letter)));
+            }
             const b = placementOf(v.start);
             for (const sq in b) if (b[sq].toUpperCase() === letter) delete b[sq];
             onEdit({
@@ -539,6 +585,7 @@ function PiecesTab({ open, route, readOnly, artMap, artError, setArtError, onEdi
             onRoute('pieces', null);
           }} />
       )}
+      {bankOpen && <PieceBankDialog onPick={fromBank} onClose={() => setBankOpen(false)} />}
     </>
   );
 }

@@ -9,6 +9,7 @@ import engine.StockfishEngine;
 import game.GameArchive;
 import game.GameConfig;
 import game.GameSession;
+import game.PieceBank;
 import game.VariantStore;
 import io.javalin.Javalin;
 import lab.HallOfFame;
@@ -246,6 +247,7 @@ public final class WebServer {
         new StockfishApi(hub::stockfish, hub::refresh).routes(app);
         new GamesApi(archive).routes(app);
         new VariantsApi(variantStore).routes(app);
+        new PieceBankApi(new PieceBank(variants.resolve("piece-bank"))).routes(app);
         HealthApi health = new HealthApi();
         health.routes(app);
         new FunTestApi(games.resolveSibling("fun-test-ratings.jsonl")).routes(app);
