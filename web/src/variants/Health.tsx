@@ -234,10 +234,12 @@ export function HealthPage({ variant, fairy = null, fairyReason = null }: {
       {error && <p className="error" role="alert">{error}</p>}
       {state?.running && !mine && <p className="muted small">A check of {state.variantName} is running; Run stops it.</p>}
       {mine?.running && (
-        <div className="progress hc-progress" role="progressbar" aria-valuemin={0} aria-valuemax={mine.games} aria-valuenow={mine.done}>
-          <div style={{ width: pc((mine.done ?? 0) / (mine.games || 1)) }} />
-          <span>{mine.done} of {mine.games} games</span>
-        </div>
+        <>
+          <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={mine.games} aria-valuenow={mine.done} aria-label="Games played">
+            <div className="bar" style={{ width: pc((mine.done ?? 0) / (mine.games || 1)) }} />
+          </div>
+          <p className="muted small hc-progress-text">{mine.done} of {mine.games} games</p>
+        </>
       )}
       {mine?.error && <p className="error">{mine.error}</p>}
       {r && <HealthReport r={r} settings={mine?.settings} depth={mine?.depth} />}
