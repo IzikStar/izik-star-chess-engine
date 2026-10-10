@@ -5,7 +5,7 @@ import { Icon } from '../icons';
 import { ChartFrame, LineChart } from '../ChartFrame';
 import { Openings } from './Openings';
 import {
-  algorithmName, duration, elo, goLab, pct, player, post, reasonText, resultText, runUrl, signed, usePolled,
+  algorithmName, duration, elo, goLab, jobPlace, pct, player, post, reasonText, resultText, runUrl, signed, usePolled,
   type GenerationDetail, type GenerationRow, type Job, type Replay, type RunDetail, type Score, type Spec, type Weight,
 } from './api';
 
@@ -33,10 +33,10 @@ export function Run({ file, generation, tab, job, onPlay }: {
   const last = run.generations.at(-1) ?? null;
   const finished = run.generations.length >= run.settings.generations;
   const state = isRunning ? (job?.stopping ? 'stopping' : 'playing') : finished ? 'finished' : 'stopped';
-  const act = async (what: 'resume' | 'stop' | 'stopNow') => {
+  const act = async (what: 'resume' | 'resumePc' | 'stop' | 'stopNow') => {
     setMessage(null);
     try {
-      if (what === 'resume') await post(runUrl(file) + '/resume');
+      if (what === 'resume' || what === 'resumePc') await post(runUrl(file) + '/resume', { where: what === 'resumePc' ? 'worker' : 'server' });
       else await post(runUrl(file) + '/stop', { now: what === 'stopNow' });
       refresh();
     } catch (e) {
@@ -60,7 +60,8 @@ export function Run({ file, generation, tab, job, onPlay }: {
           <div className="actions">
             {isRunning && !job?.stopping && <button type="button" className="btn" onClick={() => act('stop')}>Stop after this generation</button>}
             {isRunning && <button type="button" className="btn" onClick={() => act('stopNow')}>Stop now</button>}
-            {!isRunning && !finished && <button type="button" className="btn" disabled={!!job?.running} onClick={() => act('resume')}>Resume</button>}
+            {!isRunning && !finished && <button type="button" className="btn" disabled={!!job?.running} onClick={() => act('resume')}>Resume here</button>}
+            {!isRunning && !finished && <button type="button" className="btn" disabled={!!job?.running} onClick={() => act('resumePc')}>Resume on my PC</button>}
             {last && <button type="button" className="btn primary" onClick={() => onPlay(champion(last))}>Play generation {last.number}'s champion</button>}
             <a className="btn" href={`${runUrl(file)}/pgn`} download>Download the games (PGN)</a>
           </div>
@@ -72,6 +73,7 @@ export function Run({ file, generation, tab, job, onPlay }: {
         <p>
           <strong>{run.generations.length}</strong> of {run.settings.generations} generations
           {isRunning && job?.generation !== undefined && job.generation >= 0 && <> · now playing generation {job.generation}: {job.gamesDone} of about {job.gamesPlanned} games</>}
+          {isRunning && jobPlace(job) && <> · {jobPlace(job)}</>}
           {!isRunning && !finished && run.nextGenerationGames > 0 && <> · generation {run.nextGeneration} was under way ({run.nextGenerationGames} games) and is replayed on resume</>}
           {run.generations.length > 1 && <> · about {duration(run.startedAt, last!.finishedAt)} so far, {duration(run.generations.at(-2)!.finishedAt, last!.finishedAt)} for the last generation</>}
         </p>

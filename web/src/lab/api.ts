@@ -41,6 +41,16 @@ export interface Algorithm { className: string; name: string; about: string; che
 export interface Job {
   running: boolean; file?: string; name?: string; generation?: number; gamesDone?: number; gamesPlanned?: number;
   startedAt?: string; stopping?: boolean; finished?: boolean; error?: string;
+  /** "worker": queued for, or played by, a worker (the owner's PC, see lab.Worker). */
+  where?: 'server' | 'worker'; worker?: string; stale?: boolean;
+}
+
+/** Where the job plays, for a worker's job: "on NAME", "waiting for your PC", or that the PC went quiet. */
+export function jobPlace(job: Job | null): string | null {
+  if (!job || job.where !== 'worker') return null;
+  if (!job.worker) return 'waiting for your PC (start IzikStar Chess there with IZIKSTAR_SERVER set)';
+  if (job.stale) return `${job.worker} has not called for over 10 minutes`;
+  return `on ${job.worker}`;
 }
 export type { VariantRow } from '../variants/model';
 

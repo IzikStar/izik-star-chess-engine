@@ -13,6 +13,8 @@ import game.PieceBank;
 import game.VariantStore;
 import io.javalin.Javalin;
 import lab.HallOfFame;
+import lab.ServerLink;
+import lab.Worker;
 import io.javalin.http.staticfiles.Location;
 import io.javalin.websocket.WsContext;
 
@@ -51,7 +53,12 @@ import java.util.stream.Collectors;
  * the player made, default {@code variants}), {@code --lan} (listen on every network
  * interface, so a phone on the same Wi-Fi or tailnet can open the game; there is no password),
  * {@code --host ADDR} (listen on that one address only: a cloud server passes its Tailscale address,
- * so only the owner's own devices reach it; see docs/cloud-server.md).
+ * so only the owner's own devices reach it; see docs/cloud-server.md), {@code --local} (start this
+ * server even when {@code IZIKSTAR_SERVER} is set).
+ *
+ * <p>With {@code IZIKSTAR_SERVER} set (see {@link ServerLink}) and no {@code --local}, it starts no
+ * server here: it opens that server's page in the browser and plays the Lab runs queued there "on my
+ * PC" as a {@link Worker}, so every run, game and variant lives on that one server.
  */
 public final class WebServer {
 
@@ -85,6 +92,7 @@ public final class WebServer {
         Path games = Path.of("games");
         Path variants = Path.of("variants");
         String host = LOCAL_ONLY;
+        boolean local = false;
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--port" -> port = Integer.parseInt(args[++i]);
@@ -94,12 +102,24 @@ public final class WebServer {
                 case "--variants" -> variants = Path.of(args[++i]);
                 case "--lan" -> host = ALL_INTERFACES;
                 case "--host" -> host = args[++i];
+                case "--local" -> local = true;
                 default -> {
-                    System.err.println("unknown argument: " + args[i]
-                            + " (use --port N, --no-browser, --runs DIR, --games DIR, --variants DIR, --lan, --host ADDR)");
+                    System.err.println("unknown argument: " + args[i] + " (use --port N, --no-browser, --runs DIR,"
+                            + " --games DIR, --variants DIR, --lan, --host ADDR, --local)");
                     System.exit(2);
                 }
             }
+        }
+        java.util.Optional<ServerLink> remote = local ? java.util.Optional.empty() : ServerLink.fromEnv(System.getenv());
+        if (remote.isPresent()) {
+            ServerLink link = remote.get();
+            System.out.println("IzikStar Chess lives on " + link.base() + " (" + ServerLink.SERVER
+                    + " is set; --local starts a server here instead)");
+            if (browser) {
+                openBrowser(link.base().toString());
+            }
+            new Worker(link, runs.resolve(".worker"), System.out::println).loop();
+            return;
         }
         Path runsDir = runs;
         Path gamesDir = games;

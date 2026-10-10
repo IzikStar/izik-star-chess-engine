@@ -66,6 +66,36 @@ and restarts after a crash. At the end it prints the address to open, for exampl
 Turn Tailscale on in the phone and open the printed address; "Add to Home screen" gives it an
 icon. A Lab run started there runs on the server; close the phone and look again later.
 
+### Runs that play on the home computer
+
+The server has 2 cores; the home computer has many more. A run can still live on the server and
+play on the computer: the computer becomes the server's **worker** (`lab.Worker`). Set these once
+on the computer (Windows: System, Advanced system settings, Environment Variables, User variables;
+or `setx NAME value` in a console, then open a new console):
+
+| Variable | Value |
+| --- | --- |
+| `IZIKSTAR_SERVER` | the server's address, e.g. `https://82-70-208-131.sslip.io/` |
+| `IZIKSTAR_SERVER_USER` | the Caddy user (`izik`) |
+| `IZIKSTAR_SERVER_PASSWORD` | the Caddy password |
+| `IZIKSTAR_WORKER_NAME` | optional: how the Lab names the computer (default: its host name) |
+
+With `IZIKSTAR_SERVER` set, starting the game on the computer (the jar, or `WebServer` from the IDE)
+starts no server there: it opens the server's page in the browser and waits for runs. The data then
+has one home, the server; `--local` starts the old local server instead.
+
+On the Lab page, New run has **Where it plays: On my PC**, and a stopped run has **Resume on my PC**.
+The server makes the run's file and queues it; the worker picks it up within 15 seconds, copies the
+run file and the hall of fame entries it plays against, and plays it with the computer's cores in a
+folder of its own (`runs/.worker/`). After every generation it sends a consistent copy of the run
+file (gzipped) and any champion the run kept; the server checks the copy holds the same run and
+swaps it in whole, so the Lab never reads half a file. Progress within a generation and the Stop
+buttons travel through a call every 10 seconds. If the computer sleeps or loses the network, the
+run waits: once the worker is back it carries on (a generation cut short is played again); if it
+stays silent for 10 minutes the Lab says so, Stop ends the job at once, and Resume starts it again
+from the last generation the server has. Only the worker that claimed a run may send its files, and
+it replaces only that run's file and that run's own hall of fame entries.
+
 ## 4. Update
 
 ```bash

@@ -21,7 +21,7 @@ Dependencies point down only. `architecture.LayeringTest` fails the build if `ru
 | `ai`, `ai.eval` | `Minimax` search with `TranspositionTable`, `ChessEvaluate` (the chess evaluation, with its own attack tables) behind the `Evaluator` interface, `ParamSchema`/`ParamVector` for its weights; `PieceSetEvaluate` (an evaluation built from any variant's pieces), `NetEvaluate` and `Evaluators.forVariant`. |
 | `rules` | The single rules authority: FEN in, legal moves, status (mate, stalemate, draws) and SAN out; `Game` is one game's history. Backed by `ai.board`. |
 | `analysis` | Game analysis with Stockfish (`GameAnalyzer`, `UciEvaluator`); [game-analysis.md](game-analysis.md). |
-| `arena`, `evolution`, `lab` | Engine-vs-engine matches (any variant; outside players: Stockfish for chess, `FairyStockfish` for the built-in variants and, via `FairyConfig`, made ones, plus the `random` mover and `net:FILE` networks), the `Evolution` interface the owner implements, and the runner that stores runs in SQLite (`runs/*.db`: tables `run`, `member`, `game`, `generation`, `yardstick`) plus the hall of fame, the opening tree of a run's games (`OpeningTree`, the run's Openings tab), Texel tuning, training data for any game (`TrainingExport`, `SelfPlayData`, `NetData`), the variant health check (`VariantHealth`) and the blind fun test (`FunTest`, [fun-test.md](fun-test.md)). |
+| `arena`, `evolution`, `lab` | Engine-vs-engine matches (any variant; outside players: Stockfish for chess, `FairyStockfish` for the built-in variants and, via `FairyConfig`, made ones, plus the `random` mover and `net:FILE` networks), the `Evolution` interface the owner implements, and the runner that stores runs in SQLite (`runs/*.db`: tables `run`, `member`, `game`, `generation`, `yardstick`) plus the hall of fame, the opening tree of a run's games (`OpeningTree`, the run's Openings tab), Texel tuning, training data for any game (`TrainingExport`, `SelfPlayData`, `NetData`), the variant health check (`VariantHealth`), the worker that plays a server's queued runs on this computer (`Worker`, `ServerLink`; `web.LabJobs` is the server's side) and the blind fun test (`FunTest`, [fun-test.md](fun-test.md)). |
 
 The browser (`web/`, React 19 + TypeScript + Vite, react-chessboard) never computes legal moves.
 
@@ -77,7 +77,7 @@ binaries (see the README).
 
 ```bash
 ./mvnw package                       # build the jar (runs tests, builds the UI)
-java -jar target/izikstar-chess-3.1.0.jar [--port N] [--no-browser] [--lan | --host ADDR] [--games DIR] [--variants DIR] [--runs DIR]
+java -jar target/izikstar-chess-3.1.0.jar [--port N] [--no-browser] [--lan | --host ADDR] [--games DIR] [--variants DIR] [--runs DIR] [--local]
 ./mvnw test [-Psmoke | -Pstress]     # main suite / end-to-end / long runs
 cd web && npm run e2e                # Playwright
 java -cp target/izikstar-chess-3.1.0.jar arena.Cli match A B --depth 3

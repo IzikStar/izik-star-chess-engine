@@ -152,6 +152,11 @@ public final class HallOfFame {
         }
     }
 
+    /** The entry in {@code file}, a file as {@link #save} writes it. */
+    public static Entry readFile(Path file) {
+        return read(file);
+    }
+
     private static Entry read(Path file) {
         try {
             JsonObject o = JsonParser.parseString(Files.readString(file)).getAsJsonObject();
