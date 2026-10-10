@@ -434,6 +434,19 @@ public final class RunStore implements AutoCloseable {
         }
     }
 
+    /**
+     * Writes a consistent copy of the run to {@code target} (a file that does not exist yet), while
+     * the run may go on: the copy a worker sends to the server after each generation.
+     */
+    public void snapshot(Path target) {
+        try (PreparedStatement p = db.prepareStatement("VACUUM INTO ?")) {
+            p.setString(1, target.toString());
+            p.execute();
+        } catch (SQLException e) {
+            throw new IllegalStateException("cannot copy the run to " + target, e);
+        }
+    }
+
     @Override
     public void close() {
         try {

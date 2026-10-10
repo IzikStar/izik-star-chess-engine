@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Champion } from '../protocol';
-import { algorithmName, duration, elo, goLab, player, post, runUrl, usePolled, type Job, type RunSummary } from './api';
+import { algorithmName, duration, elo, goLab, jobPlace, player, post, runUrl, usePolled, type Job, type RunSummary } from './api';
 
 /** The runs screen: every run in the folder as a card, the one playing first, with what to do with it. */
 export function Runs({ job, onPlay }: { job: Job | null; onPlay: (champion: Champion) => void }) {
@@ -8,14 +8,14 @@ export function Runs({ job, onPlay }: { job: Job | null; onPlay: (champion: Cham
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const act = async (file: string, what: 'resume' | 'stop' | 'stopNow' | 'delete') => {
+  const act = async (file: string, what: 'resume' | 'resumePc' | 'stop' | 'stopNow' | 'delete') => {
     setBusy(file);
     setMessage(null);
     try {
       if (what === 'delete') {
         if (!confirm('Delete this run and all its games? This cannot be undone.')) return;
         await post(runUrl(file), undefined, 'DELETE');
-      } else if (what === 'resume') await post(runUrl(file) + '/resume');
+      } else if (what === 'resume' || what === 'resumePc') await post(runUrl(file) + '/resume', { where: what === 'resumePc' ? 'worker' : 'server' });
       else await post(runUrl(file) + '/stop', { now: what === 'stopNow' });
       refresh();
     } catch (e) {
@@ -64,13 +64,15 @@ export function Runs({ job, onPlay }: { job: Job | null; onPlay: (champion: Cham
                 <strong>{r.generationsDone}</strong> of {r.settings.generations} generations
                 {isRunning && job?.generation !== undefined && job.generation >= 0 && <> · generation {job.generation}: {job.gamesDone}/{job.gamesPlanned} games</>}
                 {isRunning && job?.startedAt && <> · playing for {duration(job.startedAt, new Date().toISOString())}</>}
+                {isRunning && jobPlace(job) && <> · {jobPlace(job)}</>}
                 {r.lastYardstick && <> · last champion {elo(r.lastYardstick)} Elo against {player(r.settings.yardsticks?.[0] ?? 'default').toLowerCase()}</>}
               </p>
               <div className="actions">
                 <button type="button" className="btn primary" onClick={() => goLab('run', r.file)}>Open</button>
                 {isRunning && !job?.stopping && <button type="button" className="btn" disabled={busy === r.file} onClick={() => act(r.file, 'stop')}>Stop after this generation</button>}
                 {isRunning && <button type="button" className="btn" disabled={busy === r.file} onClick={() => act(r.file, 'stopNow')}>Stop now</button>}
-                {!isRunning && !finished && <button type="button" className="btn" disabled={busy === r.file || !!running} onClick={() => act(r.file, 'resume')}>Resume</button>}
+                {!isRunning && !finished && <button type="button" className="btn" disabled={busy === r.file || !!running} onClick={() => act(r.file, 'resume')}>Resume here</button>}
+                {!isRunning && !finished && <button type="button" className="btn" disabled={busy === r.file || !!running} onClick={() => act(r.file, 'resumePc')}>Resume on my PC</button>}
                 {r.generationsDone > 0 && (
                   <button type="button" className="btn" onClick={() => onPlay({ run: r.file, generation: r.generationsDone - 1, variant: r.variantId, label: `Champion of ${r.name}, generation ${r.generationsDone - 1}` })}>Play the champion</button>
                 )}

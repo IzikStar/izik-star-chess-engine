@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Champion } from './protocol';
-import { goLab, labRoute, usePolled, type Job } from './lab/api';
+import { goLab, jobPlace, labRoute, usePolled, type Job } from './lab/api';
 import { Runs } from './lab/Runs';
 import { NewRun } from './lab/NewRun';
 import { Run } from './lab/Run';
@@ -36,6 +36,7 @@ export function Lab({ onPlay }: { onPlay: (champion: Champion) => void }) {
           <button type="button" className="btn ghost job-pill" onClick={() => goLab('run', job.file!)}>
             <span className="dot" aria-hidden="true" /> Playing: {job.name}
             {job.generation !== undefined && job.generation >= 0 && <> · generation {job.generation}, {job.gamesDone}/{job.gamesPlanned} games</>}
+            {jobPlace(job) && <> · {jobPlace(job)}</>}
           </button>
         )}
       </nav>

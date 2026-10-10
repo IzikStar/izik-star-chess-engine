@@ -193,7 +193,9 @@ own Node.js into `target/` to build the browser UI (`-Dskip.web=true` skips that
 server listens on this computer only; stop it with Ctrl+C or by closing its console. Options:
 `--port N`, `--no-browser`, `--games DIR` (where your games are saved, default `games`),
 `--variants DIR` (the variants you make, default `variants`), `--runs DIR` (the Lab's runs,
-default `runs`), `--lan` (see below), `--host ADDR` (listen on that one address only).
+default `runs`), `--lan` (see below), `--host ADDR` (listen on that one address only), `--local`
+(start the local server even with `IZIKSTAR_SERVER` set: see [the cloud server](docs/cloud-server.md#runs-that-play-on-the-home-computer),
+where the computer plays the server's Lab runs and keeps no data of its own).
 
 **Playing from a phone.** The engine, Stockfish and the lab keep running on the computer; the phone
 only shows the page. Start the jar with `--lan` and it prints the address to open, for example:

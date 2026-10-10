@@ -25,6 +25,8 @@ interface Form {
   stockfishFrom: string;
   memberStockfishOpenings: string;
   options: Record<string, string>;
+  /** "worker": the run waits for the owner's PC (lab.Worker) and plays there; its file stays on this server. */
+  where: 'server' | 'worker';
 }
 
 const DEFAULTS: Form = {
@@ -32,7 +34,7 @@ const DEFAULTS: Form = {
   deepShareFirst: '10', deepShareLast: '40', openingsPerPairing: '2', openingSource: 'random', openingPlies: '4',
   randomOpenings: '50', maxPlies: '300', variety: '20', threads: String(Math.max(1, (navigator.hardwareConcurrency || 4) - 1)),
   seed: '1', yardsticks: ['zero'], yardstickEvery: '5', yardstickOpenings: '20', stockfishFrom: '10', memberStockfishOpenings: '0',
-  options: {},
+  options: {}, where: 'server',
 };
 
 const STORE_KEY = 'lab.newRun';
@@ -123,6 +125,7 @@ export function NewRun({ job }: { job: Job | null }) {
     try {
       const body = {
         name: form.name,
+        where: form.where,
         algorithm: form.algorithm,
         variant: form.variant,
         settings: {
@@ -174,6 +177,14 @@ export function NewRun({ job }: { job: Job | null }) {
               {variants.length === 0 && <option value={form.variant}>{form.variant}</option>}
             </select>
             <span className="help">Chess keeps the tuned chess evaluation (499 weights). Any other game evolves an evaluation built from its pieces: what each piece is worth, its mobility, and a value per square.</span>
+          </label>
+          <label className="setting">
+            <span className="setting-label">Where it plays</span>
+            <select aria-label="Where it plays" value={form.where} onChange={(e) => set({ where: e.target.value as Form['where'] })}>
+              <option value="server">Here, on this server</option>
+              <option value="worker">On my PC</option>
+            </select>
+            <span className="help">On my PC: the run waits here until your PC (IzikStar Chess started with IZIKSTAR_SERVER set) picks it up, plays it with the PC's cores, and sends every generation back. The run lives here either way. Threads are the cores of whichever computer plays it.</span>
           </label>
         </div>
       </section>
