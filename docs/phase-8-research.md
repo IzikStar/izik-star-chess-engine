@@ -18,7 +18,7 @@ goes on from its twin, in the same direction:
 ```
   8 . . . . . . . .        a rook on a3 sliding toward the h-file:
   7 . . . . . . . .          b3, c3 (portal A), f6 (its twin), g6, h6
-  6 . . B . A . . .
+  6 . . B . . A . .
   5 . . . . . . . .        a bishop on a1 sliding up the long diagonal:
   4 . . . . . . . .          b2, c3 (portal A), f6, g7, h8
   3 R . A . . B . .
